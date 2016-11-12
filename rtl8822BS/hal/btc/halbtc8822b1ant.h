@@ -157,6 +157,7 @@ enum bt_8822b_1ant_Scoreboard {
 	BT_8822B_1ANT_SCOREBOARD_ACTIVE                            = BIT(0),
 	BT_8822B_1ANT_SCOREBOARD_ONOFF                             = BIT(1),
 	BT_8822B_1ANT_SCOREBOARD_SCAN                               = BIT(2),
+	BT_8822B_1ANT_SCOREBOARD_UNDERTEST							= BIT(3),
 	BT_8822B_1ANT_SCOREBOARD_WLBUSY                          = BIT(6)
 };
 

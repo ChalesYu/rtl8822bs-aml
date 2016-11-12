@@ -443,9 +443,9 @@ struct registry_priv {
 #define REGSTY_IS_11AC_AUTO(regsty) ((regsty)->vht_enable == 2)
 
 typedef struct rtw_if_operations {
-	int __must_check(*read)(struct dvobj_priv *d, int addr, void *buf,
+	int __must_check (*read)(struct dvobj_priv *d, unsigned int addr, void *buf,
 				size_t len, bool fixed);
-	int __must_check(*write)(struct dvobj_priv *d, int addr, void *buf,
+	int __must_check (*write)(struct dvobj_priv *d, unsigned int addr, void *buf,
 				 size_t len, bool fixed);
 } RTW_IF_OPS, *PRTW_IF_OPS;
 
@@ -836,12 +836,6 @@ struct halmac_indicator {
 
 struct halmacpriv {
 	/* flags */
-	/*
-	 * send_general_info
-	 *	0: no need to call halmac_send_general_info()
-	 *	1: need to call halmac_send_general_info()
-	 */
-	u8 send_general_info;
 
 	/* For asynchronous functions */
 	struct halmac_indicator *indicator;

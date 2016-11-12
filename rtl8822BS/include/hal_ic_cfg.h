@@ -132,6 +132,7 @@
 	#ifndef CONFIG_FW_C2H_PKT
 		#define CONFIG_FW_C2H_PKT
 	#endif /* CONFIG_FW_C2H_PKT */
+	#define RTW_TX_PA_BIAS	/* Adjust TX PA Bias from eFuse */
 
 	#ifdef CONFIG_WOWLAN
 		#define CONFIG_GTK_OL
@@ -140,6 +141,13 @@
 			#warning "Force to enable CONFIG_DEFAULT_PATTERNS_EN under WOW"
 			#define CONFIG_DEFAULT_PATTERNS_EN
 		#endif /* !CONFIG_DEFAULT_PATTERNS_EN */
+
+		#ifdef CONFIG_GPIO_WAKEUP
+			#ifndef WAKEUP_GPIO_IDX
+				#define WAKEUP_GPIO_IDX	6	/* WIFI Chip Side */
+			#endif /* !WAKEUP_GPIO_IDX */
+		#endif /* CONFIG_GPIO_WAKEUP */
+
 	#endif /* CONFIG_WOWLAN */
 	#ifdef CONFIG_CONCURRENT_MODE
 		#define CONFIG_AP_PORT_SWAP
@@ -161,8 +169,11 @@
 
 	#ifndef CONFIG_RTW_MAC_HIDDEN_RPT
 		#define CONFIG_RTW_MAC_HIDDEN_RPT
-#endif /* CONFIG_RTW_MAC_HIDDEN_RPT */
+	#endif /* CONFIG_RTW_MAC_HIDDEN_RPT */
 
+	#ifndef DBG_RX_DFRAME_RAW_DATA
+		#define DBG_RX_DFRAME_RAW_DATA
+	#endif /* DBG_RX_DFRAME_RAW_DATA */
 #endif /* CONFIG_RTL8822B */
 
 #ifdef CONFIG_RTL8821C

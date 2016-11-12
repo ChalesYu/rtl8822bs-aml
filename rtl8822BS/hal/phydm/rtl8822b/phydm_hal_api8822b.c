@@ -39,12 +39,12 @@ u8	central_ch_8822b;
 u32 cca_ifem_ccut[12][4] = {
 	/*20M*/
 	{0x75D97010, 0x75D97010, 0x75D97010, 0x75D97010}, /*Reg82C*/
-	{0x00000000, 0x00000000, 0x00000000, 0x00000000}, /*Reg830*/
+	{0x00000000, 0x79a0ea2c, 0x00000000, 0x00000000}, /*Reg830*/
 	{0x00000000, 0x00000000, 0x00000000, 0x00000000}, /*Reg838*/
 	{0x00000000, 0x00000000, 0x00000000, 0x00000000}, /*Reg83C*/
 	/*40M*/
 	{0x75D97010, 0x75D97010, 0x75D97010, 0x75D97010}, /*Reg82C*/
-	{0x00000000, 0x79a0ea28, 0x00000000, 0x79a0ea28}, /*Reg830*/
+	{0x00000000, 0x79a0ea2c, 0x00000000, 0x79a0ea28}, /*Reg830*/
 	{0x87765541, 0x87766341, 0x87765541, 0x87766341}, /*Reg838*/
 	{0x00000000, 0x00000000, 0x00000000, 0x00000000}, /*Reg83C*/
 	/*80M*/
@@ -56,12 +56,12 @@ u32 cca_ifem_ccut[12][4] = {
 u32 cca_efem_ccut[12][4] = {
 	/*20M*/
 	{0x75A76010, 0x75A76010, 0x75A76010, 0x75A75010}, /*Reg82C*/
-	{0x00000000, 0x00000000, 0x00000000, 0x00000000}, /*Reg830*/
+	{0x00000000, 0x79a0ea2c, 0x00000000, 0x00000000}, /*Reg830*/
 	{0x87766651, 0x87766431, 0x87766451, 0x87766431}, /*Reg838*/
 	{0x9194b2b9, 0x9194b2b9, 0x9194b2b9, 0x9194b2b9}, /*Reg83C*/
 	/*40M*/
 	{0x75A85010, 0x75A75010, 0x75A85010, 0x75A75010}, /*Reg82C*/
-	{0x00000000, 0x00000000, 0x00000000, 0x00000000}, /*Reg830*/
+	{0x00000000, 0x79a0ea2c, 0x00000000, 0x00000000}, /*Reg830*/
 	{0x87766431, 0x87766431, 0x87766431, 0x87766431}, /*Reg838*/
 	{0x00000000, 0x00000000, 0x00000000, 0x00000000}, /*Reg83C*/
 	/*80M*/
@@ -73,12 +73,12 @@ u32 cca_efem_ccut[12][4] = {
 u32 cca_ifem_ccut_rfetype5[12][4] = {
 	/*20M*/
 	{0x75D97010, 0x75D97010, 0x75D97010, 0x75D97010}, /*Reg82C*/
-	{0x00000000, 0x00000000, 0x00000000, 0x00000000}, /*Reg830*/
+	{0x00000000, 0x79a0ea2c, 0x00000000, 0x00000000}, /*Reg830*/
 	{0x00000000, 0x00000000, 0x87766461, 0x87766461}, /*Reg838*/
 	{0x00000000, 0x00000000, 0x00000000, 0x00000000}, /*Reg83C*/
 	/*40M*/
 	{0x75D97010, 0x75D97010, 0x75D97010, 0x75D97010}, /*Reg82C*/
-	{0x00000000, 0x79a0ea28, 0x00000000, 0x79a0ea28}, /*Reg830*/
+	{0x00000000, 0x79a0ea2c, 0x00000000, 0x79a0ea28}, /*Reg830*/
 	{0x87765541, 0x87766341, 0x87765541, 0x87766341}, /*Reg838*/
 	{0x00000000, 0x00000000, 0x00000000, 0x00000000}, /*Reg83C*/
 	/*80M*/
@@ -90,12 +90,12 @@ u32 cca_ifem_ccut_rfetype5[12][4] = {
 u32 cca_ifem_ccut_rfetype3[12][4] = {
 	/*20M*/
 	{0x75D97010, 0x75D97010, 0x75D97010, 0x75D97010}, /*Reg82C*/
-	{0x00000000, 0x00000000, 0x00000000, 0x00000000}, /*Reg830*/
+	{0x00000000, 0x79a0ea2c, 0x00000000, 0x00000000}, /*Reg830*/
 	{0x00000000, 0x00000000, 0x87766461, 0x87766461}, /*Reg838*/
 	{0x00000000, 0x00000000, 0x00000000, 0x00000000}, /*Reg83C*/
 	/*40M*/
 	{0x75D97010, 0x75D97010, 0x75D97010, 0x75D97010}, /*Reg82C*/
-	{0x00000000, 0x79a0ea28, 0x00000000, 0x79a0ea28}, /*Reg830*/
+	{0x00000000, 0x79a0ea2c, 0x00000000, 0x79a0ea28}, /*Reg830*/
 	{0x87765541, 0x87766341, 0x87765541, 0x87766341}, /*Reg838*/
 	{0x00000000, 0x00000000, 0x00000000, 0x00000000}, /*Reg83C*/
 	/*80M*/
@@ -660,6 +660,34 @@ phydm_get_condition_number_8822B(
 	return ret_val;
 }
 
+static bool phydm_check_rf_power(
+	struct PHY_DM_STRUCT				*p_dm_odm,
+	enum odm_rf_radio_path_e		rf_path
+)
+{
+	u32	power_RF[2] = {0x1c, 0xec};
+	u32	power;
+	u32	try_count = 0;
+	u32	try_limit = 0;
+
+
+	do {
+		power = odm_get_mac_reg(p_dm_odm, power_RF[rf_path], MASKBYTE3);
+		if (0x7 == power)
+			break;
+		ODM_RT_TRACE(p_dm_odm, ODM_PHY_CONFIG, ODM_DBG_WARNING, ("phydm_check_rf_power(): 0x%x=0x%02x != 0x7\n", power_RF[rf_path], power));
+		try_count++;
+		if (try_count > try_limit) {
+			power &= 0x7;
+			break;
+		}
+	} while (1);
+
+	if (0x7 == power)
+		return true;
+
+	return false;
+}
 
 /* ======================================================================== */
 
@@ -676,7 +704,6 @@ config_phydm_read_rf_reg_8822b(
 {
 	u32	readback_value, direct_addr;
 	u32	offset_read_rf[2] = {0x2800, 0x2c00};
-	u32	power_RF[2] = {0x1c, 0xec};
 
 	/* Error handling.*/
 	if (rf_path > ODM_RF_PATH_B) {
@@ -686,7 +713,7 @@ config_phydm_read_rf_reg_8822b(
 
 	/*  Error handling. Check if RF power is enable or not */
 	/*  0xffffffff means RF power is disable */
-	if (odm_get_mac_reg(p_dm_odm, power_RF[rf_path], MASKBYTE3) != 0x7) {
+	if (!phydm_check_rf_power(p_dm_odm, rf_path)) {
 		ODM_RT_TRACE(p_dm_odm, ODM_PHY_CONFIG, ODM_DBG_TRACE, ("config_phydm_read_rf_reg_8822b(): Read fail, RF is disabled\n"));
 		return INVALID_RF_DATA;
 	}
@@ -746,7 +773,7 @@ config_phydm_write_rf_reg_8822b(
 			}
 			data = ((data_original)&(~bit_mask)) | (data << bit_shift);
 		}
-	} else if (odm_get_mac_reg(p_dm_odm, power_RF[rf_path], MASKBYTE3) != 0x7) {
+	} else if (!phydm_check_rf_power(p_dm_odm, rf_path)) {
 		ODM_RT_TRACE(p_dm_odm, ODM_PHY_CONFIG, ODM_DBG_TRACE, ("config_phydm_write_rf_reg_8822b(): Write fail, RF is disabled\n"));
 		return false;
 	}

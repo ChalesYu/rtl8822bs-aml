@@ -378,6 +378,10 @@ typedef struct hal_com_data {
 	u8	EEPROMMACAddr[ETH_ALEN];
 	u8	tx_bbswing_24G;
 	u8	tx_bbswing_5G;
+#ifdef RTW_TX_PA_BIAS
+	u8	tx_pa_bias_a;	/* TX PA Bias for Path A */
+	u8	tx_pa_bias_b;	/* TX PA Bias for Path B */
+#endif /* RTW_TX_PA_BIAS */
 
 #ifdef CONFIG_RF_POWER_TRIM
 	u8	EEPROMRFGainOffset;
@@ -628,6 +632,12 @@ typedef struct hal_com_data {
 	u32			max_xmit_size_bebk;
 #endif
 #endif /* !RTW_HALMAC */
+
+#ifdef CONFIG_SDIO_RX_READ_IN_THREAD
+	_thread_hdl_		rx_polling_thread;
+	_sema			rx_polling_sema;
+	_sema			rx_polling_terminate_sema;
+#endif /* CONFIG_SDIO_RX_READ_IN_THREAD */
 #endif /* CONFIG_SDIO_HCI */
 
 #ifdef CONFIG_USB_HCI

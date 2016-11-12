@@ -186,6 +186,39 @@ static void disable_interrupt(PADAPTER adapter)
 	RTW_INFO("%s: update SDIO HIMR=0\n", __FUNCTION__);
 }
 
+#ifdef CONFIG_SDIO_RX_READ_IN_THREAD
+void rtl8822bs_enable_rx_interrupt(struct dvobj_priv *d)
+{
+	struct _ADAPTER *a;
+	struct hal_com_data *hal;
+
+
+	a = dvobj_get_primary_adapter(d);
+	hal = GET_HAL_DATA(a);
+
+	if (hal->sdio_himr & BIT_RX_REQUEST_MSK_8822B)
+		return;
+
+	hal->sdio_himr |= BIT_RX_REQUEST_MSK_8822B;
+	update_himr(a, hal->sdio_himr);
+}
+
+void rtl8822bs_disable_rx_interrupt(struct dvobj_priv *d)
+{
+	struct _ADAPTER *a;
+	struct hal_com_data *hal;
+
+
+	a = dvobj_get_primary_adapter(d);
+	hal = GET_HAL_DATA(a);
+
+	if (!(hal->sdio_himr & BIT_RX_REQUEST_MSK_8822B))
+		return;
+
+	hal->sdio_himr &= ~BIT_RX_REQUEST_MSK_8822B;
+	update_himr(a, hal->sdio_himr);
+}
+#endif /* CONFIG_SDIO_RX_READ_IN_THREAD */
 #ifdef CONFIG_WOWLAN
 void rtl8822bs_disable_interrupt_but_cpwm2(PADAPTER adapter)
 {
@@ -211,6 +244,10 @@ static void _run_thread(PADAPTER adapter)
 	if (IS_ERR(xmitpriv->SdioXmitThread))
 		RTW_INFO("%s: start rtl8822bs_xmit_thread FAIL!!\n", __FUNCTION__);
 #endif /* !CONFIG_SDIO_TX_TASKLET */
+
+#ifdef CONFIG_SDIO_RX_READ_IN_THREAD
+	rtl8822bs_rx_polling_thread_start(adapter_to_dvobj(adapter));
+#endif /* CONFIG_SDIO_RX_READ_IN_THREAD */
 }
 
 static void run_thread(PADAPTER adapter)
@@ -231,6 +268,10 @@ static void _cancel_thread(PADAPTER adapter)
 		xmitpriv->SdioXmitThread = 0;
 	}
 #endif /* !CONFIG_SDIO_TX_TASKLET */
+
+#ifdef CONFIG_SDIO_RX_READ_IN_THREAD
+	rtl8822bs_rx_polling_thread_stop(adapter_to_dvobj(adapter));
+#endif /* CONFIG_SDIO_RX_READ_IN_THREAD */
 }
 
 static void cancel_thread(PADAPTER adapter)
@@ -353,10 +394,6 @@ static u8 gethaldefvar(PADAPTER adapter, HAL_DEF_VARIABLE eVariable, void *pval)
 	hal = GET_HAL_DATA(adapter);
 
 	switch (eVariable) {
-	case HAL_DEF_MAX_RECVBUF_SZ:
-		*((u32 *)pval) = MAX_RECVBUF_SZ_8822B;
-		break;
-
 	default:
 		bResult = rtl8822b_gethaldefvar(adapter, eVariable, pval);
 		break;
@@ -418,6 +455,9 @@ void rtl8822bs_set_hal_ops(PADAPTER adapter)
 
 	ops->init_recv_priv = rtl8822bs_init_recv_priv;
 	ops->free_recv_priv = rtl8822bs_free_recv_priv;
+#ifdef CONFIG_RECV_THREAD_MODE
+	ops->recv_hdl = rtl8822bs_recv_hdl;
+#endif
 
 	ops->enable_interrupt = enable_interrupt;
 	ops->disable_interrupt = disable_interrupt;

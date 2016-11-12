@@ -524,6 +524,27 @@ static void Hal_EfuseParsePackageType(PADAPTER adapter, u8 *map, u8 mapvalid)
 {
 }
 
+static void Hal_EfuseParsePABias(PADAPTER adapter)
+{
+	struct hal_com_data *hal;
+	u8 data[2] = {0xFF, 0xFF};
+	u8 ret;
+
+
+	ret = rtw_efuse_access(adapter, 0, 0x3D7, 2, data);
+	if (_FAIL == ret) {
+		RTW_ERR("%s: Fail to read PA Bias from eFuse!\n", __FUNCTION__);
+		return;
+	}
+
+	hal = GET_HAL_DATA(adapter);
+	hal->tx_pa_bias_a = data[0];	/* efuse[0x3D7] */
+	hal->tx_pa_bias_b = data[1];	/* efuse[0x3D8] */
+
+	RTW_INFO("EEPROM PA_BIAS_A=0x%x\n", hal->tx_pa_bias_a);
+	RTW_INFO("EEPROM PA_BIAS_B=0x%x\n", hal->tx_pa_bias_b);
+}
+
 #ifdef CONFIG_RF_POWER_TRIM
 static void Hal_ReadRFGainOffset(PADAPTER adapter, u8 *map, u8 mapvalid)
 {
@@ -631,6 +652,7 @@ void rtl8822b_read_efuse(PADAPTER adapter)
 
 	/* Data out of Efuse Map */
 	Hal_EfuseParsePackageType(adapter, efuse_map, valid);
+	Hal_EfuseParsePABias(adapter);
 #ifdef CONFIG_RF_POWER_TRIM
 	Hal_ReadRFGainOffset(adapter, efuse_map, valid);
 #endif /* CONFIG_RF_POWER_TRIM */
@@ -2020,6 +2042,182 @@ static void hw_var_set_h2c_fw_joinbssrpt(PADAPTER adapter, u8 mstatus)
 		hw_var_set_dl_rsvd_page(adapter, RT_MEDIA_CONNECT);
 }
 
+static void hw_var_port_switch_v2(PADAPTER adapter)
+{
+#ifdef CONFIG_CONCURRENT_MODE
+#ifdef CONFIG_RUNTIME_PORT_SWITCH
+	/*
+	0x102: MSR
+	0x550: REG_BCN_CTRL
+	0x551: REG_BCN_CTRL_1
+	0x560: REG_TSFTR
+	0x568: REG_TSFTR1
+	0x610: REG_MACID
+	0x618: REG_BSSID
+	0x700: REG_MACID1
+	0x708: REG_BSSID1
+	*/
+
+	int i;
+	u8 msr;
+	u8 bcn_ctrl;
+	u8 bcn_ctrl_1;
+	u8 tsftr[8];
+	u8 tsftr_1[8];
+	u8 macid[6];
+	u8 bssid[6];
+	u8 macid_1[6];
+	u8 bssid_1[6];
+	u8 val8;
+
+	u8 hw_port;
+	struct dvobj_priv *dvobj = adapter_to_dvobj(adapter);
+	_adapter *iface = NULL;
+
+	/* disable TSF auto-sync to port0 */
+	val8 = rtw_read8(adapter, REG_TIMER0_SRC_SEL_8822B);
+	rtw_write8(adapter, REG_TIMER0_SRC_SEL_8822B, val8 &= ~BIT(6));
+
+	msr = rtw_read8(adapter, MSR);
+	bcn_ctrl = rtw_read8(adapter, REG_BCN_CTRL);
+	bcn_ctrl_1 = rtw_read8(adapter, REG_BCN_CTRL_1);
+
+	for (i = 0; i < 8; i++)
+		tsftr[i] = rtw_read8(adapter, REG_TSFTR + i);
+	for (i = 0; i < 8; i++)
+		tsftr_1[i] = rtw_read8(adapter, REG_TSFTR1 + i);
+
+	for (i = 0; i < 6; i++)
+		macid[i] = rtw_read8(adapter, REG_MACID + i);
+
+	for (i = 0; i < 6; i++)
+		bssid[i] = rtw_read8(adapter, REG_BSSID + i);
+
+	for (i = 0; i < 6; i++)
+		macid_1[i] = rtw_read8(adapter, REG_MACID1 + i);
+
+	for (i = 0; i < 6; i++)
+		bssid_1[i] = rtw_read8(adapter, REG_BSSID1 + i);
+
+#ifdef DBG_RUNTIME_PORT_SWITCH
+	RTW_INFO(FUNC_ADPT_FMT" before switch\n"
+		 "msr:0x%02x\n"
+		 "bcn_ctrl:0x%02x\n"
+		 "bcn_ctrl_1:0x%02x\n"
+		 "tsftr:%llu\n"
+		 "tsftr1:%llu\n"
+		 "macid:"MAC_FMT"\n"
+		 "bssid:"MAC_FMT"\n"
+		 "macid_1:"MAC_FMT"\n"
+		 "bssid_1:"MAC_FMT"\n"
+		 , FUNC_ADPT_ARG(adapter)
+		 , msr
+		 , bcn_ctrl
+		 , bcn_ctrl_1
+		 , *((u64 *)tsftr)
+		 , *((u64 *)tsftr_1)
+		 , MAC_ARG(macid)
+		 , MAC_ARG(bssid)
+		 , MAC_ARG(macid_1)
+		 , MAC_ARG(bssid_1)
+		);
+#endif /* DBG_RUNTIME_PORT_SWITCH */
+
+	/* disable bcn function, disable update TSF */
+	rtw_write8(adapter, REG_BCN_CTRL, (bcn_ctrl & (~EN_BCN_FUNCTION)) | DIS_TSF_UDT);
+	rtw_write8(adapter, REG_BCN_CTRL_1, (bcn_ctrl_1 & (~EN_BCN_FUNCTION)) | DIS_TSF_UDT);
+
+	/* switch msr */
+	msr = (msr & 0xf0) | ((msr & 0x03) << 2) | ((msr & 0x0c) >> 2);
+	rtw_write8(adapter, MSR, msr);
+
+	/* write port0 */
+	rtw_write8(adapter, REG_BCN_CTRL, bcn_ctrl_1 & ~EN_BCN_FUNCTION);
+	for (i = 0; i < 8; i++)
+		rtw_write8(adapter, REG_TSFTR + i, tsftr_1[i]);
+	for (i = 0; i < 6; i++)
+		rtw_write8(adapter, REG_MACID + i, macid_1[i]);
+	for (i = 0; i < 6; i++)
+		rtw_write8(adapter, REG_BSSID + i, bssid_1[i]);
+
+	/* write port1 */
+	rtw_write8(adapter, REG_BCN_CTRL_1, bcn_ctrl & ~EN_BCN_FUNCTION);
+	for (i = 0; i < 8; i++)
+		rtw_write8(adapter, REG_TSFTR1 + i, tsftr[i]);
+	for (i = 0; i < 6; i++)
+		rtw_write8(adapter, REG_MACID1 + i, macid[i]);
+	for (i = 0; i < 6; i++)
+		rtw_write8(adapter, REG_BSSID1 + i, bssid[i]);
+
+	rtw_write8(adapter, REG_BCN_CTRL, bcn_ctrl_1);
+	rtw_write8(adapter, REG_BCN_CTRL_1, bcn_ctrl);
+
+	if (adapter->iface_id == IFACE_ID0)
+		iface = dvobj->padapters[IFACE_ID1];
+	else if (adapter->iface_id == IFACE_ID1)
+		iface = dvobj->padapters[IFACE_ID0];
+
+
+	if (adapter->hw_port == HW_PORT0) {
+		adapter->hw_port = HW_PORT1;
+		iface->hw_port = HW_PORT0;
+		RTW_PRINT("port switch - port0("ADPT_FMT"), port1("ADPT_FMT")\n",
+			  ADPT_ARG(iface), ADPT_ARG(adapter));
+	} else {
+		adapter->hw_port = HW_PORT0;
+		iface->hw_port = HW_PORT1;
+		RTW_PRINT("port switch - port0("ADPT_FMT"), port1("ADPT_FMT")\n",
+			  ADPT_ARG(adapter), ADPT_ARG(iface));
+	}
+
+#ifdef DBG_RUNTIME_PORT_SWITCH
+	msr = rtw_read8(adapter, MSR);
+	bcn_ctrl = rtw_read8(adapter, REG_BCN_CTRL);
+	bcn_ctrl_1 = rtw_read8(adapter, REG_BCN_CTRL_1);
+
+	for (i = 0; i < 8; i++)
+		tsftr[i] = rtw_read8(adapter, REG_TSFTR + i);
+	for (i = 0; i < 8; i++)
+		tsftr_1[i] = rtw_read8(adapter, REG_TSFTR1 + i);
+
+	for (i = 0; i < 6; i++)
+		macid[i] = rtw_read8(adapter, REG_MACID + i);
+
+	for (i = 0; i < 6; i++)
+		bssid[i] = rtw_read8(adapter, REG_BSSID + i);
+
+	for (i = 0; i < 6; i++)
+		macid_1[i] = rtw_read8(adapter, REG_MACID1 + i);
+
+	for (i = 0; i < 6; i++)
+		bssid_1[i] = rtw_read8(adapter, REG_BSSID1 + i);
+
+	RTW_INFO(FUNC_ADPT_FMT" after switch\n"
+		 "msr:0x%02x\n"
+		 "bcn_ctrl:0x%02x\n"
+		 "bcn_ctrl_1:0x%02x\n"
+		 "tsftr:%llu\n"
+		 "tsftr1:%llu\n"
+		 "macid:"MAC_FMT"\n"
+		 "bssid:"MAC_FMT"\n"
+		 "macid_1:"MAC_FMT"\n"
+		 "bssid_1:"MAC_FMT"\n"
+		 , FUNC_ADPT_ARG(adapter)
+		 , msr
+		 , bcn_ctrl
+		 , bcn_ctrl_1
+		 , *((u64 *)tsftr)
+		 , *((u64 *)tsftr_1)
+		 , MAC_ARG(macid)
+		 , MAC_ARG(bssid)
+		 , MAC_ARG(macid_1)
+		 , MAC_ARG(bssid_1)
+		);
+#endif /* DBG_RUNTIME_PORT_SWITCH */
+#endif /* CONFIG_CONCURRENT_MODE */
+#endif /* CONFIG_RUNTIME_PORT_SWITCH */
+}
+
 /*
  * Description: Get the reserved page number in Tx packet buffer.
  * Retrun value: the page number.
@@ -2519,29 +2717,18 @@ void rtl8822b_sethwreg(PADAPTER adapter, u8 variable, u8 *val)
 #ifdef CONFIG_GPIO_WAKEUP
 	case HW_SET_GPIO_WL_CTRL: {
 		u8 enable = *val;
-		u8 shift = 2;
-		u32 addr;
-		u8 bit_en;
+		u8 value = 0;
+		u8 addr = REG_PAD_CTRL1_8822B + 3;
 
-		addr = REG_LED_CFG_8822B + shift;
-		bit_en = BIT_GPIO13_14_WL_CTRL_EN_8822B >> (shift * 8);
+		value = rtw_read8(adapter, addr);
 
-		val8 = rtw_read8(adapter, addr);
+		if (enable == _TRUE && (value & BIT(1)))
+			/* set 0x64[25] = 0 to control GPIO 6 */
+			rtw_write8(adapter, addr, value & (~BIT(1)));
+		else if (enable == _FALSE)
+			rtw_write8(adapter, addr, value | BIT(1));
 
-		if (enable == _TRUE) {
-			if (val8 & bit_en) {
-				val8 &= ~bit_en;
-				rtw_write8(adapter, addr, val8);
-			}
-		} else {
-			if (!(val8 & bit_en)) {
-				val8 |= bit_en;
-				rtw_write8(adapter, addr, val8);
-			}
-
-		}
-		RTW_INFO("[HW_SET_GPIO_WL_CTRL] 0x%02X=0x%02X\n",
-			 addr, rtw_read8(adapter, addr));
+		RTW_INFO("[HW_SET_GPIO_WL_CTRL] 0x%02X=0x%02X\n", addr, rtw_read8(adapter, addr));
 	}
 	break;
 #endif
@@ -2590,9 +2777,17 @@ void rtl8822b_sethwreg(PADAPTER adapter, u8 variable, u8 *val)
 #ifdef CONFIG_AP_PORT_SWAP
 	case HW_VAR_PORT_SWITCH:
 		{
-			u8 mode = *((u8 *)val);
+			if (val) {
+				/* for AP/GO case */
+				u8 mode = *((u8 *)val);
 
-			hw_var_ap_port_switch(adapter, mode);
+				hw_var_ap_port_switch(adapter, mode);
+			} else {
+				/* for GC case & wowlan case */
+				#ifdef CONFIG_RUNTIME_PORT_SWITCH
+				hw_var_port_switch_v2(adapter);
+				#endif
+			}
 		}
 		break;
 #endif
@@ -3118,7 +3313,7 @@ u8 rtl8822b_gethaldefvar(PADAPTER adapter, HAL_DEF_VARIABLE variable, void *pval
 		break;
 
 	case HAL_DEF_MAX_RECVBUF_SZ:
-		*((u32 *)pval) = HALMAC_RX_FIFO_SIZE_8822B;
+		*((u32 *)pval) = MAX_RECVBUF_SZ;
 		break;
 
 	case HAL_DEF_RX_PACKET_OFFSET:
@@ -3983,11 +4178,22 @@ void rtl8822b_query_rx_desc(union recv_frame *precvframe, u8 *pdesc)
 
 void rtl8822b_set_hal_ops(PADAPTER adapter)
 {
+	struct hal_com_data *hal;
 	struct hal_ops *ops;
 
 
+	hal = GET_HAL_DATA(adapter);
 	ops = &adapter->hal_func;
 
+	/*
+	 * Initialize hal_com_data variables
+	 */
+	hal->tx_pa_bias_a = 0xFF;
+	hal->tx_pa_bias_b = 0xFF;
+
+	/*
+	 * Initialize operation callback functions
+	 */
 	/*** initialize section ***/
 	ops->read_chip_version = read_chip_version;
 /*

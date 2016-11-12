@@ -435,16 +435,30 @@ u16 efuse_GetavailableSize(PADAPTER adapter)
 }
 
 
-u8 efuse_bt_GetCurrentSize(PADAPTER adapter, u16 *size)
+u8 efuse_bt_GetCurrentSize(PADAPTER adapter, u16 *usesize)
 {
-	*size = 0;
+	u8 *efuse_map;
 
-	return _FAIL;
+	*usesize = 0;
+	efuse_map = rtw_malloc(EFUSE_BT_MAP_LEN);
+	if (efuse_map == NULL) {
+		RTW_DBG("%s: malloc FAIL\n", __FUNCTION__);
+		return _FAIL;
+	}
+
+	/* for get bt phy efuse last use byte */
+	hal_ReadEFuse_BT_logic_map(adapter, 0x00, EFUSE_BT_MAP_LEN, efuse_map);
+	*usesize = fakeBTEfuseUsedBytes;
+
+	if (efuse_map)
+		rtw_mfree(efuse_map, EFUSE_BT_MAP_LEN);
+
+	return _SUCCESS;
 }
 
 u16 efuse_bt_GetMaxSize(PADAPTER adapter)
 {
-	return 0;
+	return EFUSE_BT_REAL_CONTENT_LEN;
 }
 
 void EFUSE_GetEfuseDefinition(PADAPTER adapter, u8 efusetype, u8 type, void *out, BOOLEAN test)

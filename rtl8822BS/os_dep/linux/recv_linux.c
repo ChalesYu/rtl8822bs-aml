@@ -521,7 +521,9 @@ void rtw_os_recv_indicate_pkt(_adapter *padapter, _pkt *pkt, struct rx_pkt_attri
 #ifdef CONFIG_RTW_NAPI
 		if (pregistrypriv->en_napi) {
 			skb_queue_tail(&precvpriv->rx_napi_skb_queue, pkt);
+#ifndef CONFIG_RTW_NAPI_V2
 			napi_schedule(&padapter->napi);
+#endif /* !CONFIG_RTW_NAPI_V2 */
 			return;
 		}
 #endif /* CONFIG_RTW_NAPI */

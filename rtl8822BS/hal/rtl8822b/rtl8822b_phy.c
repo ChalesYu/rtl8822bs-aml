@@ -559,6 +559,120 @@ static void update_phydm_cominfo(PADAPTER adapter)
 	odm_cmn_info_update(p_dm_odm, ODM_CMNINFO_ABILITY, support_ability);
 }
 
+static void _pa_bias_paser(u8 shift, u8 *minus, u8 *val)
+{
+	shift &= 0xF;
+#if 0
+	/* Skip 0x8(-4) */
+	if ((shift == 0x8) || (shift > 0x9))
+		shift = 0;
+#endif
+
+	/*
+	 * BIT 0 is sign bit,
+	 * 1 for positive, 0 for negative
+	 */
+	*minus = (shift & BIT(0)) ? 0 : 1;
+	/* BIT 1~3 are value */
+	*val = (shift & 0xE) >> 1;
+}
+
+/*
+ * Description:
+ *	Access TX PA Bias according to 0x3D8[3:0] or 0x3D7[3:0]
+ *
+ * Return:
+ *	Value between 0~7.
+ */
+static u8 _pa_bias_adjust(u8 bias, u8 minus, u8 val)
+{
+	s8 tmp = bias;
+
+
+	if (minus)
+		tmp -= val;
+	else
+		tmp += val;
+
+	if (tmp < 0)
+		return 0;
+	if (tmp > 7)
+		return 7;
+	return (u8)tmp;
+}
+
+static void _pa_bias_calibration(PADAPTER adapter, enum odm_rf_radio_path_e path, u8 shift)
+{
+	u32 rf_reg18_offset[12] = {
+				0X10124,
+				0X10524,
+				0X10924,
+				0X10D24,
+				0X30164,
+				0X30564,
+				0X30964,
+				0X30D64,
+				0X50195,
+				0X50595,
+				0X50995,
+				0X50D95
+				};
+	u8 offset;
+	u32 bias_org, bias_new;
+	u8 val8;
+	u8 minus = 0;
+	u8 val = 0;
+
+
+	_pa_bias_paser(shift, &minus, &val);
+	RTW_INFO("%s: RF-%u bias shift %s%u\n", __FUNCTION__, path, minus?"-":"+", val);
+	if (!val)
+		return;
+
+	rtw_hal_write_rfreg(adapter, path, 0xEF, RFREGOFFSETMASK, 0x200);
+
+	/* Set 12 sets of TxA value */
+	for (offset = 0; offset < 12; offset++) {
+		/* Read TX PA Bias Table default value */
+		rtw_hal_write_rfreg(adapter, path, 0x18, RFREGOFFSETMASK, rf_reg18_offset[offset]);
+		bias_org = rtw_hal_read_rfreg(adapter, path, 0x61, RFREGOFFSETMASK);
+		val8 = bias_org & 0xF;
+		val8 = _pa_bias_adjust(val8, minus, val);
+		bias_new = (bias_org & 0xFF0) | val8;
+		bias_new |= (offset << 12);
+		rtw_hal_write_rfreg(adapter, path, 0x30, RFREGOFFSETMASK, bias_new);
+	}
+
+	rtw_hal_write_rfreg(adapter, path, 0xEF, RFREGOFFSETMASK, 0x0);
+}
+
+static void pa_bias_calibration(PADAPTER adapter)
+{
+	struct hal_com_data *hal;
+	u32 rf_reg18_a, rf_reg18_b;
+	u32 time;
+
+
+	hal = GET_HAL_DATA(adapter);
+	if (0xFF == hal->tx_pa_bias_a)
+		return;
+
+	time = rtw_get_current_time();
+
+	/* Save RF register 0x18 */
+	rf_reg18_a = rtw_hal_read_rfreg(adapter, ODM_RF_PATH_A, 0x18, RFREGOFFSETMASK);
+	rf_reg18_b = rtw_hal_read_rfreg(adapter, ODM_RF_PATH_B, 0x18, RFREGOFFSETMASK);
+
+	_pa_bias_calibration(adapter, ODM_RF_PATH_A, hal->tx_pa_bias_a);
+	_pa_bias_calibration(adapter, ODM_RF_PATH_B, hal->tx_pa_bias_b);
+
+	/* Restore RF register 0x18 */
+	rtw_hal_write_rfreg(adapter, ODM_RF_PATH_A, 0x18, RFREGOFFSETMASK, rf_reg18_a);
+	rtw_hal_write_rfreg(adapter, ODM_RF_PATH_B, 0x18, RFREGOFFSETMASK, rf_reg18_b);
+
+	RTW_INFO("%s: done! cost %u ms\n", __FUNCTION__, rtw_get_passing_time_ms(time));
+}
+
 void rtl8822b_phy_init_dm_priv(PADAPTER adapter)
 {
 	PHAL_DATA_TYPE hal = GET_HAL_DATA(adapter);
@@ -592,6 +706,8 @@ void rtl8822b_phy_init_haldm(PADAPTER adapter)
 	update_phydm_cominfo(adapter);
 
 	odm_dm_init(p_dm_odm);
+
+	pa_bias_calibration(adapter);
 }
 
 static void check_rxfifo_full(PADAPTER adapter)

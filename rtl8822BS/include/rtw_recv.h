@@ -40,7 +40,11 @@
 		#if defined(CONFIG_GSPI_HCI)
 			#define NR_RECVBUFF (32)
 		#elif defined(CONFIG_SDIO_HCI)
+#ifdef CONFIG_RECV_THREAD_MODE
+			#define NR_RECVBUFF (16)
+#else
 			#define NR_RECVBUFF (8)
+#endif
 		#else
 			#define NR_RECVBUFF (8)
 		#endif
@@ -662,6 +666,10 @@ void rtw_reordering_ctrl_timeout_handler(void *pcontext);
 void rx_query_phy_status(union recv_frame *rframe, u8 *phy_stat);
 int rtw_inc_and_chk_continual_no_rx_packet(struct sta_info *sta, int tid_index);
 void rtw_reset_continual_no_rx_packet(struct sta_info *sta, int tid_index);
+
+#ifdef CONFIG_RECV_THREAD_MODE
+thread_return rtw_recv_thread(thread_context context);
+#endif
 
 __inline static u8 *get_rxmem(union recv_frame *precvframe)
 {

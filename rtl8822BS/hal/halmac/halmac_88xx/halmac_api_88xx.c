@@ -2859,7 +2859,11 @@ halmac_cfg_drv_info_88xx(
 
 	pHalmac_adapter->drv_info_size = drv_info_size;
 
-	HALMAC_REG_WRITE_8(pHalmac_adapter, REG_RX_DRVINFO_SZ, drv_info_size);
+
+	if (HALMAC_RX_FIFO_EXPANDING_MODE_DISABLE != pHalmac_adapter->txff_allocation.rx_fifo_expanding_mode)
+		HALMAC_REG_WRITE_8(pHalmac_adapter, REG_RX_DRVINFO_SZ, 0xF);
+	else
+		HALMAC_REG_WRITE_8(pHalmac_adapter, REG_RX_DRVINFO_SZ, drv_info_size);
 
 	value32 = HALMAC_REG_READ_32(pHalmac_adapter, REG_RCR);
 	value32 = (value32 & (~BIT_APP_PHYSTS));

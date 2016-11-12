@@ -2704,6 +2704,7 @@ void hw_var_port_switch(_adapter *adapter)
 {
 #ifdef CONFIG_CONCURRENT_MODE
 #ifdef CONFIG_RUNTIME_PORT_SWITCH
+#ifndef CONFIG_AP_PORT_SWAP
 	/*
 	0x102: MSR
 	0x550: REG_BCN_CTRL
@@ -2903,7 +2904,7 @@ void hw_var_port_switch(_adapter *adapter)
 		 , MAC_ARG(bssid_1)
 		);
 #endif /* DBG_RUNTIME_PORT_SWITCH */
-
+#endif /* !CONFIG_AP_PORT_SWAP */
 #endif /* CONFIG_RUNTIME_PORT_SWITCH */
 #endif /* CONFIG_CONCURRENT_MODE */
 }
@@ -3060,7 +3061,7 @@ void rtw_hal_switch_gpio_wl_ctrl(_adapter *padapter, u8 index, u8 enable)
 {
 	PHAL_DATA_TYPE pHalData = GET_HAL_DATA(padapter);
 
-	if (IS_8723D_SERIES(pHalData->version_id))
+	if (IS_8723D_SERIES(pHalData->version_id) || IS_8822B_SERIES(pHalData->version_id))
 		rtw_hal_set_hwreg(padapter, HW_SET_GPIO_WL_CTRL, (u8 *)(&enable));
 	/*
 	* Switch GPIO_13, GPIO_14 to wlan control, or pull GPIO_13,14 MUST fail.
@@ -3206,8 +3207,10 @@ int rtw_hal_get_rsvd_page(_adapter *adapter, u32 page_offset,
 		return rst;
 	}
 #ifdef RTW_HALMAC
-	rst = rtw_halmac_dump_fifo(adapter_to_dvobj(adapter), 2,
-				   addr, size, buffer);
+	if (rtw_halmac_dump_fifo(adapter_to_dvobj(adapter), 2, addr, size, buffer) < 0)
+		rst = _FALSE;
+	else
+		rst = _TRUE;
 #else
 	txbndy = rtw_read8(adapter, REG_TDECTRL + 1);
 
@@ -4243,6 +4246,8 @@ static void rtw_hal_ap_wow_disable(_adapter *padapter)
 	val8 = (pwrctl->is_high_active == 0) ? 1 : 0;
 	RTW_PRINT("Set Wake GPIO to default(%d).\n", val8);
 	rtw_hal_set_output_gpio(padapter, WAKEUP_GPIO_IDX, val8);
+
+	rtw_hal_switch_gpio_wl_ctrl(padapter, WAKEUP_GPIO_IDX, _FALSE);
 #endif
 	media_status_rpt = RT_MEDIA_CONNECT;
 
@@ -7730,6 +7735,8 @@ static void rtw_hal_wow_disable(_adapter *adapter)
 	val8 = (pwrctl->is_high_active == 0) ? 1 : 0;
 	RTW_PRINT("Set Wake GPIO to default(%d).\n", val8);
 	rtw_hal_set_output_gpio(adapter, WAKEUP_GPIO_IDX, val8);
+
+	rtw_hal_switch_gpio_wl_ctrl(adapter, WAKEUP_GPIO_IDX, _FALSE);
 #endif
 
 	if ((pwrctl->wowlan_wake_reason != FW_DECISION_DISCONNECT) &&

@@ -9459,6 +9459,17 @@ static int rtw_mp_efuse_get(struct net_device *dev,
 		}
 		/*		RTW_INFO("\n"); */
 	} else if (strcmp(tmp[0], "btrmap") == 0) {
+		u8 BTStatus;
+
+		rtw_write8(padapter, 0xa3, 0x05); /* For 8723AB ,8821S ? */
+		BTStatus = rtw_read8(padapter, 0xa0);
+
+		RTW_INFO("%s: Check 0xa0 BT Status =0x%x\n", __FUNCTION__, BTStatus);
+		if (BTStatus != 0x04) {
+			sprintf(extra, "BT Status not Active ,can't to read BT eFuse\n");
+			goto exit;
+		}
+
 		if ((tmp[1] == NULL) || (tmp[2] == NULL)) {
 			err = -EINVAL;
 			goto exit;

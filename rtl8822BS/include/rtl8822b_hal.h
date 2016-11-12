@@ -25,7 +25,15 @@
 #include "../hal/halmac/halmac_api.h"	/* MAC REG definition */
 
 
+#ifdef CONFIG_SUPPORT_TRX_SHARED
+#if 0
+#define MAX_RECVBUF_SZ		HALMAC_RX_FIFO_SIZE_RX_FIFO_EXPANDING_1_BLOCK_8822B
+#else /* Identical to the max possible rx_len in isr */
+#define MAX_RECVBUF_SZ		65536
+#endif
+#else /* !CONFIG_SUPPORT_TRX_SHARED */
 #define MAX_RECVBUF_SZ		HALMAC_RX_FIFO_SIZE_8822B
+#endif /* !CONFIG_SUPPORT_TRX_SHARED */
 
 /*
  * MAC Register definition
@@ -42,6 +50,7 @@
 #define REG_TSFTR1		REG_FREERUN_CNT_8822B	/* hal_com.c */
 #define REG_RXFLTMAP2		REG_RXFLTMAP_8822B	/* rtw_mp.c */
 #define REG_WOWLAN_WAKE_REASON	0x01C7 /* hal_com.c */
+#define REG_GPIO_PIN_CTRL_2		REG_GPIO_EXT_CTRL_8822B		/* hal_com.c */
 
 /* RXERR_RPT, for rtw_mp.c */
 #define RXERR_TYPE_OFDM_PPDU		0

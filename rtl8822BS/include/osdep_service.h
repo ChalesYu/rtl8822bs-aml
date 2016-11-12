@@ -21,9 +21,14 @@
 #define __OSDEP_SERVICE_H_
 
 
-#define _FAIL		0
-#define _SUCCESS	1
-#define RTW_RX_HANDLED 2
+#define _FAIL					0
+#define _SUCCESS				1
+#define RTW_RX_HANDLED			2
+#define RTW_RFRAME_UNAVAIL		3
+#define RTW_RFRAME_PKT_UNAVAIL	4
+#define RTW_RBUF_UNAVAIL		5
+#define RTW_RBUF_PKT_UNAVAIL	6
+
 /* #define RTW_STATUS_TIMEDOUT -110 */
 
 #undef _TRUE

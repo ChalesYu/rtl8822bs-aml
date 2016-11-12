@@ -98,7 +98,7 @@
 /* Set CONFIG_CONCURRENT_MODE from Makefile */
 #ifdef CONFIG_CONCURRENT_MODE
 	/*#define CONFIG_HWPORT_SWAP*/		/* Port0->Sec , Port1->Pri */
-	/*#define CONFIG_RUNTIME_PORT_SWITCH*/
+	#define CONFIG_RUNTIME_PORT_SWITCH
 	#ifndef CONFIG_RUNTIME_PORT_SWITCH
 		/* #define CONFIG_TSF_RESET_OFFLOAD */	/* For 2 PORT TSF SYNC. */
 	#endif
@@ -121,9 +121,6 @@
 /* Set CONFIG_ANTENNA_DIVERSITY from Makefile */
 /*#define SUPPORT_HW_RFOFF_DETECTED*/
 /*#define CONFIG_SW_LED*/
-/*
- * CCX report is not ready yet at 2016/03/07
- */
 #define CONFIG_XMIT_ACK
 #ifdef CONFIG_XMIT_ACK
 	#define CONFIG_ACTIVE_KEEP_ALIVE_CHECK
@@ -134,11 +131,16 @@
 #define DISABLE_BB_RF		0
 #define RTW_NOTCH_FILTER	0 /* 0:Disable, 1:Enable */
 
+/* #define CONFIG_SUPPORT_TRX_SHARED */
+#ifdef CONFIG_SUPPORT_TRX_SHARED
+#define DFT_TRX_SHARE_MODE	1
+#endif
 
 /*
  * Software feature Related Config
  */
 #define RTW_HALMAC		/* Use HALMAC architecture, necessary for 8822B */
+#define CONFIG_RECV_THREAD_MODE
 
 
 /*
@@ -146,8 +148,10 @@
  */
 #define CONFIG_TX_AGGREGATION
 #define CONFIG_XMIT_THREAD_MODE	/* necessary for SDIO */
-#define CONFIG_SDIO_TX_ENABLE_AVAL_INT
+/*#define CONFIG_SDIO_TX_ENABLE_AVAL_INT*/ /* not implemented yet */
 #define CONFIG_SDIO_RX_COPY
+/* #define CONFIG_SDIO_RX_DISABLE_POLLING */
+/*#define CONFIG_SDIO_RX_READ_IN_THREAD*/
 
 
 /*
@@ -160,11 +164,14 @@
 #ifdef CONFIG_EMBEDDED_FWIMG
 	#define	LOAD_FW_HEADER_FROM_DRIVER
 #endif
-/*#define CONFIG_FILE_FWIMG*/
+#define CONFIG_FILE_FWIMG
 #define CONFIG_LONG_DELAY_ISSUE
 /*#define CONFIG_PATCH_JOIN_WRONG_CHANNEL*/
 #define CONFIG_ATTEMPT_TO_FIX_AP_BEACON_ERROR
 
+#ifdef CONFIG_RTW_NAPI
+#define CONFIG_RTW_NAPI_V2
+#endif
 
 /*
  * Platform
@@ -198,7 +205,7 @@
 #endif /* !CONFIG_MP_INCLUDED */
 
 #ifdef CONFIG_POWER_SAVING
-	//#define CONFIG_IPS
+	#define CONFIG_IPS
 	#define CONFIG_LPS
 
 	#if defined(CONFIG_LPS) && (defined(CONFIG_GSPI_HCI) || defined(CONFIG_SDIO_HCI))
@@ -208,7 +215,7 @@
 	#ifdef CONFIG_LPS
 		#define CONFIG_CHECK_LEAVE_LPS
 		#ifndef CONFIG_PLATFORM_INTEL_BYT
-		//#define CONFIG_LPS_SLOW_TRANSITION
+		#define CONFIG_LPS_SLOW_TRANSITION
 		#endif /* !CONFIG_PLATFORM_INTEL_BYT */
 	#endif
 
@@ -234,12 +241,6 @@
 		#define CONFIG_LPS	/* download reserved page to FW */
 	#endif
 #endif /* !CONFIG_BT_COEXIST */
-
-#ifdef CONFIG_GPIO_WAKEUP
-	#ifndef WAKEUP_GPIO_IDX
-		#define WAKEUP_GPIO_IDX	12	/* WIFI Chip Side */
-	#endif /* !WAKEUP_GPIO_IDX */
-#endif /* CONFIG_GPIO_WAKEUP */
 
 #ifdef CONFIG_ANTENNA_DIVERSITY
 #define CONFIG_HW_ANTENNA_DIVERSITY

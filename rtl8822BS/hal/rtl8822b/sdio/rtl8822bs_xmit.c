@@ -257,8 +257,8 @@ static s32 xmit_xmitframes(PADAPTER adapter, struct xmit_priv *pxmitpriv)
 						RTW_DBG("%s: xmit_buf is not enough!\n", __FUNCTION__);
 						err = -2;
 #ifdef CONFIG_SDIO_TX_ENABLE_AVAL_INT
-						_rtw_up_sema(&(GET_PRIMARY_ADAPTER(adapter)->xmitpriv.xmit_sema));
-#endif
+						_rtw_up_sema(&GET_PRIMARY_ADAPTER(adapter)->xmitpriv.xmit_sema);
+#endif /* CONFIG_SDIO_TX_ENABLE_AVAL_INT */
 						break;
 					}
 					k = 0;

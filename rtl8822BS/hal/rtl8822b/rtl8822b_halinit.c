@@ -134,6 +134,7 @@ u8 rtl8822b_hal_init(PADAPTER adapter)
 
 #ifdef CONFIG_FILE_FWIMG
 	rtw_get_phy_file_path(adapter, MAC_FILE_FW_NIC);
+	RTW_INFO("%s: FW location:%s\n", __FUNCTION__, rtw_phy_para_file_path);
 	if (rtw_is_file_readable(rtw_phy_para_file_path) == _TRUE) {
 		RTW_INFO("%s acquire FW from file:%s\n", __FUNCTION__, rtw_phy_para_file_path);
 		fw_bin = _TRUE;
@@ -223,6 +224,8 @@ void rtl8822b_init_misc(PADAPTER adapter)
 	}
 
 	/* Modify to make sure first time change channel(band) would be done properly */
+	hal->current_channel = 0;
+	hal->current_channel_bw = CHANNEL_WIDTH_MAX;
 	hal->current_band_type = BAND_MAX;
 
 	/* initial security setting */

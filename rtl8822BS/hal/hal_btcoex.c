@@ -3614,8 +3614,8 @@ void EXhalbtcoutsrc_switchband_notify(struct btc_coexist *pBtCoexist, u8 type)
 	if(pBtCoexist->manual_control)
 		return;
 
-
-	halbtcoutsrc_LeaveLowPower(pBtCoexist);
+	/* Driver should guarantee that the HW status isn't in low power mode */
+	/* halbtcoutsrc_LeaveLowPower(pBtCoexist); */
 
 	if(IS_HARDWARE_TYPE_8822B(pBtCoexist->Adapter)) {
 		if(pBtCoexist->board_info.btdm_ant_num == 1)
@@ -3629,7 +3629,7 @@ void EXhalbtcoutsrc_switchband_notify(struct btc_coexist *pBtCoexist, u8 type)
 			ex_halbtc8821c1ant_switchband_notify(pBtCoexist, type);
 	}
 
-	halbtcoutsrc_NormalLowPower(pBtCoexist);
+	/* halbtcoutsrc_NormalLowPower(pBtCoexist); */
 }
 
 static void halbt_init_hw_config92C(PADAPTER padapter)

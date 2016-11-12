@@ -425,7 +425,7 @@ halmac_get_chip_info(
 	/* Get Chip_id and Chip_version */
 	if (HALMAC_INTERFACE_SDIO == pHalmac_adapter->halmac_interface) {
 		chip_id = platform_reg_read_8_sdio(pDriver_adapter, pHalmac_platform_api, REG_SYS_CFG2);
-		if (chip_id == 0xEA) {
+		/*if (chip_id == 0xEA) {*/
 			plarform_reg_write_8_sdio(pDriver_adapter, pHalmac_platform_api, REG_SDIO_HSUS_CTRL, platform_reg_read_8_sdio(pDriver_adapter, pHalmac_platform_api, REG_SDIO_HSUS_CTRL) & ~(BIT(0)));
 			polling_count = HALMAC_POLLING_READY_TIMEOUT_COUNT;
 			while (!(platform_reg_read_8_sdio(pDriver_adapter, pHalmac_platform_api, REG_SDIO_HSUS_CTRL) & 0x02)) {
@@ -433,7 +433,7 @@ halmac_get_chip_info(
 				if (polling_count == 0)
 					return HALMAC_RET_SDIO_LEAVE_SUSPEND_FAIL;
 			}
-		}
+		/*}*/
 
 		chip_id = platform_reg_read_8_sdio(pDriver_adapter, pHalmac_platform_api, REG_SYS_CFG2);
 		chip_version =  platform_reg_read_8_sdio(pDriver_adapter, pHalmac_platform_api, REG_SYS_CFG1 + 1) >> 4;

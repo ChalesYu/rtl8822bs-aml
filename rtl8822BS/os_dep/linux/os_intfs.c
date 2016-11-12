@@ -1586,9 +1586,11 @@ u32 rtw_start_drv_threads(_adapter *padapter)
 #endif /* #ifdef CONFIG_XMIT_THREAD_MODE */
 
 #ifdef CONFIG_RECV_THREAD_MODE
-	padapter->recvThread = kthread_run(rtw_recv_thread, padapter, "RTW_RECV_THREAD");
-	if (IS_ERR(padapter->recvThread))
-		_status = _FAIL;
+	if (is_primary_adapter(padapter)) {
+		padapter->recvThread = kthread_run(rtw_recv_thread, padapter, "RTW_RECV_THREAD");
+		if (IS_ERR(padapter->recvThread))
+			_status = _FAIL;
+	}
 #endif
 
 	if (is_primary_adapter(padapter)) {
@@ -1636,9 +1638,11 @@ void rtw_stop_drv_threads(_adapter *padapter)
 #endif
 
 #ifdef CONFIG_RECV_THREAD_MODE
-	/* Below is to termindate rx_thread... */
-	_rtw_up_sema(&padapter->recvpriv.recv_sema);
-	_rtw_down_sema(&padapter->recvpriv.terminate_recvthread_sema);
+	if (is_primary_adapter(padapter)) {
+		/* Below is to termindate rx_thread... */
+		_rtw_up_sema(&padapter->recvpriv.recv_sema);
+		_rtw_down_sema(&padapter->recvpriv.terminate_recvthread_sema);
+	}
 #endif
 
 	rtw_hal_stop_thread(padapter);

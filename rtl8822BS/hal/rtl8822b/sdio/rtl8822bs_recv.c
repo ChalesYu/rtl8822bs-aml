@@ -23,7 +23,9 @@
 #include <hal_data.h>		/* HAL_DATA_TYPE */
 #include "../../hal_halmac.h"	/* BIT_ACRC32_8822B, HALMAC_RX_DESC_SIZE_8822B and etc. */
 #include "../rtl8822b.h"	/* rtl8822b_rxdesc2attribute(), rtl8822b_c2h_handler_no_io() */
-#include "rtl8822bs.h"		/* MAX_RECVBUF_SZ_8822B */
+#ifdef CONFIG_SDIO_RX_READ_IN_THREAD
+#include "rtl8822bs.h"		/* rtl8822bs_read_port(), rtl8822bs_get_interrupt() and etc. */
+#endif /* CONFIG_SDIO_RX_READ_IN_THREAD */
 
 
 static s32 initrecvbuf(struct recv_buf *precvbuf, PADAPTER adapter)
@@ -43,15 +45,22 @@ static void freerecvbuf(struct recv_buf *precvbuf)
 
 static void start_rx_handle(PADAPTER p)
 {
-#ifdef PLATFORM_LINUX
+#ifdef CONFIG_RECV_THREAD_MODE
+	_rtw_up_sema(&p->recvpriv.recv_sema);
+#else
+	#ifdef PLATFORM_LINUX
 	tasklet_schedule(&p->recvpriv.recv_tasklet);
+	#endif
 #endif
 }
 
 static void stop_rx_handle(PADAPTER p)
 {
-#ifdef PLATFORM_LINUX
+#ifdef CONFIG_RECV_THREAD_MODE
+#else
+	#ifdef PLATFORM_LINUX
 	tasklet_kill(&p->recvpriv.recv_tasklet);
+	#endif
 #endif
 }
 
@@ -72,9 +81,10 @@ static _pkt *alloc_recvbuf_skb(struct recv_buf *recvbuf, u32 size)
 	size += alignsz;
 	skb = rtw_skb_alloc(size);
 	if (!skb) {
-		RTW_INFO("%s: <WARN> alloc_skb fail! size=%d\n", __FUNCTION__, size);
+		RTW_WARN("%s: alloc_skb fail! size=%d\n", __FUNCTION__, size);
 		return NULL;
 	}
+	recvbuf->pskb = skb;
 
 #ifdef PLATFORM_LINUX
 	skb->dev = recvbuf->adapter->pnetdev;
@@ -82,21 +92,28 @@ static _pkt *alloc_recvbuf_skb(struct recv_buf *recvbuf, u32 size)
 	tmpaddr = (SIZE_PTR)skb->data;
 	alignment = tmpaddr & (alignsz - 1);
 	skb_reserve(skb, alignsz - alignment);
-#endif /* PLATFORM_LINUX */
 
-	recvbuf->pskb = skb;
+	recvbuf->pbuf = skb->data;
+	recvbuf->len = 0;
+	recvbuf->phead = skb->head;
+	recvbuf->pdata = skb->data;
+	recvbuf->ptail = skb->data; /*skb_tail_pointer(skb);*/
+	recvbuf->pend = skb_end_pointer(skb);
+#else /* !PLATFORM_LINUX */
+#error "Please handle the pointer in recvbuf!!"
+#endif /* !PLATFORM_LINUX */
 
 	return skb;
 }
 
 /*
  * Description:
- *	Allocate skb for recv_buf, the size is MAX_RECVBUF_SZ_8822B (24KB)
+ *	Allocate skb for recv_buf, the size is MAX_RECVBUF_SZ
  *
  * Parameters:
  *	recvbuf	pointer of struct recv_buf
  *	size	skb size, only valid when NOT define CONFIG_SDIO_RX_COPY.
- *		If CONFIG_SDIO_RX_COPY, size always be MAX_RECVBUF_SZ_8822B.
+ *		If CONFIG_SDIO_RX_COPY, size always be MAX_RECVBUF_SZ.
  *
  * Return:
  *	Pointer of _pkt, otherwise NULL.
@@ -109,16 +126,21 @@ _pkt *rtl8822bs_alloc_recvbuf_skb(struct recv_buf *recvbuf, u32 size)
 	skb = recvbuf->pskb;
 #ifdef CONFIG_SDIO_RX_COPY
 	if (skb) {
+		/* reset skb pointer and length */
 		skb_reset_tail_pointer(skb);
 		skb->len = 0;
+		/* reset recv_buf pointer and length */
+		recvbuf->pdata = recvbuf->pbuf;
+		recvbuf->ptail = recvbuf->pbuf;
+		recvbuf->len = 0;
 		return skb;
 	}
 
-	RTW_INFO("%s: <WARN> skb not exist in recv_buf!\n", __FUNCTION__);
-	size = MAX_RECVBUF_SZ_8822B;
+	RTW_WARN("%s: skb not exist in recv_buf!\n", __FUNCTION__);
+	size = MAX_RECVBUF_SZ;
 #else /* !CONFIG_SDIO_RX_COPY */
 	if (skb) {
-		RTW_INFO("%s: <WARN> skb already exist in recv_buf!\n", __FUNCTION__);
+		RTW_WARN("%s: skb already exist in recv_buf!\n", __FUNCTION__);
 		rtl8822bs_free_recvbuf_skb(recvbuf);
 	}
 #endif /* !CONFIG_SDIO_RX_COPY */
@@ -159,7 +181,7 @@ static inline s32 os_recvbuf_resource_alloc(PADAPTER adapter, struct recv_buf *r
 	s32 ret = _SUCCESS;
 
 #ifdef CONFIG_SDIO_RX_COPY
-	alloc_recvbuf_skb(recvbuf, MAX_RECVBUF_SZ_8822B);
+	alloc_recvbuf_skb(recvbuf, MAX_RECVBUF_SZ);
 #endif /* CONFIG_SDIO_RX_COPY */
 
 	return ret;
@@ -326,7 +348,7 @@ static _pkt *prepare_recvframe_pkt(struct recv_buf *recvbuf, union recv_frame *r
 
 	pkt = recvframe->u.hdr.pkt;
 	if (pkt) {
-		RTW_INFO("%s: <WARN> recvframe pkt already exist!\n", __FUNCTION__);
+		RTW_WARN("%s: recvframe pkt already exist!\n", __FUNCTION__);
 		return pkt;
 	}
 
@@ -378,7 +400,7 @@ static _pkt *prepare_recvframe_pkt(struct recv_buf *recvbuf, union recv_frame *r
 		skb_reserve(pkt, shift_sz);
 		_rtw_memcpy(skb_put(pkt, skb_len), data, skb_len);
 	} else if ((attrib->mfrag == 1) && (attrib->frag_num == 0)) {
-		RTW_INFO("%s: <ERR> alloc_skb fail for first fragement\n", __FUNCTION__);
+		RTW_ERR("%s: alloc_skb fail for first fragement\n", __FUNCTION__);
 		return NULL;
 	}
 #endif /* CONFIG_SDIO_RX_COPY */
@@ -386,7 +408,7 @@ static _pkt *prepare_recvframe_pkt(struct recv_buf *recvbuf, union recv_frame *r
 	if (!pkt) {
 		pkt = rtw_skb_clone(recvbuf->pskb);
 		if (!pkt) {
-			RTW_INFO("%s: <ERR> rtw_skb_clone fail\n", __FUNCTION__);
+			RTW_ERR("%s: rtw_skb_clone fail\n", __FUNCTION__);
 			return NULL;
 		}
 		pkt->data = data;
@@ -406,8 +428,8 @@ static _pkt *prepare_recvframe_pkt(struct recv_buf *recvbuf, union recv_frame *r
 
 /*
  * Return:
- *	_TRUE	Finish processing recv_buf
- *	_FALSE	Something fail to process recv_buf
+ *	_SUCCESS	Finish processing recv_buf
+ *	others		Something fail to process recv_buf
  */
 static u8 recvbuf_handler(struct recv_buf *recvbuf)
 {
@@ -418,7 +440,7 @@ static u8 recvbuf_handler(struct recv_buf *recvbuf)
 	_pkt *pkt;
 	u32 rx_report_sz, pkt_offset;
 	u8 *ptr;
-	u8 ret = _TRUE;
+	u8 ret = _SUCCESS;
 
 
 	p = recvbuf->adapter;
@@ -428,8 +450,8 @@ static u8 recvbuf_handler(struct recv_buf *recvbuf)
 	while (ptr < recvbuf->ptail) {
 		recvframe = rtw_alloc_recvframe(&recvpriv->free_recv_queue);
 		if (!recvframe) {
-			RTW_INFO("%s: <WARN> no enough recv frame!\n", __FUNCTION__);
-			ret = _FALSE;
+			RTW_WARN("%s: no enough recv frame!\n", __FUNCTION__);
+			ret = RTW_RFRAME_UNAVAIL;
 			break;
 		}
 
@@ -437,11 +459,18 @@ static u8 recvbuf_handler(struct recv_buf *recvbuf)
 		attrib = &recvframe->u.hdr.attrib;
 		rtl8822b_rxdesc2attribute(attrib, ptr);
 
+#ifdef CONFIG_SUPPORT_TRX_SHARED
+		if (attrib->drvinfo_sz != 120) {
+			rtw_free_recvframe(recvframe, &recvpriv->free_recv_queue);
+			break;
+		}	
+#endif
+
 		rx_report_sz = HALMAC_RX_DESC_SIZE_8822B + attrib->drvinfo_sz;
 		pkt_offset = rx_report_sz + attrib->shift_sz + attrib->pkt_len;
 
 		if ((ptr + pkt_offset) > recvbuf->ptail) {
-			RTW_INFO("%s: <WARN> next pkt len(%p,%d) exceed ptail(%p)!\n",
+			RTW_WARN("%s: next pkt len(%p,%d) exceed ptail(%p)!\n",
 				 __FUNCTION__, ptr, pkt_offset, recvbuf->ptail);
 			rtw_free_recvframe(recvframe, &recvpriv->free_recv_queue);
 			break;
@@ -450,7 +479,7 @@ static u8 recvbuf_handler(struct recv_buf *recvbuf)
 		/* fix Hardware RX data error, drop whole recv_buffer */
 		if ((rtl8822b_rcr_check(p, BIT_ACRC32_8822B) == _FALSE)
 		    && attrib->crc_err) {
-			RTW_INFO("%s: <WARN> Received unexpected CRC error packet!!\n", __FUNCTION__);
+			RTW_WARN("%s: Received unexpected CRC error packet!!\n", __FUNCTION__);
 			rtw_free_recvframe(recvframe, &recvpriv->free_recv_queue);
 			break;
 		}
@@ -473,7 +502,7 @@ static u8 recvbuf_handler(struct recv_buf *recvbuf)
 			pkt = prepare_recvframe_pkt(recvbuf, recvframe);
 			if (!pkt) {
 				rtw_free_recvframe(recvframe, &recvpriv->free_recv_queue);
-				ret = _FALSE;
+				ret = RTW_RFRAME_PKT_UNAVAIL;
 				break;
 			}
 
@@ -493,16 +522,13 @@ static u8 recvbuf_handler(struct recv_buf *recvbuf)
 	return ret;
 }
 
-static void recv_tasklet(void *priv)
+s32 rtl8822bs_recv_hdl(_adapter *adapter)
 {
-	PADAPTER adapter;
 	struct recv_priv *recvpriv;
 	struct recv_buf *recvbuf;
 	u8 c2h = 0;
-	u8 ret = _TRUE;
+	s32 ret = _SUCCESS;
 
-
-	adapter = (PADAPTER)priv;
 	recvpriv = &adapter->recvpriv;
 
 	do {
@@ -511,28 +537,339 @@ static void recv_tasklet(void *priv)
 			break;
 
 		c2h = GET_RX_DESC_C2H_8822B(recvbuf->pdata);
-		if (c2h)
-			rtl8822b_c2h_handler_no_io(adapter, recvbuf->pdata, recvbuf->len);
+		if (c2h) {
+			if (recvbuf->len <= 256)
+				rtl8822b_c2h_handler_no_io(adapter, recvbuf->pdata, recvbuf->len);
+		}
 		else
 			ret = recvbuf_handler(recvbuf);
 
-		if (_FALSE == ret) {
+		if (_SUCCESS != ret) {
 			rtw_enqueue_recvbuf_to_head(recvbuf, &recvpriv->recv_buf_pending_queue);
-			rtw_msleep_os(5);
-			start_rx_handle(adapter);
 			break;
 		}
 
 		/* free recv_buf */
 		rtl8822bs_free_recvbuf_skb(recvbuf);
 		rtw_enqueue_recvbuf(recvbuf, &recvpriv->free_recv_buf_queue);
+#ifdef CONFIG_SDIO_RX_READ_IN_THREAD
+		wake_up_process(GET_HAL_DATA(adapter)->rx_polling_thread);
+#endif /* CONFIG_SDIO_RX_READ_IN_THREAD */
+	} while (1);
+
+#ifdef CONFIG_RTW_NAPI
+#ifdef CONFIG_RTW_NAPI_V2
+	if (adapter->registrypriv.en_napi) {
+		struct dvobj_priv *d;
+		struct _ADAPTER *a;
+		u8 i;
+
+		d = adapter_to_dvobj(adapter);
+		for (i = 0; i < d->iface_nums; i++) {
+			a = d->padapters[i];
+			if (rtw_if_up(a) == _TRUE)
+				napi_schedule(&a->napi);
+
+		}
+	}
+#endif /* CONFIG_RTW_NAPI_V2 */
+#endif /* CONFIG_RTW_NAPI */
+
+	return ret;
+}
+
+static void recv_tasklet(void *priv)
+{
+	PADAPTER adapter;
+	s32 ret;
+
+	adapter = (PADAPTER)priv;
+
+	ret = rtl8822bs_recv_hdl(adapter);
+	if (ret == RTW_RFRAME_UNAVAIL
+		|| ret == RTW_RFRAME_PKT_UNAVAIL)
+		start_rx_handle(adapter);
+}
+
+#ifdef CONFIG_SDIO_RX_READ_IN_THREAD
+void rtl8822bs_rx_polling_init(struct dvobj_priv *d)
+{
+	struct hal_com_data *hal;
+
+
+	hal = GET_HAL_DATA(dvobj_get_primary_adapter(d));
+
+	hal->rx_polling_thread = NULL;
+	_rtw_init_sema(&hal->rx_polling_sema, 0);
+	_rtw_init_sema(&hal->rx_polling_terminate_sema, 0);
+}
+
+void rtl8822bs_rx_polling_deinit(struct dvobj_priv *d)
+{
+	struct hal_com_data *hal;
+
+
+	hal = GET_HAL_DATA(dvobj_get_primary_adapter(d));
+
+	if (hal->rx_polling_thread)
+		rtl8822bs_rx_polling_thread_stop(d);
+}
+
+static void rx_polling_handle(struct dvobj_priv *d)
+{
+	struct _ADAPTER *a;
+	struct hal_com_data *hal;
+	struct recv_priv *recvpriv;
+	struct recv_buf *recvbuf;
+	_pkt *pkt;
+	u32 blksz;
+	u16 size, bufsz;
+	u8 *rbuf;
+	s32 ret;
+	u32 count = 0, err_count;
+
+
+	a = dvobj_get_primary_adapter(d);
+	recvpriv = &a->recvpriv;
+	hal = GET_HAL_DATA(a);
+
+	blksz = d->intf_data.block_transfer_len;
+
+	size = hal->SdioRxFIFOSize;
+	do {
+		if (!size)
+			break;
+		count++;
+
+		/*
+		 * Patch for some SDIO Host 4 bytes issue
+		 * ex. RK3188
+		 */
+		bufsz = RND4(size);
+
+		/* round to block size */
+		if (bufsz > blksz)
+			bufsz = _RND(bufsz, blksz);
+
+		/* 1. alloc recvbuf */
+		err_count = 0;
+		do {
+			recvbuf = rtw_dequeue_recvbuf(&recvpriv->free_recv_buf_queue);
+			if (recvbuf)
+				break;
+			err_count++;
+			if ((err_count&0x7F) == 0)
+				RTW_WARN("%s: alloc recvbuf FAIL! count=%u\n", __FUNCTION__, err_count);
+			if (RTW_CANNOT_RUN(a) || kthread_should_stop())
+				break;
+#if 0
+			rtw_yield_os();
+#else
+			set_current_state(TASK_INTERRUPTIBLE);
+#ifdef CONFIG_RECV_THREAD_MODE
+			wake_up_process(a->recvThread);
+#endif /* CONFIG_RECV_THREAD_MODE */
+			if (!kthread_should_stop())
+				schedule_timeout(MAX_SCHEDULE_TIMEOUT);
+			set_current_state(TASK_RUNNING);
+#endif
+		} while (1);
+		if (!recvbuf) {
+			RTW_ERR("%s: stop running and alloc recvbuf FAIL! count=%u\n", __FUNCTION__, err_count);
+			break;
+		}
+
+		/* 2. alloc skb */
+		err_count = 0;
+		do {
+			pkt = rtl8822bs_alloc_recvbuf_skb(recvbuf, bufsz);
+			if (pkt)
+				break;
+			err_count++;
+			if ((err_count&0x7F) == 0)
+				RTW_WARN("%s: alloc_skb fail! alloc=%u read=%u count=%u\n", __FUNCTION__, bufsz, size, err_count);
+			if (RTW_CANNOT_RUN(a) || kthread_should_stop())
+				break;
+#if 0
+			rtw_yield_os();
+#else
+			set_current_state(TASK_INTERRUPTIBLE);
+			if (!kthread_should_stop())
+				schedule_timeout(1);
+			set_current_state(TASK_RUNNING);
+#endif
+		} while (1);
+		if (!pkt) {
+			RTW_ERR("%s: stop running and alloc_skb fail! alloc=%u read=%u count=%u\n", __FUNCTION__, bufsz, size, err_count);
+			rtw_enqueue_recvbuf(recvbuf, &recvpriv->free_recv_buf_queue);
+			break;
+		}
+
+		/* 3. read data from rxfifo */
+		rbuf = skb_put(pkt, size);
+		ret = rtl8822bs_read_port(d, bufsz, rbuf);
+		if (_FAIL == ret) {
+			RTW_ERR("%s: read port FAIL!\n", __FUNCTION__);
+			rtl8822bs_free_recvbuf_skb(recvbuf);
+			rtw_enqueue_recvbuf(recvbuf, &recvpriv->free_recv_buf_queue);
+			break;
+		}
+
+		/* 4. init recvbuf */
+		recvbuf->len = pkt->len;
+		recvbuf->phead = pkt->head;
+		recvbuf->pdata = pkt->data;
+		recvbuf->ptail = skb_tail_pointer(pkt);
+		recvbuf->pend = skb_end_pointer(pkt);
+
+		rtl8822bs_rxhandler(a, recvbuf);
+
+		size = 0;
+		rtl8822bs_get_interrupt(a, NULL, &size);
 	} while (1);
 }
+
+static thread_return rx_polling_thread(thread_context context)
+{
+	struct sched_param param = { .sched_priority = 1 };
+	struct dvobj_priv *d;
+	struct _ADAPTER *a;
+	struct hal_com_data *hal;
+	u32 ret;
+
+
+	sched_setscheduler(current, SCHED_FIFO, &param);
+	RTW_INFO("%s: RX polling thread start running at CPU:%d PID:%d\n",
+	         __FUNCTION__, raw_smp_processor_id(), current->pid);
+
+	d = (struct dvobj_priv *)context;
+	a = dvobj_get_primary_adapter(d);
+	hal = GET_HAL_DATA(a);
+
+	/*thread_enter("RTW_RECV_POLLING");*/
+
+	do {
+		ret = _rtw_down_sema(&hal->rx_polling_sema);
+		if (_FAIL == ret) {
+			RTW_ERR("%s: down sema fail!\n", __FUNCTION__);
+			break;
+		}
+
+		if (RTW_CANNOT_RUN(a) || kthread_should_stop())
+			break;
+
+		rx_polling_handle(d);
+		rtl8822bs_enable_rx_interrupt(d);
+	} while (!RTW_CANNOT_RUN(a) && !kthread_should_stop());
+
+	_rtw_up_sema(&hal->rx_polling_terminate_sema);
+
+	RTW_INFO("%s: RX polling thread stop running at CPU:%d PID:%d\n",
+	         __FUNCTION__, raw_smp_processor_id(), current->pid);
+
+	thread_exit();
+}
+
+void rtl8822bs_rx_polling_thread_start(struct dvobj_priv *d)
+{
+	struct _ADAPTER *a; 
+	struct hal_com_data *hal;
+	u8 start_thread = _FALSE;
+
+
+	a = dvobj_get_primary_adapter(d);
+	hal = GET_HAL_DATA(a);
+
+	if (hal->rx_polling_thread) {
+		RTW_WARN("%s: rx polling thread is running!\n", __FUNCTION__);
+		return;
+	}
+
+#ifdef PLATFORM_LINUX
+	hal->rx_polling_thread = kthread_run(rx_polling_thread, d, "RTW_RECV_POLLING");
+	if (!IS_ERR(hal->rx_polling_thread))
+		start_thread = _TRUE;
+#endif /* PLATFORM_LINUX */
+	if (_TRUE != start_thread)
+		RTW_ERR("%s: Start rx polling thread FAIL!\n", __FUNCTION__);
+}
+
+void rtl8822bs_rx_polling_thread_stop(struct dvobj_priv *d)
+{
+	struct _ADAPTER *a;
+	struct hal_com_data *hal;
+
+
+	a = dvobj_get_primary_adapter(d);
+	hal = GET_HAL_DATA(a);
+
+	if (hal->rx_polling_thread) {
+		_rtw_up_sema(&hal->rx_polling_sema);
+		kthread_stop(hal->rx_polling_thread);
+		_rtw_down_sema(&hal->rx_polling_terminate_sema);
+		hal->rx_polling_thread = 0;
+	}
+}
+
+void rx_drop(struct dvobj_priv *d, u16 size)
+{
+	struct _ADAPTER *a;
+	struct hal_com_data *hal;
+	u32 blksz;
+	u16 bufsz;
+	u8 *buf;
+
+
+	a = dvobj_get_primary_adapter(d);
+	hal = GET_HAL_DATA(a);
+	blksz = d->intf_data.block_transfer_len;
+
+	/*
+	 * Patch for some SDIO Host 4 bytes issue
+	 * ex. RK3188
+	 */
+	bufsz = RND4(size);
+
+	/* round to block size */
+	if (bufsz > blksz)
+		bufsz = _RND(bufsz, blksz);
+
+	buf = rtw_zmalloc(bufsz);
+	if (!buf)
+		return;
+
+	rtl8822bs_read_port(d, bufsz, buf);
+
+	rtw_mfree(buf, bufsz);
+}
+
+void rtl8822bs_rx_polling_start(struct dvobj_priv *d)
+{
+	struct _ADAPTER *a;
+	struct hal_com_data *hal;
+
+
+	a = dvobj_get_primary_adapter(d);
+	hal = GET_HAL_DATA(a);
+
+	if (!hal->rx_polling_thread ||
+	    rtw_is_drv_stopped(a)) {
+		RTW_WARN("%s: drop rx because %s!\n",
+		         __FUNCTION__, rtw_is_drv_stopped(a)?"Drv Stop":"not ready");
+		rx_drop(d, hal->SdioRxFIFOSize);
+		return;
+	}
+
+	rtl8822bs_disable_rx_interrupt(d);
+	_rtw_up_sema(&hal->rx_polling_sema);
+}
+#endif /* CONFIG_SDIO_RX_READ_IN_THREAD */
 
 /*
  * Initialize recv private variable for hardware dependent
  * 1. recv buf
  * 2. recv tasklet
+ * 3. recv polling thread
  */
 s32 rtl8822bs_init_recv_priv(PADAPTER adapter)
 {
@@ -593,6 +930,11 @@ s32 rtl8822bs_init_recv_priv(PADAPTER adapter)
 		     (unsigned long)adapter);
 #endif
 
+#ifdef CONFIG_SDIO_RX_READ_IN_THREAD
+	/* 3. init recv polling thread */
+	rtl8822bs_rx_polling_init(adapter_to_dvobj(adapter));
+#endif /* CONFIG_SDIO_RX_READ_IN_THREAD */
+
 	goto exit;
 
 initbuferror:
@@ -636,6 +978,11 @@ void rtl8822bs_free_recv_priv(PADAPTER adapter)
 
 	/* 1. kill tasklet */
 	stop_rx_handle(adapter);
+
+#ifdef CONFIG_SDIO_RX_READ_IN_THREAD
+	/* 1.1. kill recv polling thread */
+	rtl8822bs_rx_polling_deinit(adapter_to_dvobj(adapter));
+#endif /* CONFIG_SDIO_RX_READ_IN_THREAD */
 
 	/* 2. free all recv buffers */
 	precvbuf = (struct recv_buf *)precvpriv->precv_buf;

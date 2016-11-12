@@ -181,6 +181,7 @@ enum bt_8822b_2ant_Scoreboard {
 	BT_8822B_2ANT_SCOREBOARD_ACTIVE								= BIT(0),
 	BT_8822B_2ANT_SCOREBOARD_ONOFF								= BIT(1),
 	BT_8822B_2ANT_SCOREBOARD_SCAN								= BIT(2),
+	BT_8822B_2ANT_SCOREBOARD_UNDERTEST							= BIT(3),
 	BT_8822B_2ANT_SCOREBOARD_WLBUSY                                                              = BIT(6)
 };
 
@@ -357,6 +358,11 @@ struct coex_sta_8822b_2ant {
 	u16					bt_reg_vendor_ae;
 
 	boolean				is_setupLink;
+	u8				    wl_noisy_level;
+	u32                 gnt_error_cnt;
+
+	u8					bt_afh_map[10];
+	u8					bt_relink_downcount;
 };
 
 

@@ -111,7 +111,7 @@ odm_edca_turbo_check_ce(
 	struct PHY_DM_STRUCT		*p_dm_odm = (struct PHY_DM_STRUCT *)p_dm_void;
 	struct _ADAPTER		*adapter = p_dm_odm->adapter;
 	u32	EDCA_BE_UL = 0x5ea42b;/* Parameter suggested by Scott  */ /* edca_setting_UL[p_mgnt_info->iot_peer]; */
-	u32	EDCA_BE_DL = 0x5ea42b;/* Parameter suggested by Scott  */ /* edca_setting_DL[p_mgnt_info->iot_peer]; */
+	u32	EDCA_BE_DL = 0x00a42b;/* Parameter suggested by Scott  */ /* edca_setting_DL[p_mgnt_info->iot_peer]; */
 	u32	ic_type = p_dm_odm->support_ic_type;
 	u32	iot_peer = 0;
 	u8	wireless_mode = 0xFF;                 /* invalid value */
@@ -155,7 +155,7 @@ odm_edca_turbo_check_ce(
 	}
 
 	/* Check if the status needs to be changed. */
-	if ((bbtchange) || (!precvpriv->is_any_non_be_pkts)) {
+	if ((1) || (!precvpriv->is_any_non_be_pkts)) {
 		cur_tx_bytes = pdvobjpriv->traffic_stat.cur_tx_bytes;
 		cur_rx_bytes = pdvobjpriv->traffic_stat.cur_rx_bytes;
 

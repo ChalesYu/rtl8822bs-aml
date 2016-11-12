@@ -39,21 +39,56 @@
  */
 static u8 sdio_io(struct dvobj_priv *d, u32 addr, void *buf, size_t len, u8 write, u8 cmd52)
 {
+	u32 addr_drv;	/* address with driver defined bit */
 	int err;
+	u8 stop_retry = _FALSE;	/* flag for stopping retry or not */
 
 
-	if (cmd52)
-		addr = RTW_SDIO_ADDR_CMD52_GEN(addr);
-
-	if (write)
-		err = d->intf_ops->write(d, addr, buf, len, 0);
-	else
-		err = d->intf_ops->read(d, addr, buf, len, 0);
-	if (err) {
-		RTW_INFO("%s: [ERROR] %s FAIL! error(%d)\n",
-			 __FUNCTION__, write ? "write" : "read", err);
+	if (rtw_is_surprise_removed(dvobj_get_primary_adapter(d))) {
+		RTW_ERR("%s: bSurpriseRemoved, skip %s 0x%05x, %zu bytes\n",
+		        __FUNCTION__, write?"write":"read", addr, len);
 		return _FAIL;
 	}
+
+	addr_drv = addr;
+	if (cmd52)
+		addr_drv = RTW_SDIO_ADDR_CMD52_GEN(addr_drv);
+
+	do {
+		if (write)
+			err = d->intf_ops->write(d, addr_drv, buf, len, 0);
+		else
+			err = d->intf_ops->read(d, addr_drv, buf, len, 0);
+		if (!err) {
+			if (ATOMIC_READ(&d->continual_io_error)) {
+				RTW_INFO("%s: Retry %s OK! addr=0x%05x %zu bytes, retry=%u\n",
+				         __FUNCTION__, write?"write":"read",
+				         addr, len, ATOMIC_READ(&d->continual_io_error));
+				RTW_INFO_DUMP("Data: ", buf, len);
+				rtw_reset_continual_io_error(d);
+			}
+			break;
+		}
+
+		RTW_ERR("%s: %s FAIL! error(%d) addr=0x%05x len=%zu\n",
+			__FUNCTION__, write?"write":"read", err, addr, len);
+		stop_retry = rtw_inc_and_chk_continual_io_error(d);
+		if ((_TRUE == stop_retry) || (err == -1)) {
+			/* critical error, unrecoverable */
+			RTW_ERR("%s: Fatal error! Set surprise remove flag ON! (retry=%u)\n",
+				__FUNCTION__, ATOMIC_READ(&d->continual_io_error));
+			rtw_set_surprise_removed(dvobj_get_primary_adapter(d));
+			return _FAIL;
+		}
+
+		/* WLAN IOREG or SDIO Local */
+		if ((addr & 0x10000) || !(addr & 0xE000)) {
+			RTW_WARN("%s: Retry %s addr=0x%05x %zu bytes, retry=%u\n",
+			         __FUNCTION__, write?"write":"read", addr, len, ATOMIC_READ(&d->continual_io_error));
+			continue;
+		}
+		return _FAIL;
+	} while (1);
 
 	return _SUCCESS;
 }

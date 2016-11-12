@@ -46,8 +46,8 @@ s32 _sd_write(struct intf_hdl *pintfhdl, u32 addr, u32 cnt, void *pdata);
 s32 sd_write(struct intf_hdl *pintfhdl, u32 addr, u32 cnt, void *pdata);
 
 void rtw_sdio_set_irq_thd(struct dvobj_priv *dvobj, _thread_hdl_ thd_hdl);
-int __must_check rtw_sdio_raw_read(struct dvobj_priv *d, int addr,
+int __must_check rtw_sdio_raw_read(struct dvobj_priv *d, unsigned int addr,
 				void *buf, size_t len, bool fixed);
-int __must_check rtw_sdio_raw_write(struct dvobj_priv *d, int addr,
+int __must_check rtw_sdio_raw_write(struct dvobj_priv *d, unsigned int addr,
 				void *buf, size_t len, bool fixed);
 #endif
