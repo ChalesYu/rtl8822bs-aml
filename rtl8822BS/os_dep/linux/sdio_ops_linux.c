@@ -1004,12 +1004,14 @@ int __must_check rtw_sdio_raw_read(struct dvobj_priv *d, unsigned int addr,
 	if (claim_needed)
 		sdio_release_host(func);
 
+#ifdef CONFIG_PLATFORM_AML_S905
 	if (time >= IO_TIME_LIMIT) {
 		dev_err(&func->dev, "%s: I/O too slow, addr=0x%05x %zu bytes, cost %u ms!\n", __func__, addr, len, time);
 		rtw_sdio_raw_io_dump();
 		if (!error)
 			error = -ETIMEDOUT;
 	}
+#endif /* CONFIG_PLATFORM_AML_S905 */
 
 	if (WARN_ON(error)) {
 		dev_err(&func->dev, "%s: sdio read failed (%d)\n", __func__, error);
@@ -1137,12 +1139,14 @@ int __must_check rtw_sdio_raw_write(struct dvobj_priv *d, unsigned int addr,
 	if (claim_needed)
 		sdio_release_host(func);
 
+#ifdef CONFIG_PLATFORM_AML_S905
 	if (time >= IO_TIME_LIMIT) {
 		dev_err(&func->dev, "%s: I/O too slow, addr=0x%05x %zu bytes, cost %u ms! error=%d\n", __func__, addr, len, time, error);
 		rtw_sdio_raw_io_dump();
 		if (!error)
 			error = -ETIMEDOUT;
 	}
+#endif /* CONFIG_PLATFORM_AML_S905 */
 
 	if (WARN_ON(error)) {
 		dev_err(&func->dev, "%s: sdio write failed (%d)\n", __func__, error);

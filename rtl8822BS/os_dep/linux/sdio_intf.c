@@ -38,11 +38,11 @@
 #include "rtw_android.h"
 #endif
 static int wlan_en_gpio = -1;
-#endif /* CONFIG_PLATFORM_INTEL_BYT */
+#endif //CONFIG_PLATFORM_INTEL_BYT
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 14, 0))
 extern void wifi_teardown_dt(void);
 extern int wifi_setup_dt(void);
-#endif
+#endif /* CONFIG_PLATFORM_INTEL_BYT */
 
 #ifndef dev_to_sdio_func
 #define dev_to_sdio_func(d)     container_of(d, struct sdio_func, dev)
@@ -136,9 +136,10 @@ static void sd_sync_int_hdl(struct sdio_func *func)
 {
 	struct dvobj_priv *psdpriv;
 
+
 	psdpriv = sdio_get_drvdata(func);
 	if (!psdpriv) {
-		RTW_ERR("%s: driver object is NULL!!\n", __FUNCTION__);
+		RTW_ERR("%s: driver object is NULL!!\n", __func__);
 		return;
 	}
 
@@ -1034,7 +1035,6 @@ static int __init rtw_drv_entry(void)
 		goto exit;
 	}
 #endif
-
 	ret = platform_wifi_power_on();
 	if (ret) {
 		RTW_INFO("%s: power on failed!!(%d)\n", __FUNCTION__, ret);
@@ -1087,7 +1087,6 @@ static void __exit rtw_drv_halt(void)
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 14, 0))
 	wifi_teardown_dt();
 #endif
-	
 	rtw_suspend_lock_uninit();
 	rtw_drv_proc_deinit();
 	rtw_ndev_notifier_unregister();
