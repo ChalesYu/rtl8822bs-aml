@@ -38,10 +38,6 @@
 #include "rtw_android.h"
 #endif
 static int wlan_en_gpio = -1;
-#endif //CONFIG_PLATFORM_INTEL_BYT
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 14, 0))
-extern void wifi_teardown_dt(void);
-extern int wifi_setup_dt(void);
 #endif /* CONFIG_PLATFORM_INTEL_BYT */
 
 #ifndef dev_to_sdio_func
@@ -1026,15 +1022,6 @@ static int __init rtw_drv_entry(void)
 	RTW_PRINT(DRV_NAME" BT-Coex version = %s\n", BTCOEXVERSION);
 #endif /* BTCOEXVERSION */
 
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 14, 0))
-	ret =wifi_setup_dt();
-	if(ret)
-	{
-		DBG_871X("%s: setup dt failed!!(%d)\n", __FUNCTION__, ret);
-		ret = -1;
-		goto exit;
-	}
-#endif
 	ret = platform_wifi_power_on();
 	if (ret) {
 		RTW_INFO("%s: power on failed!!(%d)\n", __FUNCTION__, ret);
@@ -1064,9 +1051,7 @@ static int __init rtw_drv_entry(void)
 
 poweroff:
 	platform_wifi_power_off();
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 14, 0))
-	wifi_teardown_dt();
-#endif
+
 exit:
 	RTW_PRINT("module init ret=%d\n", ret);
 	return ret;
@@ -1084,9 +1069,6 @@ static void __exit rtw_drv_halt(void)
 
 	platform_wifi_power_off();
 
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 14, 0))
-	wifi_teardown_dt();
-#endif
 	rtw_suspend_lock_uninit();
 	rtw_drv_proc_deinit();
 	rtw_ndev_notifier_unregister();
