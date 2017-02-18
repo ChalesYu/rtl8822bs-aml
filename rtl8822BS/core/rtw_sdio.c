@@ -70,9 +70,9 @@ static u8 sdio_io(struct dvobj_priv *d, u32 addr, void *buf, size_t len, u8 writ
 			rtw_reset_continual_io_error(d);
 			break;
 		}
-	//	RTW_ERR("%s: %s FAIL! error(%d) addr=0x%05x zu bytes, retry=%u,%u\n",
-	//	        __FUNCTION__, write?"write":"read", err, addr, len,
-	//	        retry, ATOMIC_READ(&d->continual_io_error));
+		RTW_ERR("%s: %s FAIL! error(%d) addr=0x%05x %zu bytes, retry=%u,%u\n",
+		        __FUNCTION__, write?"write":"read", err, addr, len,
+		        retry, ATOMIC_READ(&d->continual_io_error));
 
 		retry++;
 		stop_retry = rtw_inc_and_chk_continual_io_error(d);

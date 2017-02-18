@@ -18,12 +18,12 @@
 *
 ******************************************************************************/
 
-/*Image2HeaderVersion: 3.1*/
+/*Image2HeaderVersion: 3.2*/
 #include "mp_precomp.h"
 #include "../phydm_precomp.h"
 
 #if (RTL8822B_SUPPORT == 1)
-static bool
+static boolean
 check_positive(
 	struct PHY_DM_STRUCT *p_dm_odm,
 	const u32	condition1,
@@ -39,10 +39,14 @@ check_positive(
 			((p_dm_odm->board_type & BIT(2)) >> 2) << 4;  /* _BT*/
 
 	u32	cond1 = condition1, cond2 = condition2, cond3 = condition3, cond4 = condition4;
-	u32	driver1 = p_dm_odm->cut_version << 24 |
+
+	u8	cut_version_for_para = (p_dm_odm->cut_version ==  ODM_CUT_A) ? 14 : p_dm_odm->cut_version;
+	u8	pkg_type_for_para = (p_dm_odm->package_type == 0) ? 14 : p_dm_odm->package_type;
+
+	u32	driver1 = cut_version_for_para << 24 |
 			(p_dm_odm->support_interface & 0xF0) << 16 |
 			p_dm_odm->support_platform << 16 |
-			p_dm_odm->package_type << 12 |
+			pkg_type_for_para << 12 |
 			(p_dm_odm->support_interface & 0x0F) << 8  |
 			_board_type;
 
@@ -105,7 +109,7 @@ check_positive(
 	} else
 		return false;
 }
-static bool
+static boolean
 check_negative(
 	struct PHY_DM_STRUCT *p_dm_odm,
 	const u32	condition1,
@@ -3409,7 +3413,7 @@ odm_read_and_config_mp_8822b_agc_tab(
 {
 	u32	i = 0;
 	u8	c_cond;
-	bool	is_matched = true, is_skipped = false;
+	boolean	is_matched = true, is_skipped = false;
 	u32	array_len = sizeof(array_mp_8822b_agc_tab)/sizeof(u32);
 	u32	*array = array_mp_8822b_agc_tab;
 
@@ -4771,7 +4775,7 @@ odm_read_and_config_mp_8822b_phy_reg(
 {
 	u32	i = 0;
 	u8	c_cond;
-	bool	is_matched = true, is_skipped = false;
+	boolean	is_matched = true, is_skipped = false;
 	u32	array_len = sizeof(array_mp_8822b_phy_reg)/sizeof(u32);
 	u32	*array = array_mp_8822b_phy_reg;
 

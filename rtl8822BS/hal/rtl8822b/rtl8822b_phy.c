@@ -533,6 +533,7 @@ static void update_phydm_cominfo(PADAPTER adapter)
 			 | ODM_RF_CALIBRATION
 			 | ODM_BB_NHM_CNT
 /*			 | ODM_BB_PWR_TRAIN*/
+			 | ODM_BB_DYNAMIC_PSDTOOL
 			 ;
 
 	if (rtw_odm_adaptivity_needed(adapter) == _TRUE)
@@ -707,7 +708,9 @@ void rtl8822b_phy_init_haldm(PADAPTER adapter)
 
 	odm_dm_init(p_dm_odm);
 
-	pa_bias_calibration(adapter);
+	/* Run once in hal initialize flow */
+	if (hal->hw_init_completed == _FALSE)
+		pa_bias_calibration(adapter);
 }
 
 static void check_rxfifo_full(PADAPTER adapter)

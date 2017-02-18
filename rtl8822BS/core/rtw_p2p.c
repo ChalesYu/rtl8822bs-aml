@@ -3316,7 +3316,7 @@ static void ro_ch_handler(_adapter *padapter)
 	RTW_INFO("%s, role=%d, p2p_state=%d\n", __func__, rtw_p2p_role(pwdinfo), rtw_p2p_state(pwdinfo));
 #endif
 
-	pcfg80211_wdinfo->is_ro_ch = _FALSE;
+	rtw_cfg80211_set_is_roch(padapter, _FALSE);
 	pcfg80211_wdinfo->last_ro_ch_time = rtw_get_current_time();
 
 	RTW_INFO("cfg80211_remain_on_channel_expired cookie:0x%llx, ch=%d, bw=%d, offset=%d\n"
@@ -3328,6 +3328,9 @@ static void ro_ch_handler(_adapter *padapter)
 				       &pcfg80211_wdinfo->remain_on_ch_channel,
 			       pcfg80211_wdinfo->remain_on_ch_type, GFP_KERNEL);
 
+#ifdef CONFIG_BT_COEXIST
+	rtw_btcoex_ScanNotify(padapter, _FALSE);
+#endif
 }
 
 static void ro_ch_timer_process(void *FunctionContext)

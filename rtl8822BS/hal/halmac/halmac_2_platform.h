@@ -73,6 +73,10 @@ typedef s32	*ps32;
 /*[Driver] define the Platform SDIO Bus CLK */
 #define PLATFORM_SD_CLK	166000000 /*166MHz*/
 
+/*[Driver] define the Rx FIFO expanding mode packet size unit for 8821C and 8822B */
+/* Should be 8 Byte alignment */
+#define HALMAC_RX_FIFO_EXPANDING_MODE_PKT_SIZE	48 /*Bytes*/
+
 /*[Driver] provide the type mutex*/
 /* Mutex type */
 typedef _mutex		HALMAC_MUTEX;

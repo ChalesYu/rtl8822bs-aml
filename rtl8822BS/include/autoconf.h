@@ -131,7 +131,7 @@
 #define DISABLE_BB_RF		0
 #define RTW_NOTCH_FILTER	0 /* 0:Disable, 1:Enable */
 
-/* #define CONFIG_SUPPORT_TRX_SHARED */
+#define CONFIG_SUPPORT_TRX_SHARED
 #ifdef CONFIG_SUPPORT_TRX_SHARED
 #define DFT_TRX_SHARE_MODE	1
 #endif
@@ -205,7 +205,7 @@
 #endif /* !CONFIG_MP_INCLUDED */
 
 #ifdef CONFIG_POWER_SAVING
-	#define CONFIG_IPS
+	//#define CONFIG_IPS
 	#define CONFIG_LPS
 
 	#if defined(CONFIG_LPS) && (defined(CONFIG_GSPI_HCI) || defined(CONFIG_SDIO_HCI))
@@ -215,7 +215,7 @@
 	#ifdef CONFIG_LPS
 		#define CONFIG_CHECK_LEAVE_LPS
 		#ifndef CONFIG_PLATFORM_INTEL_BYT
-		#define CONFIG_LPS_SLOW_TRANSITION
+		//#define CONFIG_LPS_SLOW_TRANSITION
 		#endif /* !CONFIG_PLATFORM_INTEL_BYT */
 	#endif
 

@@ -190,7 +190,7 @@ halmac_mount_api_88xx(
 	PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_INIT, HALMAC_DBG_ERR, "HALMAC_MAJOR_VER_88XX = %x\n", HALMAC_MAJOR_VER_88XX);
 	PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_INIT, HALMAC_DBG_ERR, "HALMAC_PROTOTYPE_88XX = %x\n", HALMAC_PROTOTYPE_VER_88XX);
 	PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_INIT, HALMAC_DBG_ERR, "HALMAC_MINOR_VER_88XX = %x\n", HALMAC_MINOR_VER_88XX);
-
+	PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_INIT, HALMAC_DBG_ERR, "HALMAC_PATCH_VER_88XX = %x\n", HALMAC_PATCH_VER_88XX);
 
 	/* Mount function pointer */
 	pHalmac_api->halmac_download_firmware = halmac_download_firmware_88xx;
@@ -853,7 +853,7 @@ halmac_pre_init_system_cfg_88xx(
 	IN PHALMAC_ADAPTER pHalmac_adapter
 )
 {
-	u32 value32;
+	u32 value32, counter;
 	VOID *pDriver_adapter = NULL;
 	PHALMAC_API pHalmac_api;
 	u8 enable_bb;
@@ -870,6 +870,16 @@ halmac_pre_init_system_cfg_88xx(
 	pHalmac_api = (PHALMAC_API)pHalmac_adapter->pHalmac_api;
 
 	PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_INIT, HALMAC_DBG_TRACE, "halmac_pre_init_system_cfg ==========>\n");
+
+	if (pHalmac_adapter->halmac_interface == HALMAC_INTERFACE_SDIO) {
+		HALMAC_REG_WRITE_8(pHalmac_adapter, REG_SDIO_HSUS_CTRL, HALMAC_REG_READ_8(pHalmac_adapter, REG_SDIO_HSUS_CTRL) & ~(BIT(0)));
+		counter = 10000;
+		while (!(HALMAC_REG_READ_8(pHalmac_adapter, REG_SDIO_HSUS_CTRL) & 0x02)) {
+			counter--;
+			if (counter == 0)
+				return HALMAC_RET_SDIO_LEAVE_SUSPEND_FAIL;
+		}
+	}
 
 	/* Config PIN Mux */
 	value32 = HALMAC_REG_READ_32(pHalmac_adapter, REG_PAD_CTRL1);
@@ -2857,13 +2867,12 @@ halmac_cfg_drv_info_88xx(
 		return status;
 	}
 
+	if (pHalmac_adapter->txff_allocation.rx_fifo_expanding_mode != HALMAC_RX_FIFO_EXPANDING_MODE_DISABLE)
+		drv_info_size = HALMAC_RX_DESC_DUMMY_SIZE_MAX_88XX >> 3;
+
+	HALMAC_REG_WRITE_8(pHalmac_adapter, REG_RX_DRVINFO_SZ, drv_info_size);
+
 	pHalmac_adapter->drv_info_size = drv_info_size;
-
-
-	if (HALMAC_RX_FIFO_EXPANDING_MODE_DISABLE != pHalmac_adapter->txff_allocation.rx_fifo_expanding_mode)
-		HALMAC_REG_WRITE_8(pHalmac_adapter, REG_RX_DRVINFO_SZ, 0xF);
-	else
-		HALMAC_REG_WRITE_8(pHalmac_adapter, REG_RX_DRVINFO_SZ, drv_info_size);
 
 	value32 = HALMAC_REG_READ_32(pHalmac_adapter, REG_RCR);
 	value32 = (value32 & (~BIT_APP_PHYSTS));

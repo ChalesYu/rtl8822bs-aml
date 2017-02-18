@@ -614,7 +614,7 @@ static u8 _btmpoper_cmd(PBTC_COEXIST pBtCoexist, u8 opcode, u8 opcodever, u8 *cm
 		goto exit;
 	}
 	if (!GLBtcBtMpRptBTOK) {
-		RTW_ERR("%s: Didn't get BT response!\n", __FUNCTION__);
+		RTW_DBG("%s: Didn't get BT response!\n", __FUNCTION__);
 		ret = BT_STATUS_H2C_BT_NO_RSP;
 		goto exit;
 	}

@@ -1473,7 +1473,7 @@ u32 p2p_listen_state_process(_adapter *padapter, unsigned char *da)
 
 #ifdef CONFIG_IOCTL_CFG80211
 	if (padapter->wdinfo.driver_interface == DRIVER_CFG80211) {
-		if (padapter->cfg80211_wdinfo.is_ro_ch == _FALSE
+		if (rtw_cfg80211_get_is_roch(padapter) == _FALSE
 		    || rtw_get_oper_ch(padapter) != padapter->wdinfo.listen_channel
 		    || adapter_wdev_data(padapter)->p2p_enabled == _FALSE
 		    || padapter->mlmepriv.wps_probe_resp_ie == NULL
@@ -1485,7 +1485,7 @@ u32 p2p_listen_state_process(_adapter *padapter, unsigned char *da)
 				 padapter->mlmepriv.wps_probe_resp_ie,
 				 padapter->mlmepriv.p2p_probe_resp_ie);
 			RTW_INFO("is_ro_ch:%d, op_ch:%d, p2p_listen_channel:%d\n",
-				 padapter->cfg80211_wdinfo.is_ro_ch,
+				 rtw_cfg80211_get_is_roch(padapter),
 				 rtw_get_oper_ch(padapter),
 				 padapter->wdinfo.listen_channel);
 #endif
@@ -12353,6 +12353,8 @@ void linked_status_chk(_adapter *padapter, u8 from_timer)
 	struct recv_priv	*precvpriv = &padapter->recvpriv;
 #endif
 
+	if (padapter->registrypriv.mp_mode == _TRUE)
+		return;
 
 	if (is_client_associated_to_ap(padapter)) {
 		/* linked infrastructure client mode */
@@ -13854,9 +13856,12 @@ void site_survey(_adapter *padapter, u8 survey_channel, RT_SCAN_TYPE ScanType)
 			if (rtw_p2p_chk_state(pwdinfo, P2P_STATE_SCAN) ||
 			    rtw_p2p_chk_state(pwdinfo, P2P_STATE_FIND_PHASE_SEARCH)
 			   ) {
+			   int i;
+			   for(i=0;i<5;i++) {
 				issue_probereq_p2p(padapter, NULL);
 				issue_probereq_p2p(padapter, NULL);
 				issue_probereq_p2p(padapter, NULL);
+			   }
 			} else
 #endif /* CONFIG_P2P */
 			{

@@ -459,13 +459,6 @@ static u8 recvbuf_handler(struct recv_buf *recvbuf)
 		attrib = &recvframe->u.hdr.attrib;
 		rtl8822b_rxdesc2attribute(attrib, ptr);
 
-#ifdef CONFIG_SUPPORT_TRX_SHARED
-		if (attrib->drvinfo_sz != 120) {
-			rtw_free_recvframe(recvframe, &recvpriv->free_recv_queue);
-			break;
-		}	
-#endif
-
 		rx_report_sz = HALMAC_RX_DESC_SIZE_8822B + attrib->drvinfo_sz;
 		pkt_offset = rx_report_sz + attrib->shift_sz + attrib->pkt_len;
 

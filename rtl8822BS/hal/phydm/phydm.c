@@ -931,6 +931,7 @@ phydm_supportability_init(
 			ODM_BB_RSSI_MONITOR	|
 			ODM_BB_RA_MASK		|
 			ODM_RF_TX_PWR_TRACK	|
+			ODM_BB_DYNAMIC_PSDTOOL	|
 			ODM_MAC_EDCA_TURBO;
 		break;
 

@@ -457,6 +457,7 @@ enum odm_ability_e {
 	ODM_BB_PRIMARY_CCA			= BIT(16),
 	ODM_BB_TXBF					= BIT(17),
 	ODM_BB_DYNAMIC_ARFR			= BIT(18),
+	ODM_BB_DYNAMIC_PSDTOOL		= BIT(19),
 
 	ODM_MAC_EDCA_TURBO			= BIT(20),
 	ODM_BB_DYNAMIC_RX_PATH		= BIT(21),
@@ -758,6 +759,8 @@ enum phy_reg_pg_type {
 	u8			tx_bf_data_rate;
 
 	u8			nbi_set_result;
+	u8			csi_set_result;
+	u8			csi_set_result_2;
 
 	u8			c2h_cmd_start;
 	u8			fw_debug_trace[60];
@@ -1289,6 +1292,16 @@ phydm_api_debug(
 	u32		*_used,
 	char			*output,
 	u32		*_out_len
+);
+
+u8
+phydm_csi_mask_setting(
+	void		*p_dm_void,
+	u32		enable,
+	u32		channel,
+	u32		bw,
+	u32		f_interference,
+	u32		Second_ch
 );
 
 u8

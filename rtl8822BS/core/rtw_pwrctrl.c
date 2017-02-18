@@ -220,7 +220,7 @@ bool rtw_pwr_unassociated_idle(_adapter *adapter)
 			    || check_fwstate(pmlmepriv, WIFI_AP_STATE)
 			    || check_fwstate(pmlmepriv, WIFI_ADHOC_MASTER_STATE | WIFI_ADHOC_STATE)
 #if defined(CONFIG_P2P) && defined(CONFIG_IOCTL_CFG80211)
-			    || pcfg80211_wdinfo->is_ro_ch
+			    || rtw_cfg80211_get_is_roch(iface) == _TRUE
 #elif defined(CONFIG_P2P)
 			    || rtw_p2p_chk_state(pwdinfo, P2P_STATE_IDLE)
 			    || rtw_p2p_chk_state(pwdinfo, P2P_STATE_LISTEN)
@@ -619,7 +619,7 @@ u8 PS_RDY_CHECK(_adapter *padapter)
 	    || check_fwstate(pmlmepriv, WIFI_AP_STATE)
 	    || check_fwstate(pmlmepriv, WIFI_ADHOC_MASTER_STATE | WIFI_ADHOC_STATE)
 #if defined(CONFIG_P2P) && defined(CONFIG_IOCTL_CFG80211)
-	    || pcfg80211_wdinfo->is_ro_ch
+	    || rtw_cfg80211_get_is_roch(padapter) == _TRUE
 #endif
 	    || rtw_is_scan_deny(padapter)
 #ifdef CONFIG_TDLS

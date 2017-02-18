@@ -4813,6 +4813,17 @@ static s32 cfg80211_rtw_update_ft_ies(struct wiphy *wiphy,
 }
 #endif
 
+inline void rtw_cfg80211_set_is_roch(_adapter *adapter, bool val)
+{
+	adapter->cfg80211_wdinfo.is_ro_ch = val;
+	rtw_mi_update_iface_status(&(adapter->mlmepriv), 0);
+}
+
+inline bool rtw_cfg80211_get_is_roch(_adapter *adapter)
+{
+	return adapter->cfg80211_wdinfo.is_ro_ch;
+}
+
 static s32 cfg80211_rtw_remain_on_channel(struct wiphy *wiphy,
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 6, 0))
 	struct wireless_dev *wdev,
@@ -4872,7 +4883,7 @@ static s32 cfg80211_rtw_remain_on_channel(struct wiphy *wiphy,
 	}
 #endif
 
-	if (pcfg80211_wdinfo->is_ro_ch == _TRUE) {
+	if (rtw_cfg80211_get_is_roch(padapter) == _TRUE) {
 		RTW_INFO("%s, cancel ro ch timer\n", __func__);
 		_cancel_timer_ex(&padapter->cfg80211_wdinfo.remain_on_ch_timer);
 		#ifdef CONFIG_CONCURRENT_MODE
@@ -4881,7 +4892,7 @@ static s32 cfg80211_rtw_remain_on_channel(struct wiphy *wiphy,
 		p2p_protocol_wk_hdl(padapter, P2P_RO_CH_WK);
 	}
 
-	pcfg80211_wdinfo->is_ro_ch = _TRUE;
+	rtw_cfg80211_set_is_roch(padapter, _TRUE);
 	pcfg80211_wdinfo->last_ro_ch_time = rtw_get_current_time();
 
 	if (_FAIL == rtw_pwr_wakeup(padapter)) {
@@ -5004,11 +5015,15 @@ static s32 cfg80211_rtw_remain_on_channel(struct wiphy *wiphy,
 	}
 #endif
 
+#ifdef CONFIG_BT_COEXIST
+	rtw_btcoex_ScanNotify(padapter, _TRUE);
+#endif
+
 	rtw_cfg80211_ready_on_channel(padapter, *cookie, channel, channel_type, duration, GFP_KERNEL);
 
 exit:
 	if (err) {
-		pcfg80211_wdinfo->is_ro_ch = _FALSE;
+		rtw_cfg80211_set_is_roch(padapter, _FALSE);
 		pcfg80211_wdinfo->last_ro_ch_time = rtw_get_current_time();
 	}
 
@@ -5044,7 +5059,7 @@ static s32 cfg80211_rtw_cancel_remain_on_channel(struct wiphy *wiphy,
 
 	RTW_INFO(FUNC_ADPT_FMT" cookie:0x%llx\n", FUNC_ADPT_ARG(padapter), cookie);
 
-	if (pcfg80211_wdinfo->is_ro_ch == _TRUE) {
+	if (rtw_cfg80211_get_is_roch(padapter) == _TRUE) {
 		RTW_INFO("%s, cancel ro ch timer\n", __func__);
 		_cancel_timer_ex(&padapter->cfg80211_wdinfo.remain_on_ch_timer);
 		#ifdef CONFIG_CONCURRENT_MODE
@@ -5069,7 +5084,7 @@ static s32 cfg80211_rtw_cancel_remain_on_channel(struct wiphy *wiphy,
 #endif
 	}
 
-	pcfg80211_wdinfo->is_ro_ch = _FALSE;
+	rtw_cfg80211_set_is_roch(padapter, _FALSE);
 	pcfg80211_wdinfo->last_ro_ch_time = rtw_get_current_time();
 
 exit:
@@ -5077,6 +5092,21 @@ exit:
 }
 
 #endif /* CONFIG_P2P */
+
+inline void rtw_cfg80211_set_is_mgmt_tx(_adapter *adapter, u8 val)
+{
+	struct rtw_wdev_priv *wdev_priv = adapter_wdev_data(adapter);
+
+	wdev_priv->is_mgmt_tx = val;
+	rtw_mi_update_iface_status(&(adapter->mlmepriv), 0);
+}
+
+inline u8 rtw_cfg80211_get_is_mgmt_tx(_adapter *adapter)
+{
+	struct rtw_wdev_priv *wdev_priv = adapter_wdev_data(adapter);
+
+	return wdev_priv->is_mgmt_tx;
+}
 
 static int _cfg80211_rtw_mgmt_tx(_adapter *padapter, u8 tx_ch, const u8 *buf, size_t len, int wait_ack)
 {
@@ -5099,11 +5129,14 @@ static int _cfg80211_rtw_mgmt_tx(_adapter *padapter, u8 tx_ch, const u8 *buf, si
 	rtw_mi_set_scan_deny(padapter, 1000);
 	rtw_mi_scan_abort(padapter, _TRUE);
 
+	rtw_cfg80211_set_is_mgmt_tx(padapter, 1);
+
+#ifdef CONFIG_BT_COEXIST
+	rtw_btcoex_ScanNotify(padapter, _TRUE);
+#endif
+
 #ifdef CONFIG_P2P
-	if (padapter->cfg80211_wdinfo.is_ro_ch == _TRUE) {
-		/* RTW_INFO("%s, cancel ro ch timer\n", __func__); */
-		/* _cancel_timer_ex(&padapter->cfg80211_wdinfo.remain_on_ch_timer); */
-		/* padapter->cfg80211_wdinfo.is_ro_ch = _FALSE; */
+	if (rtw_cfg80211_get_is_roch(padapter) == _TRUE) {
 		#ifdef CONFIG_CONCURRENT_MODE
 		if (!check_fwstate(&padapter->mlmepriv, _FW_LINKED)) {
 			RTW_INFO("%s, extend ro ch time\n", __func__);
@@ -5218,6 +5251,11 @@ issue_mgmt_frame:
 		ret = _SUCCESS;
 	}
 exit:
+	rtw_cfg80211_set_is_mgmt_tx(padapter, 0);
+
+#ifdef CONFIG_BT_COEXIST
+	rtw_btcoex_ScanNotify(padapter, _FALSE);
+#endif
 
 #ifdef CONFIG_DEBUG_CFG80211
 	RTW_INFO("%s, ret=%d\n", __func__, ret);

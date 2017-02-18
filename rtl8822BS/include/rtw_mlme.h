@@ -102,10 +102,23 @@ void rtw_wfd_st_switch(struct sta_info *sta, bool on);
 	#define MLME_IS_GC(adapter) 0
 	#define MLME_IS_GO(adapter) 0
 #endif /* !CONFIG_P2P */
+
+#if defined(CONFIG_IOCTL_CFG80211) && defined(CONFIG_P2P)
+#define MLME_IS_ROCH(adapter) (rtw_cfg80211_get_is_roch(adapter) == _TRUE)
+#else
+#define MLME_IS_ROCH(adapter) 0
+#endif
+
 #define MLME_IS_MSRC(adapter) rtw_chk_miracast_mode((adapter), MIRACAST_SOURCE)
 #define MLME_IS_MSINK(adapter) rtw_chk_miracast_mode((adapter), MIRACAST_SINK)
 
-#define MLME_STATE_FMT "%s%s%s%s%s%s%s%s%s%s%s%s%s%s"
+#ifdef CONFIG_IOCTL_CFG80211
+#define MLME_IS_MGMT_TX(adapter) rtw_cfg80211_get_is_mgmt_tx(adapter)
+#else
+#define MLME_IS_MGMT_TX(adapter) 0
+#endif
+
+#define MLME_STATE_FMT "%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s"
 #define MLME_STATE_ARG(adapter) \
 	MLME_IS_STA((adapter)) ? (MLME_IS_GC((adapter)) ? " GC" : " STA") : "", \
 	MLME_IS_AP((adapter)) ? (MLME_IS_GO((adapter)) ? " GO" : " AP") : "", \
@@ -120,6 +133,8 @@ void rtw_wfd_st_switch(struct sta_info *sta, bool on);
 	(MLME_STATE((adapter)) & WIFI_ASOC_STATE) ? " ASOC" : "", \
 	(MLME_STATE((adapter)) & WIFI_OP_CH_SWITCHING) ? " OP_CH_SW" : "", \
 	(MLME_STATE((adapter)) & WIFI_UNDER_WPS) ? " WPS" : "", \
+	MLME_IS_ROCH((adapter)) ? " ROCH" : "", \
+	MLME_IS_MGMT_TX((adapter)) ? " MGMT_TX" : "", \
 	(MLME_STATE((adapter)) & WIFI_SLEEP_STATE) ? " SLEEP" : ""
 
 #define _FW_UNDER_LINKING	WIFI_UNDER_LINKING

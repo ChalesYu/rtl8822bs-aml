@@ -50,13 +50,14 @@ int platform_wifi_power_on(void)
 	}
 #endif /* kernel < 3.14.0 */
 
-/* Seems redundancy? Already done before insert driver */
+#if 1 /* Seems redundancy? Already done before insert driver */
 	printk("######%s: \n",__func__);
 	extern_wifi_set_enable(0);
 	msleep(500);
 	extern_wifi_set_enable(1);
 	msleep(500);
 	sdio_reinit();
+#endif
 #endif /* CONFIG_PLATFORM_AML_S905 */
 
 	return ret;

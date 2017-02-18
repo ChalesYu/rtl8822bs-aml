@@ -990,10 +990,12 @@ int rtw_halmac_poweron(struct dvobj_priv *d)
 	if (status != HALMAC_RET_SUCCESS)
 		goto out;
 
+#ifndef CONFIG_SUPPORT_TRX_SHARED
 #ifdef CONFIG_SDIO_HCI
 	status = api->halmac_sdio_cmd53_4byte(halmac, 1);
 	if (status != HALMAC_RET_SUCCESS)
 		goto out;
+#endif
 #endif
 
 	status = api->halmac_mac_power_switch(halmac, HALMAC_MAC_POWER_ON);

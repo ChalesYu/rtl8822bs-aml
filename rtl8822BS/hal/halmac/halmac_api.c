@@ -108,6 +108,7 @@ halmac_init_adapter(
 	pHalmac_platform_api->MSG_PRINT(pDriver_adapter, HALMAC_MSG_INIT, HALMAC_DBG_ERR, "HALMAC_MAJOR_VER = %x\n", HALMAC_MAJOR_VER);
 	pHalmac_platform_api->MSG_PRINT(pDriver_adapter, HALMAC_MSG_INIT, HALMAC_DBG_ERR, "HALMAC_PROTOTYPE_VER = %x\n", HALMAC_PROTOTYPE_VER);
 	pHalmac_platform_api->MSG_PRINT(pDriver_adapter, HALMAC_MSG_INIT, HALMAC_DBG_ERR, "HALMAC_MINOR_VER = %x\n", HALMAC_MINOR_VER);
+	pHalmac_platform_api->MSG_PRINT(pDriver_adapter, HALMAC_MSG_INIT, HALMAC_DBG_ERR, "HALMAC_PATCH_VER = %x\n", HALMAC_PATCH_VER);
 
 	pHalmac_platform_api->MSG_PRINT(pDriver_adapter, HALMAC_MSG_INIT, HALMAC_DBG_TRACE, "halmac_init_adapter_88xx ==========>\n");
 

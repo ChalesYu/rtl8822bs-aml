@@ -77,7 +77,7 @@ HALMAC_RQPN HALMAC_RQPN_4BULKOUT_8822B[] = {
 HALMAC_PG_NUM HALMAC_PG_NUM_SDIO_8822B[] = {
 	/* { mode, hq_num, nq_num, lq_num, exq_num, gap_num} */
 	{HALMAC_TRX_MODE_NORMAL, 64, 64, 64, 0, 1},
-	{HALMAC_TRX_MODE_TRXSHARE, 64, 64, 64, 0, 1},
+	{HALMAC_TRX_MODE_TRXSHARE, 32, 32, 32, 0, 1},
 	{HALMAC_TRX_MODE_WMM, 64, 64, 64, 0, 1},
 	{HALMAC_TRX_MODE_P2P, 64, 64, 64, 0, 1},
 	{HALMAC_TRX_MODE_LOOPBACK, 64, 64, 64, 0, 640},
@@ -89,7 +89,7 @@ HALMAC_PG_NUM HALMAC_PG_NUM_SDIO_8822B[] = {
 HALMAC_PG_NUM HALMAC_PG_NUM_SDIO_8822B[] = {
 	/* { mode, hq_num, nq_num, lq_num, exq_num, gap_num} */
 	{HALMAC_TRX_MODE_NORMAL, 64, 64, 64, 64, 1},
-	{HALMAC_TRX_MODE_TRXSHARE, 32, 32, 32, 0, 1},
+	{HALMAC_TRX_MODE_TRXSHARE, 32, 32, 32, 32, 1},
 	{HALMAC_TRX_MODE_WMM, 64, 64, 64, 64, 1},
 	{HALMAC_TRX_MODE_P2P, 64, 64, 64, 64, 1},
 	{HALMAC_TRX_MODE_LOOPBACK, 64, 64, 64, 64, 640},
@@ -217,10 +217,13 @@ halmac_priority_queue_config_8822b(
 		} else if (HALMAC_RX_FIFO_EXPANDING_MODE_1_BLOCK == pHalmac_adapter->txff_allocation.rx_fifo_expanding_mode) {
 			pHalmac_adapter->txff_allocation.tx_fifo_pg_num = HALMAC_TX_FIFO_SIZE_RX_FIFO_EXPANDING_1_BLOCK_8822B >> HALMAC_TX_PAGE_SIZE_2_POWER_8822B;
 			pHalmac_adapter->hw_config_info.tx_fifo_size = HALMAC_TX_FIFO_SIZE_RX_FIFO_EXPANDING_1_BLOCK_8822B;
+			if (HALMAC_RX_FIFO_SIZE_RX_FIFO_EXPANDING_1_BLOCK_8822B <= HALMAC_RX_FIFO_SIZE_RX_FIFO_EXPANDING_1_BLOCK_MAX_8822B)
 			pHalmac_adapter->hw_config_info.rx_fifo_size = HALMAC_RX_FIFO_SIZE_RX_FIFO_EXPANDING_1_BLOCK_8822B;
+			else
+				pHalmac_adapter->hw_config_info.rx_fifo_size = HALMAC_RX_FIFO_SIZE_RX_FIFO_EXPANDING_1_BLOCK_MAX_8822B;
 		} else {
 			pHalmac_adapter->txff_allocation.tx_fifo_pg_num = HALMAC_TX_FIFO_SIZE_8822B >> HALMAC_TX_PAGE_SIZE_2_POWER_8822B;
-			PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_INIT, HALMAC_DBG_TRACE, "rx_fifo_expanding_mode = %d not support\n", pHalmac_adapter->txff_allocation.rx_fifo_expanding_mode);
+			PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_INIT, HALMAC_DBG_ERR, "[ERR]rx_fifo_expanding_mode = %d not support\n", pHalmac_adapter->txff_allocation.rx_fifo_expanding_mode);
 		}
 	} else {
 		pHalmac_adapter->txff_allocation.tx_fifo_pg_num = HALMAC_TX_FIFO_SIZE_LA_8822B >> HALMAC_TX_PAGE_SIZE_2_POWER_8822B;

@@ -78,12 +78,16 @@ void rtw_btcoex_ScanNotify(PADAPTER padapter, u8 type)
 	if (_FALSE == pHalData->EEPROMBluetoothCoexist)
 		return;
 
-#ifdef CONFIG_CONCURRENT_MODE
 	if (_FALSE == type) {
+		#ifdef CONFIG_CONCURRENT_MODE
 		if (rtw_mi_buddy_check_fwstate(padapter, WIFI_SITE_MONITOR))
 			return;
+		#endif
+
+		if (DEV_MGMT_TX_NUM(adapter_to_dvobj(padapter))
+			|| DEV_ROCH_NUM(adapter_to_dvobj(padapter)))
+			return;
 	}
-#endif
 
 #ifdef CONFIG_BT_COEXIST_SOCKET_TRX
 	if (pBtMgnt->ExtConfig.bEnableWifiScanNotify)

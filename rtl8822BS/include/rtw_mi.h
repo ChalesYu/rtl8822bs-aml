@@ -33,6 +33,14 @@ struct mi_state {
 	u8 adhoc_num;		/* WIFI_FW_ADHOC_STATE */
 	u8 ld_adhoc_num;	/* WIFI_FW_ADHOC_STATE && asoc_sta_count > 2 */
 	u8 uwps_num;		/*WIFI_UNDER_WPS*/
+
+#ifdef CONFIG_IOCTL_CFG80211
+	#ifdef CONFIG_P2P
+	u8 roch_num;
+	#endif
+	u8 mgmt_tx_num;
+#endif
+
 	u8 union_ch;
 	u8 union_bw;
 	u8 union_offset;
@@ -46,6 +54,19 @@ struct mi_state {
 #define MSTATE_ADHOC_NUM(_mstate)		((_mstate)->adhoc_num)
 #define MSTATE_ADHOC_LD_NUM(_mstate)	((_mstate)->ld_adhoc_num)
 #define MSTATE_WPS_NUM(_mstate)			((_mstate)->uwps_num)
+
+#if defined(CONFIG_IOCTL_CFG80211) && defined(CONFIG_P2P)
+#define MSTATE_ROCH_NUM(_mstate)		((_mstate)->roch_num)
+#else
+#define MSTATE_ROCH_NUM(_mstate)		0
+#endif
+
+#if defined(CONFIG_IOCTL_CFG80211)
+#define MSTATE_MGMT_TX_NUM(_mstate)		((_mstate)->mgmt_tx_num)
+#else
+#define MSTATE_MGMT_TX_NUM(_mstate)		0
+#endif
+
 #define MSTATE_U_CH(_mstate)			((_mstate)->union_ch)
 #define MSTATE_U_BW(_mstate)			((_mstate)->union_bw)
 #define MSTATE_U_OFFSET(_mstate)		((_mstate)->union_offset)

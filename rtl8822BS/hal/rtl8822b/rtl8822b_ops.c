@@ -1843,15 +1843,14 @@ static void hw_var_set_bcn_interval(PADAPTER adapter, u16 bcn_interval)
 	if (adapter->hw_port == HW_PORT1) {
 		/* Port 1(clint 0) */
 		val16 = rtw_read16(adapter, (REG_MBSSID_BCN_SPACE_8822B + 2));
+		val16 &= (~BIT_MASK_BCN_SPACE_CLINT0_8822B);
 		val16 |= (bcn_interval & BIT_MASK_BCN_SPACE_CLINT0_8822B);
 		rtw_write16(adapter, REG_MBSSID_BCN_SPACE_8822B + 2, val16);
 	} else
 #endif
 	{
 		/* Port 0 */
-		val16 = rtw_read16(adapter, (REG_MBSSID_BCN_SPACE_8822B));
-		val16 |= (bcn_interval & BIT_MASK_BCN_SPACE0_8822B);
-		rtw_write16(adapter, REG_MBSSID_BCN_SPACE_8822B, val16);
+		rtw_write16(adapter, REG_MBSSID_BCN_SPACE_8822B, bcn_interval);
 	}
 
 	RTW_INFO("%s: [HW_VAR_BEACON_INTERVAL] 0x%x=0x%x\n", __FUNCTION__,
@@ -3380,8 +3379,12 @@ u8 rtl8822b_gethaldefvar(PADAPTER adapter, HAL_DEF_VARIABLE variable, void *pval
 		break;
 
 	case HW_VAR_MAX_RX_AMPDU_FACTOR:
+#ifdef CONFIG_SUPPORT_TRX_SHARED 
+		*(HT_CAP_AMPDU_FACTOR *)pval = MAX_AMPDU_FACTOR_32K;
+#else
 		/* 8822B RX FIFO is 24KB */
 		*(HT_CAP_AMPDU_FACTOR *)pval = MAX_AMPDU_FACTOR_16K;
+#endif
 		break;
 
 	case HW_DEF_RA_INFO_DUMP: {

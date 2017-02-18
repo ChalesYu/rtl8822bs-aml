@@ -150,6 +150,16 @@ void _rtw_mi_status(_adapter *adapter, struct mi_state *mstate, bool include_sel
 
 		if (check_fwstate(&iface->mlmepriv, WIFI_UNDER_WPS) == _TRUE)
 			MSTATE_WPS_NUM(mstate)++;
+
+#ifdef CONFIG_IOCTL_CFG80211
+		if (rtw_cfg80211_get_is_mgmt_tx(iface))
+			MSTATE_MGMT_TX_NUM(mstate)++;
+		#ifdef CONFIG_P2P
+		if (rtw_cfg80211_get_is_roch(iface) == _TRUE)
+			MSTATE_ROCH_NUM(mstate)++;
+		#endif
+#endif /* CONFIG_IOCTL_CFG80211 */
+
 	}
 }
 
@@ -173,6 +183,12 @@ void dump_mi_status(void *sel, struct dvobj_priv *dvobj)
 	RTW_PRINT_SEL(sel, "linked_adhoc_num:%d\n", DEV_ADHOC_LD_NUM(dvobj));
 #ifdef CONFIG_P2P
 	RTW_PRINT_SEL(sel, "p2p_device_num:%d\n", rtw_mi_stay_in_p2p_mode(dvobj->padapters[IFACE_ID0]));
+#endif
+#if defined(CONFIG_IOCTL_CFG80211)
+	#if defined(CONFIG_P2P)
+	RTW_PRINT_SEL(sel, "roch_num:%d\n", DEV_ROCH_NUM(dvobj));
+	#endif
+	RTW_PRINT_SEL(sel, "mgmt_tx_num:%d\n", DEV_MGMT_TX_NUM(dvobj));
 #endif
 	RTW_PRINT_SEL(sel, "under_wps_num:%d\n", DEV_WPS_NUM(dvobj));
 	RTW_PRINT_SEL(sel, "union_ch:%d\n", DEV_U_CH(dvobj));

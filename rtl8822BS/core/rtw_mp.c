@@ -850,14 +850,14 @@ void MPT_PwrCtlDM(PADAPTER padapter, u32 bstart)
 
 	if (bstart == 1) {
 		RTW_INFO("in MPT_PwrCtlDM start\n");
-		rtw_phydm_func_set(padapter, ODM_RF_TX_PWR_TRACK | ODM_RF_CALIBRATION);
+		rtw_phydm_func_set(padapter, ODM_RF_TX_PWR_TRACK);
 
 		pDM_Odm->rf_calibrate_info.txpowertrack_control = _TRUE;
 		padapter->mppriv.mp_dm = 1;
 
 	} else {
 		RTW_INFO("in MPT_PwrCtlDM stop\n");
-		disable_dm(padapter);
+		rtw_phydm_func_clr(padapter, ODM_RF_TX_PWR_TRACK);
 		pDM_Odm->rf_calibrate_info.txpowertrack_control = _FALSE;
 		padapter->mppriv.mp_dm = 0;
 		{
