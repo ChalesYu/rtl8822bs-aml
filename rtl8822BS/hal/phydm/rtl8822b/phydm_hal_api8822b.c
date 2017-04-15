@@ -111,7 +111,15 @@ phydm_rfe_8822b(
 	u8					channel
 )
 {
-	if (p_dm_odm->rfe_type == 4) {
+
+	/* Distinguish the setting band */
+	if (channel <= 14)
+		p_dm_odm->rfe_hwsetting_band = 1;
+	else
+		p_dm_odm->rfe_hwsetting_band = 2;
+
+	/* HW Setting for each RFE type */
+	if ((p_dm_odm->rfe_type == 4) || (p_dm_odm->rfe_type == 11)) {
 
 		/*TRSW  = trsw_forced_BT ? 0x804[0] : (0xCB8[2] ? 0xCB8[0] : trsw_lut);	trsw_lut = TXON*/
 		/*TRSWB = trsw_forced_BT ? (~0x804[0]) : (0xCB8[2] ? 0xCB8[1] : trswb_lut);	trswb_lut = TXON*/
@@ -178,7 +186,9 @@ phydm_rfe_8822b(
 			return false;
 
 
-	} else {
+	} 
+	else if ((p_dm_odm->rfe_type == 1) || (p_dm_odm->rfe_type == 2) || (p_dm_odm->rfe_type == 7) || (p_dm_odm->rfe_type == 9)) {
+		/* eFem */
 		if (((p_dm_odm->cut_version == ODM_CUT_A) || (p_dm_odm->cut_version == ODM_CUT_B)) && (p_dm_odm->rfe_type < 2)) {
 			if (channel <= 14) {
 				/* signal source */
@@ -211,16 +221,20 @@ phydm_rfe_8822b(
 		} else {
 			if (channel <= 14) {
 				/* signal source */
-				odm_set_bb_reg(p_dm_odm, 0xcb0, (MASKBYTE2 | MASKLWORD), 0x745774);
-				odm_set_bb_reg(p_dm_odm, 0xeb0, (MASKBYTE2 | MASKLWORD), 0x745774);
+				odm_set_bb_reg(p_dm_odm, 0xcb0, (MASKBYTE2 | MASKLWORD), 0x705770);
+				odm_set_bb_reg(p_dm_odm, 0xeb0, (MASKBYTE2 | MASKLWORD), 0x705770);
 				odm_set_bb_reg(p_dm_odm, 0xcb4, MASKBYTE1, 0x57);
 				odm_set_bb_reg(p_dm_odm, 0xeb4, MASKBYTE1, 0x57);
+				odm_set_bb_reg(p_dm_odm, 0xcb8, BIT(4), 0);
+				odm_set_bb_reg(p_dm_odm, 0xeb8, BIT(4), 0);
 			} else if (channel > 35) {
 				/* signal source */
-				odm_set_bb_reg(p_dm_odm, 0xcb0, (MASKBYTE2 | MASKLWORD), 0x477547);
-				odm_set_bb_reg(p_dm_odm, 0xeb0, (MASKBYTE2 | MASKLWORD), 0x477547);
+				odm_set_bb_reg(p_dm_odm, 0xcb0, (MASKBYTE2 | MASKLWORD), 0x177517);
+				odm_set_bb_reg(p_dm_odm, 0xeb0, (MASKBYTE2 | MASKLWORD), 0x177517);
 				odm_set_bb_reg(p_dm_odm, 0xcb4, MASKBYTE1, 0x75);
 				odm_set_bb_reg(p_dm_odm, 0xeb4, MASKBYTE1, 0x75);
+				odm_set_bb_reg(p_dm_odm, 0xcb8, BIT(5), 0);
+				odm_set_bb_reg(p_dm_odm, 0xeb8, BIT(5), 0);
 			} else
 				return false;
 
@@ -247,6 +261,64 @@ phydm_rfe_8822b(
 				odm_set_bb_reg(p_dm_odm, 0xca0, MASKLWORD, 0xa005);
 				odm_set_bb_reg(p_dm_odm, 0xea0, MASKLWORD, 0xa005);
 			}
+		}
+	} else if ((p_dm_odm->rfe_type == 0) || (p_dm_odm->rfe_type == 3) || (p_dm_odm->rfe_type == 5) || (p_dm_odm->rfe_type == 8) || (p_dm_odm->rfe_type == 10) || (p_dm_odm->rfe_type == 12)) {
+		/* iFEM */
+		if (channel <= 14) {
+			/* signal source */
+			/*odm_set_bb_reg(p_dm_odm, 0xcb0, (MASKBYTE2 | MASKLWORD), 0x705770);
+			odm_set_bb_reg(p_dm_odm, 0xeb0, (MASKBYTE2 | MASKLWORD), 0x705770);
+			odm_set_bb_reg(p_dm_odm, 0xcb4, MASKBYTE1, 0x57);
+			odm_set_bb_reg(p_dm_odm, 0xeb4, MASKBYTE1, 0x57);
+			odm_set_bb_reg(p_dm_odm, 0xcb8, BIT4, 0);
+			odm_set_bb_reg(p_dm_odm, 0xeb8, BIT4, 0);*/
+
+			odm_set_bb_reg(p_dm_odm, 0xcb0, (MASKBYTE2 | MASKLWORD), 0x745774);
+			odm_set_bb_reg(p_dm_odm, 0xeb0, (MASKBYTE2 | MASKLWORD), 0x745774);
+			odm_set_bb_reg(p_dm_odm, 0xcb4, MASKBYTE1, 0x57);
+			odm_set_bb_reg(p_dm_odm, 0xeb4, MASKBYTE1, 0x57);
+	
+		} else if (channel > 35) {
+			/* signal source */
+			/*odm_set_bb_reg(p_dm_odm, 0xcb0, (MASKBYTE2 | MASKLWORD), 0x177517);
+			odm_set_bb_reg(p_dm_odm, 0xeb0, (MASKBYTE2 | MASKLWORD), 0x177517);
+			odm_set_bb_reg(p_dm_odm, 0xcb4, MASKBYTE1, 0x75);
+			odm_set_bb_reg(p_dm_odm, 0xeb4, MASKBYTE1, 0x75);
+			odm_set_bb_reg(p_dm_odm, 0xcb8, BIT5, 1);
+			odm_set_bb_reg(p_dm_odm, 0xeb8, BIT5, 1);*/
+
+			odm_set_bb_reg(p_dm_odm, 0xcb0, (MASKBYTE2 | MASKLWORD), 0x477547);
+			odm_set_bb_reg(p_dm_odm, 0xeb0, (MASKBYTE2 | MASKLWORD), 0x477547);
+			odm_set_bb_reg(p_dm_odm, 0xcb4, MASKBYTE1, 0x75);
+			odm_set_bb_reg(p_dm_odm, 0xeb4, MASKBYTE1, 0x75);
+			
+		} else
+			return false;
+
+		/* inverse or not */
+		odm_set_bb_reg(p_dm_odm, 0xcbc, (BIT(5) | BIT(4) | BIT(3) | BIT(2) | BIT(1) | BIT(0)), 0x0);
+		odm_set_bb_reg(p_dm_odm, 0xcbc, (BIT(11) | BIT(10)), 0x0);
+		odm_set_bb_reg(p_dm_odm, 0xebc, (BIT(5) | BIT(4) | BIT(3) | BIT(2) | BIT(1) | BIT(0)), 0x0);
+		odm_set_bb_reg(p_dm_odm, 0xebc, (BIT(11) | BIT(10)), 0x0);
+
+		/* antenna switch table */
+		if (channel <= 14) {
+			if ((p_dm_odm->rx_ant_status == (ODM_RF_A | ODM_RF_B)) || (p_dm_odm->tx_ant_status == (ODM_RF_A | ODM_RF_B))) {
+				/* 2TX or 2RX */
+				odm_set_bb_reg(p_dm_odm, 0xca0, MASKLWORD, 0xa501);
+				odm_set_bb_reg(p_dm_odm, 0xea0, MASKLWORD, 0xa501);
+			} else if (p_dm_odm->rx_ant_status == p_dm_odm->tx_ant_status) {
+				/* TXA+RXA or TXB+RXB */
+				odm_set_bb_reg(p_dm_odm, 0xca0, MASKLWORD, 0xa500);
+				odm_set_bb_reg(p_dm_odm, 0xea0, MASKLWORD, 0xa500);
+			} else {
+				/* TXB+RXA or TXA+RXB */
+				odm_set_bb_reg(p_dm_odm, 0xca0, MASKLWORD, 0xa005);
+				odm_set_bb_reg(p_dm_odm, 0xea0, MASKLWORD, 0xa005);
+			}
+		} else if (channel > 35) {
+			odm_set_bb_reg(p_dm_odm, 0xca0, MASKLWORD, 0xa5a5);
+			odm_set_bb_reg(p_dm_odm, 0xea0, MASKLWORD, 0xa5a5);
 		}
 	}
 
@@ -354,7 +426,7 @@ phydm_ccapar_by_rfe_8822b(
 			col = 3;
 	}
 
-	if ((p_dm_odm->rfe_type == 1) || (p_dm_odm->rfe_type == 4) || (p_dm_odm->rfe_type == 6) || (p_dm_odm->rfe_type == 7)) {
+	if ((p_dm_odm->rfe_type == 1) || (p_dm_odm->rfe_type == 4) || (p_dm_odm->rfe_type == 6) || (p_dm_odm->rfe_type == 7) || (p_dm_odm->rfe_type == 11)) {
 		/*eFEM => RFE type 1 & RFE type 4 & RFE type 6 & RFE type 7*/
 		reg82c = (cca_efem[row][col] != 0) ? cca_efem[row][col] : reg82c_8822b;
 		reg830 = (cca_efem[row + 1][col] != 0) ? cca_efem[row + 1][col] : reg830_8822b;
@@ -374,7 +446,7 @@ phydm_ccapar_by_rfe_8822b(
 			reg83c = (cca_efem[row + 3][col] != 0) ? cca_efem[row + 3][col] : reg83c_8822b;
 		}
 	} else {
-		/*iFEM =>RFEtype 3 & RFE type 5 & RFE type 0 & RFE type 8*/
+		/* iFEM =>RFEtype 3 & RFE type 5 & RFE type 0 & RFE type 8 & RFE type 10 */
 		reg82c = (cca_ifem[row][col] != 0) ? cca_ifem[row][col] : reg82c_8822b;
 		reg830 = (cca_ifem[row + 1][col] != 0) ? cca_ifem[row + 1][col] : reg830_8822b;
 		reg838 = (cca_ifem[row + 2][col] != 0) ? cca_ifem[row + 2][col] : reg838_8822b;
@@ -585,13 +657,32 @@ phydm_init_hw_info_by_rfe_type_8822b(
 		odm_cmn_info_init(p_dm_odm, ODM_CMNINFO_5G_EXT_LNA, true);
 		odm_cmn_info_init(p_dm_odm, ODM_CMNINFO_EXT_PA, false);
 		odm_cmn_info_init(p_dm_odm, ODM_CMNINFO_5G_EXT_PA, false);
-	} else if ((p_dm_odm->rfe_type == 3) || (p_dm_odm->rfe_type == 5)) {
+	} else if (p_dm_odm->rfe_type == 3) {
 		/* RFE type 3: 8822BS\8822BU TFBGA iFEM */
-		/* RFE type 5: 8822BE TFBGA iFEM */
 		odm_cmn_info_init(p_dm_odm, ODM_CMNINFO_BOARD_TYPE, 0);
+		
+		odm_cmn_info_init(p_dm_odm, ODM_CMNINFO_PACKAGE_TYPE, 2);
+		
+		odm_cmn_info_init(p_dm_odm, ODM_CMNINFO_EXT_LNA, false);
+		odm_cmn_info_init(p_dm_odm, ODM_CMNINFO_5G_EXT_LNA, false);
+		odm_cmn_info_init(p_dm_odm, ODM_CMNINFO_EXT_PA, false);
+		odm_cmn_info_init(p_dm_odm, ODM_CMNINFO_5G_EXT_PA, false);
+	} else if (p_dm_odm->rfe_type == 5) {
+		/* RFE type 5: 8822BE TFBGA iFEM */
+		odm_cmn_info_init(p_dm_odm, ODM_CMNINFO_BOARD_TYPE, ODM_BOARD_SLIM);
 
 		odm_cmn_info_init(p_dm_odm, ODM_CMNINFO_PACKAGE_TYPE, 2);
 
+		odm_cmn_info_init(p_dm_odm, ODM_CMNINFO_EXT_LNA, false);
+		odm_cmn_info_init(p_dm_odm, ODM_CMNINFO_5G_EXT_LNA, false);
+		odm_cmn_info_init(p_dm_odm, ODM_CMNINFO_EXT_PA, false);
+		odm_cmn_info_init(p_dm_odm, ODM_CMNINFO_5G_EXT_PA, false);
+	} else if (p_dm_odm->rfe_type == 12) {
+		/* RFE type 12: QFN iFEM */
+		odm_cmn_info_init(p_dm_odm, ODM_CMNINFO_BOARD_TYPE, 0);
+
+		odm_cmn_info_init(p_dm_odm, ODM_CMNINFO_PACKAGE_TYPE, 1);
+		
 		odm_cmn_info_init(p_dm_odm, ODM_CMNINFO_EXT_LNA, false);
 		odm_cmn_info_init(p_dm_odm, ODM_CMNINFO_5G_EXT_LNA, false);
 		odm_cmn_info_init(p_dm_odm, ODM_CMNINFO_EXT_PA, false);
@@ -609,7 +700,22 @@ phydm_init_hw_info_by_rfe_type_8822b(
 		odm_cmn_info_init(p_dm_odm, ODM_CMNINFO_5G_EXT_LNA, true);
 		odm_cmn_info_init(p_dm_odm, ODM_CMNINFO_EXT_PA, true);
 		odm_cmn_info_init(p_dm_odm, ODM_CMNINFO_5G_EXT_PA, true);
+	} else if (p_dm_odm->rfe_type == 11) {
+		odm_cmn_info_init(p_dm_odm, ODM_CMNINFO_BOARD_TYPE, (ODM_BOARD_EXT_LNA | ODM_BOARD_EXT_LNA_5G | ODM_BOARD_EXT_PA | ODM_BOARD_EXT_PA_5G));
+		odm_cmn_info_init(p_dm_odm, ODM_CMNINFO_GPA, (TYPE_GPA1 & (mask_path_a | mask_path_b)));
+		odm_cmn_info_init(p_dm_odm, ODM_CMNINFO_APA, (TYPE_APA1 & (mask_path_a | mask_path_b)));
+		odm_cmn_info_init(p_dm_odm, ODM_CMNINFO_GLNA, (TYPE_GLNA1 & (mask_path_a | mask_path_b)));
+		odm_cmn_info_init(p_dm_odm, ODM_CMNINFO_ALNA, (TYPE_ALNA1 & (mask_path_a | mask_path_b)));
+		
+		odm_cmn_info_init(p_dm_odm, ODM_CMNINFO_PACKAGE_TYPE, 2);
+		
+		odm_cmn_info_init(p_dm_odm, ODM_CMNINFO_EXT_LNA, true);
+		odm_cmn_info_init(p_dm_odm, ODM_CMNINFO_5G_EXT_LNA, true);
+		odm_cmn_info_init(p_dm_odm, ODM_CMNINFO_EXT_PA, true);
+		odm_cmn_info_init(p_dm_odm, ODM_CMNINFO_5G_EXT_PA, true);
+
 	} else if (p_dm_odm->rfe_type == 8) {
+	/* RFE type 8: TFBGA iFEM AP */
 		odm_cmn_info_init(p_dm_odm, ODM_CMNINFO_BOARD_TYPE, 0);
 
 		odm_cmn_info_init(p_dm_odm, ODM_CMNINFO_PACKAGE_TYPE, 2);
@@ -618,7 +724,18 @@ phydm_init_hw_info_by_rfe_type_8822b(
 		odm_cmn_info_init(p_dm_odm, ODM_CMNINFO_5G_EXT_LNA, false);
 		odm_cmn_info_init(p_dm_odm, ODM_CMNINFO_EXT_PA, false);
 		odm_cmn_info_init(p_dm_odm, ODM_CMNINFO_5G_EXT_PA, false);
+	} else if (p_dm_odm->rfe_type == 10) {
+	/* RFE type 10: QFN iFEM AP PCIE TRSW */
+		odm_cmn_info_init(p_dm_odm, ODM_CMNINFO_BOARD_TYPE, ODM_BOARD_EXT_TRSW);
+
+		odm_cmn_info_init(p_dm_odm, ODM_CMNINFO_PACKAGE_TYPE, 1);
+
+		odm_cmn_info_init(p_dm_odm, ODM_CMNINFO_EXT_LNA, false);
+		odm_cmn_info_init(p_dm_odm, ODM_CMNINFO_5G_EXT_LNA, false);
+		odm_cmn_info_init(p_dm_odm, ODM_CMNINFO_EXT_PA, false);
+		odm_cmn_info_init(p_dm_odm, ODM_CMNINFO_5G_EXT_PA, false);
 	} else {
+	/* RFE Type 0: QFN iFEM */
 		odm_cmn_info_init(p_dm_odm, ODM_CMNINFO_BOARD_TYPE, 0);
 
 		odm_cmn_info_init(p_dm_odm, ODM_CMNINFO_PACKAGE_TYPE, 1);
@@ -1031,11 +1148,12 @@ phydm_dynamic_spur_det_elimitor(
 				/* DbgPrint("freq_pos_B = 0x%X\n", freq_pt_5G_B_final); */
 
 		for (j = 0; j < number_of_psd_value; j++) {
-					if ((rf_state == 0x1) || (rf_state == 0x2)) {
+			if ((rf_state == 0x1) || (rf_state == 0x2)) {
 				reg_910_15_14 = odm_get_bb_reg(p_dm_odm, 0x910, (BIT15 | BIT14));
 				reg_910_13_12 = odm_get_bb_reg(p_dm_odm, 0x910, (BIT13 | BIT12));
 				odm_set_bb_reg(p_dm_odm, 0xe00, bMaskByte0, 0x4);/* disable 3-wire, path-B */
 				odm_set_bb_reg(p_dm_odm, 0xc00, bMaskByte0, 0x4);/* disable 3-wire, path-A */
+					
 				if ((*p_dm_odm->p_channel > 0) & (*p_dm_odm->p_channel <= 14)) {
 							odm_set_bb_reg(p_dm_odm, 0x910, bMaskDWord, freq_pt_2G_final);/* Setup PSD */
 							odm_set_bb_reg(p_dm_odm, 0x910, bMaskDWord, 0x400000 | freq_pt_2G_final);/* Start PSD */
@@ -1049,17 +1167,16 @@ phydm_dynamic_spur_det_elimitor(
 				ODM_delay_us(500);
 
 				psd_set[j] = odm_get_bb_reg(p_dm_odm, 0xf44, bMaskLWord);
-				/* DbgPrint("PSD_result = 0x%X\n", psd_set[j]); */
 
 				if ((*p_dm_odm->p_channel > 0) & (*p_dm_odm->p_channel <= 14))
 							odm_set_bb_reg(p_dm_odm, 0x910, bMaskDWord, freq_pt_2G_final); /* turn off PSD */
-				else if (*p_dm_odm->p_channel >= 36) {
+					else if (*p_dm_odm->p_channel >= 36)
 							odm_set_bb_reg(p_dm_odm, 0x910, bMaskDWord, freq_pt_5G_final);/* turn off PSD */
+					
 				odm_set_bb_reg(p_dm_odm, 0xc00, bMaskByte0, 0x7);/* enable 3-wire */
 				odm_set_bb_reg(p_dm_odm, 0xe00, bMaskByte0, 0x7);/* enable 3-wire */
 				odm_set_bb_reg(p_dm_odm, 0x910, (BIT(15) | BIT(14)), reg_910_15_14);
 				odm_set_bb_reg(p_dm_odm, 0x910, (BIT(13) | BIT(12)), reg_910_13_12);
-				}
 			} else if (rf_state == 0x3) {
 				for (i = 1; i < 3; i++) {
 					reg_910_15_14 = odm_get_bb_reg(p_dm_odm, 0x910, (BIT(15) | BIT(14)));
@@ -1094,11 +1211,6 @@ phydm_dynamic_spur_det_elimitor(
 									odm_set_bb_reg(p_dm_odm, 0x910, bMaskDWord, freq_pt_2G_final);/* turn off PSD */
 						else
 									odm_set_bb_reg(p_dm_odm, 0x910, bMaskDWord, freq_pt_5G_final);/* turn off PSD */
-
-						odm_set_bb_reg(p_dm_odm, 0xc00, bMaskByte0, 0x7);/* enable 3-wire */
-						odm_set_bb_reg(p_dm_odm, 0xe00, bMaskByte0, 0x7);/* enable 3-wire */
-						odm_set_bb_reg(p_dm_odm, 0x910, (BIT(15) | BIT(14)), reg_910_15_14);
-						odm_set_bb_reg(p_dm_odm, 0x910, (BIT(13) | BIT(12)), reg_910_13_12);
 					} else if (i == 2) {
 						ofdm_rx_path = i;
 						odm_set_bb_reg(p_dm_odm, 0x808, bMaskByte0, (((ofdm_rx_path)<<4)|ofdm_rx_path));
@@ -1125,12 +1237,12 @@ phydm_dynamic_spur_det_elimitor(
 									odm_set_bb_reg(p_dm_odm, 0x910, bMaskDWord, freq_pt_2G_B_final);
 						else if (*p_dm_odm->p_channel >= 36)
 									odm_set_bb_reg(p_dm_odm, 0x910, bMaskDWord, freq_pt_5G_B_final);
-
-						odm_set_bb_reg(p_dm_odm, 0xc00, bMaskByte0, 0x7);
-						odm_set_bb_reg(p_dm_odm, 0xe00, bMaskByte0, 0x7);
+					}
+					odm_set_bb_reg(p_dm_odm, 0xc00, bMaskByte0, 0x7);/* enable 3-wire */
+					odm_set_bb_reg(p_dm_odm, 0xe00, bMaskByte0, 0x7);/* enable 3-wire */
 						odm_set_bb_reg(p_dm_odm, 0x910, (BIT(15) | BIT(14)), reg_910_15_14);
 						odm_set_bb_reg(p_dm_odm, 0x910, (BIT(13) | BIT(12)), reg_910_13_12);
-					}
+
 					ofdm_rx_path = 3;/* Path-AB */
 					odm_set_bb_reg(p_dm_odm, 0x808, bMaskByte0, (((ofdm_rx_path)<<4)|ofdm_rx_path));
 
@@ -1140,9 +1252,9 @@ phydm_dynamic_spur_det_elimitor(
 							odm_set_bb_reg(p_dm_odm, ODM_REG(IGI_B, p_dm_odm), ODM_BIT(IGI, p_dm_odm), IGI - 2);
 							odm_set_bb_reg(p_dm_odm, ODM_REG(IGI_A, p_dm_odm), ODM_BIT(IGI, p_dm_odm), IGI);
 							odm_set_bb_reg(p_dm_odm, ODM_REG(IGI_B, p_dm_odm), ODM_BIT(IGI, p_dm_odm), IGI);
-
 				}
 			}
+					
 		}
 		if ((rf_state == 0x1) || (rf_state == 0x2)) {
 			phydm_seq_sorting(p_dm_odm, psd_set, rank_psd_index_in, rank_psd_index_out, number_of_psd_value);
@@ -1153,6 +1265,7 @@ phydm_dynamic_spur_det_elimitor(
 					max_ret_PSD_2nd[k] = psd_set[0];
 					max_ret_PSD_B_2nd[k] = psd_set_B[0];
 		}
+
 	}
 
 		/* Find the max. pw */
@@ -1523,6 +1636,13 @@ config_phydm_switch_band_8822b(
 
 		/* RF band */
 		rf_reg18 = (rf_reg18 & (~(BIT(16) | BIT(9) | BIT(8))));
+
+		/* RxHP dynamic control */
+		if ((p_dm_odm->rfe_type == 2) || (p_dm_odm->rfe_type == 3) || (p_dm_odm->rfe_type == 5)) {
+			odm_set_bb_reg(p_dm_odm, 0x8cc, bMaskDWord, 0x08108492);
+			odm_set_bb_reg(p_dm_odm, 0x8d8, bMaskDWord, 0x29095612);
+			}
+		
 	} else if (central_ch > 35) {
 		/* 5G */
 
@@ -1542,6 +1662,13 @@ config_phydm_switch_band_8822b(
 		/* RF band */
 		rf_reg18 = (rf_reg18 & (~(BIT(16) | BIT(9) | BIT(8))));
 		rf_reg18 = (rf_reg18 | BIT(8) | BIT(16));
+
+		/* RxHP dynamic control */
+		if ((p_dm_odm->rfe_type == 2) || (p_dm_odm->rfe_type == 3) || (p_dm_odm->rfe_type == 5)) {
+			odm_set_bb_reg(p_dm_odm, 0x8cc, bMaskDWord, 0x08100000);
+			odm_set_bb_reg(p_dm_odm, 0x8d8, bMaskDWord, 0x21095612);
+			}
+		
 	} else {
 		ODM_RT_TRACE(p_dm_odm, ODM_PHY_CONFIG, ODM_DBG_TRACE, ("config_phydm_switch_band_8822b(): Fail to switch band (ch: %d)\n", central_ch));
 		return false;
@@ -1581,6 +1708,7 @@ config_phydm_switch_channel_8822b(
 	u8		middle_band[23] = {0x6, 0x5, 0x0, 0x0, 0x7, 0x6, 0x6, 0xff, 0x0, 0x0, 0x7, 0x6, 0x6, 0x5, 0x0, 0xff, 0x7, 0x6, 0x6, 0x5, 0x0, 0x0, 0x7};
 	u8		high_band[15] = {0x5, 0x5, 0x0, 0x7, 0x7, 0x6, 0x5, 0xff, 0x0, 0x7, 0x7, 0x6, 0x5, 0x5, 0x0};
 	u32		igi = 0;
+	u8		band_index = 0;
 
 	ODM_RT_TRACE(p_dm_odm, ODM_PHY_CONFIG, ODM_DBG_TRACE, ("config_phydm_switch_channel_8822b()====================>\n"));
 
@@ -1590,6 +1718,17 @@ config_phydm_switch_channel_8822b(
 	}
 
 	central_ch_8822b = central_ch;
+
+	/* Errir handling for wrong HW setting due to wrong channel setting */
+	if (central_ch_8822b <= 14)
+		band_index = 1;
+	else
+		band_index = 2;
+
+	if (p_dm_odm->rfe_hwsetting_band != band_index)
+		phydm_rfe_8822b(p_dm_odm, central_ch_8822b);
+
+	/* RF register setting */
 	rf_reg18 = config_phydm_read_rf_reg_8822b(p_dm_odm, ODM_RF_PATH_A, 0x18, RFREGOFFSETMASK);
 	rf_reg_status = rf_reg_status & config_phydm_read_rf_check_8822b(rf_reg18);
 	rf_reg18 = (rf_reg18 & (~(BIT(18) | BIT(17) | MASKBYTE0)));

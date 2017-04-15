@@ -3759,10 +3759,12 @@ static s32 rtw_mp_cmd_hdl(_adapter *padapter, u8 mp_cmd_id)
 {
 	HAL_DATA_TYPE	*pHalData = GET_HAL_DATA(padapter);
 	int ret = H2C_SUCCESS;
+	uint status = _SUCCESS;
 	u8 rfreg0;
 
 	if (mp_cmd_id == MP_START) {
 		if (padapter->registrypriv.mp_mode == 0) {
+			rtw_intf_stop(padapter);
 			rtw_hal_deinit(padapter);
 			padapter->registrypriv.mp_mode = 1;
 #ifdef CONFIG_RF_POWER_TRIM
@@ -3771,7 +3773,13 @@ static s32 rtw_mp_cmd_hdl(_adapter *padapter, u8 mp_cmd_id)
 				rtw_hal_read_chip_info(padapter);
 			}
 #endif /*CONFIG_RF_POWER_TRIM*/
-			rtw_hal_init(padapter);
+			rtw_reset_drv_sw(padapter);
+			status = rtw_hal_init(padapter);
+			if (status == _FAIL) {
+				ret = H2C_REJECTED;
+				goto exit;
+			}
+			rtw_intf_start(padapter);
 #ifdef RTW_HALMAC /*for New IC*/
 			MPT_InitializeAdapter(padapter, 1);
 #endif /* CONFIG_MP_INCLUDED */
@@ -3824,9 +3832,16 @@ static s32 rtw_mp_cmd_hdl(_adapter *padapter, u8 mp_cmd_id)
 	} else if (mp_cmd_id == MP_STOP) {
 		if (padapter->registrypriv.mp_mode == 1) {
 			MPT_DeInitAdapter(padapter);
+			rtw_intf_stop(padapter);
 			rtw_hal_deinit(padapter);
 			padapter->registrypriv.mp_mode = 0;
-			rtw_hal_init(padapter);
+			rtw_reset_drv_sw(padapter);
+			status = rtw_hal_init(padapter);
+			if (status == _FAIL) {
+				ret = H2C_REJECTED;
+				goto exit;
+			}
+			rtw_intf_start(padapter);
 		}
 
 		if (padapter->mppriv.mode != MP_OFF) {

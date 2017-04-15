@@ -611,21 +611,21 @@ halmac_download_firmware_88xx(
 	pFile_ptr = pHamacl_fw + HALMAC_FWHDR_SIZE_88XX;
 	/* if (HALMAC_RET_SUCCESS != halmac_dlfw_to_mem_88xx(pHalmac_adapter, pFile_ptr, HALMAC_OCPBASE_DMEM_88XX, dmem_pkt_size)) */
 	if (HALMAC_RET_SUCCESS != halmac_dlfw_to_mem_88xx(pHalmac_adapter, pFile_ptr,
-		    rtk_le32_to_cpu((*((u32 *)(pHamacl_fw + HALMAC_FWHDR_OFFSET_DMEM_ADDR_88XX))) & ~(BIT(31))), dmem_pkt_size))
+		    rtk_le32_to_cpu(*((u32 *)(pHamacl_fw + HALMAC_FWHDR_OFFSET_DMEM_ADDR_88XX))) & ~(BIT(31)), dmem_pkt_size))
 		goto DLFW_END;
 
 	/* Download to IMEM */
 	pFile_ptr = pHamacl_fw + HALMAC_FWHDR_SIZE_88XX + dmem_pkt_size;
 	/* if (HALMAC_RET_SUCCESS != halmac_dlfw_to_mem_88xx(pHalmac_adapter, pFile_ptr, HALMAC_OCPBASE_IMEM_88XX, iram_pkt_size)) */
 	if (HALMAC_RET_SUCCESS != halmac_dlfw_to_mem_88xx(pHalmac_adapter, pFile_ptr,
-		    rtk_le32_to_cpu((*((u32 *)(pHamacl_fw + HALMAC_FWHDR_OFFSET_IRAM_ADDR_88XX))) & ~(BIT(31))), iram_pkt_size))
+		    rtk_le32_to_cpu(*((u32 *)(pHamacl_fw + HALMAC_FWHDR_OFFSET_IRAM_ADDR_88XX))) & ~(BIT(31)), iram_pkt_size))
 		goto DLFW_END;
 
 	/* Download to EMEM */
 	if (0 != eram_pkt_size) {
 		pFile_ptr = pHamacl_fw + HALMAC_FWHDR_SIZE_88XX + dmem_pkt_size + iram_pkt_size;
 		if (HALMAC_RET_SUCCESS != halmac_dlfw_to_mem_88xx(pHalmac_adapter, pFile_ptr,
-			    rtk_le32_to_cpu((*((u32 *)(pHamacl_fw + HALMAC_FWHDR_OFFSET_EMEM_ADDR_88XX))) & ~(BIT(31))), eram_pkt_size))
+			    rtk_le32_to_cpu(*((u32 *)(pHamacl_fw + HALMAC_FWHDR_OFFSET_EMEM_ADDR_88XX))) & ~(BIT(31)), eram_pkt_size))
 			goto DLFW_END;
 	}
 
@@ -3109,6 +3109,9 @@ halmac_fill_txdesc_check_sum_88xx(
 	for (i = 0; i < 8; i++)
 		chk_result ^= (*(pData + 2 * i) ^ *(pData + (2 * i + 1)));
 
+	/* *(pData + 2 * i) & *(pData + (2 * i + 1) have endain issue*/
+	/* Process eniadn issue after checksum calculation */
+	chk_result = rtk_le16_to_cpu(chk_result);
 	SET_TX_DESC_TXDESC_CHECKSUM(pCur_desc, chk_result);
 
 	return HALMAC_RET_SUCCESS;

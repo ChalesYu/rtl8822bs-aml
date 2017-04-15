@@ -549,6 +549,7 @@ static void update_phydm_cominfo(PADAPTER adapter)
 		support_ability = 0
 				 | ODM_RF_CALIBRATION
 				 | ODM_RF_TX_PWR_TRACK
+				 | ODM_BB_DYNAMIC_PSDTOOL
 				 ;
 	}
 #endif /* CONFIG_MP_INCLUDED */

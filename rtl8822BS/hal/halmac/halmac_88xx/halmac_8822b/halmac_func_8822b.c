@@ -283,6 +283,11 @@ halmac_priority_queue_config_8822b(
 
 	HALMAC_REG_WRITE_16(pHalmac_adapter, REG_FIFOPAGE_CTRL_2, (u16)(pHalmac_adapter->txff_allocation.rsvd_pg_bndy & BIT_MASK_BCN_HEAD_1_V1));
 	HALMAC_REG_WRITE_16(pHalmac_adapter, REG_BCNQ_BDNY_V1, (u16)(pHalmac_adapter->txff_allocation.rsvd_pg_bndy & BIT_MASK_BCNQ_PGBNDY_V1));
+	/*20170223 Soar*/
+	/*SDIO sometimes use two CMD52 to do HALMAC_REG_WRITE_16 and may cause a mismatch between HW status and Reg value.*/
+	/*A patch is to write it again*/
+	if (HALMAC_INTERFACE_SDIO == pHalmac_adapter->halmac_interface)
+		HALMAC_REG_WRITE_16(pHalmac_adapter, REG_BCNQ_BDNY_V1, (u16)(pHalmac_adapter->txff_allocation.rsvd_pg_bndy & BIT_MASK_BCNQ_PGBNDY_V1));
 	HALMAC_REG_WRITE_16(pHalmac_adapter, REG_FIFOPAGE_CTRL_2 + 2, (u16)(pHalmac_adapter->txff_allocation.rsvd_pg_bndy & BIT_MASK_BCN_HEAD_1_V1));
 	HALMAC_REG_WRITE_16(pHalmac_adapter, REG_BCNQ1_BDNY_V1, (u16)(pHalmac_adapter->txff_allocation.rsvd_pg_bndy & BIT_MASK_BCNQ_PGBNDY_V1));
 

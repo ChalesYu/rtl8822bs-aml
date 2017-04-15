@@ -222,8 +222,12 @@ odm_tx_pwr_track_set_pwr8822b(
 #if (DM_ODM_SUPPORT_TYPE & ODM_WIN)
 	tx_power_index = phy_get_tx_power_index(adapter, (enum odm_rf_radio_path_e) rf_path, tx_rate, band_width, channel);
 #elif (DM_ODM_SUPPORT_TYPE & ODM_CE)
-	if (p_dm_odm->number_linked_client != 0)
+	if (p_dm_odm->mp_mode == true)
 		tx_power_index = phy_get_tx_power_index(adapter, (enum odm_rf_radio_path_e) rf_path, tx_rate, band_width, channel);
+	else {
+		if (p_dm_odm->number_linked_client != 0)
+			tx_power_index = phy_get_tx_power_index(adapter, (enum odm_rf_radio_path_e) rf_path, tx_rate, band_width, channel);
+	}
 #else
 	tx_power_index = config_phydm_read_txagc_8822b(p_dm_odm, rf_path, 0x04); /*0x04(TX_AGC_OFDM_6M)*/
 #endif

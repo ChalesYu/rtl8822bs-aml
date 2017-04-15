@@ -990,13 +990,11 @@ int rtw_halmac_poweron(struct dvobj_priv *d)
 	if (status != HALMAC_RET_SUCCESS)
 		goto out;
 
-#ifndef CONFIG_SUPPORT_TRX_SHARED
 #ifdef CONFIG_SDIO_HCI
 	status = api->halmac_sdio_cmd53_4byte(halmac, 1);
 	if (status != HALMAC_RET_SUCCESS)
 		goto out;
-#endif
-#endif
+#endif /* CONFIG_SDIO_HCI */
 
 	status = api->halmac_mac_power_switch(halmac, HALMAC_MAC_POWER_ON);
 	if (HALMAC_RET_PWR_UNCHANGE == status) {
@@ -1819,7 +1817,7 @@ int rtw_halmac_read_physical_efuse_map(struct dvobj_priv *d, u8 *map, u32 size)
 	if (ret)
 		return -1;
 
-	status = api->halmac_dump_efuse_map(mac, HALMAC_EFUSE_R_AUTO);
+	status = api->halmac_dump_efuse_map(mac, HALMAC_EFUSE_R_DRV);
 	if (HALMAC_RET_SUCCESS != status) {
 		free_halmac_event(d, id);
 		return -1;

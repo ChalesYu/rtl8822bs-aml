@@ -596,6 +596,7 @@ enum phy_reg_pg_type {
 	/*--------- POINTER REFERENCE-----------*/
 
 	u8			u1_byte_temp;
+	u8			rfe_hwsetting_band;
 	bool			BOOLEAN_temp;
 	struct _ADAPTER		*PADAPTER_temp;
 

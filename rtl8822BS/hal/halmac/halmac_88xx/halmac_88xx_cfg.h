@@ -28,7 +28,7 @@
 #define HALMAC_PROTOTYPE_VER_88XX    0x0003
 /* else increment minor version */
 #define HALMAC_MINOR_VER_88XX        0x0002
-#define HALMAC_PATCH_VER_88XX        0x0003 /* patch version */
+#define HALMAC_PATCH_VER_88XX        0x0004 /* patch version */
 
 #define HALMAC_C2H_DATA_OFFSET_88XX             10
 #define HALMAC_RX_AGG_ALIGNMENT_SIZE_88XX       8
