@@ -379,8 +379,10 @@ typedef struct hal_com_data {
 	u8	tx_bbswing_24G;
 	u8	tx_bbswing_5G;
 #ifdef RTW_TX_PA_BIAS
-	u8	tx_pa_bias_a;	/* TX PA Bias for Path A */
-	u8	tx_pa_bias_b;	/* TX PA Bias for Path B */
+	u8	tx_pa_bias_2g4_a;	/* 2.4G TX PA Bias for Path A */
+	u8	tx_pa_bias_2g4_b;	/* 2.4G TX PA Bias for Path B */
+	u8	tx_pa_bias_a;		/* 5G TX PA Bias for Path A */
+	u8	tx_pa_bias_b;		/* 5G TX PA Bias for Path B */
 #endif /* RTW_TX_PA_BIAS */
 
 #ifdef CONFIG_RF_POWER_TRIM
@@ -521,15 +523,7 @@ typedef struct hal_com_data {
 	/* RDG enable */
 	BOOLEAN	 bRDGEnable;
 
-	u8	RegTxPause;
-	/* Beacon function related global variable. */
-	u8	RegBcnCtrlVal;
-	u8	RegFwHwTxQCtrl;
-	u8	RegReg542;
-	u8	RegCR_1;
-	u8	Reg837;
-	u16	RegRRSR;
-
+	u16 RegRRSR;
 	/****** antenna diversity ******/
 	u8	AntDivCfg;
 	u8	with_extenal_ant_switch;

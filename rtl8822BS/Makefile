@@ -14,7 +14,11 @@ EXTRA_CFLAGS += -Wno-unused-parameter
 EXTRA_CFLAGS += -Wno-unused-function
 EXTRA_CFLAGS += -Wno-unused
 #EXTRA_CFLAGS += -Wno-uninitialized
-#EXTRA_CFLAGS += -Wno-error=date-time	# Fix compile error on gcc 4.9 and later
+
+GCC_VER_49 := $(shell echo `$(CC) -dumpversion | cut -f1-2 -d.` \>= 4.9 | bc )
+ifeq ($(GCC_VER_49),1)
+EXTRA_CFLAGS += -Wno-date-time	# Fix compile error && warning on gcc 4.9 and later
+endif
 
 EXTRA_CFLAGS += -I$(src)/include
 EXTRA_CFLAGS += -I$(src)/hal/phydm
@@ -54,11 +58,10 @@ CONFIG_EFUSE_CONFIG_FILE = y
 CONFIG_EXT_CLK = n
 CONFIG_TRAFFIC_PROTECT = y
 CONFIG_LOAD_PHY_PARA_FROM_FILE = y
-CONFIG_CALIBRATE_TX_POWER_BY_REGULATORY = n
-CONFIG_CALIBRATE_TX_POWER_TO_MAX = y
 CONFIG_TXPWR_BY_RATE_EN = y
 CONFIG_TXPWR_LIMIT_EN = n
-CONFIG_RTW_ADAPTIVITY_EN = enable
+CONFIG_RTW_CHPLAN = 0xFF
+CONFIG_RTW_ADAPTIVITY_EN = disable
 CONFIG_RTW_ADAPTIVITY_MODE = normal
 CONFIG_SIGNAL_SCALE_MAPPING = n
 CONFIG_80211W = n
@@ -241,25 +244,6 @@ EXTRA_CFLAGS += -I$(src)/platform
 _PLATFORM_FILES := platform/platform_ops.o
 
 EXTRA_CFLAGS += -I$(src)/hal/btc
-_OUTSRC_FILES += hal/btc/halbtc8723bwifionly.o \
-				hal/btc/halbtc8822bwifionly.o
-ifeq ($(CONFIG_BT_COEXIST), y)
-_OUTSRC_FILES += hal/btc/halbtc8192e1ant.o \
-				hal/btc/halbtc8192e2ant.o \
-				hal/btc/halbtc8723b1ant.o \
-				hal/btc/halbtc8723b2ant.o \
-				hal/btc/halbtc8812a1ant.o \
-				hal/btc/halbtc8812a2ant.o \
-				hal/btc/halbtc8821a1ant.o \
-				hal/btc/halbtc8821a2ant.o \
-				hal/btc/halbtc8703b1ant.o \
-				hal/btc/halbtc8723d1ant.o \
-				hal/btc/halbtc8723d2ant.o \
-				hal/btc/halbtc8822b1ant.o \
-				hal/btc/halbtc8822b2ant.o \
-				hal/btc/halbtc8821c1ant.o \
-				hal/btc/halbtc8821c2ant.o
-endif
 
 
 ########### HAL_RTL8188E #################################
@@ -390,6 +374,11 @@ _OUTSRC_FILES += hal/phydm/$(RTL871X)/halhwimg8192e_mac.o\
 		hal/phydm/$(RTL871X)/phydm_regconfig8192e.o\
 		hal/phydm/$(RTL871X)/phydm_rtl8192e.o
 
+ifeq ($(CONFIG_BT_COEXIST), y)
+_OUTSRC_FILES += hal/btc/halbtc8192e1ant.o \
+		 hal/btc/halbtc8192e2ant.o
+endif
+
 endif
 
 ########### HAL_RTL8812A_RTL8821A #################################
@@ -500,6 +489,17 @@ _OUTSRC_FILES += hal/phydm/rtl8821a/halhwimg8821a_mac.o\
 		
 endif
 
+ifeq ($(CONFIG_BT_COEXIST), y)
+ifeq ($(CONFIG_RTL8812A), y)
+_OUTSRC_FILES += hal/btc/halbtc8812a1ant.o \
+		 hal/btc/halbtc8812a2ant.o
+endif
+ifeq ($(CONFIG_RTL8821A), y)
+_OUTSRC_FILES += hal/btc/halbtc8821a1ant.o \
+		 hal/btc/halbtc8821a2ant.o
+endif
+endif
+
 endif
 
 ########### HAL_RTL8723B #################################
@@ -556,6 +556,12 @@ _OUTSRC_FILES += hal/phydm/$(RTL871X)/halhwimg8723b_bb.o\
 								hal/phydm/$(RTL871X)/phydm_regconfig8723b.o\
 								hal/phydm/$(RTL871X)/halphyrf_8723b_ce.o\
 								hal/phydm/$(RTL871X)/phydm_rtl8723b.o
+
+_OUTSRC_FILES += hal/btc/halbtc8723bwifionly.o
+ifeq ($(CONFIG_BT_COEXIST), y)
+_OUTSRC_FILES += hal/btc/halbtc8723b1ant.o \
+		 hal/btc/halbtc8723b2ant.o
+endif
 
 endif
 
@@ -681,6 +687,10 @@ _OUTSRC_FILES += hal/phydm/$(RTL871X)/halhwimg8703b_bb.o\
 								hal/phydm/$(RTL871X)/halhwimg8703b_rf.o\
 								hal/phydm/$(RTL871X)/phydm_regconfig8703b.o\
 								hal/phydm/$(RTL871X)/halphyrf_8703b.o
+ifeq ($(CONFIG_BT_COEXIST), y)
+_OUTSRC_FILES += hal/btc/halbtc8703b1ant.o
+endif
+
 endif
 
 ########### HAL_RTL8723D #################################
@@ -741,6 +751,11 @@ _OUTSRC_FILES += hal/phydm/$(RTL871X)/halhwimg8723d_bb.o\
 								hal/phydm/$(RTL871X)/phydm_regconfig8723d.o\
 								hal/phydm/$(RTL871X)/phydm_rtl8723d.o\
 								hal/phydm/$(RTL871X)/halphyrf_8723d.o
+ifeq ($(CONFIG_BT_COEXIST), y)
+_OUTSRC_FILES += hal/btc/halbtc8723d1ant.o \
+		 hal/btc/halbtc8723d2ant.o
+endif
+
 endif
 
 ########### HAL_RTL8188F #################################
@@ -802,16 +817,34 @@ endif
 
 ########### HAL_RTL8822B #################################
 ifeq ($(CONFIG_RTL8822B), y)
-ifeq ($(CONFIG_PLATFORM_AML_S905), y)
-include $(M)/rtl8822b.mk
+RTL871X := rtl8822b
+ifeq ($(CONFIG_USB_HCI), y)
+ifeq ($(CONFIG_BT_COEXIST), n)
+MODULE_NAME = 8812bu
 else
-include $(TopDIR)/rtl8822b.mk
+MODULE_NAME = 88x2bu
+endif
+endif
+ifeq ($(CONFIG_PCI_HCI), y)
+MODULE_NAME = 88x2be
+endif
+ifeq ($(CONFIG_SDIO_HCI), y)
+MODULE_NAME = 88x2bs
 endif
 endif
 
 ########### HAL_RTL8821C #################################
 ifeq ($(CONFIG_RTL8821C), y)
-include $(TopDIR)/rtl8821c.mk
+RTL871X := rtl8821c
+ifeq ($(CONFIG_USB_HCI), y)
+MODULE_NAME = 8821cu
+endif
+ifeq ($(CONFIG_PCI_HCI), y)
+MODULE_NAME = 8821ce
+endif
+ifeq ($(CONFIG_SDIO_HCI), y)
+MODULE_NAME = 8821cs
+endif
 
 _OUTSRC_FILES +=	hal/phydm/rtl8821c/halhwimg8821c_bb.o \
 			hal/phydm/rtl8821c/halhwimg8821c_mac.o \
@@ -917,11 +950,7 @@ ifeq ($(CONFIG_LOAD_PHY_PARA_FROM_FILE), y)
 EXTRA_CFLAGS += -DCONFIG_LOAD_PHY_PARA_FROM_FILE
 #EXTRA_CFLAGS += -DREALTEK_CONFIG_PATH_WITH_IC_NAME_FOLDER
 #EXTRA_CFLAGS += -DREALTEK_CONFIG_PATH=\"/lib/firmware/\"
-ifeq ($(CONFIG_PLATFORM_AML_S905), y)
-EXTRA_CFLAGS += -DREALTEK_CONFIG_PATH=\"/system/etc/wifi/\"
-else
 EXTRA_CFLAGS += -DREALTEK_CONFIG_PATH=\"/system/etc/firmware/\"
-endif
 endif
 
 ifeq ($(CONFIG_TXPWR_BY_RATE_EN), n)
@@ -938,6 +967,10 @@ else ifeq ($(CONFIG_TXPWR_LIMIT_EN), y)
 EXTRA_CFLAGS += -DCONFIG_TXPWR_LIMIT_EN=1
 else ifeq ($(CONFIG_TXPWR_LIMIT_EN), auto)
 EXTRA_CFLAGS += -DCONFIG_TXPWR_LIMIT_EN=2
+endif
+
+ifneq ($(CONFIG_RTW_CHPLAN), 0xFF)
+EXTRA_CFLAGS += -DCONFIG_RTW_CHPLAN=$(CONFIG_RTW_CHPLAN)
 endif
 
 ifeq ($(CONFIG_CALIBRATE_TX_POWER_BY_REGULATORY), y)
@@ -1698,20 +1731,33 @@ endif
 endif
 
 ifeq ($(CONFIG_PLATFORM_AML_S905), y)
+EXTRA_CFLAGS += -Wno-error=date-time
 EXTRA_CFLAGS += -DCONFIG_PLATFORM_AML_S905
 EXTRA_CFLAGS += -DCONFIG_LITTLE_ENDIAN -fno-pic
 EXTRA_CFLAGS += -DCONFIG_IOCTL_CFG80211 -DCONFIG_CONCURRENT_MODE
 EXTRA_CFLAGS += -DCONFIG_P2P_IPS -DRTW_USE_CFG80211_STA_EVENT
-EXTRA_CFLAGS += -DCONFIG_LPS_SLOW_TRANSITION
 EXTRA_CFLAGS += -DCONFIG_RADIO_WORK
+
+# Change active scan time in each channel, unit is ms
+#EXTRA_CFLAGS += -DSURVEY_TO_ACTIVE=50
 
 ifeq ($(CONFIG_SDIO_HCI), y)
 EXTRA_CFLAGS += -DCONFIG_PLATFORM_OPS
 _PLATFORM_FILES += platform/platform_AML_S905_sdio.o
+#EXTRA_CFLAGS += -DCONFIG_RTW_SDIO_OOB_INT
 endif
 
-CROSS_COMPILE :=
-KSRC :=
+ARCH ?=
+CROSS_COMPILE ?=
+KSRC ?=
+
+ifeq ($(CONFIG_RTL8822B), y)
+ifeq ($(CONFIG_SDIO_HCI), y)
+CONFIG_RTL8822BS ?= m
+USER_MODULE_NAME := 8822bs
+endif
+endif
+
 endif
 
 ifeq ($(CONFIG_PLATFORM_ARM_WMT), y)
@@ -1839,6 +1885,17 @@ endif
 
 ifneq ($(KERNELRELEASE),)
 
+########### this part for *.mk ############################
+########### HAL_RTL8822B #################################
+ifeq ($(CONFIG_RTL8822B), y)
+include $(src)/rtl8822b.mk
+endif
+
+########### HAL_RTL8821C #################################
+ifeq ($(CONFIG_RTL8821C), y)
+include $(src)/rtl8821c.mk
+endif
+
 rtk_core :=	core/rtw_cmd.o \
 		core/rtw_security.o \
 		core/rtw_debug.o \
@@ -1890,11 +1947,7 @@ ifeq ($(CONFIG_RTL8723B), y)
 $(MODULE_NAME)-$(CONFIG_MP_INCLUDED)+= core/rtw_bt_mp.o
 endif
 
-ifeq ($(CONFIG_PLATFORM_AML_S905), y)
-obj-m := $(MODULE_NAME).o
-else
-obj-$(CONFIG_RTL8822BS) := $(MODULE_NAME).o
-endif
+obj-m:= $(MODULE_NAME).o
 
 else
 

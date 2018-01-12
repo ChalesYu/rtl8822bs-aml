@@ -300,9 +300,9 @@ _pkt *rtw_os_alloc_msdu_pkt(union recv_frame *prframe, u16 nSubframe_Length, u8 
 	pattrib = &prframe->u.hdr.attrib;
 
 #ifdef CONFIG_SKB_COPY
-	sub_skb = rtw_skb_alloc(nSubframe_Length + 12);
+	sub_skb = rtw_skb_alloc(nSubframe_Length + 14);
 	if (sub_skb) {
-		skb_reserve(sub_skb, 12);
+		skb_reserve(sub_skb, 14);
 		data_ptr = (u8 *)skb_put(sub_skb, nSubframe_Length);
 		_rtw_memcpy(data_ptr, (pdata + ETH_HLEN), nSubframe_Length);
 	} else
@@ -327,15 +327,15 @@ _pkt *rtw_os_alloc_msdu_pkt(union recv_frame *prframe, u16 nSubframe_Length, u8 
 	     _rtw_memcmp(sub_skb->data, rtw_bridge_tunnel_header, SNAP_SIZE))) {
 		/* remove RFC1042 or Bridge-Tunnel encapsulation and replace EtherType */
 		skb_pull(sub_skb, SNAP_SIZE);
-		_rtw_memcpy(skb_push(sub_skb, ETH_ALEN), pattrib->src, ETH_ALEN);
-		_rtw_memcpy(skb_push(sub_skb, ETH_ALEN), pattrib->dst, ETH_ALEN);
+		_rtw_memcpy(skb_push(sub_skb, ETH_ALEN), pdata + 6, ETH_ALEN);
+		_rtw_memcpy(skb_push(sub_skb, ETH_ALEN), pdata, ETH_ALEN);
 	} else {
 		u16 len;
 		/* Leave Ethernet header part of hdr and full payload */
 		len = htons(sub_skb->len);
 		_rtw_memcpy(skb_push(sub_skb, 2), &len, 2);
-		_rtw_memcpy(skb_push(sub_skb, ETH_ALEN), pattrib->src, ETH_ALEN);
-		_rtw_memcpy(skb_push(sub_skb, ETH_ALEN), pattrib->dst, ETH_ALEN);
+		_rtw_memcpy(skb_push(sub_skb, ETH_ALEN), pdata + 6, ETH_ALEN);
+		_rtw_memcpy(skb_push(sub_skb, ETH_ALEN), pdata, ETH_ALEN);
 	}
 
 	return sub_skb;
@@ -510,7 +510,7 @@ void rtw_os_recv_indicate_pkt(_adapter *padapter, _pkt *pkt, struct rx_pkt_attri
 		pkt->dev = padapter->pnetdev;
 
 #ifdef CONFIG_TCP_CSUM_OFFLOAD_RX
-		if ((pattrib->tcpchk_valid == 1) && (pattrib->tcp_chkrpt == 1))
+		if ((pattrib->csum_valid == 1) && (pattrib->csum_err == 0))
 			pkt->ip_summed = CHECKSUM_UNNECESSARY;
 		else
 			pkt->ip_summed = CHECKSUM_NONE;
@@ -519,7 +519,11 @@ void rtw_os_recv_indicate_pkt(_adapter *padapter, _pkt *pkt, struct rx_pkt_attri
 #endif /* CONFIG_TCP_CSUM_OFFLOAD_RX */
 
 #ifdef CONFIG_RTW_NAPI
-		if (pregistrypriv->en_napi) {
+		if (pregistrypriv->en_napi
+#ifdef CONFIG_RTW_NAPI_DYNAMIC
+		    && adapter_to_dvobj(padapter)->en_napi_dynamic
+#endif /* CONFIG_RTW_NAPI_DYNAMIC */
+		   ) {
 			skb_queue_tail(&precvpriv->rx_napi_skb_queue, pkt);
 #ifndef CONFIG_RTW_NAPI_V2
 			napi_schedule(&padapter->napi);

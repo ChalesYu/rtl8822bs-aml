@@ -302,7 +302,7 @@ u8 rtw_set_802_11_bssid(_adapter *padapter, u8 *bssid)
 				goto release_mlme_lock;/* it means driver is in WIFI_ADHOC_MASTER_STATE, we needn't create bss again. */
 		} else {
 
-			rtw_disassoc_cmd(padapter, 0, _TRUE);
+			rtw_disassoc_cmd(padapter, 0, 0);
 
 			if (check_fwstate(pmlmepriv, _FW_LINKED) == _TRUE)
 				rtw_indicate_disconnect(padapter, 0, _FALSE);
@@ -374,7 +374,7 @@ u8 rtw_set_802_11_ssid(_adapter *padapter, NDIS_802_11_SSID *ssid)
 
 				if (rtw_is_same_ibss(padapter, pnetwork) == _FALSE) {
 					/* if in WIFI_ADHOC_MASTER_STATE | WIFI_ADHOC_STATE, create bss or rejoin again */
-					rtw_disassoc_cmd(padapter, 0, _TRUE);
+					rtw_disassoc_cmd(padapter, 0, 0);
 
 					if (check_fwstate(pmlmepriv, _FW_LINKED) == _TRUE)
 						rtw_indicate_disconnect(padapter, 0, _FALSE);
@@ -395,7 +395,7 @@ u8 rtw_set_802_11_ssid(_adapter *padapter, NDIS_802_11_SSID *ssid)
 #endif
 		} else {
 
-			rtw_disassoc_cmd(padapter, 0, _TRUE);
+			rtw_disassoc_cmd(padapter, 0, 0);
 
 			if (check_fwstate(pmlmepriv, _FW_LINKED) == _TRUE)
 				rtw_indicate_disconnect(padapter, 0, _FALSE);
@@ -532,7 +532,7 @@ u8 rtw_set_802_11_infrastructure_mode(_adapter *padapter,
 		_enter_critical_bh(&pmlmepriv->lock, &irqL);
 
 		if ((check_fwstate(pmlmepriv, _FW_LINKED) == _TRUE) || (*pold_state == Ndis802_11IBSS))
-			rtw_disassoc_cmd(padapter, 0, _TRUE);
+			rtw_disassoc_cmd(padapter, 0, 0);
 
 		if ((check_fwstate(pmlmepriv, _FW_LINKED) == _TRUE) ||
 		    (check_fwstate(pmlmepriv, WIFI_ADHOC_MASTER_STATE) == _TRUE))
@@ -595,7 +595,7 @@ u8 rtw_set_802_11_disassociate(_adapter *padapter)
 
 	if (check_fwstate(pmlmepriv, _FW_LINKED) == _TRUE) {
 
-		rtw_disassoc_cmd(padapter, 0, _TRUE);
+		rtw_disassoc_cmd(padapter, 0, 0);
 		rtw_indicate_disconnect(padapter, 0, _FALSE);
 		/* modify for CONFIG_IEEE80211W, none 11w can use it */
 		rtw_free_assoc_resources_cmd(padapter);
@@ -1228,7 +1228,8 @@ int rtw_set_country(_adapter *adapter, const char *country_code)
 #ifdef CONFIG_RTW_IOCTL_SET_COUNTRY
 	return rtw_set_country_cmd(adapter, RTW_CMDF_WAIT_ACK, country_code, 1);
 #else
-	return _FAIL;
+	RTW_INFO("%s(): not applied\n", __func__);
+	return _SUCCESS;
 #endif
 }
 

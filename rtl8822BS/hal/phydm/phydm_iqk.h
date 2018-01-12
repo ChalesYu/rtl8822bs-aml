@@ -29,6 +29,9 @@
 #define	TXIQK 0
 #define	RXIQK1 1
 #define	RXIQK2 2
+#define kcount_limit_80m 2
+#define kcount_limit_others 4
+#define rxiqk_gs_limit 4
 
 #define	NUM 4
 /*---------------------------End Define Parameters-------------------------------*/
@@ -43,6 +46,7 @@ struct _IQK_INFORMATION {
 	/*	bool		rxiqk_finish[4]; */
 	u8		rxiqk_step;
 	u8		tmp1bcc;
+	u8		kcount;
 
 	u32		iqk_channel[2];
 	bool		IQK_fail_report[2][4][2]; /*channel/path/TRX(TX:0, RX:1) */
@@ -52,11 +56,11 @@ struct _IQK_INFORMATION {
 	u8		gs_retry_count[2][4][2]; /* channel / path / (GSRXK1:0, GSRXK2:1) */
 	u8		RXIQK_fail_code[2][4]; /* channel / path 0:SRXK1 fail, 1:RXK1 fail 2:RXK2 fail */
 	u32		LOK_IDAC[2][4];		/*channel / path*/
-	u32		RXIQK_AGC[2][4];	 /*channel / path*/
+	u16		RXIQK_AGC[2][4];	 /*channel / path*/
 	u32		bypass_iqk[2][4];	/*channel / 0xc94/0xe94*/
 	u32		tmp_GNTWL;
 	bool		is_BTG;
-
+	bool		isbnd;
 };
 
 #endif

@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2012 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2017 Realtek Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -149,53 +149,168 @@ static void sd_sync_int_hdl(struct sdio_func *func)
 	rtw_sdio_set_irq_thd(psdpriv, NULL);
 }
 
-int sdio_alloc_irq(struct dvobj_priv *dvobj)
+#ifdef CONFIG_RTW_SDIO_OOB_INT
+static irqreturn_t rtw_sdio_oob_thd_hdl(int irq, void *data)
+{
+	struct dvobj_priv *dvobj = (struct dvobj_priv *)data;
+	_adapter *padapter = dvobj_get_primary_adapter(dvobj);
+	PHAL_DATA_TYPE phal = phal = GET_HAL_DATA(padapter);
+
+	if (RTW_CANNOT_RUN(padapter)) {
+		u32 himr;
+
+		himr = rtw_read32(padapter, REG_SDIO_HIMR);
+		RTW_PRINT("%s: HIMR(0x%08x) = 0x%08x\n",
+			  __func__, REG_SDIO_HIMR, himr);
+
+		/* Disable interrupt */
+		rtw_write32(padapter, REG_SDIO_HIMR, 0);
+
+		return IRQ_NONE;
+	}
+
+	sd_int_hdl(padapter);
+
+	return IRQ_HANDLED;
+}
+
+static irqreturn_t rtw_sdio_oob_int_hdl(int irq, void *data)
+{
+	return IRQ_WAKE_THREAD;
+}
+
+static int sdio_alloc_oob_irq(struct dvobj_priv *dvobj)
+{
+	int irq;
+	ulong flags;
+	int err = 0;
+
+
+	irq = platform_wifi_get_oob_irq();
+	if (irq == 0) {
+		RTW_ERR("%s: sdio oob_irq ZERO!\n", __func__);
+		return -1;
+	}
+#ifdef CONFIG_PLATFORM_AML_S905
+	/*
+	 * Amlogic S905 use ARM gic, and only accept high level
+	 * or rising trigger.
+	 * The peripheral interrupt trigger type is defined in dts.
+	 * Make Sure wifi setting of dts already set irq_trigger_type
+	 * to GPIO_IRQ_FALLING.
+	 */
+	flags = IRQF_SHARED | IRQF_TRIGGER_RISING;
+#else /* !CONFIG_PLATFORM_AML_S905 */
+	flags = IRQF_TRIGGER_FALLING;
+#endif /* !CONFIG_PLATFORM_AML_S905 */
+	RTW_PRINT("%s: sdio oob_irq=%d flag=0x%lx\n", __func__, irq, flags);
+
+	err = request_threaded_irq(irq, rtw_sdio_oob_int_hdl,
+				   rtw_sdio_oob_thd_hdl,
+				   flags, "rtw_sdio_oob_interrupt", dvobj);
+	if (err)
+		RTW_ERR("%s: request sdio oob threaded_irq FAIL(%d)!\n",
+			__func__, err);
+	return err;
+}
+
+static int sdio_free_oob_irq(struct dvobj_priv *dvobj)
+{
+	int irq;
+
+
+	irq = platform_wifi_get_oob_irq();
+	if (irq) {
+		free_irq(irq, dvobj);
+		return 0;
+	}
+
+	RTW_ERR("%s: sdio oob_irq ZERO!\n", __func__);
+	return -1;
+}
+
+#else /* !CONFIG_RTW_SDIO_OOB_INT */
+
+static int _sdio_alloc_irq(struct dvobj_priv *dvobj)
 {
 	PSDIO_DATA psdio_data;
 	struct sdio_func *func;
 	int err;
 
+
 	psdio_data = &dvobj->intf_data;
 	func = psdio_data->func;
 
 	sdio_claim_host(func);
-
 	err = sdio_claim_irq(func, &sd_sync_int_hdl);
+	sdio_release_host(func);
+	if (err)
+		RTW_ERR("%s: sdio_claim_irq FAIL(%d)!\n", __func__, err);
+
+	return err;
+}
+
+static int _sdio_free_irq(struct dvobj_priv *dvobj)
+{
+	PSDIO_DATA psdio_data;
+	struct sdio_func *func;
+	int err;
+
+
+	psdio_data = &dvobj->intf_data;
+	func = psdio_data->func;
+
+	sdio_claim_host(func);
+	err = sdio_release_irq(func);
+	sdio_release_host(func);
+	if (err)
+		RTW_ERR("%s: sdio_release_irq FAIL(%d)!\n", __func__, err);
+
+	return err;
+}
+#endif /* !CONFIG_RTW_SDIO_OOB_INT */
+
+int sdio_alloc_irq(struct dvobj_priv *dvobj)
+{
+	int err = 0;
+
+
+#ifdef CONFIG_RTW_SDIO_OOB_INT
+	err = sdio_alloc_oob_irq(dvobj);
+#else /* !CONFIG_RTW_SDIO_OOB_INT */
+	err = _sdio_alloc_irq(dvobj);
+#endif /* !CONFIG_RTW_SDIO_OOB_INT */
+
 	if (err) {
 		dvobj->drv_dbg.dbg_sdio_alloc_irq_error_cnt++;
-		RTW_PRINT("%s: sdio_claim_irq FAIL(%d)!\n", __func__, err);
 	} else {
 		dvobj->drv_dbg.dbg_sdio_alloc_irq_cnt++;
 		dvobj->irq_alloc = 1;
 	}
-
-	sdio_release_host(func);
 
 	return err ? _FAIL : _SUCCESS;
 }
 
 void sdio_free_irq(struct dvobj_priv *dvobj)
 {
-	PSDIO_DATA psdio_data;
-	struct sdio_func *func;
-	int err;
+	int err = 0;
 
-	if (dvobj->irq_alloc) {
-		psdio_data = &dvobj->intf_data;
-		func = psdio_data->func;
 
-		if (func) {
-			sdio_claim_host(func);
-			err = sdio_release_irq(func);
-			if (err) {
-				dvobj->drv_dbg.dbg_sdio_free_irq_error_cnt++;
-				RTW_ERR("%s: sdio_release_irq FAIL(%d)!\n", __func__, err);
-			} else
-				dvobj->drv_dbg.dbg_sdio_free_irq_cnt++;
-			sdio_release_host(func);
-		}
-		dvobj->irq_alloc = 0;
-	}
+	if (!dvobj->irq_alloc)
+		return;
+
+#ifdef CONFIG_RTW_SDIO_OOB_INT
+	err = sdio_free_oob_irq(dvobj);
+#else /* CONFIG_RTW_SDIO_OOB_INT */
+	err = _sdio_free_irq(dvobj);
+#endif /* CONFIG_RTW_SDIO_OOB_INT */
+
+	if (err)
+		dvobj->drv_dbg.dbg_sdio_free_irq_error_cnt++;
+	else
+		dvobj->drv_dbg.dbg_sdio_free_irq_cnt++;
+
+	dvobj->irq_alloc = 0;
 }
 
 #ifdef CONFIG_GPIO_WAKEUP
@@ -645,7 +760,7 @@ static void rtw_sdio_primary_adapter_deinit(_adapter *padapter)
 	struct mlme_priv *pmlmepriv = &padapter->mlmepriv;
 
 	if (check_fwstate(pmlmepriv, _FW_LINKED))
-		rtw_disassoc_cmd(padapter, 0, _FALSE);
+		rtw_disassoc_cmd(padapter, 0, RTW_CMDF_DIRECTLY);
 
 #ifdef CONFIG_AP_MODE
 	if (check_fwstate(&padapter->mlmepriv, WIFI_AP_STATE) == _TRUE) {

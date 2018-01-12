@@ -517,6 +517,13 @@ typedef enum _HALMAC_INTERFACE {
 	HALMAC_INTERFACE_UNDEFINE = 0x7F,
 } HALMAC_INTERFACE;
 
+typedef enum _HALMAC_IO_SIZE {
+	HALMAC_IO_BYTE = 0x0,
+	HALMAC_IO_WORD = 0x1,
+	HALMAC_IO_DWORD = 0x2,
+	HALMAC_IO_UNDEFINE = 0x7F,
+} HALMAC_IO_SIZE;
+
 typedef enum _HALMAC_RX_AGG_MODE {
 	HALMAC_RX_AGG_MODE_NONE = 0x0,
 	HALMAC_RX_AGG_MODE_DMA = 0x1,
@@ -1778,6 +1785,7 @@ typedef struct _HALMAC_ADAPTER {
 	HALMAC_WLAN_ADDR pHal_bss_addr[2]; /* bss address information, suppot 2 ports */
 	HALMAC_MUTEX h2c_seq_mutex; /* Protect h2c_packet_seq packet*/
 	HALMAC_MUTEX EfuseMutex; /* Protect Efuse map memory of halmac_adapter */
+	HALMAC_MUTEX sdio_indirect_mutex; /*Protect sdio indirect access */
 	HALMAC_CONFIG_PARA_INFO config_para_info;
 	HALMAC_CS_INFO ch_sw_info;
 	HALMAC_EVENT_TRIGGER event_trigger;

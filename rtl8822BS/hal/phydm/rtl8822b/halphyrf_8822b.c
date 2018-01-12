@@ -354,28 +354,40 @@ _phy_lc_calibrate_8822b(
 	struct PHY_DM_STRUCT	*p_dm_odm
 )
 {
-	u32 lc_cal = 0, cnt = 0;
+	u32 lc_cal = 0, cnt = 0,tmp0xc00, tmp0xe00;
 
+	ODM_RT_TRACE(p_dm_odm, ODM_COMP_CALIBRATION, ODM_DBG_LOUD, ("[LCK]LCK start!!!!!!!\n"));
+	tmp0xc00 = odm_read_4byte(p_dm_odm, 0xc00);
+	tmp0xe00 = odm_read_4byte(p_dm_odm, 0xe00);
+	odm_write_4byte(p_dm_odm, 0xc00, 0x4);
+	odm_write_4byte(p_dm_odm, 0xe00, 0x4);
+	odm_set_rf_reg(p_dm_odm, ODM_RF_PATH_A, 0x0, bRFRegOffsetMask, 0x10000);
+	odm_set_rf_reg(p_dm_odm, ODM_RF_PATH_B, 0x0, bRFRegOffsetMask, 0x10000);
 	/*backup RF0x18*/
 	lc_cal = odm_get_rf_reg(p_dm_odm, ODM_RF_PATH_A, RF_CHNLBW, RFREGOFFSETMASK);
-
+	/*disable RTK*/
+	odm_set_rf_reg(p_dm_odm, ODM_RF_PATH_A, 0xc4, RFREGOFFSETMASK, 0x01402);
 	/*Start LCK*/
 	odm_set_rf_reg(p_dm_odm, ODM_RF_PATH_A, RF_CHNLBW, RFREGOFFSETMASK, lc_cal | 0x08000);
-
 	ODM_delay_ms(100);
-
 	for (cnt = 0; cnt < 100; cnt++) {
 		if (odm_get_rf_reg(p_dm_odm, ODM_RF_PATH_A, RF_CHNLBW, 0x8000) != 0x1)
 			break;
 		ODM_delay_ms(10);
 	}
-
 	/*Recover channel number*/
 	odm_set_rf_reg(p_dm_odm, ODM_RF_PATH_A, RF_CHNLBW, RFREGOFFSETMASK, lc_cal);
+	/*enable RTK*/
+	odm_set_rf_reg(p_dm_odm, ODM_RF_PATH_A, 0xc4, RFREGOFFSETMASK, 0x81402);
+	/**restore*/
+	odm_write_4byte(p_dm_odm, 0xc00, tmp0xc00);
+	odm_write_4byte(p_dm_odm, 0xe00, tmp0xe00);
+	odm_set_rf_reg(p_dm_odm, ODM_RF_PATH_A, 0x0, bRFRegOffsetMask, 0x3ffff);
+	odm_set_rf_reg(p_dm_odm, ODM_RF_PATH_B, 0x0, bRFRegOffsetMask, 0x3ffff);
+	ODM_RT_TRACE(p_dm_odm, ODM_COMP_CALIBRATION, ODM_DBG_LOUD, ("[LCK]LCK end!!!!!!!\n"));
 }
 
-
-
+/*LCK VERSION:0x1*/
 void
 phy_lc_calibrate_8822b(
 	void	*p_dm_void
@@ -400,6 +412,11 @@ phy_lc_calibrate_8822b(
 	is_single_tone = p_mpt_ctx->is_single_tone;
 	is_carrier_suppression = p_mpt_ctx->is_carrier_suppression;
 #endif
+#endif
+
+#if (DM_ODM_SUPPORT_TYPE == ODM_CE)
+	if (!(p_dm_odm->support_ability & ODM_RF_CALIBRATION))
+		return;
 #endif
 
 	if (is_start_cont_tx || is_single_tone || is_carrier_suppression) {

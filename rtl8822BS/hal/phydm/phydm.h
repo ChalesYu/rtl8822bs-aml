@@ -589,6 +589,7 @@ enum phy_reg_pg_type {
 	u8			phydm_period;
 	u32			phydm_sys_up_time;
 	u8			num_rf_path;
+	u8			is_receiver_blocking_en;
 	/*-----------HOOK BEFORE REG INIT-----------*/
 
 	/*Dynamic value*/
@@ -710,6 +711,7 @@ enum phy_reg_pg_type {
 	u64			cur_rx_ok_cnt;
 	u64			last_tx_ok_cnt;
 	u64			last_rx_ok_cnt;
+	u16			consecutive_idlel_time;	/*unit: second*/
 	u32			bb_swing_offset_a;
 	bool			is_bb_swing_offset_positive_a;
 	u32			bb_swing_offset_b;
@@ -1313,4 +1315,9 @@ phydm_nbi_setting(
 	u32		bw,
 	u32		f_interference,
 	u32		second_ch
+);
+
+void
+phydm_receiver_blocking(
+	void *p_dm_void
 );

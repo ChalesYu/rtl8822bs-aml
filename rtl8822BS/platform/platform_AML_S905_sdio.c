@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2013 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2016 - 2017 Realtek Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -17,7 +17,6 @@
  *
  *
  ******************************************************************************/
-#ifdef CONFIG_PLATFORM_AML_S905
 #include <linux/version.h>	/* Linux vresion */
 #include <linux/printk.h>       /* printk() */
 #include <linux/delay.h>	/* msleep() */
@@ -29,8 +28,11 @@ extern void extern_wifi_set_enable(int is_on);
 extern void wifi_teardown_dt(void);
 extern int wifi_setup_dt(void);
 #endif /* kernel < 3.14.0 */
-#endif /* CONFIG_PLATFORM_AML_S905 */
 
+#ifdef CONFIG_RTW_SDIO_OOB_INT
+extern int wifi_irq_num(void);
+int irq_wlan_oob = 0;
+#endif /* CONFIG_RTW_SDIO_OOB_INT */
 
 /*
  * Return:
@@ -41,7 +43,14 @@ int platform_wifi_power_on(void)
 {
 	int ret = 0;
 
-#ifdef CONFIG_PLATFORM_AML_S905
+
+#ifdef CONFIG_RTW_SDIO_OOB_INT
+	irq_wlan_oob = 	wifi_irq_num();
+	pr_info("%s: SDIO OOB IRQ(%d)\n", __FUNCTION__, irq_wlan_oob);
+	if (irq_wlan_oob <= 0)
+		return -1;
+#endif
+
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 14, 0))
 	ret = wifi_setup_dt();
 	if (ret) {
@@ -50,7 +59,7 @@ int platform_wifi_power_on(void)
 	}
 #endif /* kernel < 3.14.0 */
 
-#if 1 /* Seems redundancy? Already done before insert driver */
+#if 0 /* Seems redundancy? Already done before insert driver */
 	printk("######%s: \n",__func__);
 	extern_wifi_set_enable(0);
 	msleep(500);
@@ -58,16 +67,30 @@ int platform_wifi_power_on(void)
 	msleep(500);
 	sdio_reinit();
 #endif
-#endif /* CONFIG_PLATFORM_AML_S905 */
 
 	return ret;
 }
 
 void platform_wifi_power_off(void)
 {
-#ifdef CONFIG_PLATFORM_AML_S905
+#ifdef CONFIG_RTW_SDIO_OOB_INT
+	irq_wlan_oob = 0;
+#endif
+
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 14, 0))
 	wifi_teardown_dt();
 #endif /* kernel < 3.14.0 */
-#endif /* CONFIG_PLATFORM_AML_S905 */
 }
+
+#ifdef CONFIG_RTW_SDIO_OOB_INT
+int platform_wifi_get_oob_irq(void)
+{
+	int irq = 0;
+
+
+	irq = irq_wlan_oob;
+
+	return irq;
+}
+#endif /* CONFIG_RTW_SDIO_OOB_INT */
+

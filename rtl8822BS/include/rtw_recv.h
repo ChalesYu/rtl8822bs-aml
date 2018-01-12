@@ -112,6 +112,7 @@ struct recv_reorder_ctrl {
 
 struct	stainfo_rxcache	{
 	u16	tid_rxseq[16];
+	u8	iv[16][8];
 #if 0
 	unsigned short	tid0_rxseq;
 	unsigned short	tid1_rxseq;
@@ -257,11 +258,11 @@ struct rx_pkt_attrib	{
 
 	u8	ack_policy;
 
-/* #ifdef CONFIG_TCP_CSUM_OFFLOAD_RX */
-	u8	tcpchk_valid; /* 0: invalid, 1: valid */
-	u8	ip_chkrpt; /* 0: incorrect, 1: correct */
-	u8	tcp_chkrpt; /* 0: incorrect, 1: correct */
-/* #endif */
+	u8 csum_valid;		/* Checksum valid, 0: not check, 1: checked */
+	u8 is_udp;		/* 0: TCP, 1: UDP */
+	u8 ipver;		/* 0: Ipv4, 1: Ipv6 */
+	u8 csum_err;		/* Checksum Error occurs */
+
 	u8	key_index;
 
 	u8	data_rate;

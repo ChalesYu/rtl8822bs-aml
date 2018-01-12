@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2013 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2013 - 2017 Realtek Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -27,5 +27,9 @@
  */
 int platform_wifi_power_on(void);
 void platform_wifi_power_off(void);
+
+#ifdef CONFIG_RTW_SDIO_OOB_INT
+int platform_wifi_get_oob_irq(void);
+#endif /* CONFIG_RTW_SDIO_OOB_INT */
 
 #endif /* __PLATFORM_OPS_H__ */

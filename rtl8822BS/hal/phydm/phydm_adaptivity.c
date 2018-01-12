@@ -654,7 +654,7 @@ phydm_adaptivity_init(
 
 	if (p_dm_odm->carrier_sense_enable == false) {
 		if (p_dm_odm->th_l2h_ini == 0)
-			p_dm_odm->th_l2h_ini = 0xf5;
+			phydm_set_l2h_th_ini(p_dm_odm);
 	} else
 		p_dm_odm->th_l2h_ini = 0xa;
 
@@ -730,10 +730,6 @@ phydm_adaptivity_init(
 			odm_set_bb_reg(p_dm_odm, ODM_REG_PAGE_B1_97F, BIT(30), 0x1);								/*set to page B1*/
 			odm_set_bb_reg(p_dm_odm, ODM_REG_EDCCA_DCNF_97F, BIT(27) | BIT26, 0x1);		/*0:rx_dfir, 1: dcnf_out, 2 :rx_iq, 3: rx_nbi_nf_out*/
 			odm_set_bb_reg(p_dm_odm, ODM_REG_PAGE_B1_97F, BIT(30), 0x0);
-#if (DM_ODM_SUPPORT_TYPE & ODM_AP)
-			if (priv->pshare->rf_ft_var.adaptivity_enable == 1)
-				odm_set_bb_reg(p_dm_odm, 0xce8, BIT(13), 0x1);						/*0: mean, 1:max pwdB*/
-#endif
 		} else
 			odm_set_bb_reg(p_dm_odm, ODM_REG_EDCCA_DCNF_11N, BIT(21) | BIT20, 0x1);		/*0:rx_dfir, 1: dcnf_out, 2 :rx_iq, 3: rx_nbi_nf_out*/
 	}
@@ -750,6 +746,11 @@ phydm_adaptivity_init(
 	} else
 		phydm_set_edcca_threshold(p_dm_odm, 0x7f, 0x7f);				/*resume to no link state*/
 #endif
+	/*forgetting factor setting*/
+	phydm_set_forgetting_factor(p_dm_odm);
+
+	/*pwdb mode setting with 0: mean, 1:max*/
+	phydm_set_pwdb_mode(p_dm_odm);
 
 	/*we need to consider PwdB upper bound for 8814 later IC*/
 	adaptivity->adajust_igi_level = (u8)((p_dm_odm->th_l2h_ini + igi_target) - pwdb_upper_bound + dfir_loss);	/*IGI = L2H - PwdB - dfir_loss*/
@@ -1100,3 +1101,51 @@ phydm_set_edcca_threshold_api(
 	}
 
 }
+
+void
+phydm_set_l2h_th_ini(
+	void		*p_dm_void
+)
+{
+	struct PHY_DM_STRUCT		*p_dm_odm = (struct PHY_DM_STRUCT *)p_dm_void;
+
+	if (p_dm_odm->support_ic_type & ODM_IC_11AC_SERIES) {
+		if (p_dm_odm->support_ic_type & (ODM_RTL8821C | ODM_RTL8822B | ODM_RTL8814A))
+			p_dm_odm->th_l2h_ini = 0xf2;
+		else
+			p_dm_odm->th_l2h_ini = 0xef;
+	} else
+		p_dm_odm->th_l2h_ini = 0xf5;
+}
+
+void
+phydm_set_forgetting_factor(
+	void		*p_dm_void
+)
+{
+	struct PHY_DM_STRUCT		*p_dm_odm = (struct PHY_DM_STRUCT *)p_dm_void;
+
+	if (p_dm_odm->support_ic_type & (ODM_RTL8821C | ODM_RTL8822B | ODM_RTL8814A))
+		odm_set_bb_reg(p_dm_odm, 0x8a0, BIT(1) | BIT(0), 0);
+}
+
+void
+phydm_set_pwdb_mode(
+	void		*p_dm_void
+)
+{
+	struct PHY_DM_STRUCT		*p_dm_odm = (struct PHY_DM_STRUCT *)p_dm_void;
+
+	if (p_dm_odm->support_ability & ODM_BB_ADAPTIVITY) {
+		if (p_dm_odm->support_ic_type & ODM_RTL8822B)
+			odm_set_bb_reg(p_dm_odm, 0x8dc, BIT(5), 0x1);
+		else if (p_dm_odm->support_ic_type & ODM_RTL8197F)
+			odm_set_bb_reg(p_dm_odm, 0xce8, BIT(13), 0x1);
+	} else {
+		if (p_dm_odm->support_ic_type & ODM_RTL8822B)
+			odm_set_bb_reg(p_dm_odm, 0x8dc, BIT(5), 0x0);
+		else if (p_dm_odm->support_ic_type & ODM_RTL8197F)
+			odm_set_bb_reg(p_dm_odm, 0xce8, BIT(13), 0x0);
+	}
+}
+

@@ -480,10 +480,13 @@ void sd_int_hdl(PADAPTER adapter)
 		phal->sdio_hisr &= phal->sdio_himr;
 		sd_int_dpc(adapter);
 		rtl8822bs_clear_interrupt(adapter, phal->sdio_hisr);
-	} else {
+	}
+#if 0
+	else {
 		RTW_INFO("%s: HISR(0x%08x) and HIMR(0x%08x) no match!\n",
 			 __FUNCTION__, phal->sdio_hisr, phal->sdio_himr);
 	}
+#endif
 }
 
 #if defined(CONFIG_WOWLAN) || defined(CONFIG_AP_WOWLAN)

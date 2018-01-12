@@ -758,7 +758,7 @@ static ssize_t proc_set_chan_plan(struct file *file, const char __user *buffer, 
 	struct net_device *dev = data;
 	_adapter *padapter = (_adapter *)rtw_netdev_priv(dev);
 	char tmp[32];
-	u8 chan_plan = RTW_CHPLAN_MAX;
+	u8 chan_plan = RTW_CHPLAN_UNSPECIFIED;
 
 	if (!padapter)
 		return -EFAULT;
@@ -2280,7 +2280,10 @@ static int proc_get_napi_info(struct seq_file *m, void *v)
 	struct registry_priv *pregistrypriv = &adapter->registrypriv;
 	u8 napi = 0, gro = 0;
 	u32 weight = 0;
+	struct dvobj_priv *d;
 
+
+	d = adapter_to_dvobj(adapter);
 
 #ifdef CONFIG_RTW_NAPI
 	if (pregistrypriv->en_napi) {
@@ -2294,14 +2297,60 @@ static int proc_get_napi_info(struct seq_file *m, void *v)
 #endif /* CONFIG_RTW_GRO */
 #endif /* CONFIG_RTW_NAPI */
 
-	if (napi)
+	if (napi) {
 		RTW_PRINT_SEL(m, "NAPI enable, weight=%d\n", weight);
-	else
+#ifdef CONFIG_RTW_NAPI_DYNAMIC
+		RTW_PRINT_SEL(m, "Dynamaic NAPI mechanism is on, current NAPI %s\n",
+			      d->en_napi_dynamic ? "enable" : "disable");
+		RTW_PRINT_SEL(m, "Dynamaic NAPI info:\n"
+				 "\ttcp_rx_threshold = %d Mbps\n"
+				 "\tcur_rx_tp = %d Mbps\n",
+			      pregistrypriv->napi_threshold,
+			      d->traffic_stat.cur_rx_tp);
+#endif /* CONFIG_RTW_NAPI_DYNAMIC */
+	} else {
 		RTW_PRINT_SEL(m, "NAPI disable\n");
+	}
 	RTW_PRINT_SEL(m, "GRO %s\n", gro?"enable":"disable");
 
 	return 0;
 }
+
+#ifdef CONFIG_RTW_NAPI_DYNAMIC
+static ssize_t proc_set_napi_th(struct file *file, const char __user *buffer, size_t count, loff_t *pos, void *data)
+{
+	struct net_device *dev = data;
+	struct _ADAPTER *adapter = (struct _ADAPTER *)rtw_netdev_priv(dev);
+	struct registry_priv *registry = &adapter->registrypriv;
+	char tmp[32] = {0};
+	int thrshld = 0;
+	int num = 0;
+
+
+	if (count < 1)
+		return -EFAULT;
+
+	if (count > sizeof(tmp)) {
+		rtw_warn_on(1);
+		return -EFAULT;
+	}
+
+	RTW_INFO("%s: Last threshold = %d Mbps\n", __FUNCTION__, registry->napi_threshold);
+
+	if (buffer && !copy_from_user(tmp, buffer, count)) {
+		num = sscanf(tmp, "%d", &thrshld);
+		if (num > 0) {
+			if (thrshld > 0)
+				registry->napi_threshold = thrshld;
+		}
+	}
+	RTW_INFO("%s: New threshold = %d Mbps\n", __FUNCTION__, registry->napi_threshold);
+	RTW_INFO("%s: Current RX throughput = %d Mbps\n",
+		 __FUNCTION__, adapter_to_dvobj(adapter)->traffic_stat.cur_rx_tp);
+
+	return count;
+}
+#endif /* CONFIG_RTW_NAPI_DYNAMIC */
 
 /*
 * rtw_adapter_proc:
@@ -2525,6 +2574,9 @@ const struct rtw_proc_hdl adapter_proc_hdls[] = {
 	RTW_PROC_HDL_SSEQ("trx_share_mode", proc_get_trx_share_mode, NULL),
 #endif
 	RTW_PROC_HDL_SSEQ("napi_info", proc_get_napi_info, NULL),
+#ifdef CONFIG_RTW_NAPI_DYNAMIC
+	RTW_PROC_HDL_SSEQ("napi_th", proc_get_napi_info, proc_set_napi_th),
+#endif /* CONFIG_RTW_NAPI_DYNAMIC */
 #if 0 /*#ifdef CONFIG_SUPPORT_FIFO_DUMP*/
 	RTW_PROC_HDL_SSEQ("rsvd_page", proc_dump_rsvd_page, proc_set_rsvd_page_info),
 	RTW_PROC_HDL_SSEQ("fifo_dump", proc_dump_fifo, proc_set_fifo_info),

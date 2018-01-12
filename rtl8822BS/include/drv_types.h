@@ -84,12 +84,6 @@ typedef struct _ADAPTER _adapter, ADAPTER, *PADAPTER;
 #include <xmit_osdep.h>
 #include <rtw_recv.h>
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 7, 0))
-#define ieee80211_band nl80211_band
-#define IEEE80211_BAND_2GHZ NL80211_BAND_2GHZ
-#define IEEE80211_BAND_5GHZ NL80211_BAND_5GHZ
-#define IEEE80211_NUM_BANDS NUM_NL80211_BANDS
-#endif
 #ifdef CONFIG_BEAMFORMING
 	#include <rtw_beamforming.h>
 #endif
@@ -408,6 +402,9 @@ struct registry_priv {
 
 #ifdef CONFIG_RTW_NAPI
 	u8 en_napi;
+#ifdef CONFIG_RTW_NAPI_DYNAMIC
+	u32 napi_threshold;	/* unit: Mbps */
+#endif /* CONFIG_RTW_NAPI_DYNAMIC */
 #ifdef CONFIG_RTW_GRO
 	u8 en_gro;
 #endif /* CONFIG_RTW_GRO */
@@ -893,7 +890,7 @@ struct dvobj_priv {
 
 #ifdef CONFIG_AP_MODE
 	u8 nr_ap_if; /* total interface s number of ap/go mode. */
-	u32 inter_bcn_space; /* unit:ms */
+	u16 inter_bcn_space; /* unit:ms */
 	_queue	ap_if_q;
 #endif
 
@@ -935,6 +932,10 @@ struct dvobj_priv {
 	_timer txbcn_timer;
 #endif
 	_timer dynamic_chk_timer; /* dynamic/periodic check timer */
+
+#ifdef CONFIG_RTW_NAPI_DYNAMIC
+	u8 en_napi_dynamic;
+#endif /* CONFIG_RTW_NAPI_DYNAMIC */
 
 #ifdef RTW_HALMAC
 	void *halmac;

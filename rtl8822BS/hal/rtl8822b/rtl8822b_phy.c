@@ -201,14 +201,14 @@ static u8 _init_rf_reg(PADAPTER adapter)
 	for (path = 0; path < hal->NumTotalRFPath; path++) {
 		/* Initialize RF from configuration file */
 		switch (path) {
-		case RF_PATH_A:
+		case 0:
 			phydm_path = ODM_RF_PATH_A;
 			#ifdef CONFIG_LOAD_PHY_PARA_FROM_FILE
 			regfile = PHY_FILE_RADIO_A;
 			#endif
 			break;
 
-		case RF_PATH_B:
+		case 1:
 			phydm_path = ODM_RF_PATH_B;
 			#ifdef CONFIG_LOAD_PHY_PARA_FROM_FILE
 			regfile = PHY_FILE_RADIO_B;
@@ -561,6 +561,7 @@ static void update_phydm_cominfo(PADAPTER adapter)
 	odm_cmn_info_update(p_dm_odm, ODM_CMNINFO_ABILITY, support_ability);
 }
 
+#ifdef RTW_TX_PA_BIAS
 static void _pa_bias_paser(u8 shift, u8 *minus, u8 *val)
 {
 	shift &= 0xF;
@@ -648,6 +649,54 @@ static void _pa_bias_calibration(PADAPTER adapter, enum odm_rf_radio_path_e path
 	rtw_hal_write_rfreg(adapter, path, 0xEF, RFREGOFFSETMASK, 0x0);
 }
 
+static void _pa_bias_2g4_cal(struct _ADAPTER *adapter, enum odm_rf_radio_path_e path, u8 shift)
+{
+	u32 rf_reg_51;
+	u32 rf_reg_52;
+	u32 rf_reg_3f;
+	u8 bias;
+	u8 minus = 0;
+	u8 val = 0;
+
+
+	_pa_bias_paser(shift, &minus, &val);
+	RTW_INFO("%s: RF-%u bias shift %s%u\n",
+		 __FUNCTION__, path, minus?"-":"+", val);
+	if (!val)
+		return;
+
+	rf_reg_51 = rtw_hal_read_rfreg(adapter, path, 0x51, RFREGOFFSETMASK);
+	rf_reg_52 = rtw_hal_read_rfreg(adapter, path, 0x52, RFREGOFFSETMASK);
+
+	/*
+	 * rf3f[2:0] = rf52[19:17]
+	 * rf3f[4:3] = rf52[16:15]
+	 * rf3f[8:5] = rf52[3:0]
+	 * rf3f[12:9] = rf51[6:3]
+	 * rf3f[13] = rf52[13]
+	 */
+	rf_reg_3f = ((rf_reg_52 & 0xe0000) >> 17)
+		    | (((rf_reg_52 & 0x18000) >> 15) << 3)
+		    | ((rf_reg_52 & 0xf) << 5)
+		    | (((rf_reg_51 & 0x78) >> 3) << 9)
+		    | (((rf_reg_52 & 0x2000) >> 13) << 13);
+	/* PA Bias ia at 0x3F[12:9] */
+	bias = (u8)((rf_reg_3f & 0x1E00) >> 9);
+	bias = _pa_bias_adjust(bias, minus, val);
+	rf_reg_3f = ((rf_reg_3f & 0xFE1FF) | (bias << 9));
+
+	rtw_hal_write_rfreg(adapter, path, 0xEF, BIT(10), 0x1);
+	rtw_hal_write_rfreg(adapter, path, 0x33, RFREGOFFSETMASK, 0x0);
+	rtw_hal_write_rfreg(adapter, path, 0x3F, RFREGOFFSETMASK, rf_reg_3f);
+	rtw_hal_write_rfreg(adapter, path, 0x33, BIT(0), 0x1);
+	rtw_hal_write_rfreg(adapter, path, 0x3F, RFREGOFFSETMASK, rf_reg_3f);
+	rtw_hal_write_rfreg(adapter, path, 0x33, BIT(1), 0x1);
+	rtw_hal_write_rfreg(adapter, path, 0x3F, RFREGOFFSETMASK, rf_reg_3f);
+	rtw_hal_write_rfreg(adapter, path, 0x33, (BIT(1) | BIT(0)), 0x3);
+	rtw_hal_write_rfreg(adapter, path, 0x3F, RFREGOFFSETMASK, rf_reg_3f);
+	rtw_hal_write_rfreg(adapter, path, 0xEF, BIT(10), 0x0);
+}
+
 static void pa_bias_calibration(PADAPTER adapter)
 {
 	struct hal_com_data *hal;
@@ -656,10 +705,10 @@ static void pa_bias_calibration(PADAPTER adapter)
 
 
 	hal = GET_HAL_DATA(adapter);
-	if (0xFF == hal->tx_pa_bias_a)
-		return;
-
 	time = rtw_get_current_time();
+
+	if (0xFF == hal->tx_pa_bias_a)
+		goto cal_2g4;
 
 	/* Save RF register 0x18 */
 	rf_reg18_a = rtw_hal_read_rfreg(adapter, ODM_RF_PATH_A, 0x18, RFREGOFFSETMASK);
@@ -672,8 +721,17 @@ static void pa_bias_calibration(PADAPTER adapter)
 	rtw_hal_write_rfreg(adapter, ODM_RF_PATH_A, 0x18, RFREGOFFSETMASK, rf_reg18_a);
 	rtw_hal_write_rfreg(adapter, ODM_RF_PATH_B, 0x18, RFREGOFFSETMASK, rf_reg18_b);
 
+cal_2g4:
+	if (hal->tx_pa_bias_2g4_a == 0xFF)
+		goto exit;
+
+	_pa_bias_2g4_cal(adapter, ODM_RF_PATH_A, hal->tx_pa_bias_2g4_a);
+	_pa_bias_2g4_cal(adapter, ODM_RF_PATH_B, hal->tx_pa_bias_2g4_b);
+
+exit:
 	RTW_INFO("%s: done! cost %u ms\n", __FUNCTION__, rtw_get_passing_time_ms(time));
 }
+#endif /* RTW_TX_PA_BIAS */
 
 void rtl8822b_phy_init_dm_priv(PADAPTER adapter)
 {
@@ -709,9 +767,11 @@ void rtl8822b_phy_init_haldm(PADAPTER adapter)
 
 	odm_dm_init(p_dm_odm);
 
+#ifdef RTW_TX_PA_BIAS
 	/* Run once in hal initialize flow */
 	if (hal->hw_init_completed == _FALSE)
 		pa_bias_calibration(adapter);
+#endif
 }
 
 static void check_rxfifo_full(PADAPTER adapter)
@@ -1431,7 +1491,7 @@ void rtl8822b_mp_config_rfpath(PADAPTER adapter)
 	PHAL_DATA_TYPE hal;
 	PMPT_CONTEXT mpt;
 	ANTENNA_PATH anttx, antrx;
-	enum odm_rf_path_e rxant;
+	enum odm_rf_path_e bb_tx, bb_rx;
 
 
 	hal = GET_HAL_DATA(adapter);
@@ -1443,31 +1503,34 @@ void rtl8822b_mp_config_rfpath(PADAPTER adapter)
 
 	switch (anttx) {
 	case ANTENNA_A:
-		mpt->mpt_rf_path = ODM_RF_A;
+		mpt->mpt_rf_path = ODM_RF_PATH_A;
+		bb_tx = ODM_RF_A;
 		break;
 	case ANTENNA_B:
-		mpt->mpt_rf_path = ODM_RF_B;
+		mpt->mpt_rf_path = ODM_RF_PATH_B;
+		bb_tx = ODM_RF_B;
 		break;
 	case ANTENNA_AB:
 	default:
-		mpt->mpt_rf_path = ODM_RF_A | ODM_RF_B;
+		mpt->mpt_rf_path = ODM_RF_PATH_AB;
+		bb_tx = ODM_RF_A | ODM_RF_B;
 		break;
 	}
 
 	switch (antrx) {
 	case ANTENNA_A:
-		rxant = ODM_RF_A;
+		bb_rx = ODM_RF_A;
 		break;
 	case ANTENNA_B:
-		rxant = ODM_RF_B;
+		bb_rx = ODM_RF_B;
 		break;
 	case ANTENNA_AB:
 	default:
-		rxant = ODM_RF_A | ODM_RF_B;
+		bb_rx = ODM_RF_A | ODM_RF_B;
 		break;
 	}
 
-	config_phydm_trx_mode_8822b(GET_PDM_ODM(adapter), mpt->mpt_rf_path, rxant, FALSE);
+	config_phydm_trx_mode_8822b(GET_PDM_ODM(adapter), bb_tx, bb_rx, FALSE);
 
 	RTW_INFO("-Config RF Path Finish\n");
 }

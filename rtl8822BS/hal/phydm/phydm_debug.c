@@ -697,6 +697,8 @@ phydm_bb_debug_info(
 		PHYDM_SNPRINTF((output + used, out_len - used, "\r\n %-35s = %d (factor = %s)", "Condition number", condition_num, factor));
 
 	}
+	*_used = used;
+	*_out_len = out_len;
 
 }
 #if (DM_ODM_SUPPORT_TYPE & ODM_WIN)
@@ -1261,35 +1263,50 @@ phydm_get_per_path_txagc(
 	if (((p_dm_odm->support_ic_type & (ODM_RTL8822B | ODM_RTL8197F)) && (path <= ODM_RF_PATH_B)) ||
 	    ((p_dm_odm->support_ic_type & (ODM_RTL8821C)) && (path <= ODM_RF_PATH_A))) {
 		for (rate_idx = 0; rate_idx <= 0x53; rate_idx++) {
+#if 1 /* Skip 3ss & 4ss rate for 8822B */
+			if (p_dm_odm->support_ic_type == ODM_RTL8822B) {
+				if (rate_idx == ODM_RATEMCS16) {
+					rate_idx = ODM_RATEMCS31;
+					continue;
+				}
+				if (rate_idx == ODM_RATEVHTSS3MCS0) {
+					rate_idx = ODM_RATEVHTSS4MCS9;
+					continue;
+				}
+			}
+#endif
+
 			if (rate_idx == ODM_RATE1M)
-				PHYDM_SNPRINTF((output + used, out_len - used, "  %-35s\n", "CCK====>"));
+				PHYDM_SNPRINTF((output + used, out_len - used, "\t%-8s:", "CCK"));
 			else if (rate_idx == ODM_RATE6M)
-				PHYDM_SNPRINTF((output + used, out_len - used, "\n  %-35s\n", "OFDM====>"));
+				PHYDM_SNPRINTF((output + used, out_len - used, "\n\t%-8s:", "OFDM"));
 			else if (rate_idx == ODM_RATEMCS0)
-				PHYDM_SNPRINTF((output + used, out_len - used, "\n  %-35s\n", "HT 1ss====>"));
+				PHYDM_SNPRINTF((output + used, out_len - used, "\n\t%-8s:", "HT 1ss"));
 			else if (rate_idx == ODM_RATEMCS8)
-				PHYDM_SNPRINTF((output + used, out_len - used, "\n  %-35s\n", "HT 2ss====>"));
+				PHYDM_SNPRINTF((output + used, out_len - used, "\n\t%-8s:", "HT 2ss"));
 			else if (rate_idx == ODM_RATEMCS16)
-				PHYDM_SNPRINTF((output + used, out_len - used, "\n  %-35s\n", "HT 3ss====>"));
+				PHYDM_SNPRINTF((output + used, out_len - used, "\n\t%-8s:", "HT 3ss"));
 			else if (rate_idx == ODM_RATEMCS24)
-				PHYDM_SNPRINTF((output + used, out_len - used, "\n  %-35s\n", "HT 4ss====>"));
+				PHYDM_SNPRINTF((output + used, out_len - used, "\n\t%-8s:", "HT 4ss"));
 			else if (rate_idx == ODM_RATEVHTSS1MCS0)
-				PHYDM_SNPRINTF((output + used, out_len - used, "\n  %-35s\n", "VHT 1ss====>"));
+				PHYDM_SNPRINTF((output + used, out_len - used, "\n\t%-8s:", "VHT 1ss"));
 			else if (rate_idx == ODM_RATEVHTSS2MCS0)
-				PHYDM_SNPRINTF((output + used, out_len - used, "\n  %-35s\n", "VHT 2ss====>"));
+				PHYDM_SNPRINTF((output + used, out_len - used, "\n\t%-8s:", "VHT 2ss"));
 			else if (rate_idx == ODM_RATEVHTSS3MCS0)
-				PHYDM_SNPRINTF((output + used, out_len - used, "\n  %-35s\n", "VHT 3ss====>"));
+				PHYDM_SNPRINTF((output + used, out_len - used, "\n\t%-8s:", "VHT 3ss"));
 			else if (rate_idx == ODM_RATEVHTSS4MCS0)
-				PHYDM_SNPRINTF((output + used, out_len - used, "\n  %-35s\n", "VHT 4ss====>"));
+				PHYDM_SNPRINTF((output + used, out_len - used, "\n\t%-8s:", "VHT 4ss"));
 
 			txagc = phydm_api_get_txagc(p_dm_odm, (enum odm_rf_radio_path_e) path, rate_idx);
 			if (config_phydm_read_txagc_check(txagc))
-				PHYDM_SNPRINTF((output + used, out_len - used, "  0x%02x    ", txagc));
+				PHYDM_SNPRINTF((output + used, out_len - used, " 0x%02x", txagc));
 			else
-				PHYDM_SNPRINTF((output + used, out_len - used, "  0x%s    ", "xx"));
+				PHYDM_SNPRINTF((output + used, out_len - used, " %4s", "?"));
 		}
 	}
 #endif
+	*_used = used;
+	*_out_len = out_len;
 }
 
 
@@ -1306,21 +1323,26 @@ phydm_get_txagc(
 	u32			out_len = *_out_len;
 
 	/* path-A */
-	PHYDM_SNPRINTF((output + used, out_len - used, "%-35s\n", "path-A===================="));
-	phydm_get_per_path_txagc(p_dm_odm, ODM_RF_PATH_A, _used, output, _out_len);
+	PHYDM_SNPRINTF((output + used, out_len - used, "%s\n", "path-A===================="));
+	phydm_get_per_path_txagc(p_dm_odm, ODM_RF_PATH_A, &used, output, &out_len);
 
 	/* path-B */
-	PHYDM_SNPRINTF((output + used, out_len - used, "\n%-35s\n", "path-B===================="));
-	phydm_get_per_path_txagc(p_dm_odm, ODM_RF_PATH_B, _used, output, _out_len);
+	PHYDM_SNPRINTF((output + used, out_len - used, "\n%s\n", "path-B===================="));
+	phydm_get_per_path_txagc(p_dm_odm, ODM_RF_PATH_B, &used, output, &out_len);
 
+	/* Skip Path C&D for 8822B */
+	if (!(p_dm_odm->support_ic_type == ODM_RTL8822B)) {
 	/* path-C */
-	PHYDM_SNPRINTF((output + used, out_len - used, "\n%-35s\n", "path-C===================="));
-	phydm_get_per_path_txagc(p_dm_odm, ODM_RF_PATH_C, _used, output, _out_len);
+	PHYDM_SNPRINTF((output + used, out_len - used, "\n%s\n", "path-C===================="));
+	phydm_get_per_path_txagc(p_dm_odm, ODM_RF_PATH_C, &used, output, &out_len);
 
 	/* path-D */
-	PHYDM_SNPRINTF((output + used, out_len - used, "\n%-35s\n", "path-D===================="));
-	phydm_get_per_path_txagc(p_dm_odm, ODM_RF_PATH_D, _used, output, _out_len);
+	PHYDM_SNPRINTF((output + used, out_len - used, "\n%s\n", "path-D===================="));
+	phydm_get_per_path_txagc(p_dm_odm, ODM_RF_PATH_D, &used, output, &out_len);
+	}
 
+	*_used = used;
+	*_out_len = out_len;
 }
 
 void
@@ -1374,6 +1396,8 @@ phydm_set_txagc(
 			PHYDM_SNPRINTF((output + used, out_len - used, "  %s%d   %s%x%s\n", "Write path-", (dm_value[1] & 0x1), "rate index-0x", (dm_value[2] & 0x7f), " fail"));
 	}
 #endif
+	*_used = used;
+	*_out_len = out_len;
 }
 
 void

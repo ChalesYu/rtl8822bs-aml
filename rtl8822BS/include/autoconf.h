@@ -170,8 +170,12 @@
 #define CONFIG_ATTEMPT_TO_FIX_AP_BEACON_ERROR
 
 #ifdef CONFIG_RTW_NAPI
+#define CONFIG_RTW_NAPI_DYNAMIC
 #define CONFIG_RTW_NAPI_V2
 #endif
+
+/*#define CONFIG_TCP_CSUM_OFFLOAD_TX*/ /* not ready */
+#define CONFIG_TCP_CSUM_OFFLOAD_RX
 
 /*
  * Platform
@@ -205,7 +209,7 @@
 #endif /* !CONFIG_MP_INCLUDED */
 
 #ifdef CONFIG_POWER_SAVING
-	//#define CONFIG_IPS
+	#define CONFIG_IPS
 	#define CONFIG_LPS
 
 	#if defined(CONFIG_LPS) && (defined(CONFIG_GSPI_HCI) || defined(CONFIG_SDIO_HCI))
@@ -215,7 +219,7 @@
 	#ifdef CONFIG_LPS
 		#define CONFIG_CHECK_LEAVE_LPS
 		#ifndef CONFIG_PLATFORM_INTEL_BYT
-		//#define CONFIG_LPS_SLOW_TRANSITION
+		#define CONFIG_LPS_SLOW_TRANSITION
 		#endif /* !CONFIG_PLATFORM_INTEL_BYT */
 	#endif
 

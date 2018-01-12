@@ -1431,7 +1431,7 @@ void rtw_free_assoc_resources(_adapter *adapter, int lock_scanned_queue)
 #endif /* CONFIG_TDLS */
 
 
-	RTW_INFO("%s-"ADPT_FMT" tgt_network MacAddress=" MAC_FMT"ssid=%s\n",
+	RTW_INFO("%s-"ADPT_FMT" tgt_network MacAddress=" MAC_FMT" ssid=%s\n",
 		__func__, ADPT_ARG(adapter), MAC_ARG(tgt_network->network.MacAddress), tgt_network->network.Ssid.Ssid);
 
 	if (check_fwstate(pmlmepriv, WIFI_STATION_STATE)) {
@@ -2493,7 +2493,7 @@ void rtw_sta_mstatus_report(_adapter *adapter)
 	struct wlan_network *tgt_network = &pmlmepriv->cur_network;
 	struct sta_info *psta = NULL;
 
-	if (check_fwstate(pmlmepriv, WIFI_STATION_STATE)) {
+	if (check_fwstate(pmlmepriv, WIFI_STATION_STATE) && check_fwstate(pmlmepriv, WIFI_ASOC_STATE)) {
 		psta = rtw_get_stainfo(&adapter->stapriv, tgt_network->network.MacAddress);
 		if (psta)
 			rtw_sta_mstatus_disc_rpt(adapter, psta->mac_id);
@@ -3384,7 +3384,7 @@ candidate_exist:
 		} else
 #endif
 		{
-			rtw_disassoc_cmd(adapter, 0, _TRUE);
+			rtw_disassoc_cmd(adapter, 0, 0);
 			rtw_indicate_disconnect(adapter, 0, _FALSE);
 			rtw_free_assoc_resources(adapter, 0);
 		}

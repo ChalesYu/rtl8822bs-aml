@@ -145,6 +145,20 @@ halmac_parse_h2c_ack_power_tracking_88xx(
 	IN u32 c2h_size
 );
 
+/*only for halmac_read_indirect_sdio_88xx !!, Soar 20171206*/
+static u8
+halmac_read_indirect_cmd52_sdio_88xx(
+	IN PHALMAC_ADAPTER pHalmac_adapter,
+	IN u16 halmac_offset
+);
+
+/*only for halmac_read_indirect_sdio_88xx !!, Soar 20171206*/
+static u32
+halmac_read_indirect_cmd53_sdio_88xx(
+	IN PHALMAC_ADAPTER pHalmac_adapter,
+	IN u16 halmac_offset
+);
+
 HALMAC_RET_STATUS
 halmac_dump_efuse_88xx(
 	IN PHALMAC_ADAPTER pHalmac_adapter,
@@ -1085,6 +1099,8 @@ halmac_dlfw_end_flow_88xx(
 	}
 	PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_INIT, HALMAC_DBG_TRACE, "Reset LLT\n");
 
+	/* gnt_wl=1 and gnt_bt=1 for coex, Lucas@20170608 */
+	HALMAC_REG_WRITE_32(pHalmac_adapter, REG_WL2LTECOEX_INDIRECT_ACCESS_WRITE_DATA_V1, 0xFF00);
 	HALMAC_REG_WRITE_32(pHalmac_adapter, REG_WL2LTECOEX_INDIRECT_ACCESS_CTRL_V1, 0xC00F0038);
 
 	counter = 10000;
@@ -2759,6 +2775,173 @@ halmac_convert_to_sdio_bus_offset_88xx(
 	}
 
 	return HALMAC_RET_SUCCESS;
+}
+
+/*only for halmac_read_indirect_sdio_88xx !!, Soar 20171206*/
+static u8
+halmac_read_indirect_cmd52_sdio_88xx(
+	IN PHALMAC_ADAPTER pHalmac_adapter,
+	IN u16 halmac_offset
+)
+{
+	u8 value8;
+	u8 rtemp = 0xFF;
+	u32 counter = 50;
+	VOID *pDriver_adapter = NULL;
+	PHALMAC_API pHalmac_api;
+
+	if (HALMAC_RET_SUCCESS != halmac_adapter_validate(pHalmac_adapter))
+		return HALMAC_RET_ADAPTER_INVALID;
+
+	if (HALMAC_RET_SUCCESS != halmac_api_validate(pHalmac_adapter))
+		return HALMAC_RET_API_INVALID;
+
+	pDriver_adapter = pHalmac_adapter->pDriver_adapter;
+	pHalmac_api = (PHALMAC_API)pHalmac_adapter->pHalmac_api;
+
+	PLATFORM_SDIO_CMD52_WRITE(pDriver_adapter, (SDIO_LOCAL_DEVICE_ID << 13) | (REG_SDIO_INDIRECT_REG_CFG & HALMAC_SDIO_LOCAL_MSK), (u8)halmac_offset);
+	PLATFORM_SDIO_CMD52_WRITE(pDriver_adapter, (SDIO_LOCAL_DEVICE_ID << 13) | ((REG_SDIO_INDIRECT_REG_CFG + 1) & HALMAC_SDIO_LOCAL_MSK), (u8)(halmac_offset >> 8));
+	PLATFORM_SDIO_CMD52_WRITE(pDriver_adapter, (SDIO_LOCAL_DEVICE_ID << 13) | ((REG_SDIO_INDIRECT_REG_CFG + 2) & HALMAC_SDIO_LOCAL_MSK), (u8)BIT(3));
+
+	do {
+		rtemp = PLATFORM_SDIO_CMD52_READ(pDriver_adapter, (SDIO_LOCAL_DEVICE_ID << 13) | ((REG_SDIO_INDIRECT_REG_CFG + 2) & HALMAC_SDIO_LOCAL_MSK));
+		counter--;
+	} while (((rtemp & BIT(4)) == 0) && (counter > 0));
+
+	if (((rtemp & BIT(4)) == 0) && (counter == 0))
+		PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_COMMON, HALMAC_DBG_ERR, "halmac_read_indirect_cmd52_sdio_88xx fail, offset = 0x%x\n", halmac_offset);
+
+	value8 = PLATFORM_SDIO_CMD52_READ(pDriver_adapter, (SDIO_LOCAL_DEVICE_ID << 13) | (REG_SDIO_INDIRECT_REG_DATA & HALMAC_SDIO_LOCAL_MSK));
+
+	return value8;
+}
+
+/*only for halmac_read_indirect_sdio_88xx !!, Soar 20171206*/
+static u32
+halmac_read_indirect_cmd53_sdio_88xx(
+	IN PHALMAC_ADAPTER pHalmac_adapter,
+	IN u16 halmac_offset
+)
+{
+	u8 rtemp = 0xFF;
+	u32 counter = 50;
+	VOID *pDriver_adapter = NULL;
+	PHALMAC_API pHalmac_api;
+
+	union {
+		u32	dword;
+		u8	byte[4];
+	} value32 = { 0x00000000 };
+
+	if (HALMAC_RET_SUCCESS != halmac_adapter_validate(pHalmac_adapter))
+		return HALMAC_RET_ADAPTER_INVALID;
+
+	if (HALMAC_RET_SUCCESS != halmac_api_validate(pHalmac_adapter))
+		return HALMAC_RET_API_INVALID;
+
+	pDriver_adapter = pHalmac_adapter->pDriver_adapter;
+	pHalmac_api = (PHALMAC_API)pHalmac_adapter->pHalmac_api;
+
+	PLATFORM_SDIO_CMD53_WRITE_32(pDriver_adapter, (SDIO_LOCAL_DEVICE_ID << 13) | (REG_SDIO_INDIRECT_REG_CFG & HALMAC_SDIO_LOCAL_MSK), (u32)halmac_offset | BIT(19) | BIT(17));
+
+	do {
+		rtemp = PLATFORM_SDIO_CMD52_READ(pDriver_adapter, (SDIO_LOCAL_DEVICE_ID << 13) | ((REG_SDIO_INDIRECT_REG_CFG + 2) & HALMAC_SDIO_LOCAL_MSK));
+		counter--;
+	} while (((rtemp & BIT(4)) == 0) && (counter > 0));
+
+	if (((rtemp & BIT(4)) == 0) && (counter == 0))
+		PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_COMMON, HALMAC_DBG_ERR, "halmac_read_indirect_cmd53_sdio_88xx fail, offset = 0x%x\n", halmac_offset);
+
+	value32.dword = PLATFORM_SDIO_CMD53_READ_32(pDriver_adapter, (SDIO_LOCAL_DEVICE_ID << 13) | (REG_SDIO_INDIRECT_REG_DATA & HALMAC_SDIO_LOCAL_MSK));
+
+	return value32.dword;
+}
+
+u32
+halmac_read_indirect_sdio_88xx(
+	IN PHALMAC_ADAPTER pHalmac_adapter,
+	IN u16 halmac_offset,
+	IN HALMAC_IO_SIZE size
+)
+{
+	u8 rtemp = 0xFF;
+	u32 counter = 1000;
+	VOID *pDriver_adapter = NULL;
+	PHALMAC_API pHalmac_api;
+
+	union {
+		u32	dword;
+		u8	byte[4];
+	} value32 = { 0x00000000 };
+
+	if (HALMAC_RET_SUCCESS != halmac_adapter_validate(pHalmac_adapter))
+		return HALMAC_RET_ADAPTER_INVALID;
+
+	if (HALMAC_RET_SUCCESS != halmac_api_validate(pHalmac_adapter))
+		return HALMAC_RET_API_INVALID;
+
+	pDriver_adapter = pHalmac_adapter->pDriver_adapter;
+	pHalmac_api = (PHALMAC_API)pHalmac_adapter->pHalmac_api;
+
+	PLATFORM_MUTEX_LOCK(pDriver_adapter, &(pHalmac_adapter->sdio_indirect_mutex));
+
+	switch (size) {
+	case HALMAC_IO_BYTE:
+		value32.byte[0] = halmac_read_indirect_cmd52_sdio_88xx(pHalmac_adapter, halmac_offset);
+		break;
+	case HALMAC_IO_WORD:
+		if (HALMAC_MAC_POWER_OFF == pHalmac_adapter->halmac_state.mac_power) {
+			if (0 != (halmac_offset & (2 - 1))) {
+				value32.byte[0] = halmac_read_indirect_cmd52_sdio_88xx(pHalmac_adapter, halmac_offset);
+				value32.byte[1] = halmac_read_indirect_cmd52_sdio_88xx(pHalmac_adapter, halmac_offset + 1);
+			} else {
+				value32.byte[0] = halmac_read_indirect_cmd52_sdio_88xx(pHalmac_adapter, halmac_offset);
+				value32.byte[1] = PLATFORM_SDIO_CMD52_READ(pDriver_adapter, (SDIO_LOCAL_DEVICE_ID << 13) | ((REG_SDIO_INDIRECT_REG_DATA + 1) & HALMAC_SDIO_LOCAL_MSK));
+			}
+			value32.dword = rtk_le32_to_cpu(value32.dword);
+		} else {
+			if (0 != (halmac_offset & (2 - 1))) {
+				value32.byte[0] = (u8)halmac_read_indirect_cmd53_sdio_88xx(pHalmac_adapter, halmac_offset);
+				value32.byte[1] = (u8)halmac_read_indirect_cmd53_sdio_88xx(pHalmac_adapter, halmac_offset + 1);
+				value32.dword = rtk_le32_to_cpu(value32.dword);
+			} else {
+				value32.dword = halmac_read_indirect_cmd53_sdio_88xx(pHalmac_adapter, halmac_offset);
+			}
+		}
+		break;
+	case HALMAC_IO_DWORD:
+		if (HALMAC_MAC_POWER_OFF == pHalmac_adapter->halmac_state.mac_power) {
+			if (0 != (halmac_offset & (4 - 1))) {
+				value32.byte[0] = halmac_read_indirect_cmd52_sdio_88xx(pHalmac_adapter, halmac_offset);
+				value32.byte[1] = halmac_read_indirect_cmd52_sdio_88xx(pHalmac_adapter, halmac_offset + 1);
+				value32.byte[2] = halmac_read_indirect_cmd52_sdio_88xx(pHalmac_adapter, halmac_offset + 2);
+				value32.byte[3] = halmac_read_indirect_cmd52_sdio_88xx(pHalmac_adapter, halmac_offset + 3);
+			} else {
+				value32.byte[0] = halmac_read_indirect_cmd52_sdio_88xx(pHalmac_adapter, halmac_offset);
+				value32.byte[1] = PLATFORM_SDIO_CMD52_READ(pDriver_adapter, (SDIO_LOCAL_DEVICE_ID << 13) | ((REG_SDIO_INDIRECT_REG_DATA + 1) & HALMAC_SDIO_LOCAL_MSK));
+				value32.byte[2] = PLATFORM_SDIO_CMD52_READ(pDriver_adapter, (SDIO_LOCAL_DEVICE_ID << 13) | ((REG_SDIO_INDIRECT_REG_DATA + 2) & HALMAC_SDIO_LOCAL_MSK));
+				value32.byte[3] = PLATFORM_SDIO_CMD52_READ(pDriver_adapter, (SDIO_LOCAL_DEVICE_ID << 13) | ((REG_SDIO_INDIRECT_REG_DATA + 3) & HALMAC_SDIO_LOCAL_MSK));
+			}
+			value32.dword = rtk_le32_to_cpu(value32.dword);
+		} else {
+			if (0 != (halmac_offset & (4 - 1))) {
+				value32.byte[0] = (u8)halmac_read_indirect_cmd53_sdio_88xx(pHalmac_adapter, halmac_offset);
+				value32.byte[1] = (u8)halmac_read_indirect_cmd53_sdio_88xx(pHalmac_adapter, halmac_offset + 1);
+				value32.byte[2] = (u8)halmac_read_indirect_cmd53_sdio_88xx(pHalmac_adapter, halmac_offset + 2);
+				value32.byte[3] = (u8)halmac_read_indirect_cmd53_sdio_88xx(pHalmac_adapter, halmac_offset + 3);
+				value32.dword = rtk_le32_to_cpu(value32.dword);
+			} else {
+				value32.dword = halmac_read_indirect_cmd53_sdio_88xx(pHalmac_adapter, halmac_offset);
+			}
+		}
+		break;
+	default:
+		break;
+	}
+
+	PLATFORM_MUTEX_UNLOCK(pDriver_adapter, &(pHalmac_adapter->sdio_indirect_mutex));
+
+	return value32.dword;	
 }
 
 HALMAC_RET_STATUS

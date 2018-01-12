@@ -22,6 +22,12 @@
 #define __ODM_RTL8822B_H__
 
 void
+phydm_somlrxhp_setting(
+	struct 	PHY_DM_STRUCT		*p_dm_odm,
+	boolean switch_soml
+);
+
+void
 phydm_hwsetting_8822b(
 	struct PHY_DM_STRUCT		*p_dm_odm
 );

@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2015 - 2016 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2015 - 2017 Realtek Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -54,6 +54,44 @@ static void read_adapter_info(PADAPTER adapter)
 	 */
 }
 
+#ifdef CONFIG_RTW_SDIO_OOB_INT
+static void oob_interrupt_switch(struct dvobj_priv *d, u8 enable)
+{
+	struct _ADAPTER *adapter;
+	u32 val, val_org;
+	u32 himr = 0;
+
+
+	adapter = dvobj_get_primary_adapter(d);
+
+	val = rtw_read32(adapter, REG_SYS_SDIO_CTRL_8822B);
+	val_org = val;
+	if (enable)
+		val |= BIT_SDIO_INT_8822B;
+	else
+		val &= ~BIT_SDIO_INT_8822B;
+	if (val == val_org)
+		goto exit;
+
+	/* Disable interrupt first if enable OOB function */
+	if (enable) {
+		himr = rtw_read32(adapter, REG_SDIO_HIMR_8822B);
+		if (himr)
+			rtw_write32(adapter, REG_SDIO_HIMR_8822B, 0);
+	}
+
+	rtw_write32(adapter, REG_SYS_SDIO_CTRL_8822B, val);
+
+	/* Enable original interrupt again */
+	if (himr)
+		rtw_write32(adapter, REG_SDIO_HIMR_8822B, himr);
+exit:
+	RTW_PRINT("%s: %s OOB interrupt, 0x%x=0x%08x\n",
+		  __FUNCTION__, enable ? "enable" : "disable",
+		  REG_SYS_SDIO_CTRL_8822B, val);
+}
+#endif /* CONFIG_RTW_SDIO_OOB_INT */
+
 void rtl8822bs_get_interrupt(PADAPTER adapter, u32 *hisr, u16 *rx_len)
 {
 	u8 data[6] = {0};
@@ -76,6 +114,17 @@ void rtl8822bs_clear_interrupt(PADAPTER adapter, u32 hisr)
 
 static void update_himr(PADAPTER adapter, u32 himr)
 {
+#if defined(CONFIG_RTW_SDIO_OOB_INT) && defined(CONFIG_PLATFORM_AML_S905)
+	u32 val32;
+
+
+	val32 = rtw_read32(adapter, REG_SDIO_HIMR_8822B);
+	if (val32 == himr) {
+		RTW_WARN("%s: HIMR not change (0x%08x)\n", __FUNCTION__, himr);
+		return;
+	}
+#endif /* CONFIG_RTW_SDIO_OOB_INT && CONFIG_PLATFORM_AML_S905 */
+
 	rtw_write32(adapter, REG_SDIO_HIMR_8822B, himr);
 }
 
@@ -125,6 +174,10 @@ void rtl8822bs_init_interrupt(PADAPTER adapter)
 				 BIT_SDIO_CRCERR_MSK_8822B	|
 #endif
 				 0);
+
+#ifdef CONFIG_RTW_SDIO_OOB_INT
+	oob_interrupt_switch(adapter_to_dvobj(adapter), 1);
+#endif /* CONFIG_RTW_SDIO_OOB_INT */
 
 	update_himr(adapter, hal->sdio_himr);
 }

@@ -128,8 +128,13 @@ int rtw_ht_enable = 1;
 int rtw_bw_mode = 0x21;
 int rtw_ampdu_enable = 1;/* for enable tx_ampdu , */ /* 0: disable, 0x1:enable */
 int rtw_rx_stbc = 1;/* 0: disable, bit(0):enable 2.4g, bit(1):enable 5g, default is set to enable 2.4GHZ for IOT issue with bufflao's AP at 5GHZ */
-#if defined(CONFIG_RTL8822B) && defined(CONFIG_PCI_HCI)
+#if defined(CONFIG_RTL8822B) && (defined(CONFIG_PCI_HCI)|| defined(CONFIG_SDIO_HCI))
+#if defined(CONFIG_PCI_HCI)
 int rtw_ampdu_amsdu = 2;/* 0: disabled, 1:enabled, 2:auto . There is an IOT issu with DLINK DIR-629 when the flag turn on */
+#endif
+#if defined(CONFIG_SDIO_HCI)
+int rtw_ampdu_amsdu = 1;/* 0: disabled, 1:enabled, 2:auto . There is an IOT issu with DLINK DIR-629 when the flag turn on */
+#endif
 #else
 int rtw_ampdu_amsdu = 0;/* 0: disabled, 1:enabled, 2:auto . There is an IOT issu with DLINK DIR-629 when the flag turn on */
 #endif
@@ -191,7 +196,7 @@ char *rtw_country_code = rtw_country_unspecified;
 module_param(rtw_country_code, charp, 0644);
 MODULE_PARM_DESC(rtw_country_code, "The default country code (in alpha2)");
 
-int rtw_channel_plan = RTW_CHPLAN_MAX;
+int rtw_channel_plan = CONFIG_RTW_CHPLAN;
 module_param(rtw_channel_plan, int, 0644);
 MODULE_PARM_DESC(rtw_channel_plan, "The default chplan ID when rtw_alpha2 is not specified or valid");
 
@@ -631,6 +636,10 @@ module_param(rtw_mcc_guard_offset1, int, 0644);
 enable napi only = 1, disable napi = 0*/
 int rtw_en_napi = 1;
 module_param(rtw_en_napi, int, 0644);
+#ifdef CONFIG_RTW_NAPI_DYNAMIC
+int rtw_napi_threshold = 100; /* unit: Mbps */
+module_param(rtw_napi_threshold, int, 0644);
+#endif /* CONFIG_RTW_NAPI_DYNAMIC */
 #ifdef CONFIG_RTW_GRO
 /*following setting should define GRO in Makefile
 enable gro = 1, disable gro = 0*/
@@ -939,6 +948,9 @@ uint loadparam(_adapter *padapter)
 
 #ifdef CONFIG_RTW_NAPI
 	registry_par->en_napi = (u8)rtw_en_napi;
+#ifdef CONFIG_RTW_NAPI_DYNAMIC
+	registry_par->napi_threshold = (u32)rtw_napi_threshold;
+#endif /* CONFIG_RTW_NAPI_DYNAMIC */
 #ifdef CONFIG_RTW_GRO
 	registry_par->en_gro = (u8)rtw_en_gro;
 	if (!registry_par->en_napi && registry_par->en_gro) {
@@ -1798,6 +1810,10 @@ struct dvobj_priv *devobj_init(void)
 	_rtw_spinlock_init(&pdvobj->mcc_objpriv.mcc_lock);
 #endif /* CONFIG_MCC_MODE */
 
+#ifdef CONFIG_RTW_NAPI_DYNAMIC
+	pdvobj->en_napi_dynamic = 0;
+#endif /* CONFIG_RTW_NAPI_DYNAMIC */
+
 	return pdvobj;
 
 }
@@ -2448,7 +2464,7 @@ void rtw_drv_stop_vir_if(_adapter *padapter)
 	pnetdev = padapter->pnetdev;
 
 	if (check_fwstate(pmlmepriv, _FW_LINKED))
-		rtw_disassoc_cmd(padapter, 0, _FALSE);
+		rtw_disassoc_cmd(padapter, 0, RTW_CMDF_DIRECTLY);
 
 #ifdef CONFIG_AP_MODE
 	if (check_fwstate(&padapter->mlmepriv, WIFI_AP_STATE) == _TRUE) {
@@ -3022,7 +3038,7 @@ static int netdev_close(struct net_device *pnetdev)
 #ifndef CONFIG_ANDROID
 		/* s2. */
 		LeaveAllPowerSaveMode(padapter);
-		rtw_disassoc_cmd(padapter, 500, _FALSE);
+		rtw_disassoc_cmd(padapter, 500, RTW_CMDF_DIRECTLY);
 		/* s2-2.  indicate disconnect to os */
 		rtw_indicate_disconnect(padapter, 0, _FALSE);
 		/* s2-3. */
@@ -3498,7 +3514,7 @@ int rtw_suspend_free_assoc_resource(_adapter *padapter)
 	}
 
 	if (check_fwstate(pmlmepriv, WIFI_STATION_STATE) && check_fwstate(pmlmepriv, _FW_LINKED)) {
-		rtw_disassoc_cmd(padapter, 0, _FALSE);
+		rtw_disassoc_cmd(padapter, 0, RTW_CMDF_DIRECTLY);
 		/* s2-2.  indicate disconnect to os */
 		rtw_indicate_disconnect(padapter, 0, _FALSE);
 	}
@@ -4021,15 +4037,9 @@ int rtw_resume_process_wow(_adapter *padapter)
 		rtw_lock_ext_suspend_timeout(8000);
 
 	if (pwrpriv->wowlan_wake_reason == RX_PNO) {
-#ifdef CONFIG_IOCTL_CFG80211
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 2, 0))
-		u8 locally_generated = 1;
-
-		cfg80211_disconnected(padapter->pnetdev, 0, NULL, 0, locally_generated, GFP_ATOMIC);
-#else
-		cfg80211_disconnected(padapter->pnetdev, 0, NULL, 0, GFP_ATOMIC);
-#endif
-#endif /* CONFIG_IOCTL_CFG80211 */
+		#ifdef CONFIG_IOCTL_CFG80211
+		rtw_cfg80211_disconnected(padapter->rtw_wdev, 0, NULL, 0, 1, GFP_ATOMIC);
+		#endif
 		rtw_lock_ext_suspend_timeout(10000);
 	}
 

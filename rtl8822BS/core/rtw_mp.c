@@ -938,7 +938,7 @@ u32 mp_join(PADAPTER padapter, u8 mode)
 
 	/* init mp_start_test status */
 	if (check_fwstate(pmlmepriv, _FW_LINKED) == _TRUE) {
-		rtw_disassoc_cmd(padapter, 500, _TRUE);
+		rtw_disassoc_cmd(padapter, 500, 0);
 		rtw_indicate_disconnect(padapter, 0, _FALSE);
 		rtw_free_assoc_resources(padapter, 1);
 	}

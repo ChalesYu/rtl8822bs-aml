@@ -1580,11 +1580,13 @@ exit:
 	return res;
 }
 
-u8 rtw_disassoc_cmd(_adapter *padapter, u32 deauth_timeout_ms, bool enqueue) /* for sta_mode */
+u8 rtw_disassoc_cmd(_adapter *padapter, u32 deauth_timeout_ms, int flags) /* for sta_mode */
 {
 	struct cmd_obj *cmdobj = NULL;
 	struct disconnect_parm *param = NULL;
 	struct cmd_priv *cmdpriv = &padapter->cmdpriv;
+	struct cmd_priv *pcmdpriv = &padapter->cmdpriv;
+	struct submit_ctx sctx;
 	u8 res = _SUCCESS;
 
 
@@ -1597,8 +1599,13 @@ u8 rtw_disassoc_cmd(_adapter *padapter, u32 deauth_timeout_ms, bool enqueue) /* 
 	}
 	param->deauth_timeout_ms = deauth_timeout_ms;
 
-	if (enqueue) {
-		/* need enqueue, prepare cmd_obj and enqueue */
+	if (flags & RTW_CMDF_DIRECTLY) {
+		/* no need to enqueue, do the cmd hdl directly and free cmd parameter */
+		if (disconnect_hdl(padapter, (u8 *)param) != H2C_SUCCESS)
+			res = _FAIL;
+		rtw_mfree((u8 *)param, sizeof(*param));
+
+	} else {
 		cmdobj = (struct cmd_obj *)rtw_zmalloc(sizeof(*cmdobj));
 		if (cmdobj == NULL) {
 			res = _FAIL;
@@ -1606,12 +1613,18 @@ u8 rtw_disassoc_cmd(_adapter *padapter, u32 deauth_timeout_ms, bool enqueue) /* 
 			goto exit;
 		}
 		init_h2fwcmd_w_parm_no_rsp(cmdobj, param, _DisConnect_CMD_);
+		if (flags & RTW_CMDF_WAIT_ACK) {
+			cmdobj->sctx = &sctx;
+			rtw_sctx_init(&sctx, 2000);
+		}
 		res = rtw_enqueue_cmd(cmdpriv, cmdobj);
-	} else {
-		/* no need to enqueue, do the cmd hdl directly and free cmd parameter */
-		if (H2C_SUCCESS != disconnect_hdl(padapter, (u8 *)param))
-			res = _FAIL;
-		rtw_mfree((u8 *)param, sizeof(*param));
+		if (res == _SUCCESS && (flags & RTW_CMDF_WAIT_ACK)) {
+			rtw_sctx_wait(&sctx, __func__);
+			_enter_critical_mutex(&pcmdpriv->sctx_mutex, NULL);
+			if (sctx.status == RTW_SCTX_SUBMITTED)
+				cmdobj->sctx = NULL;
+			_exit_critical_mutex(&pcmdpriv->sctx_mutex, NULL);
+		}
 	}
 
 exit:
@@ -1736,6 +1749,10 @@ u8 rtw_clearstakey_cmd(_adapter *padapter, struct sta_info *sta, u8 enqueue)
 	s16 cam_id = 0;
 	u8	res = _SUCCESS;
 
+	if (!sta) {
+		RTW_ERR("%s sta == NULL\n", __func__);
+		goto exit;
+	}
 
 	if (!enqueue) {
 		while ((cam_id = rtw_camid_search(padapter, sta->hwaddr, -1, -1)) >= 0) {
@@ -2239,7 +2256,7 @@ inline u8 rtw_set_country_cmd(_adapter *adapter, int flags, const char *country_
 
 	RTW_PRINT("%s country_code:\"%c%c\" mapping to chplan:0x%02x\n", __func__, country_code[0], country_code[1], ent->chplan);
 
-	return _rtw_set_chplan_cmd(adapter, flags, RTW_CHPLAN_MAX, ent, swconfig);
+	return _rtw_set_chplan_cmd(adapter, flags, RTW_CHPLAN_UNSPECIFIED, ent, swconfig);
 }
 
 u8 rtw_led_blink_cmd(_adapter *padapter, PVOID pLed)

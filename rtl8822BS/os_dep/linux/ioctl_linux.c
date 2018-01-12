@@ -1376,6 +1376,8 @@ static int wpa_set_encryption(struct net_device *dev, struct ieee_param *param, 
 							_rtw_memcpy(padapter->securitypriv.dot118021XGrprxmickey[param->u.crypt.idx].skey, &(param->u.crypt.key[24]), 8);
 						}
 						padapter->securitypriv.binstallGrpkey = _TRUE;
+						if (param->u.crypt.idx < 4)
+							_rtw_memcpy(padapter->securitypriv.iv_seq[param->u.crypt.idx], param->u.crypt.seq, 8);
 						/* DEBUG_ERR((" param->u.crypt.key_len=%d\n", param->u.crypt.key_len)); */
 						RTW_INFO(" ~~~~set sta key:groupkey\n");
 
@@ -3447,7 +3449,7 @@ static int rtw_wx_set_auth(struct net_device *dev,
 		*/
 		if (check_fwstate(&padapter->mlmepriv, _FW_LINKED)) {
 			LeaveAllPowerSaveMode(padapter);
-			rtw_disassoc_cmd(padapter, 500, _FALSE);
+			rtw_disassoc_cmd(padapter, 500, RTW_CMDF_DIRECTLY);
 			RTW_INFO("%s...call rtw_indicate_disconnect\n ", __FUNCTION__);
 			rtw_indicate_disconnect(padapter, 0, _FALSE);
 			rtw_free_assoc_resources(padapter, 1);
@@ -7872,9 +7874,9 @@ static int rtw_hostapd_sta_flush(struct net_device *dev)
 	RTW_INFO("%s\n", __FUNCTION__);
 
 	flush_all_cam_entry(padapter);	/* clear CAM */
-
+#ifdef CONFIG_AP_MODE
 	ret = rtw_sta_flush(padapter, _TRUE);
-
+#endif
 	return ret;
 
 }
@@ -13341,7 +13343,11 @@ static int rtw_ioctl_standard_wext_private(struct net_device *dev, struct ifreq 
 static int rtw_ioctl_wext_private(struct net_device *dev, struct ifreq *rq)
 {
 #ifdef CONFIG_COMPAT
+#if (KERNEL_VERSION(4, 6, 0) > LINUX_VERSION_CODE)
 	if (is_compat_task())
+#else
+	if (in_compat_syscall())
+#endif
 		return rtw_ioctl_compat_wext_private(dev, rq);
 	else
 #endif /* CONFIG_COMPAT */

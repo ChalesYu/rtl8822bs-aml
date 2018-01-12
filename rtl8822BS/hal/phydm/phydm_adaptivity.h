@@ -22,7 +22,7 @@
 #ifndef	__PHYDMADAPTIVITY_H__
 #define    __PHYDMADAPTIVITY_H__
 
-#define ADAPTIVITY_VERSION	"9.3.4"	/*20160512 changed by Kevin, modify 0xce8[13]=1 for 8197F when adaptivity is enabled*/
+#define ADAPTIVITY_VERSION	"9.5.6"	/*20160622 changed by Kevin, add pwdb mode setting in 8822B*/
 
 #define pwdb_upper_bound	7
 #define dfir_loss	5
@@ -214,6 +214,21 @@ phydm_resume_edcca_work_item_callback(
 #else
 	void			*p_dm_void
 #endif
+);
+
+void
+phydm_set_l2h_th_ini(
+	void		*p_dm_void
+);
+
+void
+phydm_set_forgetting_factor(
+	void		*p_dm_void
+);
+
+void
+phydm_set_pwdb_mode(
+	void		*p_dm_void
 );
 
 #endif

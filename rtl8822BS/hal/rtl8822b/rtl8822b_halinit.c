@@ -246,7 +246,9 @@ void rtl8822b_init_misc(PADAPTER adapter)
 		rtw_read32(adapter, REG_FWHW_TXQ_CTRL_8822B) | BIT_EN_QUEUE_RPT_8822B(BIT(4)));
 #endif /* CONFIG_XMIT_ACK */
 
-
+#ifdef CONFIG_TCP_CSUM_OFFLOAD_RX
+	rtl8822b_rcr_add(adapter, BIT_TCPOFLD_EN_8822B);
+#endif /* CONFIG_TCP_CSUM_OFFLOAD_RX*/
 }
 
 u32 rtl8822b_init(PADAPTER adapter)

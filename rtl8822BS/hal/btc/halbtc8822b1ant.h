@@ -1,3 +1,17 @@
+/******************************************************************************
+ *
+ * Copyright(c) 2016 - 2017 Realtek Corporation.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of version 2 of the GNU General Public License as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+ * more details.
+ *
+ *****************************************************************************/
 
 #if (BT_SUPPORT == 1 && COEX_SUPPORT == 1)
 
@@ -6,7 +20,7 @@
 /* *******************************************
  * The following is for 8822B 1ANT BT Co-exist definition
  * ******************************************* */
-#define	BT_8822B_1ANT_COEX_DBG					0
+#define BT_8822B_1ANT_COEX_DBG						0
 #define	BT_AUTO_REPORT_ONLY_8822B_1ANT				1
 
 #define	BT_INFO_8822B_1ANT_B_FTP						BIT(7)
@@ -24,6 +38,7 @@
 #define	BTC_RSSI_COEX_THRESH_TOL_8822B_1ANT		2
 
 #define  BT_8822B_1ANT_WIFI_NOISY_THRESH							150  /* max: 255 */
+#define  BT_8822B_1ANT_DEFAULT_ISOLATION						15	 /*  unit: dB */
 
 /* for Antenna detection */
 #define	BT_8822B_1ANT_ANTDET_PSDTHRES_BACKGROUND					50
@@ -35,6 +50,18 @@
 #define	BT_8822B_1ANT_ANTDET_COEXMECHANISMSWITCH_ENABLE				0
 
 #define	BT_8822B_1ANT_LTECOEX_INDIRECTREG_ACCESS_TIMEOUT		30000
+
+#define		BTC_RSSI_COEX_THRESH_TOL_8822B_2ANT		2
+
+
+#define	BT_8822B_1ANT_WIFI_RSSI_COEXSWITCH_THRES1				50
+
+#define	BT_8822B_1ANT_BT_RSSI_COEXSWITCH_THRES1				30
+
+#define	BT_8822B_1ANT_WIFI_RSSI_COEXSWITCH_THRES2				50
+
+#define	BT_8822B_1ANT_BT_RSSI_COEXSWITCH_THRES2				30
+
 
 
 
@@ -115,9 +142,11 @@ enum bt_8822b_1ant_coex_algo {
 	BT_8822B_1ANT_COEX_ALGO_PANHS			= 0x6,
 	BT_8822B_1ANT_COEX_ALGO_PANEDR_A2DP		= 0x7,
 	BT_8822B_1ANT_COEX_ALGO_PANEDR_HID		= 0x8,
-	BT_8822B_1ANT_COEX_ALGO_HID_A2DP_PANEDR	= 0x9,
-	BT_8822B_1ANT_COEX_ALGO_HID_A2DP			= 0xa,
-	BT_8822B_1ANT_COEX_ALGO_MAX				= 0xb,
+	BT_8822B_1ANT_COEX_ALGO_HID_A2DP_PANEDR		= 0x9,
+	BT_8822B_1ANT_COEX_ALGO_HID_A2DP		= 0xa,
+	BT_8822B_1ANT_COEX_ALGO_NOPROFILEBUSY		= 0xb,
+	BT_8822B_1ANT_COEX_ALGO_A2DPSINK		= 0xc,
+	BT_8822B_1ANT_COEX_ALGO_MAX
 };
 
 enum bt_8822b_1ant_ext_ant_switch_type {
@@ -173,6 +202,8 @@ struct coex_dm_8822b_1ant {
 	u8		cur_ps_tdma;
 	u8		ps_tdma_para[5];
 	u8		ps_tdma_du_adj_type;
+	u8		pre_bt_dec_pwr_lvl;
+	u8		cur_bt_dec_pwr_lvl;
 	boolean		auto_tdma_adjust;
 	boolean		pre_ps_tdma_on;
 	boolean		cur_ps_tdma_on;
@@ -182,6 +213,8 @@ struct coex_dm_8822b_1ant {
 	u8		cur_lps;
 	u8		pre_rpwm;
 	u8		cur_rpwm;
+	u8		pre_fw_dac_swing_lvl;
+	u8		cur_fw_dac_swing_lvl;
 
 	/* sw mechanism */
 	boolean	pre_low_penalty_ra;
@@ -221,6 +254,9 @@ struct coex_dm_8822b_1ant {
 	u32		cur_ext_ant_switch_status;
 
 	u8		error_condition;
+	boolean		pre_agc_table_en;
+	boolean		cur_agc_table_en;
+	boolean					is_switch_to_1dot5_ant;
 };
 
 struct coex_sta_8822b_1ant {
@@ -230,7 +266,6 @@ struct coex_sta_8822b_1ant {
 	boolean					a2dp_exist;
 	boolean					hid_exist;
 	boolean					pan_exist;
-	boolean					bt_hi_pri_link_exist;
 	u8					num_of_profile;
 
 	boolean					under_lps;
@@ -240,32 +275,34 @@ struct coex_sta_8822b_1ant {
 	u32					high_priority_rx;
 	u32					low_priority_tx;
 	u32					low_priority_rx;
+	boolean					is_hiPri_rx_overhead;
 	s8					bt_rssi;
-	boolean					bt_tx_rx_mask;
 	u8					pre_bt_rssi_state;
 	u8					pre_wifi_rssi_state[4];
-	boolean					c2h_bt_info_req_sent;
 	u8					bt_info_c2h[BT_INFO_SRC_8822B_1ANT_MAX][10];
 	u32					bt_info_c2h_cnt[BT_INFO_SRC_8822B_1ANT_MAX];
 	boolean					bt_whck_test;
 	boolean					c2h_bt_inquiry_page;
-	boolean					c2h_bt_page;				/* Add for win8.1 page out issue */
+	boolean					c2h_bt_remote_name_req;
+	boolean					c2h_bt_page;			/* Add for win8.1 page out issue */
 	boolean					wifi_is_high_pri_task;		/* Add for win8.1 page out issue */
-	u8					bt_retry_cnt;
+
 	u8					bt_info_ext;
+	u8					bt_info_ext2;
 	u32					pop_event_cnt;
 	u8					scan_ap_num;
+	u8					bt_retry_cnt;
 
 	u32					crc_ok_cck;
 	u32					crc_ok_11g;
 	u32					crc_ok_11n;
-	u32					crc_ok_11n_agg;
 	u32					crc_ok_11n_vht;
+	u32					crc_ok_11n_agg;
+	u32					crc_err_11n_agg;
 
 	u32					crc_err_cck;
 	u32					crc_err_11g;
 	u32					crc_err_11n;
-	u32					crc_err_11n_agg;
 	u32					crc_err_11n_vht;
 
 	boolean					cck_lock;
@@ -273,26 +310,71 @@ struct coex_sta_8822b_1ant {
 	boolean					cck_ever_lock;
 	u8					coex_table_type;
 
-	boolean					force_lps_on;
-	u32					wrong_profile_notification;
+	boolean					force_lps_ctrl;
 
 	boolean					concurrent_rx_mode_on;
 
-	u32					special_pkt_period_cnt;
-
 	u16					score_board;
+	u8					isolation_btween_wb;   /* 0~ 50 */
 
 	u8					a2dp_bit_pool;
 	u8					cut_version;
-	boolean				acl_busy;
-	boolean				wl_rf_off_on_event;
-	boolean				bt_create_connection;
-	boolean				run_time_state;
+	boolean					acl_busy;
+	boolean					bt_create_connection;
 
 	u32					bt_coex_supported_feature;
 	u32					bt_coex_supported_version;
-	boolean                               rf4ce_enabled;
+
+	u8					bt_ble_scan_type;
+	u32					bt_ble_scan_para[3];
+
+	boolean					run_time_state;
+	boolean					freeze_coexrun_by_btinfo;
+
+	boolean					is_A2DP_3M;
+	boolean					voice_over_HOGP;
+	u8					bt_info;
+	boolean					is_autoslot;
+	u8					forbidden_slot;
+	u8					hid_busy_num;
+	u8					hid_pair_cnt;
+
+	u32					cnt_RemoteNameReq;
+	u32					cnt_setupLink;
+	u32					cnt_ReInit;
+	u32					cnt_IgnWlanAct;
+	u32					cnt_Page;
+	u32					cnt_RoleSwitch;
+
+	u16					bt_reg_vendor_ac;
+	u16					bt_reg_vendor_ae;
+
+	boolean					is_setupLink;
+	u8					wl_noisy_level;
+	u32					gnt_error_cnt;
+	u8					bt_afh_map[10];
+	u8					bt_relink_downcount;
+	boolean					is_tdma_btautoslot;
+	boolean					is_tdma_btautoslot_hang;
+
 	u8					switch_band_notify_to;
+	boolean					is_rf_state_off;
+
+	boolean					is_hid_low_pri_tx_overhead;
+	boolean					is_bt_multi_link;
+	boolean					is_bt_a2dp_sink;
+	boolean					rf4ce_enabled;
+
+	boolean					is_set_ps_state_fail;
+	u8					cnt_set_ps_state_fail;
+	u8					wifi_coex_thres;
+	u8					bt_coex_thres;
+	u8					wifi_coex_thres2;
+	u8					bt_coex_thres2;
+	boolean					bt_hi_pri_link_exist;
+	boolean					force_lps_on;
+	boolean					c2h_bt_info_req_sent;
+
 };
 
 struct rfe_type_8822b_1ant {
@@ -300,7 +382,8 @@ struct rfe_type_8822b_1ant {
 	u8			rfe_module_type;
 	boolean		ext_ant_switch_exist;
 	u8			ext_ant_switch_type;
-	u8			ext_ant_switch_ctrl_polarity;		/*  iF 0: ANTSW(rfe_sel9)=0, ANTSWB(rfe_sel8)=1 =>  Ant to BT/5G */
+	/*  iF 0: ANTSW(rfe_sel9)=0, ANTSWB(rfe_sel8)=1 =>  Ant to BT/5G */
+	u8			ext_ant_switch_ctrl_polarity;
 };
 
 
@@ -343,6 +426,7 @@ struct psdscan_sta_8822b_1ant {
 	u32			psd_gen_count;
 	boolean			is_psd_running;
 	boolean			is_psd_show_max_only;
+	boolean         is_AntDet_running;
 };
 
 /* *******************************************
@@ -433,4 +517,3 @@ void ex_halbtc8822b1ant_switch_band_without_bt(IN struct btc_coexist *btcoexist,
 
 
 #endif
-

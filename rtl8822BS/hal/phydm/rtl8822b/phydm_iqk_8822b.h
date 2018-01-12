@@ -25,7 +25,7 @@
 
 /*--------------------------Define Parameters-------------------------------*/
 #define	MAC_REG_NUM_8822B 2
-#define		BB_REG_NUM_8822B 13
+#define		BB_REG_NUM_8822B 14
 #define		RF_REG_NUM_8822B 5
 
 

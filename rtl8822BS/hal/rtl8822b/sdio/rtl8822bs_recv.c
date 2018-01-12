@@ -231,7 +231,7 @@ static union recv_frame *copy_recvframe(union recv_frame *recvframe, PADAPTER ad
 	copypkt = rtw_skb_copy(recvframe->u.hdr.pkt);
 	if (!copypkt) {
 		if ((attrib->mfrag == 1) && (attrib->frag_num == 0)) {
-			RTW_INFO(FUNC_ADPT_FMT ": <ERR> rtw_skb_copy fail for first fragment!\n",
+			RTW_ERR(FUNC_ADPT_FMT ": rtw_skb_copy fail for first fragment!\n",
 				 FUNC_ADPT_ARG(adapter));
 			rtw_free_recvframe(recvframe, &precvpriv->free_recv_queue);
 			return NULL;
@@ -239,7 +239,7 @@ static union recv_frame *copy_recvframe(union recv_frame *recvframe, PADAPTER ad
 
 		copypkt = rtw_skb_clone(recvframe->u.hdr.pkt);
 		if (!copypkt) {
-			RTW_INFO(FUNC_ADPT_FMT ": <ERR> rtw_skb_clone fail, drop frame!\n",
+			RTW_ERR(FUNC_ADPT_FMT ": rtw_skb_clone fail, drop frame!\n",
 				 FUNC_ADPT_ARG(adapter));
 			rtw_free_recvframe(recvframe, &precvpriv->free_recv_queue);
 			return NULL;
@@ -459,6 +459,16 @@ static u8 recvbuf_handler(struct recv_buf *recvbuf)
 		attrib = &recvframe->u.hdr.attrib;
 		rtl8822b_rxdesc2attribute(attrib, ptr);
 
+		/* MAX MPDU size in 11ac is 11KB */
+		if ((attrib->pkt_len == 0) || (attrib->pkt_len > 11263)) {
+			RTW_WARN("%s: Incorrect pkt_len=%u, buffer len=%u,"
+				 " amsdu=%u\n",
+				 __FUNCTION__, attrib->pkt_len, recvbuf->len,
+				 attrib->amsdu);
+			rtw_free_recvframe(recvframe, &recvpriv->free_recv_queue);
+			break;
+		}
+
 		rx_report_sz = HALMAC_RX_DESC_SIZE_8822B + attrib->drvinfo_sz;
 		pkt_offset = rx_report_sz + attrib->shift_sz + attrib->pkt_len;
 
@@ -524,6 +534,20 @@ s32 rtl8822bs_recv_hdl(_adapter *adapter)
 
 	recvpriv = &adapter->recvpriv;
 
+#ifdef CONFIG_RTW_NAPI_DYNAMIC
+	if (adapter->registrypriv.en_napi) {
+		struct dvobj_priv *d;
+		struct registry_priv *registry;
+
+		d = adapter_to_dvobj(adapter);
+		registry = &adapter->registrypriv;
+		if (d->traffic_stat.cur_rx_tp > registry->napi_threshold)
+			d->en_napi_dynamic = 1;
+		else
+			d->en_napi_dynamic = 0;
+	}
+#endif /* CONFIG_RTW_NAPI_DYNAMIC */
+
 	do {
 		recvbuf = rtw_dequeue_recvbuf(&recvpriv->recv_buf_pending_queue);
 		if (NULL == recvbuf)
@@ -560,7 +584,9 @@ s32 rtl8822bs_recv_hdl(_adapter *adapter)
 		d = adapter_to_dvobj(adapter);
 		for (i = 0; i < d->iface_nums; i++) {
 			a = d->padapters[i];
-			if (rtw_if_up(a) == _TRUE)
+			recvpriv = &a->recvpriv;
+			if ((rtw_if_up(a) == _TRUE)
+			    && skb_queue_len(&recvpriv->rx_napi_skb_queue))
 				napi_schedule(&a->napi);
 
 		}

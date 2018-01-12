@@ -58,8 +58,14 @@ int rtw_halmac_write8(struct intf_hdl *, u32 addr, u8 value);
 int rtw_halmac_write16(struct intf_hdl *, u32 addr, u16 value);
 int rtw_halmac_write32(struct intf_hdl *, u32 addr, u32 value);
 
+/* Software Initialization */
 int rtw_halmac_init_adapter(struct dvobj_priv *, PHALMAC_PLATFORM_API);
 int rtw_halmac_deinit_adapter(struct dvobj_priv *);
+
+/* Software Setting */
+int rtw_halmac_set_max_dl_fw_size(struct dvobj_priv *d, u32 size);
+
+/* Functions */
 int rtw_halmac_poweron(struct dvobj_priv *);
 int rtw_halmac_poweroff(struct dvobj_priv *);
 int rtw_halmac_init_hal(struct dvobj_priv *);

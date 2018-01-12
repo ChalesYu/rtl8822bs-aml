@@ -1608,6 +1608,7 @@ config_phydm_switch_band_8822b(
 {
 	u32		rf_reg18;
 	bool		rf_reg_status = true;
+	u32		reg_8;
 
 	ODM_RT_TRACE(p_dm_odm, ODM_PHY_CONFIG, ODM_DBG_TRACE, ("config_phydm_switch_band_8822b()======================>\n"));
 
@@ -1638,10 +1639,26 @@ config_phydm_switch_band_8822b(
 		rf_reg18 = (rf_reg18 & (~(BIT(16) | BIT(9) | BIT(8))));
 
 		/* RxHP dynamic control */
-		if ((p_dm_odm->rfe_type == 2) || (p_dm_odm->rfe_type == 3) || (p_dm_odm->rfe_type == 5)) {
-			odm_set_bb_reg(p_dm_odm, 0x8cc, bMaskDWord, 0x08108492);
-			odm_set_bb_reg(p_dm_odm, 0x8d8, bMaskDWord, 0x29095612);
+		/* QFN eFEM RxHP are always low at 2G */
+		reg_8 = odm_get_bb_reg(p_dm_odm, 0x19a8, BIT(31));
+		
+		if (!((p_dm_odm->rfe_type == 1) || (p_dm_odm->rfe_type == 6) || (p_dm_odm->rfe_type == 7) || (p_dm_odm->rfe_type == 9))) {
+			/* SoML on */
+			if ((reg_8 == 0x1) && (!((p_dm_odm->rfe_type == 3) || (p_dm_odm->rfe_type == 5)))) {
+				odm_set_bb_reg(p_dm_odm, 0x8cc, MASKDWORD, 0x08100000);
+				odm_set_bb_reg(p_dm_odm, 0x8d8, BIT(27), 0x0);
+				odm_set_bb_reg(p_dm_odm, 0xc04, (BIT(18)|BIT(21)), 0x0);
+				odm_set_bb_reg(p_dm_odm, 0xe04, (BIT(18)|BIT(21)), 0x0);
+			/* SoML off */
+			} else {
+				odm_set_bb_reg(p_dm_odm, 0x8cc, MASKDWORD, 0x08108492);
+				odm_set_bb_reg(p_dm_odm, 0x8d8, BIT(27), 0x1);
+				odm_set_bb_reg(p_dm_odm, 0xc04, BIT(18), 0x1);
+				odm_set_bb_reg(p_dm_odm, 0xe04, BIT(18), 0x1);
+				odm_set_bb_reg(p_dm_odm, 0xc04, BIT(21), 0x1);
+				odm_set_bb_reg(p_dm_odm, 0xe04, BIT(21), 0x1);
 			}
+		}
 		
 	} else if (central_ch > 35) {
 		/* 5G */
@@ -1664,11 +1681,22 @@ config_phydm_switch_band_8822b(
 		rf_reg18 = (rf_reg18 | BIT(8) | BIT(16));
 
 		/* RxHP dynamic control */
-		if ((p_dm_odm->rfe_type == 2) || (p_dm_odm->rfe_type == 3) || (p_dm_odm->rfe_type == 5)) {
-			odm_set_bb_reg(p_dm_odm, 0x8cc, bMaskDWord, 0x08100000);
-			odm_set_bb_reg(p_dm_odm, 0x8d8, bMaskDWord, 0x21095612);
-			}
-		
+		reg_8 = odm_get_bb_reg(p_dm_odm, 0x19a8, BIT(31));
+
+		if ((reg_8 == 0x1) && (!((p_dm_odm->rfe_type == 1) || (p_dm_odm->rfe_type == 6) || (p_dm_odm->rfe_type == 7) || (p_dm_odm->rfe_type == 9)))) {
+			odm_set_bb_reg(p_dm_odm, 0x8cc, MASKDWORD, 0x08100000);
+			odm_set_bb_reg(p_dm_odm, 0x8d8, BIT(27), 0x0);
+			odm_set_bb_reg(p_dm_odm, 0xc04, (BIT(18)|BIT(21)), 0x0);
+			odm_set_bb_reg(p_dm_odm, 0xe04, (BIT(18)|BIT(21)), 0x0);
+		} else {
+			odm_set_bb_reg(p_dm_odm, 0x8cc, MASKDWORD, 0x08108492);
+			odm_set_bb_reg(p_dm_odm, 0x8d8, BIT(27), 0x1);
+			odm_set_bb_reg(p_dm_odm, 0xc04, BIT(18), 0x1);
+			odm_set_bb_reg(p_dm_odm, 0xe04, BIT(18), 0x1);
+			odm_set_bb_reg(p_dm_odm, 0xc04, BIT(21), 0x1);
+			odm_set_bb_reg(p_dm_odm, 0xe04, BIT(21), 0x1);
+		}
+
 	} else {
 		ODM_RT_TRACE(p_dm_odm, ODM_PHY_CONFIG, ODM_DBG_TRACE, ("config_phydm_switch_band_8822b(): Fail to switch band (ch: %d)\n", central_ch));
 		return false;

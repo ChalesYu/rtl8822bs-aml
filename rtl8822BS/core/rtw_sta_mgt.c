@@ -505,8 +505,10 @@ struct	sta_info *rtw_alloc_stainfo(struct	sta_priv *pstapriv, u8 *hwaddr)
 		 * In this case, this packet will be dropped by recv_decache function if we use the 0x00 as the default value for tid_rxseq variable.
 		 * So, we initialize the tid_rxseq variable as the 0xffff. */
 
-		for (i = 0; i < 16; i++)
+		for (i = 0; i < 16; i++) {
 			_rtw_memcpy(&psta->sta_recvpriv.rxcache.tid_rxseq[i], &wRxSeqInitialValue, 2);
+			_rtw_memset(&psta->sta_recvpriv.rxcache.iv[i], 0, 8);
+		}
 
 
 		init_addba_retry_timer(pstapriv->padapter, psta);
@@ -747,14 +749,16 @@ u32	rtw_free_stainfo(_adapter *padapter , struct sta_info *psta)
 
 #ifdef CONFIG_NATIVEAP_MLME
 
-	pstapriv->sta_dz_bitmap &= ~BIT(psta->aid);
-	pstapriv->tim_bitmap &= ~BIT(psta->aid);
+	if (padapter->mlmeextpriv.mlmext_info.state == _HW_STATE_AP_) {
+		pstapriv->sta_dz_bitmap &= ~BIT(psta->aid);
+		pstapriv->tim_bitmap &= ~BIT(psta->aid);
 
-	/* rtw_indicate_sta_disassoc_event(padapter, psta); */
+		/* rtw_indicate_sta_disassoc_event(padapter, psta); */
 
-	if ((psta->aid > 0) && (pstapriv->sta_aid[psta->aid - 1] == psta)) {
-		pstapriv->sta_aid[psta->aid - 1] = NULL;
-		psta->aid = 0;
+		if ((psta->aid > 0) && (pstapriv->sta_aid[psta->aid - 1] == psta)) {
+			pstapriv->sta_aid[psta->aid - 1] = NULL;
+			psta->aid = 0;
+		}
 	}
 
 #endif /* CONFIG_NATIVEAP_MLME	 */

@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2012 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2017 Realtek Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -798,6 +798,88 @@ sint recv_decache(union recv_frame *precv_frame, u8 bretry, struct stainfo_rxcac
 
 	return _SUCCESS;
 
+}
+
+/* a>=b return false, a<b return true */
+#define pn_less_chk(a, b)	((((a)-(b)) & 0x800000000000) != 0)
+#define pn_equal_chk(a, b)	((a) == (b))
+/*
+ * Return true when PN is legal, otherwise false.
+ * Legal PN:
+ *	1. If old PN is 0, any PN is legal
+ *	2. PN > old PN
+ */
+#define pn_chk(iv, old)		(((old) == 0) || pn_less_chk(old, iv))
+
+#define ccmp2keyid(ch)		(((ch) & 0x00000000c0000000) >> 30)
+#define ccmp2pn(ch)		((ch) & 0x000000000000ffff) \
+				| (((ch) & 0xffffffff00000000) >> 16)
+
+sint recv_ucast_pn_decache(union recv_frame *precv_frame);
+sint recv_ucast_pn_decache(union recv_frame *precv_frame)
+{
+	struct _ADAPTER *padapter = precv_frame->u.hdr.adapter;
+	struct rx_pkt_attrib *pattrib = &precv_frame->u.hdr.attrib;
+	struct sta_info *sta = precv_frame->u.hdr.psta;
+	struct stainfo_rxcache *prxcache = &sta->sta_recvpriv.rxcache;
+	u8 *pdata = precv_frame->u.hdr.rx_data;
+	u8 tid = pattrib->priority;
+	u64 ch = 0; /* CCMP Header */
+	u64 curr_pn = 0, pkt_pn = 0;
+
+
+	if (tid > 15)
+		return _FAIL;
+
+	if (pattrib->encrypt != _AES_)
+		return _SUCCESS;
+
+	/* Check for _AES_ */
+	ch = le64_to_cpu(*(u64*)(pdata + pattrib->hdrlen));
+	pkt_pn = ccmp2pn(ch);
+
+	ch = le64_to_cpu(*(u64*)prxcache->iv[tid]);
+	curr_pn = ccmp2pn(ch);
+
+	if (pn_chk(pkt_pn, curr_pn))
+		_rtw_memcpy(prxcache->iv[tid], (pdata + pattrib->hdrlen), 8);
+
+	return _SUCCESS;
+}
+
+sint recv_bcast_pn_decache(union recv_frame *precv_frame);
+sint recv_bcast_pn_decache(union recv_frame *precv_frame)
+{
+	struct _ADAPTER *padapter = precv_frame->u.hdr.adapter;
+	struct mlme_priv *pmlmepriv = &padapter->mlmepriv;
+	struct security_priv *psecuritypriv = &padapter->securitypriv;
+	struct rx_pkt_attrib *pattrib = &precv_frame->u.hdr.attrib;
+	u8 *pdata = precv_frame->u.hdr.rx_data;
+	u64 ch = 0; /* CCMP Header */
+	u64 curr_pn = 0, pkt_pn = 0;
+	u8 key_id;
+
+
+	if (pattrib->encrypt != _AES_)
+		return _SUCCESS;
+
+	if (check_fwstate(pmlmepriv, WIFI_STATION_STATE) == _FALSE)
+		return _SUCCESS;
+
+	/* Check for _AES_ when STA mode */
+	ch = le64_to_cpu(*(u64*)(pdata + pattrib->hdrlen));
+	key_id = ccmp2keyid(ch);
+	pkt_pn = ccmp2pn(ch);
+
+	curr_pn = le64_to_cpu(*(u64*)psecuritypriv->iv_seq[key_id]);
+	curr_pn &= 0x0000ffffffffffff;
+
+	if (!pn_chk(pkt_pn, curr_pn))
+		return _FAIL;
+
+	*(u64*)psecuritypriv->iv_seq[key_id] = cpu_to_le64(pkt_pn);
+
+	return _SUCCESS;
 }
 
 void process_pwrbit_data(_adapter *padapter, union recv_frame *precv_frame);
@@ -1854,6 +1936,26 @@ sint validate_recv_data_frame(_adapter *adapter, union recv_frame *precv_frame)
 #endif
 		ret = _FAIL;
 		goto exit;
+	}
+
+	if (IS_MCAST(pattrib->ra) == _FALSE) {
+		if (recv_ucast_pn_decache(precv_frame) == _FAIL) {
+#ifdef DBG_RX_DROP_FRAME
+			RTW_INFO("DBG_RX_DROP_FRAME %s recv_ucast_pn_decache _FAIL!\n",
+				 __func__);
+#endif
+			ret = _FAIL;
+			goto exit;
+		}
+	} else {
+		if (recv_bcast_pn_decache(precv_frame) == _FAIL) {
+#ifdef DBG_RX_DROP_FRAME
+			RTW_INFO("DBG_RX_DROP_FRAME %s recv_bcast_pn_decache _FAIL!\n",
+				 __func__);
+#endif
+			ret = _FAIL;
+			goto exit;
+		}
 	}
 
 	if (pattrib->privacy) {
@@ -4509,6 +4611,10 @@ void rx_query_phy_status(
 	if (psta)
 		psta->rssi = pattrib->phy_info.RecvSignalPower;
 	/* _exit_critical_bh(&pHalData->odm_stainfo_lock, &irqL); */
+
+	/* If bw is initial value, get from phy status */
+	if (pattrib->bw == CHANNEL_WIDTH_MAX)
+		pattrib->bw = pPHYInfo->band_width;
 
 	{
 		precvframe->u.hdr.psta = NULL;

@@ -77,8 +77,6 @@ void rtl8822b_gethwreg(PADAPTER, u8 variable, u8 *pval);
 u8 rtl8822b_sethaldefvar(PADAPTER, HAL_DEF_VARIABLE, void *pval);
 u8 rtl8822b_gethaldefvar(PADAPTER, HAL_DEF_VARIABLE, void *pval);
 void rtl8822b_set_hal_ops(PADAPTER);
-void rtl8822b_resume_tx_beacon(PADAPTER);
-void rtl8822b_stop_tx_beacon(PADAPTER);
 
 /* tx */
 void rtl8822b_fill_txdesc_sectype(struct pkt_attrib *, u8 *ptxdesc);

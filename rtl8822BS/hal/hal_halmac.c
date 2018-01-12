@@ -838,6 +838,26 @@ int rtw_halmac_write32(struct intf_hdl *pintfhdl, u32 addr, u32 value)
 	return -1;
 }
 
+static int init_max_dl_fw_size(struct dvobj_priv *d)
+{
+	u32 size = 0;
+	int ret = 0;
+
+
+#ifdef CONFIG_USB_HCI
+	/* for USB do not exceed MAX_CMDBUF_SZ */
+	size = 0x1000;
+#elif defined(CONFIG_PCIE_HCI)
+	size = MAX_CMDBUF_SZ - TXDESC_OFFSET;
+#elif defined(CONFIG_SDIO_HCI)
+	size = 0x7000; /* 28KB */
+#endif
+	if (size)
+		ret = rtw_halmac_set_max_dl_fw_size(d, size);
+
+	return ret;
+}
+
 static int init_priv(struct halmacpriv *priv)
 {
 	struct halmac_indicator *indicator;
@@ -928,6 +948,8 @@ int rtw_halmac_init_adapter(struct dvobj_priv *d, PHALMAC_PLATFORM_API pf_api)
 
 	dvobj_set_halmac(d, halmac);
 
+	init_max_dl_fw_size(d);
+
 out:
 	if (err)
 		rtw_halmac_deinit_adapter(d);
@@ -960,6 +982,50 @@ int rtw_halmac_deinit_adapter(struct dvobj_priv *d)
 out:
 	return err;
 }
+
+/**
+ * rtw_halmac_set_max_dl_fw_size() - Set the MAX download firmware size
+ * @d:		struct dvobj_priv*
+ * @size:	the max download firmware size in one I/O
+ *
+ * Set the max download firmware size in one I/O.
+ * Please also consider the max size of the callback function "SEND_RSVD_PAGE"
+ * could accept, because download firmware would call "SEND_RSVD_PAGE" to send
+ * firmware to IC.
+ *
+ * If the value of "size" is not even, it would be rounded down to nearest
+ * even, and 0 and 1 are both invalid value.
+ *
+ * Return 0 for setting OK, otherwise fail.
+ */
+int rtw_halmac_set_max_dl_fw_size(struct dvobj_priv *d, u32 size)
+{
+	PHALMAC_ADAPTER mac;
+	PHALMAC_API api;
+	HALMAC_RET_STATUS status;
+
+
+	if (!size || (size == 1))
+		return -1;
+
+	mac = dvobj_to_halmac(d);
+	if (!mac) {
+		RTW_ERR("%s: HALMAC is not ready!!\n", __FUNCTION__);
+		return -1;
+	}
+	api = HALMAC_GET_API(mac);
+
+	size &= ~1; /* round down to even */
+	status = api->halmac_cfg_max_dl_size(mac, size);
+	if (status != HALMAC_RET_SUCCESS) {
+		RTW_WARN("%s: Fail to cfg_max_dl_size(%d), err=%d!!\n",
+			 __FUNCTION__, size, status);
+		return -1;
+	}
+
+	return 0;
+}
+
 
 /*
  * Description:
@@ -1265,13 +1331,10 @@ static int download_fw(struct dvobj_priv *d, u8 *fw, u32 fwsize, u8 re_dl)
 	/* ToDo */
 
 	/* 3. Config MAX download size */
-#ifdef CONFIG_USB_HCI
-	/* for USB do not exceed MAX_CMDBUF_SZ */
-	api->halmac_cfg_max_dl_size(mac, 0x1000);
-#elif defined CONFIG_PCIE_HCI
-	/* required a even length from u32 */
-	api->halmac_cfg_max_dl_size(mac, (MAX_CMDBUF_SZ - TXDESC_OFFSET) & 0xFFFFFFFE);
-#endif
+	/*
+	 * Already done in rtw_halmac_init_adapter() or
+	 * somewhere calling rtw_halmac_set_max_dl_fw_size().
+	 */
 
 	/* 4. Download Firmware */
 	status = api->halmac_download_firmware(mac, fw, fwsize);

@@ -1022,7 +1022,7 @@ int __must_check rtw_sdio_raw_read(struct dvobj_priv *d, unsigned int addr,
 			dev_err(&func->dev, "rtw_sdio: READ use CMD52\n");
 		else
 			dev_err(&func->dev, "rtw_sdio: READ use CMD53\n");
-		dev_err(&func->dev, "rtw_sdio: READ from 0x%05x, %ld bytes\n", addr, len);
+		dev_err(&func->dev, "rtw_sdio: READ from 0x%05x, %zu bytes\n", addr, len);
 		print_hex_dump(KERN_ERR, "rtw_sdio: READ ",
 			       DUMP_PREFIX_OFFSET, 16, 1,
 			       buf, len>64?64:len, false);
@@ -1141,7 +1141,7 @@ int __must_check rtw_sdio_raw_write(struct dvobj_priv *d, unsigned int addr,
 
 #ifdef CONFIG_PLATFORM_AML_S905
 	if (time >= IO_TIME_LIMIT) {
-		dev_err(&func->dev, "%s: I/O too slow, addr=0x%05x %ld bytes, cost %u ms! error=%d\n", __func__, addr, len, time, error);
+		dev_err(&func->dev, "%s: I/O too slow, addr=0x%05x %zu bytes, cost %u ms! error=%d\n", __func__, addr, len, time, error);
 		rtw_sdio_raw_io_dump();
 		if (!error)
 			error = -ETIMEDOUT;
@@ -1157,7 +1157,7 @@ int __must_check rtw_sdio_raw_write(struct dvobj_priv *d, unsigned int addr,
 			dev_err(&func->dev, "rtw_sdio: WRITE use CMD52\n");
 		else
 			dev_err(&func->dev, "rtw_sdio: WRITE use CMD53\n");
-		dev_err(&func->dev, "rtw_sdio: WRITE to 0x%05x, %ld bytes\n", addr, len);
+		dev_err(&func->dev, "rtw_sdio: WRITE to 0x%05x, %zu bytes\n", addr, len);
 		print_hex_dump(KERN_ERR, "rtw_sdio: WRITE ",
 			       DUMP_PREFIX_OFFSET, 16, 1,
 			       buf, len>64?64:len, false);

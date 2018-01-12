@@ -289,7 +289,7 @@ odm_txpowertracking_callback_thermal_meter(
 			p_rf_calibrate_info->thermal_value_lck = thermal_value;
 
 			/*Use RTLCK, so close power tracking driver LCK*/
-			if (!(p_dm_odm->support_ic_type & ODM_RTL8814A)) {
+			if ((!(p_dm_odm->support_ic_type & ODM_RTL8814A)) && (!(p_dm_odm->support_ic_type & ODM_RTL8822B))) {
 				if (c.phy_lc_calibrate)
 					(*c.phy_lc_calibrate)(p_dm_odm);
 			}
@@ -305,7 +305,7 @@ odm_txpowertracking_callback_thermal_meter(
 			p_rf_calibrate_info->thermal_value_lck = thermal_value;
 
 			/*Use RTLCK, so close power tracking driver LCK*/
-			if (!(p_dm_odm->support_ic_type & ODM_RTL8814A)) {
+				if ((!(p_dm_odm->support_ic_type & ODM_RTL8814A)) && (!(p_dm_odm->support_ic_type & ODM_RTL8822B))) {
 				if (c.phy_lc_calibrate)
 					(*c.phy_lc_calibrate)(p_dm_odm);
 			}
@@ -634,15 +634,18 @@ odm_txpowertracking_callback_thermal_meter(
 	}
 
 #if !(DM_ODM_SUPPORT_TYPE & ODM_AP)
-
-	if (!IS_HARDWARE_TYPE_8723B(adapter)) {
-		/*Delta temperature is equal to or larger than 20 centigrade (When threshold is 8).*/
-		if (delta_IQK >= c.threshold_iqk) {
-			ODM_RT_TRACE(p_dm_odm, ODM_COMP_TX_PWR_TRACK, ODM_DBG_LOUD, ("delta_IQK(%d) >= threshold_iqk(%d)\n", delta_IQK, c.threshold_iqk));
-			if (!p_rf_calibrate_info->is_iqk_in_progress)
-				(*c.do_iqk)(p_dm_odm, delta_IQK, thermal_value, 8);
+	/* Wait sacn to do IQK by RF Jenyu*/
+	if (*p_dm_odm->p_is_scan_in_process == false) {
+		if (!IS_HARDWARE_TYPE_8723B(adapter)) {
+			/*Delta temperature is equal to or larger than 20 centigrade (When threshold is 8).*/
+			if (delta_IQK >= c.threshold_iqk) {
+				ODM_RT_TRACE(p_dm_odm, ODM_COMP_TX_PWR_TRACK, ODM_DBG_LOUD, ("delta_IQK(%d) >= threshold_iqk(%d)\n", delta_IQK, c.threshold_iqk));
+				if (!p_rf_calibrate_info->is_iqk_in_progress)
+					(*c.do_iqk)(p_dm_odm, delta_IQK, thermal_value, 8);
+			}
 		}
 	}
+
 	if (p_rf_calibrate_info->dpk_thermal[ODM_RF_PATH_A] != 0) {
 		if (diff_DPK[ODM_RF_PATH_A] >= c.threshold_dpk) {
 			odm_set_bb_reg(p_dm_odm, 0x82c, BIT(31), 0x1);
@@ -793,7 +796,5 @@ void phydm_rf_watchdog(void		*p_dm_void)
 	struct PHY_DM_STRUCT		*p_dm_odm = (struct PHY_DM_STRUCT *)p_dm_void;
 #if (DM_ODM_SUPPORT_TYPE & (ODM_WIN | ODM_CE))
 	odm_txpowertracking_check(p_dm_odm);
-	if (p_dm_odm->support_ic_type & ODM_IC_11AC_SERIES)
-		odm_iq_calibrate(p_dm_odm);
 #endif
 }

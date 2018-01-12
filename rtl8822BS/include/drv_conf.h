@@ -156,6 +156,10 @@
 #define CONFIG_TXPWR_LIMIT_EN 2 /* by efuse */
 #endif
 
+#ifndef CONFIG_RTW_CHPLAN
+#define CONFIG_RTW_CHPLAN 0xFF /* RTW_CHPLAN_UNSPECIFIED */
+#endif
+
 /* compatible with old fashion configuration */
 #if defined(CONFIG_CALIBRATE_TX_POWER_BY_REGULATORY)
 	#undef CONFIG_TXPWR_BY_RATE_EN

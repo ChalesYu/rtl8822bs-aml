@@ -856,7 +856,7 @@ halmac_pre_init_system_cfg_88xx(
 	u32 value32, counter;
 	VOID *pDriver_adapter = NULL;
 	PHALMAC_API pHalmac_api;
-	u8 enable_bb;
+	u8 enable_bb, value8;
 
 	if (HALMAC_RET_SUCCESS != halmac_adapter_validate(pHalmac_adapter))
 		return HALMAC_RET_ADAPTER_INVALID;
@@ -880,6 +880,10 @@ halmac_pre_init_system_cfg_88xx(
 				return HALMAC_RET_SDIO_LEAVE_SUSPEND_FAIL;
 		}
 	}
+
+	/* SDIO PAD driving CFG */
+	value8 = HALMAC_REG_READ_8(pHalmac_adapter, REG_HCI_OPT_CTRL + 2);
+	HALMAC_REG_WRITE_8(pHalmac_adapter, REG_HCI_OPT_CTRL + 2, value8 | BIT(2));
 
 	/* Config PIN Mux */
 	value32 = HALMAC_REG_READ_32(pHalmac_adapter, REG_PAD_CTRL1);
@@ -1052,7 +1056,11 @@ halmac_init_wmac_cfg_88xx(
 
 	HALMAC_REG_WRITE_32(pHalmac_adapter, REG_WMAC_OPTION_FUNCTION + 8, 0x30810041);
 	HALMAC_REG_WRITE_32(pHalmac_adapter, REG_WMAC_OPTION_FUNCTION + 4, 0x50802080);
+
+#if 0
+	/* Don't touch LTECOEX(0x38), Lucas@20170608 */
 	HALMAC_REG_WRITE_32(pHalmac_adapter, REG_WL2LTECOEX_INDIRECT_ACCESS_CTRL_V1, 0xC00F0038);
+#endif
 
 	PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_INIT, HALMAC_DBG_TRACE, "halmac_init_wmac_cfg_88xx <==========\n");
 

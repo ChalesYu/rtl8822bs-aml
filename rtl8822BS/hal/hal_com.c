@@ -293,7 +293,7 @@ chk_sw_config:
 		/* cancel hw_alpha2 because chplan is specified by sw_chplan*/
 		country_ent = NULL;
 		chplan = sw_chplan;
-	} else if (sw_chplan != RTW_CHPLAN_MAX)
+	} else if (sw_chplan != RTW_CHPLAN_UNSPECIFIED)
 		RTW_PRINT("%s unsupported sw_chplan:0x%02X\n", __func__, sw_chplan);
 
 done:
@@ -3567,7 +3567,7 @@ static void rtw_hal_update_gtk_offload_info(_adapter *adapter)
 	struct cam_ctl_t *cam_ctl = &dvobj->cam_ctl;
 	_irqL irqL;
 	u8 get_key[16];
-	u8 gtk_id = 0, offset = 0;
+	u8 gtk_id = 0, offset = 0, i = 0;
 	u64 replay_count = 0;
 
 	if (check_fwstate(pmlmepriv, WIFI_AP_STATE) == _TRUE)
@@ -3620,6 +3620,11 @@ static void rtw_hal_update_gtk_offload_info(_adapter *adapter)
 				&psecuritypriv->dot118021XGrprxmickey[gtk_id],
 				&(paoac_rpt->group_key[offset]),
 				RTW_TKIP_MIC_LEN);
+		}
+		/* Update broadcast RX IV */
+		if (psecuritypriv->dot118021XGrpPrivacy == _AES_) {
+			for (i = 0 ; i < 4 ; i++)
+				_rtw_memset(psecuritypriv->iv_seq[i], 0, 8);
 		}
 
 		RTW_PRINT("GTK (%d) "KEY_FMT"\n", gtk_id,
@@ -11012,12 +11017,12 @@ void ResumeTxBeacon(_adapter *padapter)
 	/* 2010.03.01. Marked by tynli. No need to call workitem beacause we record the value */
 	/* which should be read from register to a global variable. */
 
+	rtw_write8(padapter, REG_FWHW_TXQ_CTRL + 2,
+		rtw_read8(padapter, REG_FWHW_TXQ_CTRL + 2) | BIT(6));
 
-	pHalData->RegFwHwTxQCtrl |= BIT(6);
-	rtw_write8(padapter, REG_FWHW_TXQ_CTRL + 2, pHalData->RegFwHwTxQCtrl);
-	rtw_write8(padapter, REG_TBTT_PROHIBIT + 1, 0xff);
-	pHalData->RegReg542 |= BIT(0);
-	rtw_write8(padapter, REG_TBTT_PROHIBIT + 2, pHalData->RegReg542);
+	/*TBTT hold time :4ms */
+	rtw_write16(padapter, REG_TBTT_PROHIBIT + 1,
+		(rtw_read16(padapter, REG_TBTT_PROHIBIT + 1) & (~0xFFF)) | (TBTT_PROBIHIT_HOLD_TIME));
 }
 
 void StopTxBeacon(_adapter *padapter)
@@ -11028,12 +11033,10 @@ void StopTxBeacon(_adapter *padapter)
 	/* 2010.03.01. Marked by tynli. No need to call workitem beacause we record the value */
 	/* which should be read from register to a global variable. */
 
+	rtw_write8(padapter, REG_FWHW_TXQ_CTRL + 2,
+		rtw_read8(padapter, REG_FWHW_TXQ_CTRL + 2) & (~BIT6));
 
-	pHalData->RegFwHwTxQCtrl &= ~BIT(6);
-	rtw_write8(padapter, REG_FWHW_TXQ_CTRL + 2, pHalData->RegFwHwTxQCtrl);
 	rtw_write8(padapter, REG_TBTT_PROHIBIT + 1, 0x64);
-	pHalData->RegReg542 &= ~BIT(0);
-	rtw_write8(padapter, REG_TBTT_PROHIBIT + 2, pHalData->RegReg542);
 
 	/*CheckFwRsvdPageContent(padapter);*/  /* 2010.06.23. Added by tynli. */
 }

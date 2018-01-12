@@ -12759,7 +12759,7 @@ void report_sta_timeout_event(_adapter *padapter, u8 *MacAddr, unsigned short re
 void clnt_sa_query_timeout(_adapter *padapter)
 {
 
-	rtw_disassoc_cmd(padapter, 0, _TRUE);
+	rtw_disassoc_cmd(padapter, 0, 0);
 	rtw_indicate_disconnect(padapter, 0, _FALSE);
 	rtw_free_assoc_resources(padapter, 1);
 
@@ -13424,6 +13424,8 @@ u8 disconnect_hdl(_adapter *padapter, unsigned char *pbuf)
 
 	rtw_free_uc_swdec_pending_queue(padapter);
 
+	rtw_sta_mstatus_report(padapter);
+
 	return	H2C_SUCCESS;
 }
 
@@ -13856,12 +13858,9 @@ void site_survey(_adapter *padapter, u8 survey_channel, RT_SCAN_TYPE ScanType)
 			if (rtw_p2p_chk_state(pwdinfo, P2P_STATE_SCAN) ||
 			    rtw_p2p_chk_state(pwdinfo, P2P_STATE_FIND_PHASE_SEARCH)
 			   ) {
-			   int i;
-			   for(i=0;i<5;i++) {
 				issue_probereq_p2p(padapter, NULL);
 				issue_probereq_p2p(padapter, NULL);
 				issue_probereq_p2p(padapter, NULL);
-			   }
 			} else
 #endif /* CONFIG_P2P */
 			{
@@ -14241,6 +14240,9 @@ operation_by_state:
 			scan_ms = 40;
 #else
 		scan_ms = ss->scan_ch_ms;
+		if (scan_type == SCAN_ACTIVE)
+			scan_ms = SURVEY_TO_ACTIVE;
+
 #endif
 
 #if defined(CONFIG_ANTENNA_DIVERSITY) || defined(DBG_SCAN_SW_ANTDIV_BL)
@@ -15271,7 +15273,7 @@ connect_allow_hdl:
 				} else if (check_fwstate(mlme, WIFI_STATION_STATE)
 					&& check_fwstate(mlme, WIFI_ASOC_STATE)
 					  ) {
-					rtw_disassoc_cmd(iface, 500, _FALSE);
+					rtw_disassoc_cmd(iface, 500, RTW_CMDF_DIRECTLY);
 					rtw_indicate_disconnect(iface, 0, _FALSE);
 					rtw_free_assoc_resources(iface, 1);
 				}
@@ -15384,7 +15386,7 @@ u8 set_csa_hdl(_adapter *padapter, unsigned char *pbuf)
 
 	rtw_hal_set_hwreg(padapter, HW_VAR_TXPAUSE, &gval8);
 
-	rtw_disassoc_cmd(padapter, 0, _FALSE);
+	rtw_disassoc_cmd(padapter, 0, RTW_CMDF_DIRECTLY);
 	rtw_indicate_disconnect(padapter, 0, _FALSE);
 	rtw_free_assoc_resources(padapter, 1);
 	rtw_free_network_queue(padapter, _TRUE);

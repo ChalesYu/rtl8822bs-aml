@@ -66,6 +66,13 @@ plarform_reg_write_8_sdio(
 	IN u8 data
 );
 
+u8
+plarform_reg_read_indirect_cmd52_sdio(
+	IN VOID	*pDriver_adapter,
+	IN PHALMAC_PLATFORM_API pHalmac_platform_api,
+	IN u32 offset
+);
+
 HALMAC_RET_STATUS
 halmac_convert_to_sdio_bus_offset(
 	INOUT u32 *halmac_offset
@@ -133,14 +140,15 @@ halmac_init_adapter(
 	pHalmac_adapter->pDriver_adapter = pDriver_adapter;
 	pHalmac_adapter->halmac_interface = halmac_interface;
 
-	PLATFORM_MUTEX_INIT(pDriver_adapter, &(pHalmac_adapter->EfuseMutex));
-	PLATFORM_MUTEX_INIT(pDriver_adapter, &(pHalmac_adapter->h2c_seq_mutex));
-
 	/*Get Chip*/
 	if (HALMAC_RET_SUCCESS != halmac_get_chip_info(pDriver_adapter, pHalmac_platform_api, halmac_interface, pHalmac_adapter)) {
 		pHalmac_platform_api->MSG_PRINT(pDriver_adapter, HALMAC_MSG_INIT, HALMAC_DBG_ERR, "HALMAC_RET_CHIP_NOT_SUPPORT\n");
 		return HALMAC_RET_CHIP_NOT_SUPPORT;
 	}
+
+	PLATFORM_MUTEX_INIT(pDriver_adapter, &(pHalmac_adapter->EfuseMutex));
+	PLATFORM_MUTEX_INIT(pDriver_adapter, &(pHalmac_adapter->h2c_seq_mutex));
+	PLATFORM_MUTEX_INIT(pDriver_adapter, &(pHalmac_adapter->sdio_indirect_mutex));
 
 	/* Assign function pointer to halmac API */
 #if HALMAC_PLATFORM_WINDOWS == 0
@@ -177,6 +185,12 @@ halmac_init_adapter(
 
 	/* Return halmac API function pointer */
 	*ppHalmac_api = (PHALMAC_API)pHalmac_adapter->pHalmac_api;
+
+	if (status != HALMAC_RET_SUCCESS) {
+		PLATFORM_MUTEX_DEINIT(pDriver_adapter, &(pHalmac_adapter->sdio_indirect_mutex));
+		PLATFORM_MUTEX_DEINIT(pDriver_adapter, &(pHalmac_adapter->EfuseMutex));
+		PLATFORM_MUTEX_DEINIT(pDriver_adapter, &(pHalmac_adapter->h2c_seq_mutex));
+	}
 
 	PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_INIT, HALMAC_DBG_TRACE, "halmac_init_adapter_88xx <==========\n");
 
@@ -233,6 +247,7 @@ halmac_deinit_adapter(
 
 	PLATFORM_MUTEX_DEINIT(pDriver_adapter, &(pHalmac_adapter->EfuseMutex));
 	PLATFORM_MUTEX_DEINIT(pDriver_adapter, &(pHalmac_adapter->h2c_seq_mutex));
+	PLATFORM_MUTEX_DEINIT(pDriver_adapter, &(pHalmac_adapter->sdio_indirect_mutex));
 
 	if (NULL != pHalmac_adapter->pHalEfuse_map) {
 		PLATFORM_RTL_FREE(pDriver_adapter, pHalmac_adapter->pHalEfuse_map, pHalmac_adapter->hw_config_info.efuse_size);
@@ -435,9 +450,8 @@ halmac_get_chip_info(
 					return HALMAC_RET_SDIO_LEAVE_SUSPEND_FAIL;
 			}
 		/*}*/
-
-		chip_id = platform_reg_read_8_sdio(pDriver_adapter, pHalmac_platform_api, REG_SYS_CFG2);
-		chip_version =  platform_reg_read_8_sdio(pDriver_adapter, pHalmac_platform_api, REG_SYS_CFG1 + 1) >> 4;
+		chip_id = plarform_reg_read_indirect_cmd52_sdio(pDriver_adapter, pHalmac_platform_api, REG_SYS_CFG2);
+		chip_version = plarform_reg_read_indirect_cmd52_sdio(pDriver_adapter, pHalmac_platform_api, REG_SYS_CFG1 + 1) >> 4;
 	} else {
 		chip_id = pHalmac_platform_api->REG_READ_8(pDriver_adapter, REG_SYS_CFG2);
 		chip_version = pHalmac_platform_api->REG_READ_8(pDriver_adapter, REG_SYS_CFG1 + 1) >> 4;
@@ -511,6 +525,33 @@ plarform_reg_write_8_sdio(
 	return HALMAC_RET_SUCCESS;
 }
 
+u8
+plarform_reg_read_indirect_cmd52_sdio(
+	IN VOID	*pDriver_adapter,
+	IN PHALMAC_PLATFORM_API pHalmac_platform_api,
+	IN u32 offset
+)
+{
+	u8 value8;
+	u8 rtemp = 0xFF;
+	u32 counter = 50;
+
+	pHalmac_platform_api->SDIO_CMD52_WRITE(pDriver_adapter, (SDIO_LOCAL_DEVICE_ID << 13) | (REG_SDIO_INDIRECT_REG_CFG & HALMAC_SDIO_LOCAL_MSK), (u8)offset);
+	pHalmac_platform_api->SDIO_CMD52_WRITE(pDriver_adapter, (SDIO_LOCAL_DEVICE_ID << 13) | ((REG_SDIO_INDIRECT_REG_CFG + 1) & HALMAC_SDIO_LOCAL_MSK), (u8)(offset >> 8));
+	pHalmac_platform_api->SDIO_CMD52_WRITE(pDriver_adapter, (SDIO_LOCAL_DEVICE_ID << 13) | ((REG_SDIO_INDIRECT_REG_CFG + 2) & HALMAC_SDIO_LOCAL_MSK), (u8)BIT(3));
+
+	do {
+		rtemp = pHalmac_platform_api->SDIO_CMD52_READ(pDriver_adapter, (SDIO_LOCAL_DEVICE_ID << 13) | ((REG_SDIO_INDIRECT_REG_CFG + 2) & HALMAC_SDIO_LOCAL_MSK));
+		counter--;
+	} while (((rtemp & BIT(4)) == 0) && (counter > 0));
+
+	if (((rtemp & BIT(4)) == 0) && (counter == 0))
+		pHalmac_platform_api->MSG_PRINT(pDriver_adapter, HALMAC_MSG_COMMON, HALMAC_DBG_ERR, "halmac_read_indirect_cmd52_sdio_88xx fail, offset = 0x%x\n", offset);
+
+	value8 = pHalmac_platform_api->SDIO_CMD52_READ(pDriver_adapter, (SDIO_LOCAL_DEVICE_ID << 13) | (REG_SDIO_INDIRECT_REG_DATA & HALMAC_SDIO_LOCAL_MSK));
+
+	return value8;
+}
 
 HALMAC_RET_STATUS
 halmac_convert_to_sdio_bus_offset(

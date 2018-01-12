@@ -1,19 +1,4 @@
-RTL871X := rtl8822b
 EXTRA_CFLAGS += -DCONFIG_RTL8822B
-
-ifeq ($(CONFIG_USB_HCI), y)
-ifeq ($(CONFIG_BT_COEXIST), n)
-MODULE_NAME = 8812bu
-else
-MODULE_NAME = 88x2bu
-endif
-endif
-ifeq ($(CONFIG_PCI_HCI), y)
-MODULE_NAME = 88x2be
-endif
-ifeq ($(CONFIG_SDIO_HCI), y)
-MODULE_NAME = 8822bs
-endif
 
 ifeq ($(CONFIG_MP_INCLUDED), y)
 ### 8822B Default Enable VHT MP HW TX MODE ###
@@ -92,3 +77,9 @@ _OUTSRC_FILES +=	hal/phydm/rtl8822b/halhwimg8822b_bb.o \
 _OUTSRC_FILES +=	hal/phydm/txbf/haltxbf8822b.o
 
 _HAL_INTFS_FILES += $(_HAL_HALMAC_FILES)
+
+_OUTSRC_FILES += hal/btc/halbtc8822bwifionly.o
+ifeq ($(CONFIG_BT_COEXIST), y)
+_OUTSRC_FILES += hal/btc/halbtc8822b1ant.o \
+		 hal/btc/halbtc8822b2ant.o
+endif
