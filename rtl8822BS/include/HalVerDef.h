@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,12 +11,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 #ifndef __HAL_VERSION_DEF_H__
 #define __HAL_VERSION_DEF_H__
 
@@ -178,11 +173,7 @@ typedef	struct tag_HAL_VERSION {
 	#define IS_8723A_A_CUT(version)				((IS_8723_SERIES(version)) ? (IS_A_CUT(version) ? TRUE : FALSE) : FALSE)
 	#define IS_8723A_B_CUT(version)				((IS_8723_SERIES(version)) ? (IS_B_CUT(version) ? TRUE : FALSE) : FALSE)
 #endif
-#ifdef CONFIG_USB_HCI
-#define IS_VENDOR_8188E_I_CUT_SERIES(_Adapter)		(FALSE)
-#else
 #define IS_VENDOR_8188E_I_CUT_SERIES(_Adapter)		((IS_8188E(GET_HAL_DATA(_Adapter)->version_id)) ? ((GET_CVID_CUT_VERSION(GET_HAL_DATA(_Adapter)->version_id) >= I_CUT_VERSION) ? TRUE : FALSE) : FALSE)
-#endif
 #define IS_VENDOR_8812A_TEST_CHIP(_Adapter)		((IS_8812_SERIES(GET_HAL_DATA(_Adapter)->version_id)) ? ((IS_NORMAL_CHIP(GET_HAL_DATA(_Adapter)->version_id)) ? FALSE : TRUE) : FALSE)
 #define IS_VENDOR_8812A_MP_CHIP(_Adapter)		((IS_8812_SERIES(GET_HAL_DATA(_Adapter)->version_id)) ? ((IS_NORMAL_CHIP(GET_HAL_DATA(_Adapter)->version_id)) ? TRUE : FALSE) : FALSE)
 #define IS_VENDOR_8812A_C_CUT(_Adapter)			((IS_8812_SERIES(GET_HAL_DATA(_Adapter)->version_id)) ? ((GET_CVID_CUT_VERSION(GET_HAL_DATA(_Adapter)->version_id) == C_CUT_VERSION) ? TRUE : FALSE) : FALSE)

@@ -8,19 +8,27 @@ endif
 
 _HAL_HALMAC_FILES +=	hal/halmac/halmac_api.o
 
-_HAL_HALMAC_FILES +=	hal/halmac/halmac_88xx/halmac_api_88xx.o \
-			hal/halmac/halmac_88xx/halmac_func_88xx.o \
-			hal/halmac/halmac_88xx/halmac_api_88xx_usb.o \
-			hal/halmac/halmac_88xx/halmac_api_88xx_sdio.o \
-			hal/halmac/halmac_88xx/halmac_api_88xx_pcie.o
+_HAL_HALMAC_FILES +=	hal/halmac/halmac_88xx/halmac_bb_rf_88xx.o \
+			hal/halmac/halmac_88xx/halmac_cfg_wmac_88xx.o \
+			hal/halmac/halmac_88xx/halmac_common_88xx.o \
+			hal/halmac/halmac_88xx/halmac_efuse_88xx.o \
+			hal/halmac/halmac_88xx/halmac_fw_88xx.o \
+			hal/halmac/halmac_88xx/halmac_gpio_88xx.o \
+			hal/halmac/halmac_88xx/halmac_init_88xx.o \
+			hal/halmac/halmac_88xx/halmac_mimo_88xx.o \
+			hal/halmac/halmac_88xx/halmac_pcie_88xx.o \
+			hal/halmac/halmac_88xx/halmac_sdio_88xx.o \
+			hal/halmac/halmac_88xx/halmac_usb_88xx.o
 
-_HAL_HALMAC_FILES +=	hal/halmac/halmac_88xx/halmac_8822b/halmac_8822b_pwr_seq.o \
-			hal/halmac/halmac_88xx/halmac_8822b/halmac_api_8822b.o \
-			hal/halmac/halmac_88xx/halmac_8822b/halmac_func_8822b.o \
-			hal/halmac/halmac_88xx/halmac_8822b/halmac_api_8822b_usb.o \
-			hal/halmac/halmac_88xx/halmac_8822b/halmac_api_8822b_sdio.o \
-			hal/halmac/halmac_88xx/halmac_8822b/halmac_api_8822b_pcie.o \
-			hal/halmac/halmac_88xx/halmac_8822b/halmac_8822b_phy.o
+_HAL_HALMAC_FILES +=	hal/halmac/halmac_88xx/halmac_8822b/halmac_cfg_wmac_8822b.o \
+			hal/halmac/halmac_88xx/halmac_8822b/halmac_common_8822b.o \
+			hal/halmac/halmac_88xx/halmac_8822b/halmac_gpio_8822b.o \
+			hal/halmac/halmac_88xx/halmac_8822b/halmac_init_8822b.o \
+			hal/halmac/halmac_88xx/halmac_8822b/halmac_pcie_8822b.o \
+			hal/halmac/halmac_88xx/halmac_8822b/halmac_phy_8822b.o \
+			hal/halmac/halmac_88xx/halmac_8822b/halmac_pwr_seq_8822b.o \
+			hal/halmac/halmac_88xx/halmac_8822b/halmac_sdio_8822b.o \
+			hal/halmac/halmac_88xx/halmac_8822b/halmac_usb_8822b.o
 
 _HAL_INTFS_FILES +=	hal/hal_halmac.o
 
@@ -65,21 +73,10 @@ _HAL_INTFS_FILES +=	hal/rtl8822b/$(HCI_NAME)/rtl8822bs_halinit.o \
 _HAL_INTFS_FILES +=hal/efuse/rtl8822b/HalEfuseMask8822B_SDIO.o
 endif
 
-_OUTSRC_FILES +=	hal/phydm/rtl8822b/halhwimg8822b_bb.o \
-			hal/phydm/rtl8822b/halhwimg8822b_mac.o \
-			hal/phydm/rtl8822b/halhwimg8822b_rf.o \
-			hal/phydm/rtl8822b/halphyrf_8822b.o \
-			hal/phydm/rtl8822b/phydm_hal_api8822b.o \
-			hal/phydm/rtl8822b/phydm_iqk_8822b.o \
-			hal/phydm/rtl8822b/phydm_regconfig8822b.o \
-			hal/phydm/rtl8822b/phydm_rtl8822b.o
-
-_OUTSRC_FILES +=	hal/phydm/txbf/haltxbf8822b.o
-
 _HAL_INTFS_FILES += $(_HAL_HALMAC_FILES)
 
-_OUTSRC_FILES += hal/btc/halbtc8822bwifionly.o
+_BTC_FILES += hal/btc/halbtc8822bwifionly.o
 ifeq ($(CONFIG_BT_COEXIST), y)
-_OUTSRC_FILES += hal/btc/halbtc8822b1ant.o \
-		 hal/btc/halbtc8822b2ant.o
+_BTC_FILES += hal/btc/halbtc8822b1ant.o \
+				hal/btc/halbtc8822b2ant.o
 endif

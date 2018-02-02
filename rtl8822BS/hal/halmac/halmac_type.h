@@ -1,3 +1,18 @@
+/******************************************************************************
+ *
+ * Copyright(c) 2016 - 2017 Realtek Corporation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of version 2 of the GNU General Public License as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+ * more details.
+ *
+ ******************************************************************************/
+
 #ifndef _HALMAC_TYPE_H_
 #define _HALMAC_TYPE_H_
 
@@ -20,17 +35,23 @@
 #define HALMAC_SUPPORT_PROBE_REQ_NUM			8
 #define HALMC_DDMA_POLLING_COUNT                1000
 #define API_ARRAY_SIZE							32
+#define HALMAC_MAX_FW_SECTION_NUM				4
+
+#ifndef HALMAC_RX_FIFO_EXPANDING_MODE_PKT_SIZE
+#define HALMAC_RX_FIFO_EXPANDING_MODE_PKT_SIZE	80
+#endif
 
 /* platform api */
-#define PLATFORM_SDIO_CMD52_READ				pHalmac_adapter->pHalmac_platform_api->SDIO_CMD52_READ
+#define PLATFORM_SDIO_CMD52_READ                pHalmac_adapter->pHalmac_platform_api->SDIO_CMD52_READ
 #define PLATFORM_SDIO_CMD53_READ_8              pHalmac_adapter->pHalmac_platform_api->SDIO_CMD53_READ_8
 #define PLATFORM_SDIO_CMD53_READ_16             pHalmac_adapter->pHalmac_platform_api->SDIO_CMD53_READ_16
 #define PLATFORM_SDIO_CMD53_READ_32             pHalmac_adapter->pHalmac_platform_api->SDIO_CMD53_READ_32
-#define PLATFORM_SDIO_CMD53_READ_N				pHalmac_adapter->pHalmac_platform_api->SDIO_CMD53_READ_N
+#define PLATFORM_SDIO_CMD53_READ_N              pHalmac_adapter->pHalmac_platform_api->SDIO_CMD53_READ_N
 #define PLATFORM_SDIO_CMD52_WRITE               pHalmac_adapter->pHalmac_platform_api->SDIO_CMD52_WRITE
 #define PLATFORM_SDIO_CMD53_WRITE_8             pHalmac_adapter->pHalmac_platform_api->SDIO_CMD53_WRITE_8
 #define PLATFORM_SDIO_CMD53_WRITE_16			pHalmac_adapter->pHalmac_platform_api->SDIO_CMD53_WRITE_16
 #define PLATFORM_SDIO_CMD53_WRITE_32			pHalmac_adapter->pHalmac_platform_api->SDIO_CMD53_WRITE_32
+#define PLATFORM_SDIO_CMD52_CIA_READ            pHalmac_adapter->pHalmac_platform_api->SDIO_CMD52_CIA_READ
 
 #define PLATFORM_REG_READ_8                     pHalmac_adapter->pHalmac_platform_api->REG_READ_8
 #define PLATFORM_REG_READ_16                    pHalmac_adapter->pHalmac_platform_api->REG_READ_16
@@ -41,6 +62,7 @@
 
 #define PLATFORM_SEND_RSVD_PAGE                 pHalmac_adapter->pHalmac_platform_api->SEND_RSVD_PAGE
 #define PLATFORM_SEND_H2C_PKT                   pHalmac_adapter->pHalmac_platform_api->SEND_H2C_PKT
+#define PLATFORM_SEND_FWCMD						pHalmac_adapter->pHalmac_platform_api->SEND_FWCMD
 
 #define PLATFORM_RTL_FREE                       pHalmac_adapter->pHalmac_platform_api->RTL_FREE
 #define PLATFORM_RTL_MALLOC                     pHalmac_adapter->pHalmac_platform_api->RTL_MALLOC
@@ -59,7 +81,7 @@
 #if HALMAC_DBG_MSG_ENABLE
 #define PLATFORM_MSG_PRINT                      pHalmac_adapter->pHalmac_platform_api->MSG_PRINT
 #else
-#define PLATFORM_MSG_PRINT(pDriver_adapter, msg_type, msg_level, fmt, ...)
+#define PLATFORM_MSG_PRINT(pDriver_adapter, msg_type, msg_level, fmt, ...)	 do {} while (0)
 #endif
 
 #if HALMAC_PLATFORM_TESTPROGRAM
@@ -258,18 +280,23 @@
 #define BIT(x)              (1 << (x))
 #endif
 
+#ifndef ARRAY_SIZE
+#define ARRAY_SIZE(arr)		(sizeof(arr) / sizeof((arr)[0]))
+#endif
+
 /* HALMAC API return status*/
 typedef enum _HALMAC_RET_STATUS {
 	HALMAC_RET_SUCCESS = 0x00,
-	HALMAC_RET_SUCCESS_ENQUEUE = 0x01,
+	HALMAC_RET_NOT_SUPPORT = 0x01,
+	HALMAC_RET_SUCCESS_ENQUEUE = 0x01, /*Don't use this return code!!*/
 	HALMAC_RET_PLATFORM_API_NULL = 0x02,
 	HALMAC_RET_EFUSE_SIZE_INCORRECT = 0x03,
 	HALMAC_RET_MALLOC_FAIL = 0x04,
 	HALMAC_RET_ADAPTER_INVALID = 0x05,
 	HALMAC_RET_ITF_INCORRECT = 0x06,
-	HALMAC_RET_DLFW_FAIL = 0x07,
+	HALMAC_RET_DLFW_FAIL = 0x07, /* only use in halmac_download_firmware, else use HALMAC_RET_NO_DLFW*/
 	HALMAC_RET_PORT_NOT_SUPPORT = 0x08,
-	HALMAC_RET_TRXMODE_NOT_SUPPORT = 0x09,
+	HALMAC_RET_TXAGG_OVERFLOW = 0x09,
 	HALMAC_RET_INIT_LLT_FAIL = 0x0A,
 	HALMAC_RET_POWER_STATE_INVALID = 0x0B,
 	HALMAC_RET_H2C_ACK_NOT_RECEIVED = 0x0C,
@@ -335,7 +362,6 @@ typedef enum _HALMAC_RET_STATUS {
 	HALMAC_RET_EEPROM_PARSING_FAIL = 0x48,
 	HALMAC_RET_EFUSE_NOT_ENOUGH = 0x49,
 	HALMAC_RET_WRONG_ARGUMENT = 0x4A,
-	HALMAC_RET_NOT_SUPPORT = 0x4B,
 	HALMAC_RET_C2H_NOT_HANDLED = 0x4C,
 	HALMAC_RET_PARA_SENDING = 0x4D,
 	HALMAC_RET_CFG_DLFW_SIZE_FAIL = 0x4E,
@@ -352,6 +378,24 @@ typedef enum _HALMAC_RET_STATUS {
 	HALMAC_RET_DRV_DL_ERR = 0x59,
 	HALMAC_RET_OQT_NOT_ENOUGH = 0x5A,
 	HALMAC_RET_PWR_UNCHANGE = 0x5B,
+	HALMAC_RET_WRONG_INTF = 0x5C,
+	HALMAC_RET_POLLING_HIOE_REQ_FAIL = 0x5E,
+	HALMAC_RET_HIOE_CHKSUM_FAIL = 0x5F,
+	HALMAC_RET_HIOE_ERR = 0x60,
+	HALMAC_RET_FW_NO_SUPPORT = 0x60,
+	HALMAC_RET_TXFIFO_NO_EMPTY = 0x61,
+	HALMAC_RET_SDIO_CLOCK_ERR = 0x62,
+	HALMAC_RET_GET_PINMUX_ERR = 0x63,
+	HALMAC_RET_PINMUX_USED = 0x64,
+	HALMAC_RET_WRONG_GPIO = 0x65,
+	HALMAC_RET_LTECOEX_READY_FAIL = 0x66,
+	HALMAC_RET_IDMEM_CHKSUM_FAIL = 0x67,
+	HALMAC_RET_ILLEGAL_KEY_FAIL = 0x68,
+	HALMAC_RET_FW_READY_CHK_FAIL = 0x69,
+	HALMAC_RET_RSVD_PG_OVERFLOW_FAIL = 0x70,
+	HALMAC_RET_THRESHOLD_FAIL = 0x71,
+	HALMAC_RET_SDIO_MIX_MODE = 0x72,
+	HALMAC_RET_TXDESC_SET_FAIL = 0x73,
 } HALMAC_RET_STATUS;
 
 typedef enum _HALMAC_MAC_CLOCK_HW_DEF {
@@ -360,23 +404,13 @@ typedef enum _HALMAC_MAC_CLOCK_HW_DEF {
 	HALMAC_MAC_CLOCK_HW_DEF_20M = 2,
 } HALMAC_MAC_CLOCK_HW_DEF;
 
-/* Rx aggregation parameters */
-typedef enum _HALMAC_NORMAL_RXAGG_TH_TO {
-	HALMAC_NORMAL_RXAGG_THRESHOLD = 0xFF,
-	HALMAC_NORMAL_RXAGG_TIMEOUT = 0x01,
-} HALMAC_NORMAL_RXAGG_TH_TO;
-
-typedef enum _HALMAC_LOOPBACK_RXAGG_TH_TO {
-	HALMAC_LOOPBACK_RXAGG_THRESHOLD = 0xFF,
-	HALMAC_LOOPBACK_RXAGG_TIMEOUT = 0x01,
-} HALMAC_LOOPBACK_RXAGG_TH_TO;
-
 /* Chip ID*/
 typedef enum _HALMAC_CHIP_ID {
 	HALMAC_CHIP_ID_8822B = 0,
 	HALMAC_CHIP_ID_8821C = 1,
 	HALMAC_CHIP_ID_8814B = 2,
 	HALMAC_CHIP_ID_8197F = 3,
+	HALMAC_CHIP_ID_8822C = 4,
 	HALMAC_CHIP_ID_UNDEFINE = 0x7F,
 } HALMAC_CHIP_ID;
 
@@ -396,7 +430,8 @@ typedef enum _HALMAC_CHIP_ID_HW_DEF {
 	HALMAC_CHIP_ID_HW_DEF_8192F = 0x0D,
 	HALMAC_CHIP_ID_HW_DEF_8197F = 0x0E,
 	HALMAC_CHIP_ID_HW_DEF_8723D = 0x0F,
-	HALMAC_CHIP_ID_HW_DEF_8814B = 0x10,
+	HALMAC_CHIP_ID_HW_DEF_8814B = 0x11,
+	HALMAC_CHIP_ID_HW_DEF_8822C = 0x13,
 	HALMAC_CHIP_ID_HW_DEF_UNDEFINE = 0x7F,
 	HALMAC_CHIP_ID_HW_DEF_PS = 0xEA,
 } HALMAC_CHIP_ID_HW_DEF;
@@ -468,6 +503,7 @@ typedef enum _HALMAC_TXDESC_QUEUE_TID {
 	HALMAC_TXDESC_QSEL_HIGH = 0x11,
 	HALMAC_TXDESC_QSEL_MGT = 0x12,
 	HALMAC_TXDESC_QSEL_H2C_CMD = 0x13,
+	HALMAC_TXDESC_QSEL_FWCMD = 0x14,
 
 	HALMAC_TXDESC_QSEL_UNDEFINE = 0x7F,
 } HALMAC_TXDESC_QUEUE_TID;
@@ -492,13 +528,82 @@ typedef enum {
 	HALMAC_QUEUE_SELECT_VI_V2 = HALMAC_TXDESC_QSEL_TID5,
 	HALMAC_QUEUE_SELECT_BE_V2 = HALMAC_TXDESC_QSEL_TID3,
 	HALMAC_QUEUE_SELECT_BK_V2 = HALMAC_TXDESC_QSEL_TID2,
+	HALMAC_QUEUE_SELECT_TID8 = HALMAC_TXDESC_QSEL_TID8,
+	HALMAC_QUEUE_SELECT_TID9 = HALMAC_TXDESC_QSEL_TID9,
+	HALMAC_QUEUE_SELECT_TIDA = HALMAC_TXDESC_QSEL_TIDA,
+	HALMAC_QUEUE_SELECT_TIDB = HALMAC_TXDESC_QSEL_TIDB,
+	HALMAC_QUEUE_SELECT_TIDC = HALMAC_TXDESC_QSEL_TIDC,
+	HALMAC_QUEUE_SELECT_TIDD = HALMAC_TXDESC_QSEL_TIDD,
+	HALMAC_QUEUE_SELECT_TIDE = HALMAC_TXDESC_QSEL_TIDE,
+	HALMAC_QUEUE_SELECT_TIDF = HALMAC_TXDESC_QSEL_TIDF,
 	HALMAC_QUEUE_SELECT_BCN = HALMAC_TXDESC_QSEL_BEACON,
 	HALMAC_QUEUE_SELECT_HIGH = HALMAC_TXDESC_QSEL_HIGH,
 	HALMAC_QUEUE_SELECT_MGNT = HALMAC_TXDESC_QSEL_MGT,
 	HALMAC_QUEUE_SELECT_CMD = HALMAC_TXDESC_QSEL_H2C_CMD,
+	HALMAC_QUEUE_SELECT_FWCMD = HALMAC_TXDESC_QSEL_FWCMD,
 	HALMAC_QUEUE_SELECT_UNDEFINE = 0x7F,
 } HALMAC_QUEUE_SELECT;
 
+typedef enum _HALMAC_ACQ_ID {
+	HALMAC_ACQ_ID_VO = 0,
+	HALMAC_ACQ_ID_VI = 1,
+	HALMAC_ACQ_ID_BE = 2,
+	HALMAC_ACQ_ID_BK = 3,
+	HALMAC_ACQ_ID_MAX = 0x7F,
+} HALMAC_ACQ_ID;
+
+/* TXDESC DMA Channel */
+typedef enum _HALMAC_TXDESC_DMA_CHANNEL {
+	HALMAC_TXDESC_DMA_CHANNEL_0 = 0,
+	HALMAC_TXDESC_DMA_CHANNEL_1 = 1,
+	HALMAC_TXDESC_DMA_CHANNEL_2 = 2,
+	HALMAC_TXDESC_DMA_CHANNEL_3 = 3,
+	HALMAC_TXDESC_DMA_CHANNEL_4 = 4,
+	HALMAC_TXDESC_DMA_CHANNEL_5 = 5,
+	HALMAC_TXDESC_DMA_CHANNEL_6 = 6,
+	HALMAC_TXDESC_DMA_CHANNEL_7 = 7,
+	HALMAC_TXDESC_DMA_CHANNEL_8 = 8,
+	HALMAC_TXDESC_DMA_CHANNEL_9 = 9,
+	HALMAC_TXDESC_DMA_CHANNEL_10 = 10,
+	HALMAC_TXDESC_DMA_CHANNEL_11 = 11,
+	HALMAC_TXDESC_DMA_CHANNEL_12 = 12,
+	HALMAC_TXDESC_DMA_CHANNEL_13 = 13,
+	HALMAC_TXDESC_DMA_CHANNEL_14 = 14,
+	HALMAC_TXDESC_DMA_CHANNEL_15 = 15,
+	HALMAC_TXDESC_DMA_CHANNEL_16 = 16,
+	HALMAC_TXDESC_DMA_CHANNEL_17 = 17,
+	HALMAC_TXDESC_DMA_CHANNEL_18 = 18,
+	HALMAC_TXDESC_DMA_CHANNEL_19 = 19,
+	HALMAC_TXDESC_DMA_CHANNEL_20 = 20,
+	HALMAC_TXDESC_DMA_CHANNEL_MAX,
+	HALMAC_TXDESC_DMA_CHANNEL_UNDEFINE = 0x7F,
+} HALMAC_TXDESC_DMA_CHANNEL;
+
+typedef enum {
+	HALMAC_DMA_CH_0 = HALMAC_TXDESC_DMA_CHANNEL_0,
+	HALMAC_DMA_CH_1 = HALMAC_TXDESC_DMA_CHANNEL_1,
+	HALMAC_DMA_CH_2 = HALMAC_TXDESC_DMA_CHANNEL_2,
+	HALMAC_DMA_CH_3 = HALMAC_TXDESC_DMA_CHANNEL_3,
+	HALMAC_DMA_CH_4 = HALMAC_TXDESC_DMA_CHANNEL_4,
+	HALMAC_DMA_CH_5 = HALMAC_TXDESC_DMA_CHANNEL_5,
+	HALMAC_DMA_CH_6 = HALMAC_TXDESC_DMA_CHANNEL_6,
+	HALMAC_DMA_CH_7 = HALMAC_TXDESC_DMA_CHANNEL_7,
+	HALMAC_DMA_CH_8 = HALMAC_TXDESC_DMA_CHANNEL_8,
+	HALMAC_DMA_CH_9 = HALMAC_TXDESC_DMA_CHANNEL_9,
+	HALMAC_DMA_CH_10 = HALMAC_TXDESC_DMA_CHANNEL_10,
+	HALMAC_DMA_CH_11 = HALMAC_TXDESC_DMA_CHANNEL_11,
+	HALMAC_DMA_CH_S0 = HALMAC_TXDESC_DMA_CHANNEL_12,
+	HALMAC_DMA_CH_S1 = HALMAC_TXDESC_DMA_CHANNEL_13,
+	HALMAC_DMA_CH_MGQ = HALMAC_TXDESC_DMA_CHANNEL_14,
+	HALMAC_DMA_CH_HIGH = HALMAC_TXDESC_DMA_CHANNEL_15,
+	HALMAC_DMA_CH_FWCMD = HALMAC_TXDESC_DMA_CHANNEL_16,
+	HALMAC_DMA_CH_MGQ_BAND1 = HALMAC_TXDESC_DMA_CHANNEL_17,
+	HALMAC_DMA_CH_HIGH_BAND1 = HALMAC_TXDESC_DMA_CHANNEL_18,
+	HALMAC_DMA_CH_BCN = HALMAC_TXDESC_DMA_CHANNEL_19,
+	HALMAC_DMA_CH_H2C = HALMAC_TXDESC_DMA_CHANNEL_20,
+	HALMAC_DMA_CH_MAX = HALMAC_TXDESC_DMA_CHANNEL_MAX,
+	HALMAC_DMA_CH_UNDEFINE = 0x7F,
+} HALMAC_DMA_CH;
 
 /* USB burst size */
 typedef enum _HALMAC_USB_BURST_SIZE {
@@ -514,6 +619,7 @@ typedef enum _HALMAC_INTERFACE {
 	HALMAC_INTERFACE_PCIE = 0x0,
 	HALMAC_INTERFACE_USB = 0x1,
 	HALMAC_INTERFACE_SDIO = 0x2,
+	HALMAC_INTERFACE_AXI = 0x3,
 	HALMAC_INTERFACE_UNDEFINE = 0x7F,
 } HALMAC_INTERFACE;
 
@@ -530,6 +636,7 @@ typedef enum _HALMAC_RX_AGG_MODE {
 	HALMAC_RX_AGG_MODE_USB = 0x2,
 	HALMAC_RX_AGG_MODE_UNDEFINE = 0x7F,
 } HALMAC_RX_AGG_MODE;
+
 typedef struct _HALMAC_RXAGG_TH {
 	u8 drv_define;
 	u8 timeout;
@@ -541,6 +648,13 @@ typedef struct _HALMAC_RXAGG_CFG {
 	HALMAC_RXAGG_TH threshold;
 } HALMAC_RXAGG_CFG, *PHALMAC_RXAGG_CFG;
 
+typedef struct _HALMAC_API_REGISTRY {
+	u8 rx_expand_mode_en:1;
+	u8 la_mode_en:1;
+	u8 cfg_drv_rsvd_pg_en:1;
+	u8 sdio_cmd53_4byte_en:1;
+	u8 rsvd:4;
+} HALMAC_API_REGISTRY, *PHALMAC_API_REGISTRY;
 
 typedef enum _HALMAC_MAC_POWER {
 	HALMAC_MAC_POWER_OFF = 0x0,
@@ -562,8 +676,8 @@ typedef enum _HALMAC_TRX_MODE {
 	HALMAC_TRX_MODE_P2P = 0x3,
 	HALMAC_TRX_MODE_LOOPBACK = 0x4,
 	HALMAC_TRX_MODE_DELAY_LOOPBACK = 0x5,
-	HALMAC_TRX_MODE_WMM_LINUX = 0x6,
-	HALMAC_TRX_MODE_MAX = 0x7,
+	HALMAC_TRX_MODE_MAX = 0x6,
+	HALMAC_TRX_MODE_WMM_LINUX = 0x7E,
 	HALMAC_TRX_MODE_UNDEFINE = 0x7F,
 } HALMAC_TRX_MODE;
 
@@ -586,7 +700,6 @@ typedef enum _HALMAC_BW {
 	HALMAC_BW_UNDEFINE = 0x7F,
 } HALMAC_BW;
 
-
 typedef enum _HALMAC_EFUSE_READ_CFG {
 	HALMAC_EFUSE_R_AUTO = 0x00,
 	HALMAC_EFUSE_R_DRV = 0x01,
@@ -594,6 +707,11 @@ typedef enum _HALMAC_EFUSE_READ_CFG {
 	HALMAC_EFUSE_R_UNDEFINE = 0x7F,
 } HALMAC_EFUSE_READ_CFG;
 
+typedef enum _HALMAC_DLFW_MEM {
+	HALMAC_DLFW_MEM_EMEM = 0x00,
+	HALMAC_DLFW_MEM_EMEM_RSVD_PG = 0x01,
+	HALMAC_DLFW_MEM_UNDEFINE = 0x7F,
+} HALMAC_DLFW_MEM;
 
 typedef struct _HALMAC_TX_DESC {
 	u32	Dword0;
@@ -618,34 +736,6 @@ typedef struct _HALMAC_RX_DESC {
 	u32	Dword4;
 	u32	Dword5;
 } HALMAC_RX_DESC, *PHALMAC_RX_DESC;
-
-typedef struct _HALMAC_FWLPS_OPTION {
-	u8	mode;
-	u8	clk_request;
-	u8	rlbm;
-	u8	smart_ps;
-	u8	awake_interval;
-	u8	all_queue_uapsd;
-	u8	pwr_state;
-	u8	low_pwr_rx_beacon;
-	u8	ant_auto_switch;
-	u8	ps_allow_bt_high_Priority;
-	u8	protect_bcn;
-	u8	silence_period;
-	u8	fast_bt_connect;
-	u8	two_antenna_en;
-	u8	adopt_user_Setting;
-	u8	drv_bcn_early_shift;
-	u8	enter_32K;
-} HALMAC_FWLPS_OPTION, *PHALMAC_FWLPS_OPTION;
-
-typedef struct _HALMAC_FWIPS_OPTION {
-	u8 adopt_user_Setting;
-} HALMAC_FWIPS_OPTION, *PHALMAC_FWIPS_OPTION;
-
-typedef struct _HALMAC_WOWLAN_OPTION {
-	u8 adopt_user_Setting;
-} HALMAC_WOWLAN_OPTION, *PHALMAC_WOWLAN_OPTION;
 
 typedef struct _HALMAC_BCN_IE_INFO {
 	u8	func_en;
@@ -744,18 +834,53 @@ typedef struct _HALMAC_CONFIG_PARA_INFO {
 	u8 full_fifo_mode; /* Used full tx fifo to save cfg parameter */
 } HALMAC_CONFIG_PARA_INFO, *PHALMAC_CONFIG_PARA_INFO;
 
+typedef struct _HALMAC_HIOE_CMD_INFO {
+	u32 cmd_buf_size; /* Parameter buffer size */
+	u8 *pCmd_buf; /* Buffer for config parameter */
+	u8 *pCmd_buf_w; /* Write pointer of the parameter buffer */
+	u32 cmd_num; /* Parameter numbers in parameter buffer */
+	u32 avai_cmd_buf_size; /* Free size of parameter buffer */
+	u16 checksum_r;
+	u16 checksum_w;
+} HALMAC_HIOE_CMD_INFO, *PHALMAC_HIOE_CMD_INFO;
+
+typedef struct _HALMAC_HIOE_CMD {
+	u8 raw;
+	u8 raw_r;
+	u8 wr_en;
+	u8 rd_en;
+	u8 bytemask;
+	u8 delay_en;
+	u8 mode_sel;
+	u8 rsvd;
+	u32 reg_addr;
+	u32 delay_value;
+	u16 bitmask;
+	u16 bitdata;
+	u32 bytedata;
+
+} HALMAC_HIOE_CMD, *PHALMAC_HIOE_CMD;
+
 typedef struct _HALMAC_HW_CONFIG_INFO {
 	u32	efuse_size; /* Record efuse size */
 	u32	eeprom_size; /* Record eeprom size */
 	u32 bt_efuse_size; /* Record BT efuse size */
 	u32	tx_fifo_size; /* Record tx fifo size */
 	u32 rx_fifo_size; /* Record rx fifo size */
-	u8 txdesc_size; /* Record tx desc size */
-	u8 rxdesc_size; /* Record rx desc size */
 	u32 page_size; /* Record page size */
 	u16 tx_align_size;
+	u8 txdesc_size; /* Record tx desc size */
+	u8 rxdesc_size; /* Record rx desc size */
 	u8 page_size_2_power;
 	u8 cam_entry_num; /* Record CAM entry number */
+	u8 security_check_keyid;
+	u8 txdesc_ie_max_num;
+	u8 txdesc_body_size;
+	u8 ac_oqt_size;
+	u8 non_ac_oqt_size;
+	u8 ac_queue_num;
+	u8 trx_mode;
+	u8 usb_txagg_num;
 } HALMAC_HW_CONFIG_INFO, *PHALMAC_HW_CONFIG_INFO;
 
 typedef struct _HALMAC_SDIO_FREE_SPACE {
@@ -775,7 +900,35 @@ typedef enum _HAL_FIFO_SEL {
 	HAL_FIFO_SEL_RSVD_PAGE,
 	HAL_FIFO_SEL_REPORT,
 	HAL_FIFO_SEL_LLT,
+	HAL_FIFO_SEL_RXBUF_FW,
+	HAL_FIFO_SEL_RXBUF_PHY,
+	HAL_FIFO_SEL_RXDESC,
+	HAL_BUF_SECURITY_CAM,
+	HAL_BUF_WOW_CAM,
+	HAL_BUF_RX_FILTER_CAM,
+	HAL_BUF_BA_CAM,
+	HAL_BUF_MBSSID_CAM
 } HAL_FIFO_SEL;
+
+typedef enum _HALMAC_EFUSE_BLOCK {
+	HALMAC_EFUSE_SYSTEM_ON,
+	HALMAC_EFUSE_HCI,
+	HALMAC_EFUSE_HCI_PHY,
+	HALMAC_EFUSE_BLOCK_ALL,
+} HALMAC_EFUSE_BLOCK;
+
+typedef struct _HALMAC_EFUSE_REG_MAP_ {
+	u32 efuse_offset;
+	u8 efuse_msk;
+	u32 reg_offset;
+	u8 reg_msk;
+} HALMAC_EFUSE_REG_MAP, *PHALMAC_EFUSE_REG_MAP;
+
+typedef struct _HALMAC_REG_DATA_ {
+	u32 reg_offset;
+	u32 reg_value;
+	u32 reg_msk;
+} HALMAC_REG_DATA, *PHALMAC_REG_DATA;
 
 typedef enum _HALMAC_DRV_INFO {
 	HALMAC_DRV_INFO_NONE, /* No information is appended in rx_pkt */
@@ -784,18 +937,6 @@ typedef enum _HALMAC_DRV_INFO {
 	HALMAC_DRV_INFO_PHY_PLCP, /* PHY status and plcp header are appended after rx_desc */
 	HALMAC_DRV_INFO_UNDEFINE,
 } HALMAC_DRV_INFO;
-
-typedef struct _HALMAC_BT_COEX_CMD {
-	u8 element_id;
-	u8 op_code;
-	u8 op_code_ver;
-	u8 req_num;
-	u8 data0;
-	u8 data1;
-	u8 data2;
-	u8 data3;
-	u8 data4;
-} HALMAC_BT_COEX_CMD, *PHALMAC_BT_COEX_CMD;
 
 typedef enum _HALMAC_PRI_CH_IDX {
 	HALMAC_CH_IDX_UNDEFINE = 0,
@@ -840,14 +981,59 @@ typedef struct _HALMAC_CH_SWITCH_OPTION {
 	u8 absolute_time_en;
 	u8 dest_ch;
 	u8 normal_period;
+	u8 normal_period_sel;
 	u8 normal_cycle;
 	u8 phase_2_period;
+	u8 phase_2_period_sel;
 } HALMAC_CH_SWITCH_OPTION, *PHALMAC_CH_SWITCH_OPTION;
+
+typedef struct _HALMAC_P2PPS {
+	/*DW0*/
+	u8  offload_en:1;
+	u8  role:1;
+	u8  ctwindow_en:1;
+	u8  noa_en:1;
+	u8  noa_sel:1;
+	u8  all_sta_sleep:1;
+	u8  discovery:1;
+	u8  disable_close_rf:1;
+	u8  p2p_port_id;
+	u8  p2p_group;
+	u8  p2p_macid;
+
+	/*DW1*/
+	u8 ctwindow_length;
+	u8 rsvd3;
+	u8 rsvd4;
+	u8 rsvd5;
+
+	/*DW2*/
+	u32 noa_duration_para;
+
+	/*DW3*/
+	u32 noa_interval_para;
+
+	/*DW4*/
+	u32 noa_start_time_para;
+
+	/*DW5*/
+	u32 noa_count_para;
+} HALMAC_P2PPS, *PHALMAC_P2PPS;
+
+typedef struct _HALMAC_FW_BUILD_TIME {
+	u16 year;
+	u8 month;
+	u8 date;
+	u8 hour;
+	u8 min;
+} HALMAC_FW_BUILD_TIME, *PHALMAC_FW_BUILD_TIME;
 
 typedef struct _HALMAC_FW_VERSION {
 	u16 version;
 	u8 sub_version;
 	u8 sub_index;
+	u16 h2c_version;
+	HALMAC_FW_BUILD_TIME build_time;
 } HALMAC_FW_VERSION, *PHALMAC_FW_VERSION;
 
 typedef enum _HALMAC_RF_TYPE {
@@ -866,6 +1052,8 @@ typedef enum _HALMAC_RF_TYPE {
 typedef struct _HALMAC_GENERAL_INFO {
 	u8 rfe_type;
 	HALMAC_RF_TYPE rf_type;
+	u8 tx_ant_status;
+	u8 rx_ant_status;
 } HALMAC_GENERAL_INFO, *PHALMAC_GENERAL_INFO;
 
 typedef struct _HALMAC_PWR_TRACKING_PARA {
@@ -1013,6 +1201,13 @@ typedef enum _HAL_SECURITY_TYPE {
 	HAL_SECURITY_TYPE_UNDEFINE = 0x7F,
 } HAL_SECURITY_TYPE;
 
+typedef enum _HAL_NETWORK_TYPE {
+	HAL_NOLINK = 0,
+	HAL_AHOC = 1,
+	HAL_INFRA = 2,
+	HAL_AP = 3,
+} HAL_NETWORK_TYPE;
+
 typedef enum _HAL_INTF_PHY {
 	HAL_INTF_PHY_USB2 = 0,
 	HAL_INTF_PHY_USB3 = 1,
@@ -1020,6 +1215,14 @@ typedef enum _HAL_INTF_PHY {
 	HAL_INTF_PHY_PCIE_GEN2 = 3,
 	HAL_INTF_PHY_UNDEFINE = 0x7F,
 } HAL_INTF_PHY;
+
+typedef struct _HALMAC_CUT_AMSDU_CFG {
+	u8 cut_amsdu_en;
+	u8 chk_len_en;
+	u8 chk_len_def_val;
+	u8 chk_len_l_th;
+	u16 chk_len_h_th;
+} HALMAC_CUT_AMSDU_CFG, *PHALMAC_CUT_AMSDU_CFG;
 
 #if HALMAC_PLATFORM_TESTPROGRAM
 
@@ -1039,24 +1242,23 @@ typedef enum _HAL_TX_ID {
 	HAL_TX_ID_BK,
 	HAL_TX_ID_BCN,
 	HAL_TX_ID_H2C,
+	HAL_TX_ID_VO_2,
+	HAL_TX_ID_VI_2,
+	HAL_TX_ID_BE_2,
+	HAL_TX_ID_BK_2,
+	HAL_TX_ID_HIGH,
+	HAL_TX_ID_MGNT,
+	HAL_TX_ID_TID8,
+	HAL_TX_ID_TID9,
+	HAL_TX_ID_TID10,
+	HAL_TX_ID_TID11,
+	HAL_TX_ID_TID12,
+	HAL_TX_ID_TID13,
+	HAL_TX_ID_TID14,
+	HAL_TX_ID_TID15,
+	HAL_TX_ID_FWCMD,
 	HAL_TX_ID_MAX
 } HAL_TX_ID;
-
-typedef enum _HAL_QSEL {
-	HAL_QSEL_TID0,
-	HAL_QSEL_TID1,
-	HAL_QSEL_TID2,
-	HAL_QSEL_TID3,
-	HAL_QSEL_TID4,
-	HAL_QSEL_TID5,
-	HAL_QSEL_TID6,
-	HAL_QSEL_TID7,
-
-	HAL_QSEL_BEACON = 0x10,
-	HAL_QSEL_HIGH = 0x11,
-	HAL_QSEL_MGT = 0x12,
-	HAL_QSEL_CMD = 0x13
-} HAL_QSEL;
 
 typedef enum _HAL_RTS_MODE {
 	HAL_RTS_MODE_NONE,
@@ -1082,6 +1284,14 @@ typedef enum _HAL_SECURITY_METHOD {
 	HAL_SECURITY_METHOD_UNDEFINE = 0x7F,
 } HAL_SECURITY_METHOD;
 
+typedef enum _HALMAC_TXD_COMPARE_SEL {
+	HAL_SHORTCUT_PROTOCOL = 0,
+	HAL_SHORTCUT = 1,
+	HAL_PROTOCOL = 2,
+	HAL_BUFFER = 3,
+	HAL_TRANS_DISABLE = 4,
+} HALMAC_TXD_COMPARE_SEL;
+
 typedef struct _HAL_TXDESC_INFO {
 	u32 txdesc_length;
 	u32 packet_size; /* payload + wlheader */
@@ -1103,6 +1313,20 @@ typedef struct _HAL_TXDESC_INFO {
 	u8 bm_cast;
 	u8 data_short;
 	u8 mac_id;
+	u8 ccx_report;
+	u8 multiple_port_id;
+	u8 ctrl_count;
+	u8 ctrl_count_valid;
+	u8 pkt_offset;
+	HALMAC_DMA_CH channel_dma;
+	u8 amsdu;
+	u8 ie_up;
+	u8 ie_full;
+	u8 ie_cnt_en;
+	u8 ie_cnt;
+	u16 paid;
+	u8 ndpa;
+	u8 userate;
 } HAL_TXDESC_INFO, *PHAL_TXDESC_INFO;
 
 typedef struct _HAL_RXDESC_INFO {
@@ -1116,6 +1340,9 @@ typedef struct _HAL_RXDESC_INFO {
 typedef struct _HAL_TXDESC_PARSER {
 	u8 txdesc_len;
 	u16	txpkt_size;
+	u32 tx_agg_num;
+	u8 tx_amsdu;
+	u8 tx_pktoffset;
 } HAL_TXDESC_PARSER, *PHAL_TXDESC_PARSER;
 
 typedef struct _HAL_RXDESC_PARSER {
@@ -1125,6 +1352,13 @@ typedef struct _HAL_RXDESC_PARSER {
 	u8 c2h;
 	u8 crc_err;
 	u8 icv_err;
+	u8 amsdu;
+	u8 amsdu_cut;
+	u8 last_msdu;
+	u8 sw_dec;
+	u8 phy_pkt;
+	u32 wlhdr_iv_len;
+	HALMAC_PTCL_QUEUE queue_sel;
 } HAL_RXDESC_PARSER, *PHAL_RXDESC_PARSER;
 
 typedef struct _HAL_RF_REG_INFO {
@@ -1149,6 +1383,15 @@ typedef struct _HALMAC_MGNT_INFO {
 	u32	packet_size;
 } HALMAC_MGNT_INFO, *PHALMAC_MGNT_INFO;
 
+typedef struct _HALMAC_SND_TXDESC_INFO {
+	HALMAC_SND_PKT_SEL snd_pkt_sel; /* 0:unicast ndpa 1:broadcast ndpa 3:non-final BF Rpt Poll 4:final BF Rpt Poll */
+	u16 seq_num;
+	u8 bw;
+	u16 paid;
+	u8 snd_target;
+	u8 NSS;
+} HALMAC_SND_TXDESC_INFO, *PHALMAC_SND_TXDESC_INFO;
+
 typedef struct _HALMAC_CTRL_INFO {
 	u8 snd_enable;
 	HALMAC_SND_PKT_SEL snd_pkt_sel; /* 0:unicast ndpa 1:broadcast ndpa 3:non-final BF Rpt Poll 4:final BF Rpt Poll */
@@ -1169,9 +1412,118 @@ typedef struct _HALMAC_CHIP_TYPE {
 	HALMAC_CHIP_VER chip_version;
 } HALMAC_CHIP_TYPE, *PHALMAC_CHIP_TYPE;
 
+typedef enum _HALMAC_FWDL_HOST_STATE {
+	HALMAC_FWDL_HOST_INIT = 0,
+	HALMAC_FWDL_HOST_CONF_DONE = 1,
+	HALMAC_FWDL_HOST_DL0_DONE = 2,
+	HALMAC_FWDL_HOST_DL1_DONE = 3,
+	HALMAC_FWDL_HOST_FWD_FW_DONE = 4,
+} HALMAC_FWDL_HOST_STATE;
+
+typedef enum _HALMAC_FWDL_OFLD_STATE {
+	HALMAC_FWDL_OFLD_INIT = 0,
+	HALMAC_FWDL_OFLD_BOOT_INIT_DONE = 1,
+	HALMAC_FWDL_OFLD_MEM_INIT_DONE = 2,
+	HALMAC_FWDL_OFLD_SW_INIT_DONE = 3,
+	HALMAC_FWDL_OFLD_OFLD_INIT_DONE = 4,
+} HALMAC_FWDL_OFLD_STATE;
+
+typedef struct _HALMAC_FWDL_SECTION {
+	u8 *section_ptr;
+	u32 dl_addr;
+	s32 dl_len;
+} HALMAC_FWDL_SECTION, *PHALMAC_FWDL_SECTION;
+
+typedef struct _HALMAC_FWDL {
+	u8 *fw; /* FW ball */
+	HALMAC_FWDL_SECTION conf; /* phase0 CONF */
+	HALMAC_FWDL_SECTION fw1; /* phase1 FW */
+	HALMAC_FWDL_SECTION dl_section[HALMAC_MAX_FW_SECTION_NUM]; /* Phase2 sections */
+	s32 dl_cnt; /* Phase2 section count */
+	HALMAC_FWDL_SECTION fw3; /* phase3 FW */
+	HALMAC_FWDL_SECTION fw4; /* phase4 FW */
+} HALMAC_FWDL, *PHALMAC_FWDL;
+
+typedef struct _HALMAC_WKFM_CAM_INFO {
+	u8 wake_pattern[128];
+	u8 uc_fit_bssid;
+	u8 mc_fit_bssid;
+	u8 bc_fit_bssid;
+	u32 pattern_size;
+} HALMAC_WKFM_CAM_INFO, *PHALMAC_WKFM_CAM_INFO;
+
+typedef struct _HALMAC_WKFM_CAM_FORMAT {
+	u32 wkfm[4];
+	u32 crc:16;
+	u32 rsvd1:8;
+	u32 uc:1;
+	u32 mc:1;
+	u32 bc:1;
+	u32 rsvd2:4;
+	u32 valid:1;
+	u32 rsvd3;
+	u32 rsvd4;
+	u32 rsvd5;
+} HALMAC_WKFM_CAM_FORMAT, *PHALMAC_WKFM_CAM_FORMAT;
+
+typedef struct _HALMAC_FW_ACCESS_FIFO {
+	u8 access_txff;
+	u8 access_rxff;
+	u8 access_fwff;
+	u8 access_phyff;
+	u8 access_rptbuf;
+	u8 access_cam;
+} HALMAC_FW_ACCESS_FIFO, *PHALMAC_FW_ACCESS_FIFO;
+
+typedef struct _HALMAC_IO_PATH_CTRL {
+	u8 page0_en;
+	u8 page1_en;
+	u8 page2_en;
+	u8 page3_en;
+	u8 page4_en;
+	u8 page5_en;
+	u8 page6_en;
+	u8 page7_en;
+	u8 txff_en;
+	u8 rxff_en;
+	u8 fwff_en;
+	u8 rptbuf_en;
+	u8 llt_en;
+
+	u8 rx_cam_en;
+	u8 sec_cam_en;
+	u8 wow_cam_en;
+	u8 ba_cam_en;
+	u8 mbssid_cam_en;
+} HALMAC_IO_PATH_CTRL, *PHALMAC_IO_PATH_CTRL;
+
+typedef enum _HALMAC_IO_PATH_SEL {
+	 HALMAC_SELECT_PAGE0,
+	 HALMAC_SELECT_PAGE1,
+	 HALMAC_SELECT_PAGE2,
+	 HALMAC_SELECT_PAGE3,
+	 HALMAC_SELECT_PAGE4,
+	 HALMAC_SELECT_PAGE5,
+	 HALMAC_SELECT_PAGE6,
+	 HALMAC_SELECT_PAGE7,
+	 HALMAC_SELECT_TXFF,
+	 HALMAC_SELECT_RXFF,
+	 HALMAC_SELECT_FWFF,
+	 HALMAC_SELECT_RPTBUF,
+	 HALMAC_SELECT_LLT,
+
+	 HALMAC_SELECT_RX_CAM,
+	 HALMAC_SELECT_SEC_CAM,
+	 HALMAC_SELECT_BA_CAM,
+	 HALMAC_SELECT_MBSSID_CAM,
+	 HALMAC_MAX_IO_PATH_NUM
+
+} HALMAC_IO_PATH_SEL;
+
 #endif /* End of test program */
 
 typedef enum _HALMAC_DBG_MSG_INFO {
+	HALMAC_DBG_ALWAYS,
 	HALMAC_DBG_ERR,
 	HALMAC_DBG_WARN,
 	HALMAC_DBG_TRACE,
@@ -1186,7 +1538,8 @@ typedef enum _HALMAC_DBG_MSG_TYPE {
 	HALMAC_MSG_SND,
 	HALMAC_MSG_COMMON,
 	HALMAC_MSG_DBI,
-	HALMAC_MSG_MDIO
+	HALMAC_MSG_MDIO,
+	HALMAC_MSG_USB,
 } HALMAC_DBG_MSG_TYPE;
 
 typedef enum _HALMAC_CMD_PROCESS_STATUS {
@@ -1209,13 +1562,17 @@ typedef enum _HALMAC_FEATURE_ID {
 	HALMAC_FEATURE_IQK,             /* Support */
 	HALMAC_FEATURE_POWER_TRACKING,  /* Support */
 	HALMAC_FEATURE_PSD,             /* Support */
+	HALMAC_FEATURE_FW_SNDING,       /* Support */
 	HALMAC_FEATURE_ALL,             /* Support, only for reset */
 } HALMAC_FEATURE_ID;
 
 typedef enum _HALMAC_DRV_RSVD_PG_NUM {
+	HALMAC_RSVD_PG_NUM8,	/* 1K */
 	HALMAC_RSVD_PG_NUM16,   /* 2K */
 	HALMAC_RSVD_PG_NUM24,   /* 3K */
 	HALMAC_RSVD_PG_NUM32,   /* 4K */
+	HALMAC_RSVD_PG_NUM64,   /* 8K */
+	HALMAC_RSVD_PG_NUM128,  /* 16K */
 } HALMAC_DRV_RSVD_PG_NUM;
 
 typedef enum _HALMAC_PCIE_CFG {
@@ -1224,6 +1581,24 @@ typedef enum _HALMAC_PCIE_CFG {
 	HALMAC_PCIE_CFG_UNDEFINE,
 } HALMAC_PCIE_CFG;
 
+typedef struct _HALMAC_BCN_CTRL {
+	u8 dis_rx_bssid_fit;
+	u8 en_txbcn_rpt;
+	u8 dis_tsf_udt;
+	u8 en_bcn;
+	u8 en_rxbcn_rpt;
+	u8 en_p2p_ctwin;
+	u8 en_p2p_bcn_area;
+} HALMAC_BCN_CTRL, *PHALMAC_BCN_CTRL;
+
+typedef enum _HALMAC_PORTID {
+	HALMAC_PORTID0 = 0,
+	HALMAC_PORTID1 = 1,
+	HALMAC_PORTID2 = 2,
+	HALMAC_PORTID3 = 3,
+	HALMAC_PORTID4 = 4,
+	HALMAC_PORTIDMAX
+} HALMAC_PORTID;
 
 /* Platform API setting */
 typedef struct _HALMAC_PLATFORM_API {
@@ -1243,11 +1618,14 @@ typedef struct _HALMAC_PLATFORM_API {
 	VOID (*REG_WRITE_8)(VOID *pDriver_adapter, u32 offset, u8 value);
 	VOID (*REG_WRITE_16)(VOID *pDriver_adapter, u32 offset, u16 value);
 	VOID (*REG_WRITE_32)(VOID *pDriver_adapter, u32 offset, u32 value);
+	u8 (*SDIO_CMD52_CIA_READ)(VOID *pDriver_adapter, u32 offset);
 
 	/* send pBuf to reserved page, the tx_desc is not included in pBuf, driver need to fill tx_desc with qsel = bcn */
 	u8 (*SEND_RSVD_PAGE)(VOID *pDriver_adapter, u8 *pBuf, u32 size);
 	/* send pBuf to h2c queue, the tx_desc is not included in pBuf, driver need to fill tx_desc with qsel = h2c */
 	u8 (*SEND_H2C_PKT)(VOID *pDriver_adapter, u8 *pBuf, u32 size);
+	/* send pBuf to fw cmd queue, the tx_desc is not included in pBuf, driver need to fill tx_desc with qsel = h2c */
+	u8 (*SEND_FWCMD)(VOID *pDriver_adapter, u8 *pBuf, u32 size);
 
 	u8 (*RTL_FREE)(VOID *pDriver_adapter, VOID *pBuf, u32 size);
 	VOID* (*RTL_MALLOC)(VOID *pDriver_adapter, u32 size);
@@ -1274,13 +1652,6 @@ typedef struct _HALMAC_PLATFORM_API {
 	u8 (*READ_DATA)(VOID *pDriver_adapter, u8 *pBuf, u32 *read_length);
 #endif
 } HALMAC_PLATFORM_API, *PHALMAC_PLATFORM_API;
-
-/*1->Little endian 0->Big endian*/
-#if HALMAC_SYSTEM_ENDIAN
-
-#else
-
-#endif
 
 /* User can not use members in Address_L_H, use Address[6] is mandatory */
 typedef union _HALMAC_WLAN_ADDR {
@@ -1327,8 +1698,10 @@ typedef struct _HALMAC_SU_BFER_INIT_PARA {
 typedef struct _HALMAC_MU_BFEE_INIT_PARA {
 	u8 userid;
 	u16 paid;
-	u32 user_position_l;
-	u32 user_position_h;
+	u32 user_position_l;	/*for gid 0~15*/
+	u32 user_position_h;	/*for gid 16~31*/
+	u32 user_position_l_1;	/*for gid 32~47*/
+	u32 user_position_h_1;	/*for gid 48~63*/
 } HALMAC_MU_BFEE_INIT_PARA, *PHALMAC_MU_BFEE_INIT_PARA;
 
 typedef struct _HALMAC_MU_BFER_INIT_PARA {
@@ -1389,8 +1762,30 @@ typedef enum _HALMAC_DLFW_STATE {
 	HALMAC_DLFW_NONE = 0,
 	HALMAC_DLFW_DONE = 1,
 	HALMAC_GEN_INFO_SENT = 2,
+
+	/* Data CPU firmware download framework */
+	HALMAC_DLFW_INIT = 0x11,
+	HALMAC_DLFW_START = 0x12,
+	HALMAC_DLFW_CONF_READY = 0x13,
+	HALMAC_DLFW_CPU_READY = 0x14,
+	HALMAC_DLFW_MEM_READY = 0x15,
+	HALMAC_DLFW_SW_READY = 0x16,
+	HALMAC_DLFW_OFLD_READY = 0x17,
+
 	HALMAC_DLFW_UNDEFINED = 0x7F,
 } HALMAC_DLFW_STATE;
+
+typedef enum _HALMAC_GPIO_CFG_STATE {
+	HALMAC_GPIO_CFG_STATE_IDLE = 0,
+	HALMAC_GPIO_CFG_STATE_BUSY = 1,
+	HALMAC_GPIO_CFG_STATE_UNDEFINED = 0x7F,
+} HALMAC_GPIO_CFG_STATE;
+
+typedef enum _HALMAC_RSVD_PG_STATE {
+	HALMAC_RSVD_PG_STATE_IDLE = 0,
+	HALMAC_RSVD_PG_STATE_BUSY = 1,
+	HALMAC_RSVD_PG_STATE_UNDEFINED = 0x7F,
+} HALMAC_RSVD_PG_STATE;
 
 typedef enum _HALMAC_EFUSE_CMD_CONSTRUCT_STATE {
 	HALMAC_EFUSE_CMD_CONSTRUCT_IDLE = 0,
@@ -1416,6 +1811,12 @@ typedef enum _HALMAC_SCAN_CMD_CONSTRUCT_STATE {
 	HALMAC_SCAN_CMD_CONSTRUCT_STATE_NUM = 4,
 	HALMAC_SCAN_CMD_CONSTRUCT_UNDEFINED = 0x7F,
 } HALMAC_SCAN_CMD_CONSTRUCT_STATE;
+
+typedef enum _HALMAC_FW_SNDING_CMD_CONSTRUCT_STATE {
+	HALMAC_FW_SNDING_CMD_CONSTRUCT_IDLE = 0,
+	HALMAC_FW_SNDING_CMD_CONSTRUCT_SNDING = 1,
+	HALMAC_FW_SNDING_CONSTRUCT_UNDEFINED = 0x7F,
+} HALMAC_FW_SNDING_CMD_CONSTRUCT_STATE;
 
 typedef enum _HALMAC_API_STATE {
 	HALMAC_API_STATE_INIT = 0,
@@ -1471,6 +1872,13 @@ typedef struct _HALMAC_PSD_STATE_SET {
 	u16 seq_num;
 } HALMAC_PSD_STATE_SET, *PHALMAC_PSD_STATE_SET;
 
+typedef struct _HALMAC_FW_SNDING_STATE_SET {
+	HALMAC_FW_SNDING_CMD_CONSTRUCT_STATE fw_snding_cmd_construct_state;
+	HALMAC_CMD_PROCESS_STATUS process_status;
+	u8 fw_return_code;
+	u16 seq_num;
+} HALMAC_FW_SNDING_STATE_SET, *PHALMAC_FW_SNDING_STATE_SET;
+
 typedef struct _HALMAC_STATE {
 	HALMAC_EFUSE_STATE_SET efuse_state_set; /* State machine + cmd process status */
 	HALMAC_CFG_PARA_STATE_SET cfg_para_state_set; /* State machine + cmd process status */
@@ -1479,10 +1887,13 @@ typedef struct _HALMAC_STATE {
 	HALMAC_IQK_STATE_SET iqk_set; /* cmd process status */
 	HALMAC_POWER_TRACKING_STATE_SET power_tracking_set; /* cmd process status */
 	HALMAC_PSD_STATE_SET psd_set; /* cmd process status */
+	HALMAC_FW_SNDING_STATE_SET fw_snding_set; /* cmd process status */
 	HALMAC_API_STATE api_state; /* Halmac api state */
 	HALMAC_MAC_POWER mac_power; /* 0 : power off, 1 : power on*/
 	HALMAC_PS_STATE ps_state; /* power saving state */
 	HALMAC_DLFW_STATE dlfw_state; /* download FW state */
+	HALMAC_GPIO_CFG_STATE gpio_cfg_state; /* gpio state */
+	HALMAC_RSVD_PG_STATE rsvd_pg_state; /* download rsvd page state */
 } HALMAC_STATE, *PHALMAC_STATE;
 
 typedef struct _HALMAC_VER {
@@ -1490,7 +1901,6 @@ typedef struct _HALMAC_VER {
 	u8 prototype_ver;
 	u8 minor_ver;
 } HALMAC_VER, *PHALMAC_VER;
-
 
 typedef enum _HALMAC_API_ID {
 	/*stuff, need to be the 1st*/
@@ -1522,8 +1932,6 @@ typedef enum _HALMAC_API_ID {
 	HALMAC_API_DEINIT_INTERFACE_CFG = 0x18,
 	HALMAC_API_GET_EFUSE_SIZE = 0x19,
 	HALMAC_API_DUMP_EFUSE_MAP = 0x1A,
-	HALMAC_API_WRITE_EFUSE = 0x1B,
-	HALMAC_API_READ_EFUSE = 0x1C,
 	HALMAC_API_GET_LOGICAL_EFUSE_SIZE = 0x1D,
 	HALMAC_API_DUMP_LOGICAL_EFUSE_MAP = 0x1E,
 	HALMAC_API_WRITE_LOGICAL_EFUSE = 0x1F,
@@ -1573,31 +1981,26 @@ typedef enum _HALMAC_API_ID {
 	HALMAC_API_SU_BFEE_ENTRY_DEL = 0x4B,
 	HALMAC_API_MU_BFER_ENTRY_DEL = 0x4C,
 	HALMAC_API_MU_BFEE_ENTRY_DEL = 0x4D,
-
 	HALMAC_API_ADD_CH_INFO = 0x4E,
 	HALMAC_API_ADD_EXTRA_CH_INFO = 0x4F,
 	HALMAC_API_CTRL_CH_SWITCH = 0x50,
 	HALMAC_API_CLEAR_CH_INFO = 0x51,
-
 	HALMAC_API_SEND_GENERAL_INFO = 0x52,
 	HALMAC_API_START_IQK = 0x53,
 	HALMAC_API_CTRL_PWR_TRACKING = 0x54,
 	HALMAC_API_PSD = 0x55,
 	HALMAC_API_CFG_TX_AGG_ALIGN = 0x56,
-
 	HALMAC_API_QUERY_STATE = 0x57,
 	HALMAC_API_RESET_FEATURE = 0x58,
 	HALMAC_API_CHECK_FW_STATUS = 0x59,
 	HALMAC_API_DUMP_FW_DMEM = 0x5A,
 	HALMAC_API_CFG_MAX_DL_SIZE = 0x5B,
-
 	HALMAC_API_INIT_OBJ = 0x5C,
 	HALMAC_API_DEINIT_OBJ = 0x5D,
 	HALMAC_API_CFG_LA_MODE = 0x5E,
 	HALMAC_API_GET_HW_VALUE = 0x5F,
 	HALMAC_API_SET_HW_VALUE = 0x60,
 	HALMAC_API_CFG_DRV_RSVD_PG_NUM = 0x61,
-	HALMAC_API_SWITCH_EFUSE_BANK = 0x62,
 	HALMAC_API_WRITE_EFUSE_BT = 0x63,
 	HALMAC_API_DUMP_EFUSE_MAP_BT = 0x64,
 	HALMAC_API_DL_DRV_RSVD_PG = 0x65,
@@ -1605,13 +2008,46 @@ typedef enum _HALMAC_API_ID {
 	HALMAC_API_PHY_CFG = 0x67,
 	HALMAC_API_CFG_RX_FIFO_EXPANDING_MODE = 0x68,
 	HALMAC_API_CFG_CSI_RATE = 0x69,
+	HALMAC_API_P2PPS = 0x6A,
+	HALMAC_API_CFG_TX_ADDR = 0x6B,
+	HALMAC_API_CFG_NET_TYPE = 0x6C,
+	HALMAC_API_CFG_TSF_RESET = 0x6D,
+	HALMAC_API_CFG_BCN_SPACE = 0x6E,
+	HALMAC_API_CFG_BCN_CTRL = 0x6F,
+	HALMAC_API_CFG_SIDEBAND_INT = 0x70,
+	HALMAC_API_REGISTER_API = 0x71,
+	HALMAC_API_FREE_DOWNLOAD_FIRMWARE = 0x72,
+	HALMAC_API_GET_FW_VERSION = 0x73,
+	HALMAC_API_GET_EFUSE_AVAL_SIZE = 0x74,
+	HALMAC_API_CHK_TXDESC = 0x75,
+	HALMAC_API_SDIO_CMD53_4BYTE = 0x76,
+	HALMAC_API_CFG_TRANS_ADDR = 0x77,
+	HALMAC_API_INTF_INTEGRA_TUNING	= 0x78,
+	HALMAC_API_TXFIFO_IS_EMPTY = 0x79,
+	HALMAC_API_DOWNLOAD_FLASH = 0x7A,
+	HALMAC_API_READ_FLASH = 0x7B,
+	HALMAC_API_ERASE_FLASH = 0x7C,
+	HALMAC_API_CHECK_FLASH = 0x7D,
+	HALMAC_API_SDIO_HW_INFO = 0x80,
+	HALMAC_API_READ_EFUSE_BT = 0x81,
+	HALMAC_API_CFG_EFUSE_AUTO_CHECK = 0x82,
+	HALMAC_API_CFG_PINMUX_GET_FUNC = 0x83,
+	HALMAC_API_CFG_PINMUX_SET_FUNC = 0x84,
+	HALMAC_API_CFG_PINMUX_FREE_FUNC = 0x85,
+	HALMAC_API_CFG_PINMUX_WL_LED_MODE = 0x86,
+	HALMAC_API_CFG_PINMUX_WL_LED_SW_CTRL = 0x87,
+	HALMAC_API_CFG_PINMUX_SDIO_INT_POLARITY = 0x88,
+	HALMAC_API_CFG_PINMUX_GPIO_MODE = 0x89,
+	HALMAC_API_CFG_PINMUX_GPIO_OUTPUT = 0x90,
+	HALMAC_API_REG_READ_INDIRECT_32 = 0x91,
+	HALMAC_API_REG_SDIO_CMD53_READ_N = 0x92,
+	HALMAC_API_PINMUX_PIN_STATUS = 0x94,
+	HALMAC_API_OFLD_FUNC_CFG = 0x95,
+	HALMAC_API_MASK_LOGICAL_EFUSE = 0x96,
+	HALMAC_API_RX_CUT_AMSDU_CFG = 0x97,
+	HALMAC_API_FW_SNDING = 0x98,
 	HALMAC_API_MAX
 } HALMAC_API_ID;
-
-typedef struct _HALMAC_API_RECORD {
-	HALMAC_API_ID api_array[API_ARRAY_SIZE];
-	u8 array_wptr;
-} HALMAC_API_RECORD, *PHALMAC_API_RECORD;
 
 typedef enum _HALMAC_LA_MODE {
 	HALMAC_LA_MODE_DISABLE = 0,
@@ -1628,10 +2064,23 @@ typedef enum _HALMAC_RX_FIFO_EXPANDING_MODE {
 	HALMAC_RX_FIFO_EXPANDING_MODE_UNDEFINE = 0x7F,
 } HALMAC_RX_FIFO_EXPANDING_MODE;
 
+typedef enum _HALMAC_SDIO_CMD53_4BYTE_MODE {
+	HALMAC_SDIO_CMD53_4BYTE_MODE_DISABLE = 0,
+	HALMAC_SDIO_CMD53_4BYTE_MODE_RW = 1,
+	HALMAC_SDIO_CMD53_4BYTE_MODE_R = 2,
+	HALMAC_SDIO_CMD53_4BYTE_MODE_W = 3,
+	HALMAC_SDIO_CMD53_4BYTE_MODE_UNDEFINE = 0x7F,
+} HALMAC_SDIO_CMD53_4BYTE_MODE;
+
 typedef enum _HALMAC_USB_MODE {
 	HALMAC_USB_MODE_U2 = 1,
 	HALMAC_USB_MODE_U3 = 2,
 } HALMAC_USB_MODE;
+
+typedef enum _HALMAC_SDIO_TX_FORMAT {
+	HALMAC_SDIO_DATA_MODE = 1,
+	HALMAC_SDIO_DUMMY_MODE = 2,
+} HALMAC_SDIO_TX_FORMAT;
 
 typedef enum _HALMAC_HW_ID {
 	/* Get HW value */
@@ -1642,19 +2091,31 @@ typedef enum _HALMAC_HW_ID {
 	HALMAC_HW_BT_BANK1_EFUSE_SIZE = 0x04,
 	HALMAC_HW_BT_BANK2_EFUSE_SIZE = 0x05,
 	HALMAC_HW_TXFIFO_SIZE = 0x06,
-	HALMAC_HW_RSVD_PG_BNDY = 0x07,
-	HALMAC_HW_CAM_ENTRY_NUM = 0x08,
-	HALMAC_HW_IC_VERSION = 0x09,
-	HALMAC_HW_PAGE_SIZE = 0x0A,
-	HALMAC_HW_TX_AGG_ALIGN_SIZE = 0x0B,
-	HALMAC_HW_RX_AGG_ALIGN_SIZE = 0x0C,
-	HALMAC_HW_DRV_INFO_SIZE = 0x0D,
-	HALMAC_HW_TXFF_ALLOCATION = 0x0E,
-	HALMAC_HW_RSVD_EFUSE_SIZE = 0x0F,
-	HALMAC_HW_FW_HDR_SIZE = 0x10,
-	HALMAC_HW_TX_DESC_SIZE = 0x11,
-	HALMAC_HW_RX_DESC_SIZE = 0x12,
-	HALMAC_HW_WLAN_EFUSE_AVAILABLE_SIZE = 0x13,
+	HALMAC_HW_RXFIFO_SIZE = 0x07,
+	HALMAC_HW_RSVD_PG_BNDY = 0x08,
+	HALMAC_HW_CAM_ENTRY_NUM = 0x09,
+	HALMAC_HW_IC_VERSION = 0x0A,
+	HALMAC_HW_PAGE_SIZE = 0x0B,
+	HALMAC_HW_TX_AGG_ALIGN_SIZE = 0x0C,
+	HALMAC_HW_RX_AGG_ALIGN_SIZE = 0x0D,
+	HALMAC_HW_DRV_INFO_SIZE = 0x0E,
+	HALMAC_HW_TXFF_ALLOCATION = 0x0F,
+	HALMAC_HW_RSVD_EFUSE_SIZE = 0x10,
+	HALMAC_HW_FW_HDR_SIZE = 0x11,
+	HALMAC_HW_TX_DESC_SIZE = 0x12,
+	HALMAC_HW_RX_DESC_SIZE = 0x13,
+	HALMAC_HW_FW_MAX_SIZE = 0x14,
+	HALMAC_HW_ORI_H2C_SIZE = 0x15,
+	HALMAC_HW_RSVD_DRV_PGNUM = 0x16,
+	HALMAC_HW_TX_PAGE_SIZE = 0x17,
+	HALMAC_HW_USB_TXAGG_DESC_NUM = 0x18,
+	HALMAC_HW_WLAN_EFUSE_AVAILABLE_SIZE = 0x19,
+	HALMAC_HW_HIOE_INST_START = 0x1A,
+	HALMAC_HW_HIOE_INST_END = 0x1B,
+	HALMAC_HW_AC_OQT_SIZE = 0x1C,
+	HALMAC_HW_NON_AC_OQT_SIZE = 0x1D,
+	HALMAC_HW_AC_QUEUE_NUM = 0x1E,
+	HALMAC_HW_RQPN_CH_MAPPING = 0x1F,
 	/* Set HW value */
 	HALMAC_HW_USB_MODE = 0x60,
 	HALMAC_HW_SEQ_EN = 0x61,
@@ -1664,9 +2125,15 @@ typedef enum _HALMAC_HW_ID {
 	HALMAC_HW_EN_BB_RF = 0x65,
 	HALMAC_HW_SDIO_TX_PAGE_THRESHOLD = 0x66,
 	HALMAC_HW_AMPDU_CONFIG = 0x67,
-
+	HALMAC_HW_RX_SHIFT = 0x68,
+	HALMAC_HW_TXDESC_CHECKSUM = 0x69,
+	HALMAC_HW_RX_CLK_GATE = 0x6A,
+	HALMAC_HW_RXGCK_FIFO = 0x6B,
+	HALMAC_HW_RX_IGNORE = 0x6C,
+	HALMAC_HW_SDIO_TX_FORMAT = 0x6D,
 	HALMAC_HW_ID_UNDEFINE = 0x7F,
 } HALMAC_HW_ID;
+
 typedef enum _HALMAC_EFUSE_BANK {
 	HALMAC_EFUSE_BANK_WIFI = 0,
 	HALMAC_EFUSE_BANK_BT = 1,
@@ -1675,6 +2142,53 @@ typedef enum _HALMAC_EFUSE_BANK {
 	HALMAC_EFUSE_BANK_MAX,
 	HALMAC_EFUSE_BANK_UNDEFINE = 0X7F,
 } HALMAC_EFUSE_BANK;
+
+typedef enum _HALMAC_SDIO_SPEC_VER {
+	HALMAC_SDIO_SPEC_VER_2_00 = 0,
+	HALMAC_SDIO_SPEC_VER_3_00 = 1,
+	HALMAC_SDIO_SPEC_VER_UNDEFINE = 0X7F,
+} HALMAC_SDIO_SPEC_VER;
+
+typedef enum _HALMAC_GPIO_FUNC {
+	HALMAC_GPIO_FUNC_WL_LED = 0,
+	HALMAC_GPIO_FUNC_SDIO_INT = 1,
+	HALMAC_GPIO_FUNC_SW_IO_0 = 2,
+	HALMAC_GPIO_FUNC_SW_IO_1 = 3,
+	HALMAC_GPIO_FUNC_SW_IO_2 = 4,
+	HALMAC_GPIO_FUNC_SW_IO_3 = 5,
+	HALMAC_GPIO_FUNC_SW_IO_4 = 6,
+	HALMAC_GPIO_FUNC_SW_IO_5 = 7,
+	HALMAC_GPIO_FUNC_SW_IO_6 = 8,
+	HALMAC_GPIO_FUNC_SW_IO_7 = 9,
+	HALMAC_GPIO_FUNC_SW_IO_8 = 10,
+	HALMAC_GPIO_FUNC_SW_IO_9 = 11,
+	HALMAC_GPIO_FUNC_SW_IO_10 = 12,
+	HALMAC_GPIO_FUNC_SW_IO_11 = 13,
+	HALMAC_GPIO_FUNC_SW_IO_12 = 14,
+	HALMAC_GPIO_FUNC_SW_IO_13 = 15,
+	HALMAC_GPIO_FUNC_SW_IO_14 = 16,
+	HALMAC_GPIO_FUNC_SW_IO_15 = 17,
+	HALMAC_GPIO_FUNC_UNDEFINE = 0X7F,
+} HALMAC_GPIO_FUNC;
+
+typedef enum _HALMAC_WLLED_MODE {
+	HALMAC_WLLED_MODE_TRX = 0,
+	HALMAC_WLLED_MODE_TX = 1,
+	HALMAC_WLLED_MODE_RX = 2,
+	HALMAC_WLLED_MODE_SW_CTRL = 3,
+	HALMAC_WLLED_MODE_UNDEFINE = 0X7F,
+} HALMAC_WLLED_MODE;
+
+typedef enum _HALMAC_PSF_FCS_CHK_THR {
+	HALMAC_PSF_FCS_CHK_THR_1 = 0,
+	HALMAC_PSF_FCS_CHK_THR_4 = 1,
+	HALMAC_PSF_FCS_CHK_THR_8 = 2,
+	HALMAC_PSF_FCS_CHK_THR_12 = 3,
+	HALMAC_PSF_FCS_CHK_THR_16 = 4,
+	HALMAC_PSF_FCS_CHK_THR_20 = 5,
+	HALMAC_PSF_FCS_CHK_THR_24 = 6,
+	HALMAC_PSF_FCS_CHK_THR_28 = 7,
+} HALMAC_PSF_FCS_CHK_THR;
 
 typedef struct _HALMAC_TXFF_ALLOCATION {
 	u16 tx_fifo_pg_num;
@@ -1689,6 +2203,7 @@ typedef struct _HALMAC_TXFF_ALLOCATION {
 	u16 rsvd_pg_bndy;
 	u16	rsvd_drv_pg_bndy;
 	u16	rsvd_h2c_extra_info_pg_bndy;
+	u16 rsvd_h2c_static_info_pg_bndy;
 	u16	rsvd_h2c_queue_pg_bndy;
 	u16	rsvd_cpu_instr_pg_bndy;
 	u16	rsvd_fw_txbuff_pg_bndy;
@@ -1705,10 +2220,20 @@ typedef struct _HALMAC_RQPN_MAP {
 	HALMAC_DMA_MAPPING dma_map_hi;
 } HALMAC_RQPN_MAP, *PHALMAC_RQPN_MAP;
 
+typedef struct _HALMAC_RQPN_CH_MAP {
+	HALMAC_DMA_CH dma_map_vo;
+	HALMAC_DMA_CH dma_map_vi;
+	HALMAC_DMA_CH dma_map_be;
+	HALMAC_DMA_CH dma_map_bk;
+	HALMAC_DMA_CH dma_map_mg;
+	HALMAC_DMA_CH dma_map_hi;
+} HALMAC_RQPN_CH_MAP, *PHALMAC_RQPN_CH_MAP;
+
 typedef struct _HALMAC_SECURITY_SETTING {
 	u8 tx_encryption;
 	u8 rx_decryption;
 	u8 bip_enable;
+	u8 compare_keyid;
 } HALMAC_SECURITY_SETTING, *PHALMAC_SECURITY_SETTING;
 
 typedef struct _HALMAC_CAM_ENTRY_INFO {
@@ -1737,19 +2262,59 @@ typedef struct _HALMAC_CAM_ENTRY_FORMAT {
 	u32	rsvd[2];
 } HALMAC_CAM_ENTRY_FORMAT, *PHALMAC_CAM_ENTRY_FORMAT;
 
+typedef struct _HALMAC_ADDRCAM_ENTRY_INFO {
+	u8	port_int;
+	u8	tsf_sync;
+	u8	ba_search;
+	u8	network_type;
+	u8	bcn_hit;
+	u8	entry_valid;
+	u8	entry_num;
+	u8	macid;
+	u8	ctrlcnt;
+	u8	ctrlvalid;
+	u8	lsig_txop;
+	u8	wol_pattern;
+	u8	wol_unicast;
+	u8	wol_magic;
+	u8	self_macadr[6];
+	u8	target_macadr[6];
+	u8	bssid[6];
+} HALMAC_ADDRCAM_ENTRY_INFO, *PHALMAC_ADDRCAM_ENTRY_INFO;
+
+typedef struct _HALMAC_ADDRCAM_ENTRY_FORMAT {
+	u8	valid : 1;
+	u8	port_int : 3;
+	u8	tsf_sync : 3;
+	u8	rsvd : 1;
+	u8	macid : 7;
+	u8	rsvd1: 1;
+	u8	network_type : 2;
+	u8	ctrlcnt : 4;
+	u8	ctrlvalid : 1;
+	u8	rsvd2 : 1;
+	u8	lsig_txop : 1;
+	u8	ba_search : 1;
+	u8	bcn_hit : 2;
+	u8	wol_pattern : 1;
+	u8	wol_unicast : 1;
+	u8	wol_magic : 1;
+	u8	rsvd4 : 1;
+	u8	self_macadr[6];
+	u8	target_macadr[6];
+	u8	bssid[6];
+	u8	rsvd5[10];
+} HALMAC_ADDRCAM_ENTRY_FORMAT, *PHALMAC_ADDRCAM_ENTRY_FORMAT;
+
 typedef struct _HALMAC_TX_PAGE_THRESHOLD_INFO {
 	u32	threshold;
 	HALMAC_DMA_MAPPING dma_queue_sel;
+	u8 enable;
 } HALMAC_TX_PAGE_THRESHOLD_INFO, *PHALMAC_TX_PAGE_THRESHOLD_INFO;
 
 typedef struct _HALMAC_AMPDU_CONFIG {
 	u8 max_agg_num;
 } HALMAC_AMPDU_CONFIG, *PHALMAC_AMPDU_CONFIG;
-
-typedef struct _HALMAC_PORT_CFG {
-	u8 port0_sync_tsf;
-	u8 port1_sync_tsf;
-} HALMAC_PORT_CFG, *PHALMAC_PORT_CFG;
 
 typedef struct _HALMAC_RQPN_ {
 	HALMAC_TRX_MODE mode;
@@ -1761,37 +2326,132 @@ typedef struct _HALMAC_RQPN_ {
 	HALMAC_DMA_MAPPING dma_map_hi;
 } HALMAC_RQPN, *PHALMAC_RQPN;
 
+typedef struct _HALMAC_CH_MAPPING_ {
+	HALMAC_TRX_MODE mode;
+	HALMAC_DMA_CH dma_map_vo;
+	HALMAC_DMA_CH dma_map_vi;
+	HALMAC_DMA_CH dma_map_be;
+	HALMAC_DMA_CH dma_map_bk;
+	HALMAC_DMA_CH dma_map_mg;
+	HALMAC_DMA_CH dma_map_hi;
+} HALMAC_CH_MAPPING, *PHALMAC_CH_MAPPING;
+
 typedef struct _HALMAC_PG_NUM_ {
 	HALMAC_TRX_MODE mode;
-	u16  hq_num;
+	u16 hq_num;
 	u16 nq_num;
 	u16 lq_num;
 	u16 exq_num;
 	u16 gap_num;/*used for loopback mode*/
 } HALMAC_PG_NUM, *PHALMAC_PG_NUM;
 
+typedef struct _HALMAC_CH_PG_NUM_ {
+	HALMAC_TRX_MODE mode;
+	u16 ch_num[HALMAC_TXDESC_DMA_CHANNEL_16 + 1];
+	u16 gap_num;
+} HALMAC_CH_PG_NUM, *PHALMAC_CH_PG_NUM;
+
 typedef struct _HALMAC_INTF_PHY_PARA_ {
 	u16 offset;
 	u16 value;
+	u16 ip_sel;
 	u16 cut;
 	u16 plaform;
 } HALMAC_INTF_PHY_PARA, *PHALMAC_INTF_PHY_PARA;
 
+typedef struct _HALMAC_IQK_PARA_ {
+	u8 clear;
+	u8 segment_iqk;
+} HALMAC_IQK_PARA, *PHALMAC_IQK_PARA;
+
+typedef struct _HALMAC_TXDESC_IE_PARA {
+	u8 *pStart_offset;
+	u8 *pEnd_offset;
+	u8 *pHalDesc_ie_offset;
+	u8 *pHalDesc_ie_exist;
+} HALMAC_TXDESC_IE_PARA, *PHALMAC_TXDESC_IE_PARA;
+
+typedef struct _HALMAC_SDIO_HW_INFO {
+	HALMAC_SDIO_SPEC_VER spec_ver;
+	u32 clock_speed;
+	u8 io_hi_speed_flag; /* Halmac internal use */
+	HALMAC_SDIO_TX_FORMAT tx_addr_format;
+	u16 block_size;
+	u8 io_indir_flag; /* Halmac internal use */
+} HALMAC_SDIO_HW_INFO, *PHALMAC_SDIO_HW_INFO;
+
+typedef struct _HALMAC_EDCA_PARA {
+	u8 aifs;
+	u8 cw;
+	u16 txop_limit;
+} HALMAC_EDCA_PARA, *PHALMAC_EDCA_PARA;
+
+typedef struct _HALMAC_MAC_RX_IGNORE_CFG {
+	u8 hdr_chk_en;
+	u8 fcs_chk_en;
+	HALMAC_PSF_FCS_CHK_THR fcs_chk_thr;
+} HALMAC_MAC_RX_IGNORE_CFG, *PHALMAC_MAC_RX_IGNORE_CFG;
+
+typedef struct _HALMAC_PINMUX_INFO {
+	/* byte0 */
+	u8 wl_led:1;
+	u8 sdio_int:1;
+	u8 rsvd1:6;
+	/* byte1 */
+	u8 sw_io_0:1;
+	u8 sw_io_1:1;
+	u8 sw_io_2:1;
+	u8 sw_io_3:1;
+	u8 sw_io_4:1;
+	u8 sw_io_5:1;
+	u8 sw_io_6:1;
+	u8 sw_io_7:1;
+	/* byte2 */
+	u8 sw_io_8:1;
+	u8 sw_io_9:1;
+	u8 sw_io_10:1;
+	u8 sw_io_11:1;
+	u8 sw_io_12:1;
+	u8 sw_io_13:1;
+	u8 sw_io_14:1;
+	u8 sw_io_15:1;
+} HALMAC_PINMUX_INFO, *PHALMAC_PINMUX_INFO;
+
+typedef struct _HALMAC_OFLD_FUNC_INFO {
+	u32 halmac_malloc_max_sz;
+	u32 rsvd_pg_drv_buf_max_sz;
+} HALMAC_OFLD_FUNC_INFO, *PHALMAC_OFLD_FUNC_INFO;
+
+typedef struct _HALMAC_SU_SNDING_INFO {
+	u8 su0_en;
+	u8 *pSu0_ndpa_pkt;
+	u32 su0_pkt_sz;
+} HALMAC_SU_SNDING_INFO, *PHALMAC_SU_SNDING_INFO;
+
+typedef struct _HALMAC_MU_SNDING_INFO {
+	u8 tmp;
+} HALMAC_MU_SNDING_INFO, *PHALMAC_MU_SNDING_INFO;
+
 /* Hal mac adapter */
 typedef struct _HALMAC_ADAPTER {
 	HALMAC_DMA_MAPPING halmac_ptcl_queue[HALMAC_PTCL_QUEUE_NUM]; /* Dma mapping of protocol queues */
-	HALMAC_FWLPS_OPTION	fwlps_option; /* low power state option */
-	HALMAC_WLAN_ADDR pHal_mac_addr[2]; /* mac address information, suppot 2 ports */
-	HALMAC_WLAN_ADDR pHal_bss_addr[2]; /* bss address information, suppot 2 ports */
+	HALMAC_DMA_CH halmac_ptcl_ch_map[HALMAC_PTCL_QUEUE_NUM]; /* Channel mapping of protocol queues */
+	HALMAC_WLAN_ADDR pHal_mac_addr[HALMAC_PORTIDMAX]; /* mac address information, suppot 5 ports */
+	HALMAC_WLAN_ADDR pHal_bss_addr[HALMAC_PORTIDMAX]; /* bss address information, suppot 5 ports */
+	HALMAC_WLAN_ADDR pHal_tx_addr[HALMAC_PORTIDMAX]; /* transmit address information, suppot 5 ports */
 	HALMAC_MUTEX h2c_seq_mutex; /* Protect h2c_packet_seq packet*/
 	HALMAC_MUTEX EfuseMutex; /* Protect Efuse map memory of halmac_adapter */
 	HALMAC_MUTEX sdio_indirect_mutex; /*Protect sdio indirect access */
 	HALMAC_CONFIG_PARA_INFO config_para_info;
+	HALMAC_HIOE_CMD_INFO hioe_cmd_info;
 	HALMAC_CS_INFO ch_sw_info;
 	HALMAC_EVENT_TRIGGER event_trigger;
 	HALMAC_HW_CONFIG_INFO hw_config_info; /* HW related information */
 	HALMAC_SDIO_FREE_SPACE sdio_free_space;
 	HALMAC_SND_INFO snd_info;
+	HALMAC_API_REGISTRY api_registry;
+	HALMAC_PINMUX_INFO pinmux_info;
+	HALMAC_OFLD_FUNC_INFO ofld_func_info;
 	VOID *pHalAdapter_backup; /* Backup HalAdapter address */
 	VOID *pDriver_adapter; /* Driver or FW adapter address. Do not write this memory*/
 	u8 *pHalEfuse_map;
@@ -1815,181 +2475,245 @@ typedef struct _HALMAC_ADAPTER {
 	u8 rpwm_record; /* record rpwm value */
 	u8 low_clk; /*LPS 32K or IPS 32K*/
 	u8 halmac_bulkout_num; /* USB bulkout num */
-	HALMAC_API_RECORD api_record; /* API record */
-	u8 gen_info_valid;
-	HALMAC_GENERAL_INFO general_info;
 	u8 drv_info_size;
-	u8 sdio_cmd53_4byte;
+	HALMAC_SDIO_CMD53_4BYTE_MODE sdio_cmd53_4byte;
+	HALMAC_SDIO_HW_INFO sdio_hw_info;
+	u8 tx_desc_transfer;
+	u8 tx_desc_checksum;
+	u8 efuse_auto_check_en;
+	u8 pwr_off_flow_flag;
 #if HALMAC_PLATFORM_TESTPROGRAM
 	HALMAC_TXAGG_BUFF_INFO halmac_tx_buf_info[4];
 	HALMAC_MUTEX agg_buff_mutex; /*used for tx_agg_buffer */
 	u8 max_agg_num;
 	u8 send_bcn_reg_cr_backup;
+	HALMAC_FWDL fwdl;
+	HALMAC_ADDRCAM_ENTRY_INFO halmac_addrcam_entry;
+	u32 ppdu_cnt;
+	u32 ampdu_cnt;
 #endif
 } HALMAC_ADAPTER, *PHALMAC_ADAPTER;
 
 
 /* Function pointer of  Hal mac API */
 typedef struct _HALMAC_API {
-	HALMAC_RET_STATUS(*halmac_mac_power_switch)(PHALMAC_ADAPTER pHalmac_adapter, HALMAC_MAC_POWER halmac_power);
-	HALMAC_RET_STATUS(*halmac_download_firmware)(PHALMAC_ADAPTER pHalmac_adapter, u8 *pHamacl_fw, u32 halmac_fw_size);
-	HALMAC_RET_STATUS(*halmac_get_fw_version)(PHALMAC_ADAPTER pHalmac_adapter, PHALMAC_FW_VERSION pFw_version);
-	HALMAC_RET_STATUS(*halmac_cfg_mac_addr)(PHALMAC_ADAPTER pHalmac_adapter, u8 halmac_port, PHALMAC_WLAN_ADDR pHal_address);
-	HALMAC_RET_STATUS(*halmac_cfg_bssid)(PHALMAC_ADAPTER pHalmac_adapter, u8 halmac_port, PHALMAC_WLAN_ADDR pHal_address);
-	HALMAC_RET_STATUS(*halmac_cfg_multicast_addr)(PHALMAC_ADAPTER pHalmac_adapter, PHALMAC_WLAN_ADDR pHal_address);
-	HALMAC_RET_STATUS(*halmac_pre_init_system_cfg)(PHALMAC_ADAPTER pHalmac_adapter);
-	HALMAC_RET_STATUS(*halmac_init_system_cfg)(PHALMAC_ADAPTER pHalmac_adapter);
-	HALMAC_RET_STATUS(*halmac_init_trx_cfg)(PHALMAC_ADAPTER pHalmac_adapter, HALMAC_TRX_MODE Mode);
-	HALMAC_RET_STATUS(*halmac_init_h2c)(PHALMAC_ADAPTER pHalmac_adapter);
-	HALMAC_RET_STATUS(*halmac_cfg_rx_aggregation)(PHALMAC_ADAPTER pHalmac_adapter, PHALMAC_RXAGG_CFG phalmac_rxagg_cfg);
-	HALMAC_RET_STATUS(*halmac_init_protocol_cfg)(PHALMAC_ADAPTER pHalmac_adapter);
-	HALMAC_RET_STATUS(*halmac_init_edca_cfg)(PHALMAC_ADAPTER pHalmac_adapter);
-	HALMAC_RET_STATUS(*halmac_cfg_operation_mode)(PHALMAC_ADAPTER pHalmac_adapter, HALMAC_WIRELESS_MODE wireless_mode);
-	HALMAC_RET_STATUS(*halmac_cfg_ch_bw)(PHALMAC_ADAPTER pHalmac_adapter, u8 channel, HALMAC_PRI_CH_IDX pri_ch_idx, HALMAC_BW bw);
-	HALMAC_RET_STATUS(*halmac_cfg_bw)(PHALMAC_ADAPTER pHalmac_adapter, HALMAC_BW bw);
-	HALMAC_RET_STATUS(*halmac_init_wmac_cfg)(PHALMAC_ADAPTER pHalmac_adapter);
-	HALMAC_RET_STATUS(*halmac_init_mac_cfg)(PHALMAC_ADAPTER pHalmac_adapter, HALMAC_TRX_MODE Mode);
-	HALMAC_RET_STATUS(*halmac_init_sdio_cfg)(PHALMAC_ADAPTER pHalmac_adapter);
-	HALMAC_RET_STATUS(*halmac_init_usb_cfg)(PHALMAC_ADAPTER pHalmac_adapter);
-	HALMAC_RET_STATUS(*halmac_init_pcie_cfg)(PHALMAC_ADAPTER pHalmac_adapter);
-	HALMAC_RET_STATUS(*halmac_init_interface_cfg)(PHALMAC_ADAPTER pHalmac_adapter);
-	HALMAC_RET_STATUS(*halmac_deinit_sdio_cfg)(PHALMAC_ADAPTER pHalmac_adapter);
-	HALMAC_RET_STATUS(*halmac_deinit_usb_cfg)(PHALMAC_ADAPTER pHalmac_adapter);
-	HALMAC_RET_STATUS(*halmac_deinit_pcie_cfg)(PHALMAC_ADAPTER pHalmac_adapter);
-	HALMAC_RET_STATUS(*halmac_deinit_interface_cfg)(PHALMAC_ADAPTER pHalmac_adapter);
-	HALMAC_RET_STATUS(*halmac_get_efuse_size)(PHALMAC_ADAPTER pHalmac_adapter, u32 *halmac_size);
-	HALMAC_RET_STATUS(*halmac_get_efuse_available_size)(PHALMAC_ADAPTER pHalmac_adapter, u32 *halmac_size);
-	HALMAC_RET_STATUS(*halmac_dump_efuse_map)(PHALMAC_ADAPTER pHalmac_adapter, HALMAC_EFUSE_READ_CFG cfg);
-	HALMAC_RET_STATUS(*halmac_dump_efuse_map_bt)(PHALMAC_ADAPTER pHalmac_adapter, HALMAC_EFUSE_BANK halmac_efues_bank, u32 bt_efuse_map_size, u8 *pBT_efuse_map);
-	HALMAC_RET_STATUS(*halmac_write_efuse)(PHALMAC_ADAPTER pHalmac_adapter, u32 halmac_offset, u8 halmac_value);
-	HALMAC_RET_STATUS(*halmac_read_efuse)(PHALMAC_ADAPTER pHalmac_adapter, u32 halmac_offset, u8 *pValue);
-	HALMAC_RET_STATUS(*halmac_switch_efuse_bank)(PHALMAC_ADAPTER pHalmac_adapter, HALMAC_EFUSE_BANK halmac_efues_bank);
-	HALMAC_RET_STATUS(*halmac_write_efuse_bt)(PHALMAC_ADAPTER pHalmac_adapter, u32 halmac_offset, u8 halmac_value, HALMAC_EFUSE_BANK halmac_efues_bank);
-	HALMAC_RET_STATUS(*halmac_get_logical_efuse_size)(PHALMAC_ADAPTER pHalmac_adapter, u32 *halmac_size);
-	HALMAC_RET_STATUS(*halmac_dump_logical_efuse_map)(PHALMAC_ADAPTER pHalmac_adapter, HALMAC_EFUSE_READ_CFG cfg);
-	HALMAC_RET_STATUS(*halmac_write_logical_efuse)(PHALMAC_ADAPTER pHalmac_adapter, u32 halmac_offset, u8 halmac_value);
-	HALMAC_RET_STATUS(*halmac_read_logical_efuse)(PHALMAC_ADAPTER pHalmac_adapter, u32 halmac_offset, u8 *pValue);
-	HALMAC_RET_STATUS(*halmac_pg_efuse_by_map)(PHALMAC_ADAPTER pHalmac_adapter, PHALMAC_PG_EFUSE_INFO pPg_efuse_info, HALMAC_EFUSE_READ_CFG cfg);
-	HALMAC_RET_STATUS(*halmac_get_c2h_info)(PHALMAC_ADAPTER pHalmac_adapter, u8 *halmac_buf, u32 halmac_size);
-	HALMAC_RET_STATUS(*halmac_cfg_fwlps_option)(PHALMAC_ADAPTER pHalmac_adapter, PHALMAC_FWLPS_OPTION pLps_option);
-	HALMAC_RET_STATUS(*halmac_cfg_fwips_option)(PHALMAC_ADAPTER pHalmac_adapter, PHALMAC_FWIPS_OPTION pIps_option);
-	HALMAC_RET_STATUS(*halmac_enter_wowlan)(PHALMAC_ADAPTER pHalmac_adapter, PHALMAC_WOWLAN_OPTION pWowlan_option);
-	HALMAC_RET_STATUS(*halmac_leave_wowlan)(PHALMAC_ADAPTER pHalmac_adapter);
-	HALMAC_RET_STATUS(*halmac_enter_ps)(PHALMAC_ADAPTER pHalmac_adapter, HALMAC_PS_STATE ps_state);
-	HALMAC_RET_STATUS(*halmac_leave_ps)(PHALMAC_ADAPTER pHalmac_adapter);
-	HALMAC_RET_STATUS(*halmac_h2c_lb)(PHALMAC_ADAPTER pHalmac_adapter);
-	HALMAC_RET_STATUS(*halmac_debug)(PHALMAC_ADAPTER pHalmac_adapter);
-	HALMAC_RET_STATUS(*halmac_cfg_parameter)(PHALMAC_ADAPTER pHalmac_adapter, PHALMAC_PHY_PARAMETER_INFO para_info, u8 full_fifo);
-	HALMAC_RET_STATUS(*halmac_update_packet)(PHALMAC_ADAPTER pHalmac_adapter, HALMAC_PACKET_ID pkt_id, u8 *pkt, u32 pkt_size);
-	HALMAC_RET_STATUS(*halmac_bcn_ie_filter)(PHALMAC_ADAPTER pHalmac_adapter, PHALMAC_BCN_IE_INFO pBcn_ie_info);
+	HALMAC_RET_STATUS (*halmac_register_api)(PHALMAC_ADAPTER pHalmac_adapter, PHALMAC_API_REGISTRY pApi_registry);
+	HALMAC_RET_STATUS (*halmac_mac_power_switch)(PHALMAC_ADAPTER pHalmac_adapter, HALMAC_MAC_POWER halmac_power);
+	HALMAC_RET_STATUS (*halmac_download_firmware)(PHALMAC_ADAPTER pHalmac_adapter, u8 *pHamacl_fw, u32 halmac_fw_size);
+	HALMAC_RET_STATUS (*halmac_free_download_firmware)(PHALMAC_ADAPTER pHalmac_adapter, HALMAC_DLFW_MEM dlfw_mem, u8 *pHamacl_fw, u32 halmac_fw_size);
+	HALMAC_RET_STATUS (*halmac_get_fw_version)(PHALMAC_ADAPTER pHalmac_adapter, PHALMAC_FW_VERSION pFw_version);
+	HALMAC_RET_STATUS (*halmac_cfg_mac_addr)(PHALMAC_ADAPTER pHalmac_adapter, u8 halmac_port, PHALMAC_WLAN_ADDR pHal_address);
+	HALMAC_RET_STATUS (*halmac_cfg_bssid)(PHALMAC_ADAPTER pHalmac_adapter, u8 halmac_port, PHALMAC_WLAN_ADDR pHal_address);
+	HALMAC_RET_STATUS (*halmac_cfg_multicast_addr)(PHALMAC_ADAPTER pHalmac_adapter, PHALMAC_WLAN_ADDR pHal_address);
+	HALMAC_RET_STATUS (*halmac_pre_init_system_cfg)(PHALMAC_ADAPTER pHalmac_adapter);
+	HALMAC_RET_STATUS (*halmac_pre_init_trx_cfg)(PHALMAC_ADAPTER pHalmac_adapter);
+	HALMAC_RET_STATUS (*halmac_init_system_cfg)(PHALMAC_ADAPTER pHalmac_adapter);
+	HALMAC_RET_STATUS (*halmac_init_trx_cfg)(PHALMAC_ADAPTER pHalmac_adapter, HALMAC_TRX_MODE Mode);
+	HALMAC_RET_STATUS (*halmac_init_h2c)(PHALMAC_ADAPTER pHalmac_adapter);
+	HALMAC_RET_STATUS (*halmac_cfg_rx_aggregation)(PHALMAC_ADAPTER pHalmac_adapter, PHALMAC_RXAGG_CFG phalmac_rxagg_cfg);
+	HALMAC_RET_STATUS (*halmac_init_protocol_cfg)(PHALMAC_ADAPTER pHalmac_adapter);
+	HALMAC_RET_STATUS (*halmac_init_edca_cfg)(PHALMAC_ADAPTER pHalmac_adapter);
+	HALMAC_RET_STATUS (*halmac_cfg_operation_mode)(PHALMAC_ADAPTER pHalmac_adapter, HALMAC_WIRELESS_MODE wireless_mode);
+	HALMAC_RET_STATUS (*halmac_cfg_ch_bw)(PHALMAC_ADAPTER pHalmac_adapter, u8 channel, HALMAC_PRI_CH_IDX pri_ch_idx, HALMAC_BW bw);
+	HALMAC_RET_STATUS (*halmac_cfg_bw)(PHALMAC_ADAPTER pHalmac_adapter, HALMAC_BW bw);
+	HALMAC_RET_STATUS (*halmac_init_wmac_cfg)(PHALMAC_ADAPTER pHalmac_adapter);
+	HALMAC_RET_STATUS (*halmac_init_mac_cfg)(PHALMAC_ADAPTER pHalmac_adapter, HALMAC_TRX_MODE Mode);
+	HALMAC_RET_STATUS (*halmac_init_interface_cfg)(PHALMAC_ADAPTER pHalmac_adapter);
+	HALMAC_RET_STATUS (*halmac_deinit_interface_cfg)(PHALMAC_ADAPTER pHalmac_adapter);
+	HALMAC_RET_STATUS (*halmac_init_sdio_cfg)(PHALMAC_ADAPTER pHalmac_adapter);
+	HALMAC_RET_STATUS (*halmac_init_usb_cfg)(PHALMAC_ADAPTER pHalmac_adapter);
+	HALMAC_RET_STATUS (*halmac_init_pcie_cfg)(PHALMAC_ADAPTER pHalmac_adapter);
+	HALMAC_RET_STATUS (*halmac_deinit_sdio_cfg)(PHALMAC_ADAPTER pHalmac_adapter);
+	HALMAC_RET_STATUS (*halmac_deinit_usb_cfg)(PHALMAC_ADAPTER pHalmac_adapter);
+	HALMAC_RET_STATUS (*halmac_deinit_pcie_cfg)(PHALMAC_ADAPTER pHalmac_adapter);
+	HALMAC_RET_STATUS (*halmac_write_efuse)(PHALMAC_ADAPTER pHalmac_adapter, u32 halmac_offset, u8 halmac_value);
+	HALMAC_RET_STATUS (*halmac_read_efuse)(PHALMAC_ADAPTER pHalmac_adapter, u32 halmac_offset, u8 *pValue);
+	HALMAC_RET_STATUS (*halmac_get_efuse_size)(PHALMAC_ADAPTER pHalmac_adapter, u32 *halmac_size);
+	HALMAC_RET_STATUS (*halmac_get_efuse_available_size)(PHALMAC_ADAPTER pHalmac_adapter, u32 *halmac_size);
+	HALMAC_RET_STATUS (*halmac_dump_efuse_map)(PHALMAC_ADAPTER pHalmac_adapter, HALMAC_EFUSE_READ_CFG cfg);
+	HALMAC_RET_STATUS (*halmac_dump_efuse_map_bt)(PHALMAC_ADAPTER pHalmac_adapter, HALMAC_EFUSE_BANK halmac_efues_bank, u32 bt_efuse_map_size, u8 *pBT_efuse_map);
+	HALMAC_RET_STATUS (*halmac_write_efuse_bt)(PHALMAC_ADAPTER pHalmac_adapter, u32 halmac_offset, u8 halmac_value, HALMAC_EFUSE_BANK halmac_efues_bank);
+	HALMAC_RET_STATUS (*halmac_read_efuse_bt)(PHALMAC_ADAPTER pHalmac_adapter, u32 halmac_offset, u8 *pValue, HALMAC_EFUSE_BANK halmac_efues_bank);
+	HALMAC_RET_STATUS (*halmac_cfg_efuse_auto_check)(PHALMAC_ADAPTER pHalmac_adapter, u8 enable);
+	HALMAC_RET_STATUS (*halmac_get_logical_efuse_size)(PHALMAC_ADAPTER pHalmac_adapter, u32 *halmac_size);
+	HALMAC_RET_STATUS (*halmac_dump_logical_efuse_map)(PHALMAC_ADAPTER pHalmac_adapter, HALMAC_EFUSE_READ_CFG cfg);
+	HALMAC_RET_STATUS (*halmac_write_logical_efuse)(PHALMAC_ADAPTER pHalmac_adapter, u32 halmac_offset, u8 halmac_value);
+	HALMAC_RET_STATUS (*halmac_read_logical_efuse)(PHALMAC_ADAPTER pHalmac_adapter, u32 halmac_offset, u8 *pValue);
+	HALMAC_RET_STATUS (*halmac_pg_efuse_by_map)(PHALMAC_ADAPTER pHalmac_adapter, PHALMAC_PG_EFUSE_INFO pPg_efuse_info, HALMAC_EFUSE_READ_CFG cfg);
+	HALMAC_RET_STATUS (*halmac_mask_logical_efuse)(PHALMAC_ADAPTER pHalmac_adapter, PHALMAC_PG_EFUSE_INFO pEfuse_info);
+	HALMAC_RET_STATUS (*halmac_get_c2h_info)(PHALMAC_ADAPTER pHalmac_adapter, u8 *halmac_buf, u32 halmac_size);
+	HALMAC_RET_STATUS (*halmac_h2c_lb)(PHALMAC_ADAPTER pHalmac_adapter);
+	HALMAC_RET_STATUS (*halmac_debug)(PHALMAC_ADAPTER pHalmac_adapter);
+	HALMAC_RET_STATUS (*halmac_cfg_parameter)(PHALMAC_ADAPTER pHalmac_adapter, PHALMAC_PHY_PARAMETER_INFO para_info, u8 full_fifo);
+	HALMAC_RET_STATUS (*halmac_update_packet)(PHALMAC_ADAPTER pHalmac_adapter, HALMAC_PACKET_ID pkt_id, u8 *pkt, u32 pkt_size);
+	HALMAC_RET_STATUS (*halmac_bcn_ie_filter)(PHALMAC_ADAPTER pHalmac_adapter, PHALMAC_BCN_IE_INFO pBcn_ie_info);
 	u8 (*halmac_reg_read_8)(PHALMAC_ADAPTER pHalmac_adapter, u32 halmac_offset);
-	HALMAC_RET_STATUS(*halmac_reg_write_8)(PHALMAC_ADAPTER pHalmac_adapter, u32 halmac_offset, u8 halmac_data);
+	HALMAC_RET_STATUS (*halmac_reg_write_8)(PHALMAC_ADAPTER pHalmac_adapter, u32 halmac_offset, u8 halmac_data);
 	u16 (*halmac_reg_read_16)(PHALMAC_ADAPTER pHalmac_adapter, u32 halmac_offset);
-	HALMAC_RET_STATUS(*halmac_reg_write_16)(PHALMAC_ADAPTER pHalmac_adapter, u32 halmac_offset, u16 halmac_data);
+	HALMAC_RET_STATUS (*halmac_reg_write_16)(PHALMAC_ADAPTER pHalmac_adapter, u32 halmac_offset, u16 halmac_data);
 	u32 (*halmac_reg_read_32)(PHALMAC_ADAPTER pHalmac_adapter, u32 halmac_offset);
+	HALMAC_RET_STATUS (*halmac_reg_write_32)(PHALMAC_ADAPTER pHalmac_adapter, u32 halmac_offset, u32 halmac_data);
 	u32 (*halmac_reg_read_indirect_32)(PHALMAC_ADAPTER pHalmac_adapter, u32 halmac_offset);
-	u8 (*halmac_reg_sdio_cmd53_read_n)(PHALMAC_ADAPTER pHalmac_adapter, u32 halmac_offset, u32 halmac_size, u8 *halmac_data);
-	HALMAC_RET_STATUS(*halmac_reg_write_32)(PHALMAC_ADAPTER pHalmac_adapter, u32 halmac_offset, u32 halmac_data);
-	HALMAC_RET_STATUS(*halmac_tx_allowed_sdio)(PHALMAC_ADAPTER pHalmac_adapter, u8 *pHalmac_buf, u32 halmac_size);
-	HALMAC_RET_STATUS(*halmac_set_bulkout_num)(PHALMAC_ADAPTER pHalmac_adapter, u8 bulkout_num);
-	HALMAC_RET_STATUS(*halmac_get_sdio_tx_addr)(PHALMAC_ADAPTER pHalmac_adapter, u8 *halmac_buf, u32 halmac_size, u32 *pcmd53_addr);
-	HALMAC_RET_STATUS(*halmac_get_usb_bulkout_id)(PHALMAC_ADAPTER pHalmac_adapter, u8 *halmac_buf, u32 halmac_size, u8 *bulkout_id);
-	HALMAC_RET_STATUS(*halmac_timer_2s)(PHALMAC_ADAPTER pHalmac_adapter);
-	HALMAC_RET_STATUS(*halmac_fill_txdesc_checksum)(PHALMAC_ADAPTER pHalmac_adapter, u8 *cur_desc);
-	HALMAC_RET_STATUS(*halmac_update_datapack)(PHALMAC_ADAPTER pHalmac_adapter, HALMAC_DATA_TYPE halmac_data_type, PHALMAC_PHY_PARAMETER_INFO para_info);
-	HALMAC_RET_STATUS(*halmac_run_datapack)(PHALMAC_ADAPTER pHalmac_adapter, HALMAC_DATA_TYPE halmac_data_type);
-	HALMAC_RET_STATUS(*halmac_cfg_drv_info)(PHALMAC_ADAPTER pHalmac_adapter, HALMAC_DRV_INFO halmac_drv_info);
-	HALMAC_RET_STATUS(*halmac_send_bt_coex)(PHALMAC_ADAPTER pHalmac_adapter, u8 *pBt_buf, u32 bt_size, u8 ack);
-	HALMAC_RET_STATUS(*halmac_verify_platform_api)(PHALMAC_ADAPTER pHalmac_adapte);
+	HALMAC_RET_STATUS (*halmac_reg_sdio_cmd53_read_n)(PHALMAC_ADAPTER pHalmac_adapter, u32 halmac_offset, u32 halmac_size, u8 *halmac_data);
+	HALMAC_RET_STATUS (*halmac_tx_allowed_sdio)(PHALMAC_ADAPTER pHalmac_adapter, u8 *pHalmac_buf, u32 halmac_size);
+	HALMAC_RET_STATUS (*halmac_set_bulkout_num)(PHALMAC_ADAPTER pHalmac_adapter, u8 bulkout_num);
+	HALMAC_RET_STATUS (*halmac_get_sdio_tx_addr)(PHALMAC_ADAPTER pHalmac_adapter, u8 *halmac_buf, u32 halmac_size, u32 *pcmd53_addr);
+	HALMAC_RET_STATUS (*halmac_get_usb_bulkout_id)(PHALMAC_ADAPTER pHalmac_adapter, u8 *halmac_buf, u32 halmac_size, u8 *bulkout_id);
+	HALMAC_RET_STATUS (*halmac_fill_txdesc_checksum)(PHALMAC_ADAPTER pHalmac_adapter, u8 *cur_desc);
+	HALMAC_RET_STATUS (*halmac_update_datapack)(PHALMAC_ADAPTER pHalmac_adapter, HALMAC_DATA_TYPE halmac_data_type, PHALMAC_PHY_PARAMETER_INFO para_info);
+	HALMAC_RET_STATUS (*halmac_run_datapack)(PHALMAC_ADAPTER pHalmac_adapter, HALMAC_DATA_TYPE halmac_data_type);
+	HALMAC_RET_STATUS (*halmac_cfg_drv_info)(PHALMAC_ADAPTER pHalmac_adapter, HALMAC_DRV_INFO halmac_drv_info);
+	HALMAC_RET_STATUS (*halmac_send_bt_coex)(PHALMAC_ADAPTER pHalmac_adapter, u8 *pBt_buf, u32 bt_size, u8 ack);
+	HALMAC_RET_STATUS (*halmac_verify_platform_api)(PHALMAC_ADAPTER pHalmac_adapte);
 	u32 (*halmac_get_fifo_size)(PHALMAC_ADAPTER pHalmac_adapter, HAL_FIFO_SEL halmac_fifo_sel);
-	HALMAC_RET_STATUS(*halmac_dump_fifo)(PHALMAC_ADAPTER pHalmac_adapter, HAL_FIFO_SEL halmac_fifo_sel, u32 halmac_start_addr, u32 halmac_fifo_dump_size, u8 *pFifo_map);
-	HALMAC_RET_STATUS(*halmac_cfg_txbf)(PHALMAC_ADAPTER pHalmac_adapter, u8 userid, HALMAC_BW bw, u8 txbf_en);
-	HALMAC_RET_STATUS(*halmac_cfg_mumimo)(PHALMAC_ADAPTER pHalmac_adapter, PHALMAC_CFG_MUMIMO_PARA pCfgmu);
-	HALMAC_RET_STATUS(*halmac_cfg_sounding)(PHALMAC_ADAPTER pHalmac_adapter, HALMAC_SND_ROLE role, HALMAC_DATA_RATE datarate);
-	HALMAC_RET_STATUS(*halmac_del_sounding)(PHALMAC_ADAPTER pHalmac_adapter, HALMAC_SND_ROLE role);
-	HALMAC_RET_STATUS(*halmac_su_bfer_entry_init)(PHALMAC_ADAPTER pHalmac_adapter, PHALMAC_SU_BFER_INIT_PARA pSu_bfer_init);
-	HALMAC_RET_STATUS(*halmac_su_bfee_entry_init)(PHALMAC_ADAPTER pHalmac_adapter, u8 userid, u16 paid);
-	HALMAC_RET_STATUS(*halmac_mu_bfer_entry_init)(PHALMAC_ADAPTER pHalmac_adapter, PHALMAC_MU_BFER_INIT_PARA pMu_bfer_init);
-	HALMAC_RET_STATUS(*halmac_mu_bfee_entry_init)(PHALMAC_ADAPTER pHalmac_adapter, PHALMAC_MU_BFEE_INIT_PARA pMu_bfee_init);
-	HALMAC_RET_STATUS(*halmac_su_bfer_entry_del)(PHALMAC_ADAPTER pHalmac_adapter, u8 userid);
-	HALMAC_RET_STATUS(*halmac_su_bfee_entry_del)(PHALMAC_ADAPTER pHalmac_adapter, u8 userid);
-	HALMAC_RET_STATUS(*halmac_mu_bfer_entry_del)(PHALMAC_ADAPTER pHalmac_adapter);
-	HALMAC_RET_STATUS(*halmac_mu_bfee_entry_del)(PHALMAC_ADAPTER pHalmac_adapter, u8 userid);
-	HALMAC_RET_STATUS(*halmac_add_ch_info)(PHALMAC_ADAPTER pHalmac_adapter, PHALMAC_CH_INFO pCh_info);
-	HALMAC_RET_STATUS(*halmac_add_extra_ch_info)(PHALMAC_ADAPTER pHalmac_adapter, PHALMAC_CH_EXTRA_INFO pCh_extra_info);
-	HALMAC_RET_STATUS(*halmac_ctrl_ch_switch)(PHALMAC_ADAPTER pHalmac_adapter, PHALMAC_CH_SWITCH_OPTION pCs_option);
-	HALMAC_RET_STATUS(*halmac_clear_ch_info)(PHALMAC_ADAPTER pHalmac_adapter);
-	HALMAC_RET_STATUS(*halmac_send_general_info)(PHALMAC_ADAPTER pHalmac_adapter, PHALMAC_GENERAL_INFO pgGeneral_info);
-	HALMAC_RET_STATUS(*halmac_start_iqk)(PHALMAC_ADAPTER pHalmac_adapter, u8 clear);
-	HALMAC_RET_STATUS(*halmac_ctrl_pwr_tracking)(PHALMAC_ADAPTER pHalmac_adapter, PHALMAC_PWR_TRACKING_OPTION pPwr_tracking_opt);
-	HALMAC_RET_STATUS(*halmac_psd)(PHALMAC_ADAPTER pHalmac_adapter, u16 start_psd, u16 end_psd);
-	HALMAC_RET_STATUS(*halmac_cfg_tx_agg_align)(PHALMAC_ADAPTER pHalmac_adapter, u8 enable, u16 align_size);
-	HALMAC_RET_STATUS(*halmac_query_status)(PHALMAC_ADAPTER pHalmac_adapter, HALMAC_FEATURE_ID feature_id, HALMAC_CMD_PROCESS_STATUS *pProcess_status, u8 *data, u32 *size);
-	HALMAC_RET_STATUS(*halmac_reset_feature)(PHALMAC_ADAPTER pHalmac_adapter, HALMAC_FEATURE_ID feature_id);
-	HALMAC_RET_STATUS(*halmac_check_fw_status)(PHALMAC_ADAPTER pHalmac_adapter, u8 *fw_status);
-	HALMAC_RET_STATUS(*halmac_dump_fw_dmem)(PHALMAC_ADAPTER pHalmac_adapter, u8 *dmem, u32 *size);
-	HALMAC_RET_STATUS(*halmac_cfg_max_dl_size)(PHALMAC_ADAPTER pHalmac_adapter, u32 size);
-	HALMAC_RET_STATUS(*halmac_cfg_la_mode)(PHALMAC_ADAPTER pHalmac_adapter, HALMAC_LA_MODE la_mode);
-	HALMAC_RET_STATUS(*halmac_cfg_rx_fifo_expanding_mode)(PHALMAC_ADAPTER pHalmac_adapter, HALMAC_RX_FIFO_EXPANDING_MODE rx_fifo_expanding_mode);
-	HALMAC_RET_STATUS(*halmac_config_security)(PHALMAC_ADAPTER pHalmac_adapter, PHALMAC_SECURITY_SETTING pSec_setting);
+	HALMAC_RET_STATUS (*halmac_dump_fifo)(PHALMAC_ADAPTER pHalmac_adapter, HAL_FIFO_SEL halmac_fifo_sel, u32 halmac_start_addr, u32 halmac_fifo_dump_size, u8 *pFifo_map);
+	HALMAC_RET_STATUS (*halmac_cfg_txbf)(PHALMAC_ADAPTER pHalmac_adapter, u8 userid, HALMAC_BW bw, u8 txbf_en);
+	HALMAC_RET_STATUS (*halmac_cfg_mumimo)(PHALMAC_ADAPTER pHalmac_adapter, PHALMAC_CFG_MUMIMO_PARA pCfgmu);
+	HALMAC_RET_STATUS (*halmac_cfg_sounding)(PHALMAC_ADAPTER pHalmac_adapter, HALMAC_SND_ROLE role, HALMAC_DATA_RATE datarate);
+	HALMAC_RET_STATUS (*halmac_del_sounding)(PHALMAC_ADAPTER pHalmac_adapter, HALMAC_SND_ROLE role);
+	HALMAC_RET_STATUS (*halmac_su_bfer_entry_init)(PHALMAC_ADAPTER pHalmac_adapter, PHALMAC_SU_BFER_INIT_PARA pSu_bfer_init);
+	HALMAC_RET_STATUS (*halmac_su_bfee_entry_init)(PHALMAC_ADAPTER pHalmac_adapter, u8 userid, u16 paid);
+	HALMAC_RET_STATUS (*halmac_mu_bfer_entry_init)(PHALMAC_ADAPTER pHalmac_adapter, PHALMAC_MU_BFER_INIT_PARA pMu_bfer_init);
+	HALMAC_RET_STATUS (*halmac_mu_bfee_entry_init)(PHALMAC_ADAPTER pHalmac_adapter, PHALMAC_MU_BFEE_INIT_PARA pMu_bfee_init);
+	HALMAC_RET_STATUS (*halmac_su_bfer_entry_del)(PHALMAC_ADAPTER pHalmac_adapter, u8 userid);
+	HALMAC_RET_STATUS (*halmac_su_bfee_entry_del)(PHALMAC_ADAPTER pHalmac_adapter, u8 userid);
+	HALMAC_RET_STATUS (*halmac_mu_bfer_entry_del)(PHALMAC_ADAPTER pHalmac_adapter);
+	HALMAC_RET_STATUS (*halmac_mu_bfee_entry_del)(PHALMAC_ADAPTER pHalmac_adapter, u8 userid);
+	HALMAC_RET_STATUS (*halmac_add_ch_info)(PHALMAC_ADAPTER pHalmac_adapter, PHALMAC_CH_INFO pCh_info);
+	HALMAC_RET_STATUS (*halmac_add_extra_ch_info)(PHALMAC_ADAPTER pHalmac_adapter, PHALMAC_CH_EXTRA_INFO pCh_extra_info);
+	HALMAC_RET_STATUS (*halmac_ctrl_ch_switch)(PHALMAC_ADAPTER pHalmac_adapter, PHALMAC_CH_SWITCH_OPTION pCs_option);
+	HALMAC_RET_STATUS (*halmac_p2pps)(PHALMAC_ADAPTER pHalmac_adapter, PHALMAC_P2PPS pP2PPS);
+	HALMAC_RET_STATUS (*halmac_clear_ch_info)(PHALMAC_ADAPTER pHalmac_adapter);
+	HALMAC_RET_STATUS (*halmac_send_general_info)(PHALMAC_ADAPTER pHalmac_adapter, PHALMAC_GENERAL_INFO pgGeneral_info);
+	HALMAC_RET_STATUS (*halmac_start_iqk)(PHALMAC_ADAPTER pHalmac_adapter, PHALMAC_IQK_PARA pIqk_para);
+	HALMAC_RET_STATUS (*halmac_ctrl_pwr_tracking)(PHALMAC_ADAPTER pHalmac_adapter, PHALMAC_PWR_TRACKING_OPTION pPwr_tracking_opt);
+	HALMAC_RET_STATUS (*halmac_psd)(PHALMAC_ADAPTER pHalmac_adapter, u16 start_psd, u16 end_psd);
+	HALMAC_RET_STATUS (*halmac_cfg_tx_agg_align)(PHALMAC_ADAPTER pHalmac_adapter, u8 enable, u16 align_size);
+	HALMAC_RET_STATUS (*halmac_query_status)(PHALMAC_ADAPTER pHalmac_adapter, HALMAC_FEATURE_ID feature_id, HALMAC_CMD_PROCESS_STATUS *pProcess_status, u8 *data, u32 *size);
+	HALMAC_RET_STATUS (*halmac_reset_feature)(PHALMAC_ADAPTER pHalmac_adapter, HALMAC_FEATURE_ID feature_id);
+	HALMAC_RET_STATUS (*halmac_check_fw_status)(PHALMAC_ADAPTER pHalmac_adapter, u8 *fw_status);
+	HALMAC_RET_STATUS (*halmac_dump_fw_dmem)(PHALMAC_ADAPTER pHalmac_adapter, u8 *dmem, u32 *size);
+	HALMAC_RET_STATUS (*halmac_cfg_max_dl_size)(PHALMAC_ADAPTER pHalmac_adapter, u32 size);
+	HALMAC_RET_STATUS (*halmac_cfg_la_mode)(PHALMAC_ADAPTER pHalmac_adapter, HALMAC_LA_MODE la_mode);
+	HALMAC_RET_STATUS (*halmac_cfg_rx_fifo_expanding_mode)(PHALMAC_ADAPTER pHalmac_adapter, HALMAC_RX_FIFO_EXPANDING_MODE rx_fifo_expanding_mode);
+	HALMAC_RET_STATUS (*halmac_config_security)(PHALMAC_ADAPTER pHalmac_adapter, PHALMAC_SECURITY_SETTING pSec_setting);
 	u8 (*halmac_get_used_cam_entry_num)(PHALMAC_ADAPTER pHalmac_adapter, HAL_SECURITY_TYPE sec_type);
-	HALMAC_RET_STATUS(*halmac_write_cam)(PHALMAC_ADAPTER pHalmac_adapter, u32 entry_index, PHALMAC_CAM_ENTRY_INFO pCam_entry_info);
-	HALMAC_RET_STATUS(*halmac_read_cam_entry)(PHALMAC_ADAPTER pHalmac_adapter, u32 entry_index, PHALMAC_CAM_ENTRY_FORMAT pContent);
-	HALMAC_RET_STATUS(*halmac_clear_cam_entry)(PHALMAC_ADAPTER pHalmac_adapter, u32 entry_index);
-	HALMAC_RET_STATUS(*halmac_get_hw_value)(PHALMAC_ADAPTER pHalmac_adapter, HALMAC_HW_ID hw_id, VOID *pvalue);
-	HALMAC_RET_STATUS(*halmac_set_hw_value)(PHALMAC_ADAPTER pHalmac_adapter, HALMAC_HW_ID hw_id, VOID *pvalue);
-	HALMAC_RET_STATUS(*halmac_cfg_drv_rsvd_pg_num)(PHALMAC_ADAPTER pHalmac_adapter, HALMAC_DRV_RSVD_PG_NUM pg_num);
-	HALMAC_RET_STATUS(*halmac_get_chip_version)(PHALMAC_ADAPTER pHalmac_adapter, HALMAC_VER *version);
-	HALMAC_RET_STATUS(*halmac_chk_txdesc)(PHALMAC_ADAPTER pHalmac_adapter, u8 *pHalmac_buf, u32 halmac_size);
-	HALMAC_RET_STATUS(*halmac_dl_drv_rsvd_page)(PHALMAC_ADAPTER pHalmac_adapter, u8 pg_offset, u8 *pHal_buf, u32 size);
-	HALMAC_RET_STATUS(*halmac_pcie_switch)(PHALMAC_ADAPTER pHalmac_adapter, HALMAC_PCIE_CFG pcie_cfg);
-	HALMAC_RET_STATUS(*halmac_phy_cfg)(PHALMAC_ADAPTER pHalmac_adapter, HALMAC_INTF_PHY_PLATFORM platform);
-	HALMAC_RET_STATUS(*halmac_cfg_csi_rate)(PHALMAC_ADAPTER pHalmac_adapter, u8 rssi, u8 current_rate, u8 fixrate_en, u8 *new_rate);
-	HALMAC_RET_STATUS(*halmac_sdio_cmd53_4byte)(PHALMAC_ADAPTER pHalmac_adapter, u8 enable);
-
+	HALMAC_RET_STATUS (*halmac_write_cam)(PHALMAC_ADAPTER pHalmac_adapter, u32 entry_index, PHALMAC_CAM_ENTRY_INFO pCam_entry_info);
+	HALMAC_RET_STATUS (*halmac_read_cam_entry)(PHALMAC_ADAPTER pHalmac_adapter, u32 entry_index, PHALMAC_CAM_ENTRY_FORMAT pContent);
+	HALMAC_RET_STATUS (*halmac_clear_cam_entry)(PHALMAC_ADAPTER pHalmac_adapter, u32 entry_index);
+	HALMAC_RET_STATUS (*halmac_get_hw_value)(PHALMAC_ADAPTER pHalmac_adapter, HALMAC_HW_ID hw_id, VOID *pvalue);
+	HALMAC_RET_STATUS (*halmac_set_hw_value)(PHALMAC_ADAPTER pHalmac_adapter, HALMAC_HW_ID hw_id, VOID *pvalue);
+	HALMAC_RET_STATUS (*halmac_cfg_drv_rsvd_pg_num)(PHALMAC_ADAPTER pHalmac_adapter, HALMAC_DRV_RSVD_PG_NUM pg_num);
+	HALMAC_RET_STATUS (*halmac_get_chip_version)(PHALMAC_ADAPTER pHalmac_adapter, HALMAC_VER *version);
+	HALMAC_RET_STATUS (*halmac_chk_txdesc)(PHALMAC_ADAPTER pHalmac_adapter, u8 *pHalmac_buf, u32 halmac_size);
+	HALMAC_RET_STATUS (*halmac_dl_drv_rsvd_page)(PHALMAC_ADAPTER pHalmac_adapter, u8 pg_offset, u8 *pHal_buf, u32 size);
+	HALMAC_RET_STATUS (*halmac_pcie_switch)(PHALMAC_ADAPTER pHalmac_adapter, HALMAC_PCIE_CFG pcie_cfg);
+	HALMAC_RET_STATUS (*halmac_phy_cfg)(PHALMAC_ADAPTER pHalmac_adapter, HALMAC_INTF_PHY_PLATFORM platform);
+	HALMAC_RET_STATUS (*halmac_cfg_csi_rate)(PHALMAC_ADAPTER pHalmac_adapter, u8 rssi, u8 current_rate, u8 fixrate_en, u8 *new_rate);
+	HALMAC_RET_STATUS (*halmac_sdio_cmd53_4byte)(PHALMAC_ADAPTER pHalmac_adapter, HALMAC_SDIO_CMD53_4BYTE_MODE cmd53_4byte_mode);
+	HALMAC_RET_STATUS (*halmac_sdio_hw_info)(PHALMAC_ADAPTER pHalmac_adapter, PHALMAC_SDIO_HW_INFO pSdio_hw_info);
+	HALMAC_RET_STATUS (*halmac_cfg_transmitter_addr)(PHALMAC_ADAPTER pHalmac_adapter, u8 halmac_port, PHALMAC_WLAN_ADDR pHal_address);
+	HALMAC_RET_STATUS (*halmac_cfg_net_type)(PHALMAC_ADAPTER pHalmac_adapter, u8 halmac_port, HALMAC_NETWORK_TYPE_SELECT net_type);
+	HALMAC_RET_STATUS (*halmac_cfg_tsf_rst)(PHALMAC_ADAPTER pHalmac_adapter, u8 halmac_port);
+	HALMAC_RET_STATUS (*halmac_cfg_bcn_space)(PHALMAC_ADAPTER pHalmac_adapter, u8 halmac_port, u32 bcn_space);
+	HALMAC_RET_STATUS (*halmac_rw_bcn_ctrl)(PHALMAC_ADAPTER pHalmac_adapter, u8 halmac_port, u8 write_en, PHALMAC_BCN_CTRL pBcn_ctrl);
+	HALMAC_RET_STATUS (*halmac_interface_integration_tuning)(PHALMAC_ADAPTER pHalmac_adapter);
+	HALMAC_RET_STATUS (*halmac_txfifo_is_empty)(PHALMAC_ADAPTER pHalmac_adapter, u32 chk_num);
+	HALMAC_RET_STATUS (*halmac_download_flash)(PHALMAC_ADAPTER pHalmac_adapter, u8 *pHalmac_fw, u32 halmac_fw_size, u32 rom_address);
+	HALMAC_RET_STATUS (*halmac_read_flash)(PHALMAC_ADAPTER pHalmac_adapter, u32 addr);
+	HALMAC_RET_STATUS (*halmac_erase_flash)(PHALMAC_ADAPTER pHalmac_adapter, u8 erase_cmd, u32 addr);
+	HALMAC_RET_STATUS (*halmac_check_flash)(PHALMAC_ADAPTER pHalmac_adapter, u8 *pHalmac_fw, u32 halmac_fw_size, u32 addr);
+	HALMAC_RET_STATUS (*halmac_cfg_edca_para)(PHALMAC_ADAPTER pHalmac_adapter, HALMAC_ACQ_ID acq_id, PHALMAC_EDCA_PARA pEdca_para);
+	HALMAC_RET_STATUS (*halmac_pinmux_get_func)(PHALMAC_ADAPTER pHalmac_adapter, HALMAC_GPIO_FUNC gpio_func, u8 *pEnable);
+	HALMAC_RET_STATUS (*halmac_pinmux_set_func)(PHALMAC_ADAPTER pHalmac_adapter, HALMAC_GPIO_FUNC gpio_func);
+	HALMAC_RET_STATUS (*halmac_pinmux_free_func)(PHALMAC_ADAPTER pHalmac_adapter, HALMAC_GPIO_FUNC gpio_func);
+	HALMAC_RET_STATUS (*halmac_pinmux_wl_led_mode)(PHALMAC_ADAPTER pHalmac_adapter, HALMAC_WLLED_MODE wlled_mode);
+	VOID (*halmac_pinmux_wl_led_sw_ctrl)(PHALMAC_ADAPTER pHalmac_adapter, u8 led_on);
+	VOID (*halmac_pinmux_sdio_int_polarity)(PHALMAC_ADAPTER pHalmac_adapter, u8 low_active);
+	HALMAC_RET_STATUS (*halmac_pinmux_gpio_mode)(PHALMAC_ADAPTER pHalmac_adapter, u8 gpio_id, u8 output);
+	HALMAC_RET_STATUS (*halmac_pinmux_gpio_output)(PHALMAC_ADAPTER pHalmac_adapter, u8 gpio_id, u8 high);
+	HALMAC_RET_STATUS (*halmac_pinmux_pin_status)(PHALMAC_ADAPTER pHalmac_adapter, u8 gpio_id, u8 *pHigh);
+	HALMAC_RET_STATUS (*halmac_ofld_func_cfg)(PHALMAC_ADAPTER pHalmac_adapter, PHALMAC_OFLD_FUNC_INFO pOfld_func_info);
+	HALMAC_RET_STATUS (*halmac_rx_cut_amsdu_cfg)(PHALMAC_ADAPTER pHalmac_adapter, PHALMAC_CUT_AMSDU_CFG pCut_amsdu_cfg);
+	HALMAC_RET_STATUS (*halmac_fw_snding)(PHALMAC_ADAPTER pHalmac_adapter, PHALMAC_SU_SNDING_INFO pSu_snding, PHALMAC_MU_SNDING_INFO pMu_snding, u8 period);
+	HALMAC_RET_STATUS (*halmac_get_mac_addr)(PHALMAC_ADAPTER pHalmac_adapter, u8 halmac_port, PHALMAC_WLAN_ADDR pHal_address);
 #if HALMAC_PLATFORM_TESTPROGRAM
-	HALMAC_RET_STATUS(*halmac_gen_txdesc)(PHALMAC_ADAPTER pHalmac_adapter, u8 *pPcket_buffer, PHAL_TXDESC_INFO pTxdesc_info);
-	HALMAC_RET_STATUS(*halmac_txdesc_parser)(PHALMAC_ADAPTER pHalmac_adapter, u8 *pTxdesc, PHAL_TXDESC_PARSER pTxdesc_parser);
-	HALMAC_RET_STATUS(*halmac_rxdesc_parser)(PHALMAC_ADAPTER pHalmac_adapter, u8 *pRxdesc, PHAL_RXDESC_PARSER pRxdesc_parser);
-	HALMAC_RET_STATUS(*halmac_get_txdesc_size)(PHALMAC_ADAPTER pHalmac_adapter, PHAL_TXDESC_INFO pTxdesc_info, u32 *size);
-	HALMAC_RET_STATUS(*halmac_send_packet)(PHALMAC_ADAPTER pHalmac_adapter, u8 *pBuf, u32 size, PHAL_TXDESC_INFO pTxdesc_Info);
-	HALMAC_RET_STATUS(*halmac_get_pcie_packet)(PHALMAC_ADAPTER pHalmac_adapter, u8 *pBuf, u32 *size);
-	HALMAC_RET_STATUS(*halmac_gen_txagg_desc)(PHALMAC_ADAPTER pHalmac_adapter, u8 *pPcket_buffer, u32 agg_num);
-	HALMAC_RET_STATUS(*halmac_parse_packet)(PHALMAC_ADAPTER pHalmac_adapter, u8 *pBuf, PHAL_RXDESC_INFO pRxdesc_info, u8 **next_pkt);
+	HALMAC_RET_STATUS (*halmac_gen_txdesc)(PHALMAC_ADAPTER pHalmac_adapter, u8 *pPcket_buffer, PHAL_TXDESC_INFO pTxdesc_info);
+	HALMAC_RET_STATUS (*halmac_gen_send_rsvd_pg_tx_desc)(PHALMAC_ADAPTER pHalmac_adapter, u8 *pbuf, u32 size);
+	HALMAC_RET_STATUS (*halmac_gen_h2c_tx_desc)(PHALMAC_ADAPTER pHalmac_adapter, u8 *pbuf, u32 size);
+	HALMAC_RET_STATUS (*halmac_gen_fwcmd_tx_desc)(PHALMAC_ADAPTER pHalmac_adapter, u8 *pbuf, u32 size);
+	HALMAC_RET_STATUS (*halmac_txdesc_parser)(PHALMAC_ADAPTER pHalmac_adapter, u8 *pTxdesc, PHAL_TXDESC_PARSER pTxdesc_parser);
+	HALMAC_RET_STATUS (*halmac_rxdesc_parser)(PHALMAC_ADAPTER pHalmac_adapter, u8 *pRxdesc, PHAL_RXDESC_PARSER pRxdesc_parser);
+	HALMAC_RET_STATUS (*halmac_get_txdesc_size)(PHALMAC_ADAPTER pHalmac_adapter, PHAL_TXDESC_INFO pTxdesc_info, u32 *size);
+	HALMAC_RET_STATUS (*halmac_get_pcie_packet)(PHALMAC_ADAPTER pHalmac_adapter, u8 *pBuf, u32 *size);
+	HALMAC_RET_STATUS (*halmac_gen_txagg_desc)(PHALMAC_ADAPTER pHalmac_adapter, u8 *pPcket_buffer, u32 agg_num);
 	u32 (*halmac_bb_reg_read)(PHALMAC_ADAPTER pHalmac_adapter, u32 halmac_offset, u8 len);
-	HALMAC_RET_STATUS(*halmac_bb_reg_write)(PHALMAC_ADAPTER pHalmac_adapter, u32 halmac_offset, u32 halmac_data, u8 len);
+	HALMAC_RET_STATUS (*halmac_bb_reg_write)(PHALMAC_ADAPTER pHalmac_adapter, u32 halmac_offset, u32 halmac_data, u8 len);
 	u32 (*halmac_rf_reg_read)(PHALMAC_ADAPTER pHalmac_adapter, PHAL_RF_REG_INFO pRf_reg_info);
-	HALMAC_RET_STATUS(*halmac_rf_reg_write)(PHALMAC_ADAPTER pHalmac_adapter, PHAL_RF_REG_INFO pRf_reg_info);
-	HALMAC_RET_STATUS(*halmac_init_antenna_selection)(PHALMAC_ADAPTER pHalmac_adapter);
-	HALMAC_RET_STATUS(*halmac_bb_preconfig)(PHALMAC_ADAPTER pHalmac_adapter);
-	HALMAC_RET_STATUS(*halmac_init_crystal_capacity)(PHALMAC_ADAPTER pHalmac_adapter);
-	HALMAC_RET_STATUS(*halmac_trx_antenna_setting)(PHALMAC_ADAPTER pHalmac_adapter);
-	HALMAC_RET_STATUS(*halmac_himr_setting_sdio)(PHALMAC_ADAPTER pHalmac_adapter, PHALMAC_SDIO_HIMR_INFO sdio_himr_sdio);
-	HALMAC_RET_STATUS(*halmac_dump_cam_table)(PHALMAC_ADAPTER pHalmac_adapter, u32 entry_num, PHALMAC_CAM_ENTRY_FORMAT pCam_table);
-	HALMAC_RET_STATUS(*halmac_load_cam_table)(PHALMAC_ADAPTER pHalmac_adapter, u8 entry_num, PHALMAC_CAM_ENTRY_FORMAT pCam_table);
-	HALMAC_RET_STATUS(*halmac_send_beacon)(PHALMAC_ADAPTER pHalmac_adapter, u8 *pBuf, u32 size, PHALMAC_BEACON_INFO pbeacon_info);
-	HALMAC_RET_STATUS(*halmac_get_management_txdesc)(PHALMAC_ADAPTER pHalmac_adapter, u8 *pBuf, u32 *pSize, PHALMAC_MGNT_INFO pmgnt_info);
-	HALMAC_RET_STATUS(*halmac_send_control)(PHALMAC_ADAPTER pHalmac_adapter, u8 *pBuf, u32 size, PHALMAC_CTRL_INFO pctrl_info);
-	HALMAC_RET_STATUS(*halmac_send_hiqueue)(PHALMAC_ADAPTER pHalmac_adapter, u8 *pBuf, u32 size, PHALMAC_HIGH_QUEUE_INFO pHigh_info);
-	HALMAC_RET_STATUS(*halmac_run_pwrseq)(PHALMAC_ADAPTER pHalmac_adapter, HALMAC_PWR_SEQ_ID seq);
-	HALMAC_RET_STATUS(*halmac_media_status_rpt)(PHALMAC_ADAPTER pHalmac_adapter, u8 op_mode, u8 mac_id_ind, u8 mac_id, u8 mac_id_end);
-	HALMAC_RET_STATUS(*halmac_stop_beacon)(PHALMAC_ADAPTER pHalmac_adapter);
-	HALMAC_RET_STATUS(*halmac_check_trx_status)(PHALMAC_ADAPTER pHalmac_adapter);
-	HALMAC_RET_STATUS(*halmac_set_agg_num)(PHALMAC_ADAPTER pHalmac_adapter, u8 agg_num);
-	HALMAC_RET_STATUS(*halmac_timer_10ms)(PHALMAC_ADAPTER pHalmac_adapter);
-	HALMAC_RET_STATUS(*halmac_download_firmware_fpag)(PHALMAC_ADAPTER pHalmac_adapter, u8 *pHamacl_fw, u32 halmac_fw_size, u32 iram_address);
-	HALMAC_RET_STATUS(*halmac_download_rom_fpga)(PHALMAC_ADAPTER pHalmac_adapter, u8 *pHamacl_fw, u32 halmac_fw_size, u32 rom_address);
-	HALMAC_RET_STATUS(*halmac_download_flash)(PHALMAC_ADAPTER pHalmac_adapter, u8 *pHamacl_fw, u32 halmac_fw_size, u32 rom_address);
-	HALMAC_RET_STATUS(*halmac_erase_flash)(PHALMAC_ADAPTER pHalmac_adapter);
-	HALMAC_RET_STATUS(*halmac_check_flash)(PHALMAC_ADAPTER pHalmac_adapter, u8 *pHamacl_fw, u32 halmac_fw_size);
-	HALMAC_RET_STATUS(*halmac_send_nlo)(PHALMAC_ADAPTER pHalmac_adapter, PHALMAC_NLO_CFG pNlo_cfg);
-	HALMAC_RET_STATUS(*halmac_get_chip_type)(PHALMAC_ADAPTER pHalmac_adapter, PHALMAC_CHIP_TYPE pChip_type);
+	HALMAC_RET_STATUS (*halmac_rf_reg_write)(PHALMAC_ADAPTER pHalmac_adapter, PHAL_RF_REG_INFO pRf_reg_info);
+	HALMAC_RET_STATUS (*halmac_init_antenna_selection)(PHALMAC_ADAPTER pHalmac_adapter);
+	HALMAC_RET_STATUS (*halmac_bb_preconfig)(PHALMAC_ADAPTER pHalmac_adapter);
+	HALMAC_RET_STATUS (*halmac_init_crystal_capacity)(PHALMAC_ADAPTER pHalmac_adapter);
+	HALMAC_RET_STATUS (*halmac_trx_antenna_setting)(PHALMAC_ADAPTER pHalmac_adapter);
+	HALMAC_RET_STATUS (*halmac_himr_setting_sdio)(PHALMAC_ADAPTER pHalmac_adapter, PHALMAC_SDIO_HIMR_INFO sdio_himr_sdio);
+	HALMAC_RET_STATUS (*halmac_dump_cam_table)(PHALMAC_ADAPTER pHalmac_adapter, u32 entry_num, PHALMAC_CAM_ENTRY_FORMAT pCam_table);
+	HALMAC_RET_STATUS (*halmac_load_cam_table)(PHALMAC_ADAPTER pHalmac_adapter, u8 entry_num, PHALMAC_CAM_ENTRY_FORMAT pCam_table);
+	HALMAC_RET_STATUS (*halmac_send_beacon)(PHALMAC_ADAPTER pHalmac_adapter, u8 *pBuf, u32 size, PHALMAC_BEACON_INFO pbeacon_info);
+	HALMAC_RET_STATUS (*halmac_get_management_txdesc)(PHALMAC_ADAPTER pHalmac_adapter, u8 *pBuf, u32 *pSize, PHALMAC_MGNT_INFO pmgnt_info);
+	HALMAC_RET_STATUS (*halmac_send_control)(PHALMAC_ADAPTER pHalmac_adapter, u8 *pBuf, u32 size, PHALMAC_CTRL_INFO pctrl_info);
+	HALMAC_RET_STATUS (*halmac_gen_Tx_desc_sounding)(PHALMAC_ADAPTER pHalmac_adapter, u8 *pBuf, u32 size, PHALMAC_SND_TXDESC_INFO psnd_txdesc_info); //shunfa
+	HALMAC_RET_STATUS (*halmac_send_hiqueue)(PHALMAC_ADAPTER pHalmac_adapter, u8 *pBuf, u32 size, PHALMAC_HIGH_QUEUE_INFO pHigh_info);
+	HALMAC_RET_STATUS (*halmac_run_pwrseq)(PHALMAC_ADAPTER pHalmac_adapter, HALMAC_PWR_SEQ_ID seq);
+	HALMAC_RET_STATUS (*halmac_check_pwr_state)(PHALMAC_ADAPTER pHalmac_adapter, HALMAC_PWR_SEQ_ID seq);
+	HALMAC_RET_STATUS (*halmac_stop_beacon)(PHALMAC_ADAPTER pHalmac_adapter);
+	HALMAC_RET_STATUS (*halmac_check_trx_status)(PHALMAC_ADAPTER pHalmac_adapter);
+	HALMAC_RET_STATUS (*halmac_set_agg_num)(PHALMAC_ADAPTER pHalmac_adapter, u8 agg_num);
+	HALMAC_RET_STATUS (*halmac_timer_10ms)(PHALMAC_ADAPTER pHalmac_adapter);
+	HALMAC_RET_STATUS (*halmac_firmware_extract_verify)(PHALMAC_ADAPTER pHalmac_adapter, u8 *pHalmac_fw, u32 halmac_fw_size, u8 verify);
+	HALMAC_RET_STATUS (*halmac_data_cpu_mem_write)(PHALMAC_ADAPTER pHalmac_adapter, u8 *pBuf, u32 size, u32 mem_addr);
+	HALMAC_RET_STATUS (*halmac_download_data_cpu_firmware_fpag)(PHALMAC_ADAPTER pHalmac_adapter, u8 *pHalmac_fw, u32 halmac_fw_size);
+	HALMAC_RET_STATUS (*halmac_download_firmware_fpag)(PHALMAC_ADAPTER pHalmac_adapter, u8 *pHamacl_fw, u32 halmac_fw_size, u32 iram_address);
+	HALMAC_RET_STATUS (*halmac_download_rom_fpga)(PHALMAC_ADAPTER pHalmac_adapter, u8 *pHamacl_fw, u32 halmac_fw_size, u32 rom_address);
+	HALMAC_RET_STATUS (*halmac_send_nlo)(PHALMAC_ADAPTER pHalmac_adapter, PHALMAC_NLO_CFG pNlo_cfg);
+	HALMAC_RET_STATUS (*halmac_get_chip_type)(PHALMAC_ADAPTER pHalmac_adapter, PHALMAC_CHIP_TYPE pChip_type);
 	u32 (*halmac_get_rx_agg_num)(PHALMAC_ADAPTER pHalmac_adapter, u32 pkt_size, u8 *pPkt_buff);
 	u8 (*halmac_check_rx_scsi_resp)(PHALMAC_ADAPTER pHalmac_adapter, u8 *pRxdesc, PHAL_RXDESC_PARSER pRxdesc_parser);
 	VOID (*halmac_get_hcpwm)(PHALMAC_ADAPTER pHalmac_adapter, u8 *pHcpwm);
 	VOID (*halmac_get_hcpwm2)(PHALMAC_ADAPTER pHalmac_adapter, u16 *pHcpwm2);
 	VOID (*halmac_set_hrpwm)(PHALMAC_ADAPTER pHalmac_adapter, u8 hrpwm);
 	VOID (*halmac_set_hrpwm2)(PHALMAC_ADAPTER pHalmac_adapter, u16 hrpwm2);
+	u16 (*halmac_mdio_reg_read)(PHALMAC_ADAPTER pHalmac_adapter, u8 addr, u8 speed);
+	HALMAC_RET_STATUS (*halmac_mdio_reg_write)(PHALMAC_ADAPTER pHalmac_adapter, u8 addr, u16 data, u8 speed);
+	u32 (*halmac_dbi_reg_read32)(PHALMAC_ADAPTER pHalmac_adapter, u16 addr);
+	HALMAC_RET_STATUS (*halmac_dbi_reg_write32)(PHALMAC_ADAPTER pHalmac_adapter, u16 addr, u32 data);
+	u8 (*halmac_dbi_reg_read8)(PHALMAC_ADAPTER pHalmac_adapter, u16 addr);
+	HALMAC_RET_STATUS (*halmac_dbi_reg_write8)(PHALMAC_ADAPTER pHalmac_adapter, u16 addr, u8 data);
+	HALMAC_RET_STATUS (*halmac_hioe_cmd_clear)(PHALMAC_ADAPTER pHalmac_adapter);
+	HALMAC_RET_STATUS (*halmac_hioe_cmd_construct)(PHALMAC_ADAPTER pHalmac_adapter, PHALMAC_HIOE_CMD pHioe_cmd);
+	HALMAC_RET_STATUS (*halmac_hioe_cmd_send)(PHALMAC_ADAPTER pHalmac_adapter);
+	HALMAC_RET_STATUS (*halmac_hioe_req_send)(PHALMAC_ADAPTER pHalmac_adapter, u8 read_req);
+	HALMAC_RET_STATUS (*halmac_tx_desc_compare)(PHALMAC_ADAPTER pHalmac_adapter, u32 txbuf_offset, HALMAC_TXD_COMPARE_SEL mode, u8 *pBuf_0, u8 *pBuf_1);
+	HALMAC_RET_STATUS (*halmac_mount_io_dl_rsvd_pg)(PHALMAC_ADAPTER pHalmac_adapter, u8 enable);
+	HALMAC_RET_STATUS (*halmac_write_addrcam)(PHALMAC_ADAPTER pHalmac_adapter, u32 entry_index, PHALMAC_ADDRCAM_ENTRY_INFO pAddrCam_entry_info);
+	HALMAC_RET_STATUS (*halmac_read_addrcam)(PHALMAC_ADAPTER	pHalmac_adapter, u32 entry_index, PHALMAC_ADDRCAM_ENTRY_INFO pContent);
+	HALMAC_RET_STATUS (*halmac_clear_addrcam)(PHALMAC_ADAPTER pHalmac_adapter, u32 entry_index);
+	HALMAC_RET_STATUS (*halmac_fifo_rw)(PHALMAC_ADAPTER pHalmac_adapter, HAL_FIFO_SEL halmac_fifo_sel, u8 rw, u32 offset, u32 *value32);
+	HALMAC_RET_STATUS (*halmac_efuse_reg_compare)(PHALMAC_ADAPTER pHalmac_adapter, HALMAC_EFUSE_BLOCK efuse_block);
+	HALMAC_RET_STATUS (*halmac_efuse_reg_map_parser)(PHALMAC_ADAPTER pHalmac_adapter, PHALMAC_EFUSE_REG_MAP efuse_reg_mapping);
+	HALMAC_RET_STATUS (*halmac_wowlan_cfg)(PHALMAC_ADAPTER pHalmac_adapter, u8 magic_pkt, u8 pattern_match);
+	HALMAC_RET_STATUS (*halmac_write_wkfm_cam)(PHALMAC_ADAPTER pHalmac_adapter, u32 entry_index, PHALMAC_WKFM_CAM_INFO pWkfm_cam_info);
+	HALMAC_RET_STATUS (*halmac_read_wkfm_cam)(PHALMAC_ADAPTER pHalmac_adapter, u32 entry_index, PHALMAC_WKFM_CAM_FORMAT pContent);
+	HALMAC_RET_STATUS (*halmac_coex_cfg)(PHALMAC_ADAPTER pHalmac_adapter);
+	HALMAC_RET_STATUS (*halmac_tx_desc_transfer)(PHALMAC_ADAPTER pHalmac_adapter, u8 enable);
+	HALMAC_RET_STATUS (*halmac_switch_efuse_bank)(PHALMAC_ADAPTER pHalmac_adapter, HALMAC_EFUSE_BANK halmac_efues_bank);
+	HALMAC_RET_STATUS (*halmac_fw_io_path)(PHALMAC_ADAPTER pHalmac_adapter, HALMAC_IO_PATH_CTRL io_path_ctrl);
+	HALMAC_RET_STATUS (*halmac_host_io_path)(PHALMAC_ADAPTER pHalmac_adapter, HALMAC_IO_PATH_SEL io_path_sel);
+	HALMAC_RET_STATUS (*halmac_hioe_io_path)(PHALMAC_ADAPTER pHalmac_adapter, HALMAC_IO_PATH_SEL io_path_sel);
+	HALMAC_RET_STATUS (*halmac_hiq_limit_en)(PHALMAC_ADAPTER pHalmac_adapter, u8 vap, u8 en);
+	HALMAC_RET_STATUS (*halmac_init_phy_fifo)(PHALMAC_ADAPTER pHalmac_adapter, u16 part_len, u8 en);
+	HALMAC_RET_STATUS (*halmac_init_fw_fifo)(PHALMAC_ADAPTER pHalmac_adapter, u8 en);
+	u8* (*halmac_read_phy_fifo)(PHALMAC_ADAPTER pHalmac_adapter, u32 *pPkt_sz);
+	HALMAC_RET_STATUS (*halmac_ddma2_2host)(PHALMAC_ADAPTER pHalmac_adapter);
 #endif
 } HALMAC_API, *PHALMAC_API;
 
@@ -2000,7 +2724,7 @@ halmac_adapter_validate(
 	PHALMAC_ADAPTER pHalmac_adapter
 )
 {
-	if ((NULL == pHalmac_adapter) || (pHalmac_adapter->pHalAdapter_backup != pHalmac_adapter))
+	if ((pHalmac_adapter == NULL) || (pHalmac_adapter->pHalAdapter_backup != pHalmac_adapter))
 		return HALMAC_RET_ADAPTER_INVALID;
 
 	return HALMAC_RET_SUCCESS;
@@ -2011,7 +2735,7 @@ halmac_api_validate(
 	PHALMAC_ADAPTER pHalmac_adapter
 )
 {
-	if (HALMAC_API_STATE_INIT != pHalmac_adapter->halmac_state.api_state)
+	if (pHalmac_adapter->halmac_state.api_state != HALMAC_API_STATE_INIT)
 		return HALMAC_RET_API_INVALID;
 
 	return HALMAC_RET_SUCCESS;
@@ -2022,7 +2746,7 @@ halmac_fw_validate(
 	PHALMAC_ADAPTER pHalmac_adapter
 )
 {
-	if (HALMAC_DLFW_DONE != pHalmac_adapter->halmac_state.dlfw_state && HALMAC_GEN_INFO_SENT != pHalmac_adapter->halmac_state.dlfw_state)
+	if (pHalmac_adapter->halmac_state.dlfw_state != HALMAC_DLFW_DONE && pHalmac_adapter->halmac_state.dlfw_state != HALMAC_GEN_INFO_SENT)
 		return HALMAC_RET_NO_DLFW;
 
 	return HALMAC_RET_SUCCESS;

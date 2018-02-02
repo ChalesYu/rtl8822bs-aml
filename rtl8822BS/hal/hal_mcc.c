@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2015 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2015 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,11 +11,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- ******************************************************************************/
+ *****************************************************************************/
 #ifdef CONFIG_MCC_MODE
 #define _HAL_MCC_C_
 
@@ -370,7 +366,7 @@ static void rtw_hal_config_mcc_role_setting(PADAPTER padapter)
 		psta = rtw_get_stainfo(pstapriv, cur_network->network.MacAddress);
 		if (psta) {
 			/* combine AP/GO macid and mgmt queue macid to bitmap */
-			pmccadapriv->mcc_macid_bitmap = BIT(psta->mac_id) | BIT(pmccadapriv->mgmt_queue_macid);
+			pmccadapriv->mcc_macid_bitmap = BIT(psta->cmn.mac_id) | BIT(pmccadapriv->mgmt_queue_macid);
 		} else {
 			RTW_INFO(FUNC_ADPT_FMT":AP/GO station info is NULL\n", FUNC_ADPT_ARG(padapter));
 			rtw_warn_on(1);
@@ -404,7 +400,7 @@ static void rtw_hal_config_mcc_role_setting(PADAPTER padapter)
 		psta = rtw_get_bcmc_stainfo(padapter);
 
 		if (psta != NULL)
-			pmccadapriv->mgmt_queue_macid = psta->mac_id;
+			pmccadapriv->mgmt_queue_macid = psta->cmn.mac_id;
 		else {
 			pmccadapriv->mgmt_queue_macid = MCC_ROLE_SOFTAP_GO_MGMT_QUEUE_MACID;
 			RTW_INFO(FUNC_ADPT_FMT":bcmc station is NULL, use macid %d\n"
@@ -1059,7 +1055,7 @@ static u8 rtw_hal_set_mcc_setting(PADAPTER padapter, u8 status)
 	u8 ret = _FAIL;
 	struct mcc_obj_priv *pmccobjpriv = &(adapter_to_dvobj(padapter)->mcc_objpriv);
 	u8 stop = (status < MCC_SETCMD_STATUS_START_CONNECT) ? _TRUE : _FALSE;
-	u32 start_time = rtw_get_current_time();
+	systime start_time = rtw_get_current_time();
 
 	RTW_INFO("===> "FUNC_ADPT_FMT"\n", FUNC_ADPT_ARG(padapter));
 
@@ -1720,7 +1716,7 @@ void rtw_hal_dump_mcc_info(void *sel, struct dvobj_priv *dvobj)
 	u8 i = 0;
 
 	/* regpriv is common for all adapter */
-	adapter = dvobj->padapters[IFACE_ID0];
+	adapter = dvobj_get_primary_adapter(dvobj);
 
 	RTW_PRINT_SEL(sel, "**********************************************\n");
 	for (i = 0; i < dvobj->iface_nums; i++) {
@@ -1811,7 +1807,7 @@ void rtw_hal_mcc_issue_null_data(_adapter *padapter, u8 chbw_allow, u8 ps_mode)
 {
 	struct dvobj_priv *dvobj = adapter_to_dvobj(padapter);
 	_adapter *iface = NULL;
-	u32 start = rtw_get_current_time();
+	systime start = rtw_get_current_time();
 	u8 i = 0;
 
 	if (!MCC_EN(padapter))

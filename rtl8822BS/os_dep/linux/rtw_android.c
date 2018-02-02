@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,12 +11,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 
 #ifdef CONFIG_GPIO_WAKEUP
 #include <linux/gpio.h>
@@ -310,7 +305,10 @@ int rtw_android_cfg80211_pno_setup(struct net_device *net,
 		memcpy(pno_ssids_local[index].SSID, ssids[index].ssid,
 		       ssids[index].ssid_len);
 	}
-
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 2, 0)
+	if(ssids)
+		rtw_mfree((u8 *)ssids, (n_ssids * sizeof(struct cfg80211_ssid)));
+#endif
 	pno_time = (interval / 1000);
 
 	RTW_INFO("%s: nssids: %d, pno_time=%d\n", __func__, nssid, pno_time);
@@ -1056,8 +1054,8 @@ static int wifi_probe(struct platform_device *pdev)
 		wifi_wake_gpio = wifi_irqres->start;
 
 #ifdef CONFIG_GPIO_WAKEUP
-	printk("%s: gpio:%d wifi_wake_gpio:%d\n", __func__,
-	       wifi_irqres->start, wifi_wake_gpio);
+	RTW_INFO("%s: gpio:%d wifi_wake_gpio:%d\n", __func__,
+	       (int)wifi_irqres->start, wifi_wake_gpio);
 
 	if (wifi_wake_gpio > 0) {
 #ifdef CONFIG_PLATFORM_INTEL_BYT
@@ -1067,10 +1065,10 @@ static int wifi_probe(struct platform_device *pdev)
 		gpio_direction_input(wifi_wake_gpio);
 		oob_irq = gpio_to_irq(wifi_wake_gpio);
 #endif /* CONFIG_PLATFORM_INTEL_BYT */
-		printk("%s oob_irq:%d\n", __func__, oob_irq);
+		RTW_INFO("%s oob_irq:%d\n", __func__, oob_irq);
 	} else if (wifi_irqres) {
 		oob_irq = wifi_irqres->start;
-		printk("%s oob_irq:%d\n", __func__, oob_irq);
+		RTW_INFO("%s oob_irq:%d\n", __func__, oob_irq);
 	}
 #endif
 	wifi_control_data = wifi_ctrl;
@@ -1098,6 +1096,14 @@ static void shutdown_card(void)
 #ifdef CONFIG_FWLPS_IN_IPS
 	LeaveAllPowerSaveMode(g_test_adapter);
 #endif /* CONFIG_FWLPS_IN_IPS */
+
+#ifdef CONFIG_WOWLAN
+#ifdef CONFIG_GPIO_WAKEUP
+	/*default wake up pin change to BT*/
+	RTW_INFO("%s:default wake up pin change to BT\n", __FUNCTION__);
+	rtw_hal_switch_gpio_wl_ctrl(g_test_adapter, WAKEUP_GPIO_IDX, _FALSE);
+#endif /* CONFIG_GPIO_WAKEUP */
+#endif /* CONFIG_WOWLAN */
 
 	/* Leave SDIO HCI Suspend */
 	addr = 0x10250086;

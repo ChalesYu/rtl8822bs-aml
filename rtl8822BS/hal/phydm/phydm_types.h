@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,31 +11,31 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 #ifndef __ODM_TYPES_H__
 #define __ODM_TYPES_H__
 
 
 /*Define Different SW team support*/
-#define	ODM_AP			0x01	/*BIT0*/
-#define	ODM_CE			0x04	/*BIT2*/
-#define	ODM_WIN		0x08	/*BIT3*/
-#define	ODM_ADSL		0x10	/*BIT4*/
-#define	ODM_IOT		0x20	/*BIT5*/
+#define	ODM_AP			0x01	/*BIT(0)*/
+#define	ODM_CE			0x04	/*BIT(2)*/
+#define	ODM_WIN		0x08	/*BIT(3)*/
+#define	ODM_ADSL		0x10	/*BIT(4)*/		/*already combine with ODM_AP, and is nouse now*/
+#define	ODM_IOT		0x20	/*BIT(5)*/
+
+/*For FW API*/
+#define	__iram_odm_func__
 
 /*Deifne HW endian support*/
 #define	ODM_ENDIAN_BIG	0
 #define	ODM_ENDIAN_LITTLE	1
 
 #if (DM_ODM_SUPPORT_TYPE == ODM_WIN)
-	#define GET_PDM_ODM(__padapter)	((struct PHY_DM_STRUCT*)(&((GET_HAL_DATA(__padapter))->dm_out_src)))
+	#define GET_PDM_ODM(__padapter)	((struct PHY_DM_STRUCT*)(&((GET_HAL_DATA(__padapter))->DM_OutSrc)))
 #elif (DM_ODM_SUPPORT_TYPE == ODM_CE)
 	#define GET_PDM_ODM(__padapter)	((struct PHY_DM_STRUCT*)(&((GET_HAL_DATA(__padapter))->odmpriv)))
+#elif (DM_ODM_SUPPORT_TYPE == ODM_AP)
+	#define GET_PDM_ODM(__padapter)	((struct PHY_DM_STRUCT*)(&(__padapter->pshare->_dmODM)))
 #endif
 
 #if (DM_ODM_SUPPORT_TYPE != ODM_WIN)
@@ -55,9 +55,6 @@ enum hal_status {
 	RT_STATUS_OS_API_FAILED,*/
 };
 
-#if (DM_ODM_SUPPORT_TYPE == ODM_AP)
-	#define		MP_DRIVER		0
-#endif
 #if (DM_ODM_SUPPORT_TYPE != ODM_WIN)
 
 #define		VISTA_USB_RX_REVISE			0
@@ -114,7 +111,6 @@ enum rt_spinlock_type {
 
 #endif
 
-
 #if (DM_ODM_SUPPORT_TYPE == ODM_WIN)
 	#define sta_info 	_RT_WLAN_STA
 	#define	__func__		__FUNCTION__
@@ -135,45 +131,15 @@ enum rt_spinlock_type {
 	#define	u64		u8Byte
 	#define	s64		s8Byte
 
-	#define	bool	BOOLEAN
-
 	#define	timer_list	_RT_TIMER
 	
 
 #elif (DM_ODM_SUPPORT_TYPE == ODM_AP)
-
-	/* To let ADSL/AP project compile ok; it should be removed after all conflict are solved. Added by Annie, 2011-10-07. */
-	#define ADSL_AP_BUILD_WORKAROUND
-	#define AP_BUILD_WORKAROUND
-
-	#ifdef AP_BUILD_WORKAROUND
-		#include "../typedef.h"
-	#else
-		typedef void					void, *void *;
-		typedef unsigned char			bool, *bool *;
-		typedef unsigned char			u8, *u8 *;
-		typedef unsigned short			u16, *u16 *;
-		typedef unsigned int			u32, *u32 *;
-		typedef unsigned long long		u64, *u64 *;
-		#if 1
-			/* In ARM platform, system would use the type -- "char" as "unsigned char"
-			* And we only use s8/s8* as INT8 now, so changes the type of s8.*/
-			typedef signed char				s8, *s8 *;
-		#else
-			typedef char					s8, *s8 *;
-		#endif
-		typedef short					s16, *s16 *;
-		typedef long					s32, *s32 *;
-		typedef long long				s64, *s64 *;
-	#endif
-
+	#include "../typedef.h"
 
 	#ifdef CONFIG_PCI_HCI
 		#define DEV_BUS_TYPE		RT_PCI_INTERFACE
 	#endif
-
-	#define _TRUE				1
-	#define _FALSE				0
 
 	#if (defined(TESTCHIP_SUPPORT))
 		#define	PHYDM_TESTCHIP_SUPPORT 1
@@ -182,44 +148,54 @@ enum rt_spinlock_type {
 	#endif
 
 	#define	sta_info stat_info
+	#define	boolean	bool
+
+#elif (DM_ODM_SUPPORT_TYPE == ODM_CE) && defined(DM_ODM_CE_MAC80211)
+
+	#include <asm/byteorder.h>
+
+	#define DEV_BUS_TYPE	RT_PCI_INTERFACE
+
+	#if defined(__LITTLE_ENDIAN)
+		#define	ODM_ENDIAN_TYPE			ODM_ENDIAN_LITTLE
+	#elif defined(__BIG_ENDIAN)
+		#define	ODM_ENDIAN_TYPE			ODM_ENDIAN_BIG
+	#else
+		#error
+	#endif
+
+	/* define useless flag to avoid compile warning */
+	#define	USE_WORKITEM 0
+	#define	FOR_BRAZIL_PRETEST 0
+	#define	FPGA_TWO_MAC_VERIFICATION	0
+	#define	RTL8881A_SUPPORT	0
+	#define	PHYDM_TESTCHIP_SUPPORT 0
+
+	/* support list */
+	#define RTL8188E_SUPPORT				0
+	#define RTL8812A_SUPPORT				0
+	#define RTL8821A_SUPPORT				0
+	#define RTL8723B_SUPPORT				0
+	#define RTL8723D_SUPPORT				0
+	#define RTL8192E_SUPPORT				0
+	#define RTL8814A_SUPPORT				0
+	#define RTL8195A_SUPPORT				0
+	#define RTL8197F_SUPPORT				0
+	#define RTL8703B_SUPPORT				0
+	#define RTL8188F_SUPPORT				0
+	#define RTL8822B_SUPPORT				1
+	#define RTL8821B_SUPPORT				0
+	#define RTL8821C_SUPPORT				0
+
+	#define RATE_ADAPTIVE_SUPPORT			0
+	#define POWER_TRAINING_ACTIVE			0
+
+	#define sta_info	rtl_sta_info
+	#define	boolean		bool
 
 #elif (DM_ODM_SUPPORT_TYPE == ODM_CE)
 	#include <drv_types.h>
-	#if 0
-		typedef u8					u8, *u8 *;
-		typedef u16					u16, *u16 *;
-		typedef u32					u32, *u32 *;
-		typedef u64					u64, *u64 *;
-		typedef s8					s8, *s8 *;
-		typedef s16					s16, *s16 *;
-		typedef s32					s32, *s32 *;
-		typedef s64					s64, *s64 *;
-	#elif 0
-		#define u8		u8
-		#define	u8 *u8*
 
-		#define u16		u16
-		#define	u16 *u16*
-
-		#define u32		u32
-		#define	u32 *u32*
-
-		#define u64		u64
-		#define	u64*	u64*
-
-		#define s8		s8
-		#define	s8*	s8*
-
-		#define s16		s16
-		#define	s16*	s16*
-
-		#define s32		s32
-		#define	s32*	s32*
-
-		#define s64		s64
-		#define	s64*	s64*
-
-	#endif
 	#ifdef CONFIG_USB_HCI
 		#define DEV_BUS_TYPE	RT_USB_INTERFACE
 	#elif defined(CONFIG_PCI_HCI)
@@ -237,14 +213,7 @@ enum rt_spinlock_type {
 		#define	ODM_ENDIAN_TYPE			ODM_ENDIAN_BIG
 	#endif
 
-	//#define	struct sta_info			struct sta_info
-	//#define	struct sta_info*		struct sta_info *
-
-
-
-	#define true	_TRUE
-	#define false	_FALSE
-
+	#define	boolean	bool
 
 	#define SET_TX_DESC_ANTSEL_A_88E(__ptx_desc, __value) SET_BITS_TO_LE_4BYTE(__ptx_desc+8, 24, 1, __value)
 	#define SET_TX_DESC_ANTSEL_B_88E(__ptx_desc, __value) SET_BITS_TO_LE_4BYTE(__ptx_desc+8, 25, 1, __value)
@@ -287,8 +256,5 @@ enum rt_spinlock_type {
 #define MASKBYTE3LOWNIBBLE		0x0f000000
 #define	MASKL3BYTES			0x00ffffff
 #define RFREGOFFSETMASK	0xfffff
-
-
-#include "phydm_features.h"
 
 #endif /* __ODM_TYPES_H__ */

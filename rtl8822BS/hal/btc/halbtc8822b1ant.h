@@ -51,18 +51,6 @@
 
 #define	BT_8822B_1ANT_LTECOEX_INDIRECTREG_ACCESS_TIMEOUT		30000
 
-#define		BTC_RSSI_COEX_THRESH_TOL_8822B_2ANT		2
-
-
-#define	BT_8822B_1ANT_WIFI_RSSI_COEXSWITCH_THRES1				50
-
-#define	BT_8822B_1ANT_BT_RSSI_COEXSWITCH_THRES1				30
-
-#define	BT_8822B_1ANT_WIFI_RSSI_COEXSWITCH_THRES2				50
-
-#define	BT_8822B_1ANT_BT_RSSI_COEXSWITCH_THRES2				30
-
-
 
 
 enum bt_8822b_1ant_signal_state {
@@ -169,6 +157,7 @@ enum bt_8822b_1ant_ext_ant_switch_pos_type {
 	BT_8822B_1ANT_EXT_ANT_SWITCH_TO_WLG			= 0x1,
 	BT_8822B_1ANT_EXT_ANT_SWITCH_TO_WLA			= 0x2,
 	BT_8822B_1ANT_EXT_ANT_SWITCH_TO_NOCARE		= 0x3,
+	BT_8822B_1ANT_EXT_ANT_SWITCH_TO_S0WLG_S1BT	= 0x4,
 	BT_8822B_1ANT_EXT_ANT_SWITCH_TO_MAX
 };
 
@@ -179,16 +168,24 @@ enum bt_8822b_1ant_phase {
 	BT_8822B_1ANT_PHASE_2G_RUNTIME				= 0x3,
 	BT_8822B_1ANT_PHASE_5G_RUNTIME				= 0x4,
 	BT_8822B_1ANT_PHASE_BTMPMODE				= 0x5,
+	BT_8822B_1ANT_PHASE_COEX_POWERON			= 0x6,
+	BT_8822B_1ANT_PHASE_2G_FREERUN_ANT_WL		= 0x7,
+	BT_8822B_1ANT_PHASE_2G_FREERUN_ANT_BT		= 0x8,
+	BT_8822B_1ANT_PHASE_MCC_DUALBAND_RUNTIME	= 0x9,
+	BT_8822B_1ANT_PHASE_2G_FREERUN_ANT_S0WLS1BT	= 0xa,
 	BT_8822B_1ANT_PHASE_MAX
 };
 
 /*ADD SCOREBOARD TO FIX BT LPS 32K ISSUE WHILE WL BUSY*/
 enum bt_8822b_1ant_Scoreboard {
-	BT_8822B_1ANT_SCOREBOARD_ACTIVE                            = BIT(0),
-	BT_8822B_1ANT_SCOREBOARD_ONOFF                             = BIT(1),
-	BT_8822B_1ANT_SCOREBOARD_SCAN                               = BIT(2),
-	BT_8822B_1ANT_SCOREBOARD_UNDERTEST							= BIT(3),
-	BT_8822B_1ANT_SCOREBOARD_WLBUSY                          = BIT(6)
+	BT_8822B_1ANT_SCOREBOARD_ACTIVE					= BIT(0),
+	BT_8822B_1ANT_SCOREBOARD_ONOFF					= BIT(1),
+	BT_8822B_1ANT_SCOREBOARD_SCAN					= BIT(2),
+	BT_8822B_1ANT_SCOREBOARD_UNDERTEST				= BIT(3),
+	BT_8822B_1ANT_SCOREBOARD_RXGAIN					= BIT(4),
+	BT_8822B_1ANT_SCOREBOARD_WLBUSY					= BIT(6),
+	BT_8822B_1ANT_SCOREBOARD_EXTFEM					= BIT(8),
+	BT_8822B_1ANT_SCOREBOARD_CQDDR					= BIT(10)
 };
 
 struct coex_dm_8822b_1ant {
@@ -202,8 +199,6 @@ struct coex_dm_8822b_1ant {
 	u8		cur_ps_tdma;
 	u8		ps_tdma_para[5];
 	u8		ps_tdma_du_adj_type;
-	u8		pre_bt_dec_pwr_lvl;
-	u8		cur_bt_dec_pwr_lvl;
 	boolean		auto_tdma_adjust;
 	boolean		pre_ps_tdma_on;
 	boolean		cur_ps_tdma_on;
@@ -213,6 +208,8 @@ struct coex_dm_8822b_1ant {
 	u8		cur_lps;
 	u8		pre_rpwm;
 	u8		cur_rpwm;
+	u8		pre_bt_dec_pwr_lvl;
+	u8		cur_bt_dec_pwr_lvl;
 	u8		pre_fw_dac_swing_lvl;
 	u8		cur_fw_dac_swing_lvl;
 
@@ -256,7 +253,6 @@ struct coex_dm_8822b_1ant {
 	u8		error_condition;
 	boolean		pre_agc_table_en;
 	boolean		cur_agc_table_en;
-	boolean					is_switch_to_1dot5_ant;
 };
 
 struct coex_sta_8822b_1ant {
@@ -266,6 +262,7 @@ struct coex_sta_8822b_1ant {
 	boolean					a2dp_exist;
 	boolean					hid_exist;
 	boolean					pan_exist;
+	boolean					msft_mr_exist;
 	u8					num_of_profile;
 
 	boolean					under_lps;
@@ -275,7 +272,7 @@ struct coex_sta_8822b_1ant {
 	u32					high_priority_rx;
 	u32					low_priority_tx;
 	u32					low_priority_rx;
-	boolean					is_hiPri_rx_overhead;
+	boolean             is_hiPri_rx_overhead;
 	s8					bt_rssi;
 	u8					pre_bt_rssi_state;
 	u8					pre_wifi_rssi_state[4];
@@ -297,17 +294,16 @@ struct coex_sta_8822b_1ant {
 	u32					crc_ok_11g;
 	u32					crc_ok_11n;
 	u32					crc_ok_11n_vht;
-	u32					crc_ok_11n_agg;
-	u32					crc_err_11n_agg;
 
 	u32					crc_err_cck;
 	u32					crc_err_11g;
 	u32					crc_err_11n;
 	u32					crc_err_11n_vht;
 
-	boolean					cck_lock;
-	boolean					pre_ccklock;
-	boolean					cck_ever_lock;
+	boolean				cck_lock;
+	boolean				cck_lock_ever;
+	boolean				cck_lock_warn;
+
 	u8					coex_table_type;
 
 	boolean					force_lps_ctrl;
@@ -363,18 +359,30 @@ struct coex_sta_8822b_1ant {
 	boolean					is_hid_low_pri_tx_overhead;
 	boolean					is_bt_multi_link;
 	boolean					is_bt_a2dp_sink;
-	boolean					rf4ce_enabled;
 
 	boolean					is_set_ps_state_fail;
 	u8					cnt_set_ps_state_fail;
-	u8					wifi_coex_thres;
-	u8					bt_coex_thres;
-	u8					wifi_coex_thres2;
-	u8					bt_coex_thres2;
-	boolean					bt_hi_pri_link_exist;
-	boolean					force_lps_on;
-	boolean					c2h_bt_info_req_sent;
 
+	u8					wl_fw_dbg_info[10];
+	u8					wl_rx_rate;
+	u8					wl_rts_rx_rate;
+	u8					wl_center_channel;
+
+	u16					score_board_WB;
+	boolean				is_hid_rcu;
+	u16					legacy_forbidden_slot;
+	u16					le_forbidden_slot;
+	u8					bt_a2dp_vendor_id;
+	u32					bt_a2dp_device_name;
+	boolean				is_ble_scan_toggle;
+
+	boolean				is_bt_opp_exist;
+	boolean				gl_wifi_busy;
+
+	boolean				is_mimo_ps;
+	u8					connect_ap_period_cnt;
+	boolean				is_bt_reenable;
+	u8					cnt_bt_reenable;
 };
 
 struct rfe_type_8822b_1ant {
@@ -458,6 +466,10 @@ void ex_halbtc8822b1ant_specific_packet_notify(IN struct btc_coexist *btcoexist,
 		IN u8 type);
 void ex_halbtc8822b1ant_bt_info_notify(IN struct btc_coexist *btcoexist,
 				       IN u8 *tmp_buf, IN u8 length);
+void ex_halbtc8822b1ant_wl_fwdbginfo_notify(IN struct btc_coexist *btcoexist,
+				       IN u8 *tmp_buf, IN u8 length);
+void ex_halbtc8822b1ant_rx_rate_change_notify(IN struct btc_coexist *btcoexist,
+		IN BOOLEAN is_data_frame, IN u8 btc_rate_id);
 void ex_halbtc8822b1ant_rf_status_notify(IN struct btc_coexist *btcoexist,
 		IN u8 type);
 void ex_halbtc8822b1ant_halt_notify(IN struct btc_coexist *btcoexist);
@@ -467,6 +479,8 @@ void ex_halbtc8822b1ant_ScoreBoardStatusNotify(IN struct btc_coexist *btcoexist,
 		IN u8 *tmp_buf, IN u8 length);
 void ex_halbtc8822b1ant_coex_dm_reset(IN struct btc_coexist *btcoexist);
 void ex_halbtc8822b1ant_periodical(IN struct btc_coexist *btcoexist);
+void ex_halbtc8822b1ant_display_simple_coex_info(IN struct btc_coexist *btcoexist);
+
 void ex_halbtc8822b1ant_display_coex_info(IN struct btc_coexist *btcoexist);
 void ex_halbtc8822b1ant_antenna_detection(IN struct btc_coexist *btcoexist,
 		IN u32 cent_freq, IN u32 offset, IN u32 span, IN u32 seconds);
@@ -495,6 +509,8 @@ void ex_halbtc8822b1ant_dbg_control(IN struct btc_coexist *btcoexist,
 #define	ex_halbtc8822b1ant_media_status_notify(btcoexist, type)
 #define	ex_halbtc8822b1ant_specific_packet_notify(btcoexist, type)
 #define	ex_halbtc8822b1ant_bt_info_notify(btcoexist, tmp_buf, length)
+#define	ex_halbtc8822b1ant_wl_fwdbginfo_notify(btcoexist, tmp_buf, length)
+#define	ex_halbtc8822b1ant_rx_rate_change_notify(btcoexist, is_data_frame, btc_rate_id)
 #define	ex_halbtc8822b1ant_rf_status_notify(btcoexist, type)
 #define	ex_halbtc8822b1ant_halt_notify(btcoexist)
 #define	ex_halbtc8822b1ant_pnp_notify(btcoexist, pnp_state)

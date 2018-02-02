@@ -1,3 +1,18 @@
+/******************************************************************************
+ *
+ * Copyright(c) 2016 - 2017 Realtek Corporation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of version 2 of the GNU General Public License as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+ * more details.
+ *
+ ******************************************************************************/
+
 #ifndef _HAL_ORIGINALH2CFORMAT_H2C_C2H_NIC_H_
 #define _HAL_ORIGINALH2CFORMAT_H2C_C2H_NIC_H_
 #define CMD_ID_ORIGINAL_H2C  0X00
@@ -10,6 +25,8 @@
 #define CMD_ID_AP_OFFLOAD  0X08
 #define CMD_ID_BCN_RSVDPAGE  0X09
 #define CMD_ID_PROBE_RSP_RSVDPAGE  0X0A
+#define CMD_ID_SINGLE_CHANNELSWITCH  0X1C
+#define CMD_ID_SINGLE_CHANNELSWITCH_V2  0X1D
 #define CMD_ID_SET_PWR_MODE  0X00
 #define CMD_ID_PS_TUNING_PARA  0X01
 #define CMD_ID_PS_TUNING_PARA_II  0X02
@@ -34,6 +51,7 @@
 #define CMD_ID_D0_SCAN_OFFLOAD_INFO  0X05
 #define CMD_ID_CHANNEL_SWITCH_OFFLOAD  0X07
 #define CMD_ID_AOAC_RSVD_PAGE3  0X08
+#define CMD_ID_DBG_MSG_CTRL  0X1E
 #define CLASS_ORIGINAL_H2C 0X00
 #define CLASS_H2C2H_LB 0X07
 #define CLASS_D0_SCAN_OFFLOAD_CTRL 0X04
@@ -44,6 +62,8 @@
 #define CLASS_AP_OFFLOAD 0X0
 #define CLASS_BCN_RSVDPAGE 0X0
 #define CLASS_PROBE_RSP_RSVDPAGE 0X0
+#define CLASS_SINGLE_CHANNELSWITCH 0X0
+#define CLASS_SINGLE_CHANNELSWITCH_V2 0X0
 #define CLASS_SET_PWR_MODE 0X01
 #define CLASS_PS_TUNING_PARA 0X01
 #define CLASS_PS_TUNING_PARA_II 0X01
@@ -68,6 +88,7 @@
 #define CLASS_D0_SCAN_OFFLOAD_INFO 0X04
 #define CLASS_CHANNEL_SWITCH_OFFLOAD 0X04
 #define CLASS_AOAC_RSVD_PAGE3 0X04
+#define CLASS_DBG_MSG_CTRL 0X07
 #define ORIGINAL_H2C_GET_CMD_ID(__pH2C)    LE_BITS_TO_4BYTE(__pH2C + 0X00, 0, 5)
 #define ORIGINAL_H2C_SET_CMD_ID(__pH2C, __Value)    SET_BITS_TO_LE_4BYTE(__pH2C + 0X00, 0, 5, __Value)
 #define ORIGINAL_H2C_GET_CLASS(__pH2C)    LE_BITS_TO_4BYTE(__pH2C + 0X00, 5, 3)
@@ -232,6 +253,30 @@
 #define PROBE_RSP_RSVDPAGE_SET_LOC_VAP3(__pH2C, __Value)    SET_BITS_TO_LE_4BYTE(__pH2C + 0X04, 0, 8, __Value)
 #define PROBE_RSP_RSVDPAGE_GET_LOC_VAP4(__pH2C)    LE_BITS_TO_4BYTE(__pH2C + 0X04, 8, 8)
 #define PROBE_RSP_RSVDPAGE_SET_LOC_VAP4(__pH2C, __Value)    SET_BITS_TO_LE_4BYTE(__pH2C + 0X04, 8, 8, __Value)
+#define SINGLE_CHANNELSWITCH_GET_CMD_ID(__pH2C)    LE_BITS_TO_4BYTE(__pH2C + 0X00, 0, 5)
+#define SINGLE_CHANNELSWITCH_SET_CMD_ID(__pH2C, __Value)    SET_BITS_TO_LE_4BYTE(__pH2C + 0X00, 0, 5, __Value)
+#define SINGLE_CHANNELSWITCH_GET_CLASS(__pH2C)    LE_BITS_TO_4BYTE(__pH2C + 0X00, 5, 3)
+#define SINGLE_CHANNELSWITCH_SET_CLASS(__pH2C, __Value)    SET_BITS_TO_LE_4BYTE(__pH2C + 0X00, 5, 3, __Value)
+#define SINGLE_CHANNELSWITCH_GET_CHANNEL_NUM(__pH2C)    LE_BITS_TO_4BYTE(__pH2C + 0X00, 8, 8)
+#define SINGLE_CHANNELSWITCH_SET_CHANNEL_NUM(__pH2C, __Value)    SET_BITS_TO_LE_4BYTE(__pH2C + 0X00, 8, 8, __Value)
+#define SINGLE_CHANNELSWITCH_GET_BW(__pH2C)    LE_BITS_TO_4BYTE(__pH2C + 0X00, 16, 2)
+#define SINGLE_CHANNELSWITCH_SET_BW(__pH2C, __Value)    SET_BITS_TO_LE_4BYTE(__pH2C + 0X00, 16, 2, __Value)
+#define SINGLE_CHANNELSWITCH_GET_BW40SC(__pH2C)    LE_BITS_TO_4BYTE(__pH2C + 0X00, 18, 3)
+#define SINGLE_CHANNELSWITCH_SET_BW40SC(__pH2C, __Value)    SET_BITS_TO_LE_4BYTE(__pH2C + 0X00, 18, 3, __Value)
+#define SINGLE_CHANNELSWITCH_GET_BW80SC(__pH2C)    LE_BITS_TO_4BYTE(__pH2C + 0X00, 21, 3)
+#define SINGLE_CHANNELSWITCH_SET_BW80SC(__pH2C, __Value)    SET_BITS_TO_LE_4BYTE(__pH2C + 0X00, 21, 3, __Value)
+#define SINGLE_CHANNELSWITCH_GET_RFE_TYPE(__pH2C)    LE_BITS_TO_4BYTE(__pH2C + 0X00, 24, 4)
+#define SINGLE_CHANNELSWITCH_SET_RFE_TYPE(__pH2C, __Value)    SET_BITS_TO_LE_4BYTE(__pH2C + 0X00, 24, 4, __Value)
+#define SINGLE_CHANNELSWITCH_V2_GET_CMD_ID(__pH2C)    LE_BITS_TO_4BYTE(__pH2C + 0X00, 0, 5)
+#define SINGLE_CHANNELSWITCH_V2_SET_CMD_ID(__pH2C, __Value)    SET_BITS_TO_LE_4BYTE(__pH2C + 0X00, 0, 5, __Value)
+#define SINGLE_CHANNELSWITCH_V2_GET_CLASS(__pH2C)    LE_BITS_TO_4BYTE(__pH2C + 0X00, 5, 3)
+#define SINGLE_CHANNELSWITCH_V2_SET_CLASS(__pH2C, __Value)    SET_BITS_TO_LE_4BYTE(__pH2C + 0X00, 5, 3, __Value)
+#define SINGLE_CHANNELSWITCH_V2_GET_CENTRAL_CH(__pH2C)    LE_BITS_TO_4BYTE(__pH2C + 0X00, 8, 8)
+#define SINGLE_CHANNELSWITCH_V2_SET_CENTRAL_CH(__pH2C, __Value)    SET_BITS_TO_LE_4BYTE(__pH2C + 0X00, 8, 8, __Value)
+#define SINGLE_CHANNELSWITCH_V2_GET_PRIMARY_CH_IDX(__pH2C)    LE_BITS_TO_4BYTE(__pH2C + 0X00, 16, 4)
+#define SINGLE_CHANNELSWITCH_V2_SET_PRIMARY_CH_IDX(__pH2C, __Value)    SET_BITS_TO_LE_4BYTE(__pH2C + 0X00, 16, 4, __Value)
+#define SINGLE_CHANNELSWITCH_V2_GET_BW(__pH2C)    LE_BITS_TO_4BYTE(__pH2C + 0X00, 20, 4)
+#define SINGLE_CHANNELSWITCH_V2_SET_BW(__pH2C, __Value)    SET_BITS_TO_LE_4BYTE(__pH2C + 0X00, 20, 4, __Value)
 #define SET_PWR_MODE_GET_CMD_ID(__pH2C)    LE_BITS_TO_4BYTE(__pH2C + 0X00, 0, 5)
 #define SET_PWR_MODE_SET_CMD_ID(__pH2C, __Value)    SET_BITS_TO_LE_4BYTE(__pH2C + 0X00, 0, 5, __Value)
 #define SET_PWR_MODE_GET_CLASS(__pH2C)    LE_BITS_TO_4BYTE(__pH2C + 0X00, 5, 3)
@@ -360,6 +405,8 @@
 #define MACID_CFG_SET_MAC_ID(__pH2C, __Value)    SET_BITS_TO_LE_4BYTE(__pH2C + 0X00, 8, 8, __Value)
 #define MACID_CFG_GET_RATE_ID(__pH2C)    LE_BITS_TO_4BYTE(__pH2C + 0X00, 16, 5)
 #define MACID_CFG_SET_RATE_ID(__pH2C, __Value)    SET_BITS_TO_LE_4BYTE(__pH2C + 0X00, 16, 5, __Value)
+#define MACID_CFG_GET_INIT_RATE_LV(__pH2C)    LE_BITS_TO_4BYTE(__pH2C + 0X00, 21, 2)
+#define MACID_CFG_SET_INIT_RATE_LV(__pH2C, __Value)    SET_BITS_TO_LE_4BYTE(__pH2C + 0X00, 21, 2, __Value)
 #define MACID_CFG_GET_SGI(__pH2C)    LE_BITS_TO_4BYTE(__pH2C + 0X00, 23, 1)
 #define MACID_CFG_SET_SGI(__pH2C, __Value)    SET_BITS_TO_LE_4BYTE(__pH2C + 0X00, 23, 1, __Value)
 #define MACID_CFG_GET_BW(__pH2C)    LE_BITS_TO_4BYTE(__pH2C + 0X00, 24, 2)
@@ -604,4 +651,12 @@
 #define AOAC_RSVD_PAGE3_SET_LOC_NLO_INFO(__pH2C, __Value)    SET_BITS_TO_LE_4BYTE(__pH2C + 0X00, 8, 8, __Value)
 #define AOAC_RSVD_PAGE3_GET_LOC_AOAC_REPORT(__pH2C)    LE_BITS_TO_4BYTE(__pH2C + 0X00, 16, 8)
 #define AOAC_RSVD_PAGE3_SET_LOC_AOAC_REPORT(__pH2C, __Value)    SET_BITS_TO_LE_4BYTE(__pH2C + 0X00, 16, 8, __Value)
+#define DBG_MSG_CTRL_GET_CMD_ID(__pH2C)    LE_BITS_TO_4BYTE(__pH2C + 0X00, 0, 5)
+#define DBG_MSG_CTRL_SET_CMD_ID(__pH2C, __Value)    SET_BITS_TO_LE_4BYTE(__pH2C + 0X00, 0, 5, __Value)
+#define DBG_MSG_CTRL_GET_CLASS(__pH2C)    LE_BITS_TO_4BYTE(__pH2C + 0X00, 5, 3)
+#define DBG_MSG_CTRL_SET_CLASS(__pH2C, __Value)    SET_BITS_TO_LE_4BYTE(__pH2C + 0X00, 5, 3, __Value)
+#define DBG_MSG_CTRL_GET_FUN_EN(__pH2C)    LE_BITS_TO_4BYTE(__pH2C + 0X00, 8, 1)
+#define DBG_MSG_CTRL_SET_FUN_EN(__pH2C, __Value)    SET_BITS_TO_LE_4BYTE(__pH2C + 0X00, 8, 1, __Value)
+#define DBG_MSG_CTRL_GET_MODE(__pH2C)    LE_BITS_TO_4BYTE(__pH2C + 0X00, 12, 4)
+#define DBG_MSG_CTRL_SET_MODE(__pH2C, __Value)    SET_BITS_TO_LE_4BYTE(__pH2C + 0X00, 12, 4, __Value)
 #endif

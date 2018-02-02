@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,12 +11,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 #ifndef __RTW_CMD_H_
 #define __RTW_CMD_H_
 
@@ -60,7 +55,8 @@ enum {
 struct cmd_priv {
 	_sema	cmd_queue_sema;
 	/* _sema	cmd_done_sema; */
-	_sema	terminate_cmdthread_sema;
+	_sema	start_cmdthread_sema;
+
 	_queue	cmd_queue;
 	u8	cmd_seq;
 	u8	*cmd_buf;	/* shall be non-paged, and 4 bytes aligned */
@@ -72,7 +68,7 @@ struct cmd_priv {
 	u32	rsp_cnt;
 	ATOMIC_T cmdthd_running;
 	/* u8 cmdthd_running; */
-	u8 stop_req;
+
 	_adapter *padapter;
 	_mutex sctx_mutex;
 };
@@ -90,7 +86,7 @@ struct evt_obj {
 struct	evt_priv {
 #ifdef CONFIG_EVENT_THREAD_MODE
 	_sema	evt_notify;
-	_sema	terminate_evtthread_sema;
+
 	_queue	evt_queue;
 #endif
 
@@ -192,6 +188,33 @@ extern void rtw_cmd_clr_isr(struct cmd_priv *pcmdpriv);
 extern void rtw_evt_notify_isr(struct evt_priv *pevtpriv);
 #ifdef CONFIG_P2P
 u8 p2p_protocol_wk_cmd(_adapter *padapter, int intCmdType);
+
+#ifdef CONFIG_IOCTL_CFG80211
+struct p2p_roch_parm {
+	u64 cookie;
+	struct wireless_dev *wdev;
+	struct ieee80211_channel ch;
+	enum nl80211_channel_type ch_type;
+	unsigned int duration;
+};
+
+u8 p2p_roch_cmd(_adapter *adapter
+	, u64 cookie, struct wireless_dev *wdev
+	, struct ieee80211_channel *ch, enum nl80211_channel_type ch_type
+	, unsigned int duration
+	, u8 flags
+);
+u8 p2p_cancel_roch_cmd(_adapter *adapter, u64 cookie, struct wireless_dev *wdev, u8 flags);
+
+struct mgnt_tx_parm {
+	u8 tx_ch;
+	u8 no_cck;
+	const u8 *buf;
+	size_t len;
+	int wait_ack;
+};
+u8 rtw_mgnt_tx_cmd(_adapter *adapter, u8 tx_ch, u8 no_cck, const u8 *buf, size_t len, int wait_ack, u8 flags);
+#endif /* CONFIG_IOCTL_CFG80211 */
 #endif /* CONFIG_P2P */
 
 #else
@@ -226,6 +249,10 @@ enum rtw_drvextra_cmd_id {
 	TEST_H2C_CID,
 	MP_CMD_WK_CID,
 	CUSTOMER_STR_WK_CID,
+#ifdef CONFIG_RTW_REPEATER_SON
+	RSON_SCAN_WK_CID,
+#endif
+	MGNT_TX_WK_CID,
 	MAX_WK_CID
 };
 
@@ -514,35 +541,6 @@ struct getdatarate_parm {
 };
 struct getdatarate_rsp {
 	u8 datarates[NumRates];
-};
-
-
-/*
-Caller Mode: Any
-AP: AP can use the info for the contents of beacon frame
-Infra: STA can use the info when sitesurveying
-Ad-HoC(M): Like AP
-Ad-HoC(C): Like STA
-
-
-Notes: To set the phy capability of the NIC
-
-Command Mode
-
-*/
-
-struct	setphyinfo_parm {
-	struct regulatory_class class_sets[NUM_REGULATORYS];
-	u8	status;
-};
-
-struct	getphyinfo_parm {
-	u32 rsvd;
-};
-
-struct	getphyinfo_rsp {
-	struct regulatory_class class_sets[NUM_REGULATORYS];
-	u8	status;
 };
 
 /*
@@ -995,6 +993,7 @@ Result:
 #define H2C_RESERVED			0x07
 #define H2C_ENQ_HEAD			0x08
 #define H2C_ENQ_HEAD_FAIL		0x09
+#define H2C_CMD_FAIL			0x0A
 
 extern u8 rtw_setassocsta_cmd(_adapter  *padapter, u8 *mac_addr);
 extern u8 rtw_setstandby_cmd(_adapter *padapter, uint action);
@@ -1056,16 +1055,9 @@ extern u8 rtw_ps_cmd(_adapter *padapter);
 u8 rtw_chk_hi_queue_cmd(_adapter *padapter);
 #ifdef CONFIG_DFS_MASTER
 u8 rtw_dfs_master_cmd(_adapter *adapter, bool enqueue);
-void rtw_dfs_master_timer_hdl(RTW_TIMER_HDL_ARGS);
+void rtw_dfs_master_timer_hdl(void *ctx);
 void rtw_dfs_master_enable(_adapter *adapter, u8 ch, u8 bw, u8 offset);
 void rtw_dfs_master_disable(_adapter *adapter, u8 ch, u8 bw, u8 offset, bool by_others);
-enum {
-	MLME_STA_CONNECTING,
-	MLME_STA_CONNECTED,
-	MLME_STA_DISCONNECTED,
-	MLME_AP_STARTED,
-	MLME_AP_STOPPED,
-};
 void rtw_dfs_master_status_apply(_adapter *adapter, u8 self_action);
 #endif /* CONFIG_DFS_MASTER */
 #endif /* CONFIG_AP_MODE */
@@ -1078,7 +1070,7 @@ u8 rtw_test_h2c_cmd(_adapter *adapter, u8 *buf, u8 len);
 
 u8 rtw_enable_hw_update_tsf_cmd(_adapter *padapter);
 
-u8 rtw_set_ch_cmd(_adapter *padapter, u8 ch, u8 bw, u8 ch_offset, u8 enqueue);
+u8 rtw_set_chbw_cmd(_adapter *padapter, u8 ch, u8 bw, u8 ch_offset, u8 flags);
 
 u8 rtw_set_chplan_cmd(_adapter *adapter, int flags, u8 chplan, u8 swconfig);
 u8 rtw_set_country_cmd(_adapter *adapter, int flags, const char *country_code, u8 swconfig);
@@ -1099,6 +1091,12 @@ u8 rtw_c2h_reg_wk_cmd(_adapter *adapter, u8 *c2h_evt);
 #endif
 #ifdef CONFIG_FW_C2H_PKT
 u8 rtw_c2h_packet_wk_cmd(_adapter *adapter, u8 *c2h_evt, u16 length);
+#endif
+
+#ifdef CONFIG_RTW_REPEATER_SON
+#define RSON_SCAN_PROCESS		10
+#define RSON_SCAN_DISABLE		11
+u8 rtw_rson_scan_wk_cmd(_adapter *adapter, int op);
 #endif
 
 u8 rtw_run_in_thread_cmd(PADAPTER padapter, void (*func)(void *), void *context);

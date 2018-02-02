@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2017 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,12 +11,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 #define _HCI_INTF_C_
 
 #include <drv_types.h>
@@ -95,6 +90,7 @@ MODULE_DEVICE_TABLE(sdio, sdio_ids);
 
 static int rtw_drv_init(struct sdio_func *func, const struct sdio_device_id *id);
 static void rtw_dev_remove(struct sdio_func *func);
+static void rtw_dev_shutdown(struct device *dev);
 static int rtw_sdio_resume(struct device *dev);
 static int rtw_sdio_suspend(struct device *dev);
 extern void rtw_dev_unload(PADAPTER padapter);
@@ -118,6 +114,7 @@ static struct sdio_drv_priv sdio_drvpriv = {
 	.r871xs_drv.id_table = sdio_ids,
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 29))
 	.r871xs_drv.drv = {
+		.shutdown = rtw_dev_shutdown,
 		.pm = &rtw_sdio_pm_ops,
 	}
 #endif
@@ -132,15 +129,10 @@ static void sd_sync_int_hdl(struct sdio_func *func)
 {
 	struct dvobj_priv *psdpriv;
 
-
 	psdpriv = sdio_get_drvdata(func);
-	if (!psdpriv) {
-		RTW_ERR("%s: driver object is NULL!!\n", __func__);
-		return;
-	}
 
 	if (!dvobj_get_primary_adapter(psdpriv)) {
-		RTW_ERR("%s primary adapter == NULL\n", __func__);
+		RTW_INFO("%s primary adapter == NULL\n", __func__);
 		return;
 	}
 
@@ -149,168 +141,53 @@ static void sd_sync_int_hdl(struct sdio_func *func)
 	rtw_sdio_set_irq_thd(psdpriv, NULL);
 }
 
-#ifdef CONFIG_RTW_SDIO_OOB_INT
-static irqreturn_t rtw_sdio_oob_thd_hdl(int irq, void *data)
-{
-	struct dvobj_priv *dvobj = (struct dvobj_priv *)data;
-	_adapter *padapter = dvobj_get_primary_adapter(dvobj);
-	PHAL_DATA_TYPE phal = phal = GET_HAL_DATA(padapter);
-
-	if (RTW_CANNOT_RUN(padapter)) {
-		u32 himr;
-
-		himr = rtw_read32(padapter, REG_SDIO_HIMR);
-		RTW_PRINT("%s: HIMR(0x%08x) = 0x%08x\n",
-			  __func__, REG_SDIO_HIMR, himr);
-
-		/* Disable interrupt */
-		rtw_write32(padapter, REG_SDIO_HIMR, 0);
-
-		return IRQ_NONE;
-	}
-
-	sd_int_hdl(padapter);
-
-	return IRQ_HANDLED;
-}
-
-static irqreturn_t rtw_sdio_oob_int_hdl(int irq, void *data)
-{
-	return IRQ_WAKE_THREAD;
-}
-
-static int sdio_alloc_oob_irq(struct dvobj_priv *dvobj)
-{
-	int irq;
-	ulong flags;
-	int err = 0;
-
-
-	irq = platform_wifi_get_oob_irq();
-	if (irq == 0) {
-		RTW_ERR("%s: sdio oob_irq ZERO!\n", __func__);
-		return -1;
-	}
-#ifdef CONFIG_PLATFORM_AML_S905
-	/*
-	 * Amlogic S905 use ARM gic, and only accept high level
-	 * or rising trigger.
-	 * The peripheral interrupt trigger type is defined in dts.
-	 * Make Sure wifi setting of dts already set irq_trigger_type
-	 * to GPIO_IRQ_FALLING.
-	 */
-	flags = IRQF_SHARED | IRQF_TRIGGER_RISING;
-#else /* !CONFIG_PLATFORM_AML_S905 */
-	flags = IRQF_TRIGGER_FALLING;
-#endif /* !CONFIG_PLATFORM_AML_S905 */
-	RTW_PRINT("%s: sdio oob_irq=%d flag=0x%lx\n", __func__, irq, flags);
-
-	err = request_threaded_irq(irq, rtw_sdio_oob_int_hdl,
-				   rtw_sdio_oob_thd_hdl,
-				   flags, "rtw_sdio_oob_interrupt", dvobj);
-	if (err)
-		RTW_ERR("%s: request sdio oob threaded_irq FAIL(%d)!\n",
-			__func__, err);
-	return err;
-}
-
-static int sdio_free_oob_irq(struct dvobj_priv *dvobj)
-{
-	int irq;
-
-
-	irq = platform_wifi_get_oob_irq();
-	if (irq) {
-		free_irq(irq, dvobj);
-		return 0;
-	}
-
-	RTW_ERR("%s: sdio oob_irq ZERO!\n", __func__);
-	return -1;
-}
-
-#else /* !CONFIG_RTW_SDIO_OOB_INT */
-
-static int _sdio_alloc_irq(struct dvobj_priv *dvobj)
-{
-	PSDIO_DATA psdio_data;
-	struct sdio_func *func;
-	int err;
-
-
-	psdio_data = &dvobj->intf_data;
-	func = psdio_data->func;
-
-	sdio_claim_host(func);
-	err = sdio_claim_irq(func, &sd_sync_int_hdl);
-	sdio_release_host(func);
-	if (err)
-		RTW_ERR("%s: sdio_claim_irq FAIL(%d)!\n", __func__, err);
-
-	return err;
-}
-
-static int _sdio_free_irq(struct dvobj_priv *dvobj)
-{
-	PSDIO_DATA psdio_data;
-	struct sdio_func *func;
-	int err;
-
-
-	psdio_data = &dvobj->intf_data;
-	func = psdio_data->func;
-
-	sdio_claim_host(func);
-	err = sdio_release_irq(func);
-	sdio_release_host(func);
-	if (err)
-		RTW_ERR("%s: sdio_release_irq FAIL(%d)!\n", __func__, err);
-
-	return err;
-}
-#endif /* !CONFIG_RTW_SDIO_OOB_INT */
-
 int sdio_alloc_irq(struct dvobj_priv *dvobj)
 {
-	int err = 0;
+	PSDIO_DATA psdio_data;
+	struct sdio_func *func;
+	int err;
 
+	psdio_data = &dvobj->intf_data;
+	func = psdio_data->func;
 
-#ifdef CONFIG_RTW_SDIO_OOB_INT
-	err = sdio_alloc_oob_irq(dvobj);
-#else /* !CONFIG_RTW_SDIO_OOB_INT */
-	err = _sdio_alloc_irq(dvobj);
-#endif /* !CONFIG_RTW_SDIO_OOB_INT */
+	sdio_claim_host(func);
 
+	err = sdio_claim_irq(func, &sd_sync_int_hdl);
 	if (err) {
 		dvobj->drv_dbg.dbg_sdio_alloc_irq_error_cnt++;
+		RTW_PRINT("%s: sdio_claim_irq FAIL(%d)!\n", __func__, err);
 	} else {
 		dvobj->drv_dbg.dbg_sdio_alloc_irq_cnt++;
 		dvobj->irq_alloc = 1;
 	}
+
+	sdio_release_host(func);
 
 	return err ? _FAIL : _SUCCESS;
 }
 
 void sdio_free_irq(struct dvobj_priv *dvobj)
 {
-	int err = 0;
+	PSDIO_DATA psdio_data;
+	struct sdio_func *func;
+	int err;
 
+	if (dvobj->irq_alloc) {
+		psdio_data = &dvobj->intf_data;
+		func = psdio_data->func;
 
-	if (!dvobj->irq_alloc)
-		return;
-
-#ifdef CONFIG_RTW_SDIO_OOB_INT
-	err = sdio_free_oob_irq(dvobj);
-#else /* CONFIG_RTW_SDIO_OOB_INT */
-	err = _sdio_free_irq(dvobj);
-#endif /* CONFIG_RTW_SDIO_OOB_INT */
-
-	if (err)
-		dvobj->drv_dbg.dbg_sdio_free_irq_error_cnt++;
-	else
-		dvobj->drv_dbg.dbg_sdio_free_irq_cnt++;
-
-	dvobj->irq_alloc = 0;
+		if (func) {
+			sdio_claim_host(func);
+			err = sdio_release_irq(func);
+			if (err) {
+				dvobj->drv_dbg.dbg_sdio_free_irq_error_cnt++;
+				RTW_ERR("%s: sdio_release_irq FAIL(%d)!\n", __func__, err);
+			} else
+				dvobj->drv_dbg.dbg_sdio_free_irq_cnt++;
+			sdio_release_host(func);
+		}
+		dvobj->irq_alloc = 0;
+	}
 }
 
 #ifdef CONFIG_GPIO_WAKEUP
@@ -322,7 +199,6 @@ static irqreturn_t gpio_hostwakeup_irq_thread(int irq, void *data)
 	RTW_PRINT("gpio_hostwakeup_irq_thread\n");
 	/* Disable interrupt before calling handler */
 	/* disable_irq_nosync(oob_irq); */
-	rtw_lock_suspend_timeout(HZ / 2);
 #ifdef CONFIG_PLATFORM_ARM_SUN6I
 	return 0;
 #else
@@ -380,7 +256,76 @@ static void gpio_hostwakeup_free_irq(PADAPTER padapter)
 }
 #endif
 
-static u32 sdio_init(struct dvobj_priv *dvobj)
+void dump_sdio_card_info(void *sel, struct dvobj_priv *dvobj)
+{
+	PSDIO_DATA psdio_data = &dvobj->intf_data;
+
+	RTW_PRINT_SEL(sel, "== SDIO Card Info ==\n");
+	RTW_PRINT_SEL(sel, "  clock: %d Hz\n", psdio_data->clock);
+
+	RTW_PRINT_SEL(sel, "  timing spec: ");
+	switch (psdio_data->timing) {
+	case MMC_TIMING_LEGACY:
+		_RTW_PRINT_SEL(sel, "legacy");
+		break;
+	case MMC_TIMING_MMC_HS:
+		_RTW_PRINT_SEL(sel, "mmc high-speed");
+		break;
+	case MMC_TIMING_SD_HS:
+		_RTW_PRINT_SEL(sel, "sd high-speed");
+		break;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 0, 0)
+	#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 8, 0)
+	case MMC_TIMING_UHS_SDR12:
+		_RTW_PRINT_SEL(sel, "sd uhs SDR12");
+		break;
+	case MMC_TIMING_UHS_SDR25:
+		_RTW_PRINT_SEL(sel, "sd uhs SDR25");
+		break;
+	#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3, 8, 0) */
+
+	case MMC_TIMING_UHS_SDR50:
+		_RTW_PRINT_SEL(sel, "sd uhs SDR50");
+		break;
+
+	#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 16, 0)
+	case MMC_TIMING_MMC_DDR52:
+		_RTW_PRINT_SEL(sel, "mmc DDR52");
+		break;
+	#endif
+
+	case MMC_TIMING_UHS_SDR104:
+		_RTW_PRINT_SEL(sel, "sd uhs SDR104");
+		break;
+	case MMC_TIMING_UHS_DDR50:
+		_RTW_PRINT_SEL(sel, "sd uhs DDR50");
+		break;
+
+	#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 3, 0)
+	case MMC_TIMING_MMC_HS200:
+		_RTW_PRINT_SEL(sel, "mmc HS200");
+		break;
+	#endif
+
+	#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 16, 0)
+	case MMC_TIMING_MMC_HS400:
+		_RTW_PRINT_SEL(sel, "mmc HS400");
+		break;
+	#endif
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3, 0, 0) */
+	default:
+		_RTW_PRINT_SEL(sel, "unknown(%d)", psdio_data->timing);
+		break;
+	}
+	_RTW_PRINT_SEL(sel, "\n");
+
+	RTW_PRINT_SEL(sel, "  sd3_bus_mode: %s\n", (psdio_data->sd3_bus_mode) ? "TRUE" : "FALSE");
+	RTW_PRINT_SEL(sel, "================\n");
+}
+
+#define SDIO_CARD_INFO_DUMP(dvobj)	dump_sdio_card_info(RTW_DBGDUMP, dvobj)
+
+u32 sdio_init(struct dvobj_priv *dvobj)
 {
 	PSDIO_DATA psdio_data;
 	struct sdio_func *func;
@@ -410,6 +355,23 @@ static u32 sdio_init(struct dvobj_priv *dvobj)
 	psdio_data->tx_block_mode = 1;
 	psdio_data->rx_block_mode = 1;
 
+	psdio_data->timing = func->card->host->ios.timing;
+	psdio_data->clock = func->card->host->ios.clock;
+
+	psdio_data->sd3_bus_mode = _FALSE;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 0, 0)
+	if (psdio_data->timing <= MMC_TIMING_UHS_DDR50
+		#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 8, 0)
+		&& psdio_data->timing >= MMC_TIMING_UHS_SDR12
+		#else
+		&& psdio_data->timing >= MMC_TIMING_UHS_SDR50
+		#endif
+	)
+		psdio_data->sd3_bus_mode = _TRUE;
+#endif
+	SDIO_CARD_INFO_DUMP(dvobj);
+
+
 release:
 	sdio_release_host(func);
 
@@ -420,7 +382,7 @@ exit:
 	return _SUCCESS;
 }
 
-static void sdio_deinit(struct dvobj_priv *dvobj)
+void sdio_deinit(struct dvobj_priv *dvobj)
 {
 	struct sdio_func *func;
 	int err;
@@ -689,11 +651,6 @@ _adapter *rtw_sdio_primary_adapter_init(struct dvobj_priv *dvobj)
 	padapter->intf_start = &sd_intf_start;
 	padapter->intf_stop = &sd_intf_stop;
 
-	padapter->intf_init = &sdio_init;
-	padapter->intf_deinit = &sdio_deinit;
-	padapter->intf_alloc_irq = &sdio_alloc_irq;
-	padapter->intf_free_irq = &sdio_free_irq;
-
 	if (rtw_init_io_priv(padapter, sdio_set_intf_ops) == _FAIL) {
 		goto free_hal_data;
 	}
@@ -703,8 +660,8 @@ _adapter *rtw_sdio_primary_adapter_init(struct dvobj_priv *dvobj)
 	rtw_hal_chip_configure(padapter);
 
 	/* 3 6. read efuse/eeprom data */
-	rtw_hal_read_chip_info(padapter);
-
+	if (rtw_hal_read_chip_info(padapter) == _FAIL)
+		goto free_hal_data;
 
 	/* 3 7. init driver common data */
 	if (rtw_init_drv_sw(padapter) == _FAIL) {
@@ -763,7 +720,7 @@ static void rtw_sdio_primary_adapter_deinit(_adapter *padapter)
 		rtw_disassoc_cmd(padapter, 0, RTW_CMDF_DIRECTLY);
 
 #ifdef CONFIG_AP_MODE
-	if (check_fwstate(&padapter->mlmepriv, WIFI_AP_STATE) == _TRUE) {
+	if (MLME_IS_AP(padapter) || MLME_IS_MESH(padapter)) {
 		free_mlme_ap_info(padapter);
 		#ifdef CONFIG_HOSTAPD_MLME
 		hostapd_mode_unload(padapter);
@@ -977,7 +934,7 @@ static void rtw_dev_remove(struct sdio_func *func)
 	rtw_unregister_early_suspend(pwrctl);
 #endif
 
-	if (padapter->bFWReady == _TRUE) {
+	if (GET_HAL_DATA(padapter)->bFWReady == _TRUE) {
 		rtw_ps_deny(padapter, PS_DENY_DRV_REMOVE);
 		rtw_pm_set_ips(padapter, IPS_NONE);
 		rtw_pm_set_lps(padapter, PS_MODE_ACTIVE);
@@ -1007,6 +964,12 @@ static void rtw_dev_remove(struct sdio_func *func)
 
 
 }
+static void rtw_dev_shutdown(struct device *dev)
+{
+	RTW_PRINT("+%s\n", __FUNCTION__);
+	rtw_dev_remove(dev_to_sdio_func(dev));
+}
+
 extern int pm_netdev_open(struct net_device *pnetdev, u8 bnormal);
 extern int pm_netdev_close(struct net_device *pnetdev, u8 bnormal);
 
@@ -1094,32 +1057,28 @@ static int rtw_sdio_resume(struct device *dev)
 
 	pdbgpriv->dbg_resume_cnt++;
 
-	if (pwrpriv->bInternalAutoSuspend)
-		ret = rtw_resume_process(padapter);
-	else {
 #ifdef CONFIG_PLATFORM_INTEL_BYT
-		if (0)
+	if (0)
 #else
-		if (pwrpriv->wowlan_mode || pwrpriv->wowlan_ap_mode)
+	if (pwrpriv->wowlan_mode || pwrpriv->wowlan_ap_mode)
 #endif
-		{
+	{
+		rtw_resume_lock_suspend();
+		ret = rtw_resume_process(padapter);
+		rtw_resume_unlock_suspend();
+	} else {
+#ifdef CONFIG_RESUME_IN_WORKQUEUE
+		rtw_resume_in_workqueue(pwrpriv);
+#else
+		if (rtw_is_earlysuspend_registered(pwrpriv)) {
+			/* jeff: bypass resume here, do in late_resume */
+			rtw_set_do_late_resume(pwrpriv, _TRUE);
+		} else {
 			rtw_resume_lock_suspend();
 			ret = rtw_resume_process(padapter);
 			rtw_resume_unlock_suspend();
-		} else {
-#ifdef CONFIG_RESUME_IN_WORKQUEUE
-			rtw_resume_in_workqueue(pwrpriv);
-#else
-			if (rtw_is_earlysuspend_registered(pwrpriv)) {
-				/* jeff: bypass resume here, do in late_resume */
-				rtw_set_do_late_resume(pwrpriv, _TRUE);
-			} else {
-				rtw_resume_lock_suspend();
-				ret = rtw_resume_process(padapter);
-				rtw_resume_unlock_suspend();
-			}
-#endif
 		}
+#endif
 	}
 	pmlmeext->last_scan_time = rtw_get_current_time();
 	RTW_INFO("<========  %s return %d\n", __FUNCTION__, ret);
@@ -1137,6 +1096,10 @@ static int __init rtw_drv_entry(void)
 	RTW_PRINT(DRV_NAME" BT-Coex version = %s\n", BTCOEXVERSION);
 #endif /* BTCOEXVERSION */
 
+#ifndef CONFIG_PLATFORM_INTEL_BYT
+	rtw_android_wifictrl_func_add();
+#endif /* !CONFIG_PLATFORM_INTEL_BYT */
+
 	ret = platform_wifi_power_on();
 	if (ret) {
 		RTW_INFO("%s: power on failed!!(%d)\n", __FUNCTION__, ret);
@@ -1148,6 +1111,7 @@ static int __init rtw_drv_entry(void)
 	rtw_suspend_lock_init();
 	rtw_drv_proc_init();
 	rtw_ndev_notifier_register();
+	rtw_inetaddr_notifier_register();
 
 	ret = sdio_register_driver(&sdio_drvpriv.r871xs_drv);
 	if (ret != 0) {
@@ -1155,13 +1119,11 @@ static int __init rtw_drv_entry(void)
 		rtw_suspend_lock_uninit();
 		rtw_drv_proc_deinit();
 		rtw_ndev_notifier_unregister();
+		rtw_inetaddr_notifier_unregister();
 		RTW_INFO("%s: register driver failed!!(%d)\n", __FUNCTION__, ret);
 		goto poweroff;
 	}
 
-#ifndef CONFIG_PLATFORM_INTEL_BYT
-	rtw_android_wifictrl_func_add();
-#endif /* !CONFIG_PLATFORM_INTEL_BYT */
 	goto exit;
 
 poweroff:
@@ -1187,6 +1149,7 @@ static void __exit rtw_drv_halt(void)
 	rtw_suspend_lock_uninit();
 	rtw_drv_proc_deinit();
 	rtw_ndev_notifier_unregister();
+	rtw_inetaddr_notifier_unregister();
 
 	RTW_PRINT("module exit success\n");
 

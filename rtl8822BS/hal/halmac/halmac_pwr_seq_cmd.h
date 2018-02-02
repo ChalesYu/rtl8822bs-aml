@@ -1,10 +1,24 @@
+/******************************************************************************
+ *
+ * Copyright(c) 2016 - 2017 Realtek Corporation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of version 2 of the GNU General Public License as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+ * more details.
+ *
+ ******************************************************************************/
+
 #ifndef HALMAC_POWER_SEQUENCE_CMD
 #define HALMAC_POWER_SEQUENCE_CMD
 
 #include "halmac_2_platform.h"
-#include "halmac_type.h"
 
-#define HALMAC_POLLING_READY_TIMEOUT_COUNT 10000
+#define HALMAC_POLLING_READY_TIMEOUT_COUNT 20000
 
 /*
 * The value of cmd : 4 bits

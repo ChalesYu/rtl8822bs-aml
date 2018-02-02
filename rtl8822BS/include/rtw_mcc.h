@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2015 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2015 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,11 +11,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- ******************************************************************************/
+ *****************************************************************************/
 #ifdef CONFIG_MCC_MODE
 
 #ifndef _RTW_MCC_H_
@@ -149,7 +145,7 @@ struct mcc_obj_priv {
 	u8 mcc_loc_rsvd_paga[MAX_MCC_NUM];  /* mcc rsvd page */
 	u8 mcc_status; /* mcc status stop or start .... */
 	u8 policy_index;
-	u32 mcc_launch_time; /* mcc launch time, used for starting detect mcc switch channel success */
+	systime mcc_launch_time; /* mcc launch time, used for starting detect mcc switch channel success */
 	_mutex mcc_mutex;
 	_lock mcc_lock;
 	PADAPTER iface[MAX_MCC_NUM]; /* by order, use for mcc parameter cmd */

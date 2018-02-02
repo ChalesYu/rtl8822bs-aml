@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,12 +11,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 /* ************************************************************
  * File Name: odm_reg.h
  *
@@ -209,6 +204,21 @@
 
 #define	BIT_FA_RESET					BIT(0)
 
+#if (DM_ODM_SUPPORT_TYPE == ODM_CE) && defined(DM_ODM_CE_MAC80211)
+	#define REG_OFDM_0_XA_TX_IQ_IMBALANCE	0xC80
+	#define REG_OFDM_0_ECCA_THRESHOLD	0xC4C
+	#define REG_FPGA0_XB_LSSI_READ_BACK	0x8A4
+	#define REG_FPGA0_TX_GAIN_STAGE		0x80C
+	#define REG_OFDM_0_XA_AGC_CORE1		0xC50
+	#define REG_OFDM_0_XB_AGC_CORE1		0xC58
+	#define REG_A_TX_SCALE_JAGUAR		0xC1C
+	#define REG_B_TX_SCALE_JAGUAR		0xE1C
 
+	#define REG_AFE_XTAL_CTRL		0x0024
+	#define REG_AFE_PLL_CTRL		0x0028
+	#define REG_MAC_PHY_CTRL		0x002C
+
+	#define RF_CHNLBW			0x18
+#endif
 
 #endif

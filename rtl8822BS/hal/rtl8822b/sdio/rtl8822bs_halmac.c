@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2015 - 2016 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2015 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,22 +11,19 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 #define _RTL8822BS_HALMAC_C_
 
 #include <drv_types.h>		/* struct dvobj_priv and etc. */
 #include <rtw_sdio.h>		/* rtw_sdio_write_cmd53() */
 #include "../../hal_halmac.h"	/* PHALMAC_ADAPTER, PHALMAC_API and etc. */
+#include "../rtl8822b.h"	/* rtl8822b_get_tx_desc_size() */
 #include "rtl8822bs.h"		/* rtl8822bs_write_port() */
 
 
 static u8 sdio_write_data_rsvd_page(void *d, u8 *pBuf, u32 size)
 {
+	struct dvobj_priv *drv;
 	PHALMAC_ADAPTER halmac;
 	PHALMAC_API api;
 	u32 desclen, len;
@@ -34,10 +31,10 @@ static u8 sdio_write_data_rsvd_page(void *d, u8 *pBuf, u32 size)
 	u8 ret;
 
 
-	halmac = dvobj_to_halmac((struct dvobj_priv *)d);
+	drv = (struct dvobj_priv *)d;
+	halmac = dvobj_to_halmac(drv);
 	api = HALMAC_GET_API(halmac);
-
-	desclen = HALMAC_TX_DESC_SIZE_8822B;
+	desclen = rtl8822b_get_tx_desc_size(dvobj_get_primary_adapter(drv));
 	len = desclen + size;
 	buf = rtw_zmalloc(len);
 	if (!buf)
@@ -49,7 +46,7 @@ static u8 sdio_write_data_rsvd_page(void *d, u8 *pBuf, u32 size)
 	SET_TX_DESC_QSEL_8822B(buf, HALMAC_QUEUE_SELECT_BCN);
 	api->halmac_fill_txdesc_checksum(halmac, buf);
 
-	ret = rtl8822bs_write_port(d, len, buf);
+	ret = rtl8822bs_write_port(drv, len, buf);
 	if (_SUCCESS == ret)
 		ret = _TRUE;
 	else
@@ -62,6 +59,7 @@ static u8 sdio_write_data_rsvd_page(void *d, u8 *pBuf, u32 size)
 
 static u8 sdio_write_data_h2c(void *d, u8 *pBuf, u32 size)
 {
+	struct dvobj_priv *drv;
 	PHALMAC_ADAPTER halmac;
 	PHALMAC_API api;
 	u32 addr, desclen, len;
@@ -69,10 +67,10 @@ static u8 sdio_write_data_h2c(void *d, u8 *pBuf, u32 size)
 	u8 ret;
 
 
-	halmac = dvobj_to_halmac((struct dvobj_priv *)d);
+	drv = (struct dvobj_priv *)d;
+	halmac = dvobj_to_halmac(drv);
 	api = HALMAC_GET_API(halmac);
-
-	desclen = HALMAC_TX_DESC_SIZE_8822B;
+	desclen = rtl8822b_get_tx_desc_size(dvobj_get_primary_adapter(drv));
 	len = desclen + size;
 	buf = rtw_zmalloc(len);
 	if (!buf)
@@ -83,7 +81,7 @@ static u8 sdio_write_data_h2c(void *d, u8 *pBuf, u32 size)
 	SET_TX_DESC_QSEL_8822B(buf, HALMAC_QUEUE_SELECT_CMD);
 	api->halmac_fill_txdesc_checksum(halmac, buf);
 
-	ret = rtl8822bs_write_port(d, len, buf);
+	ret = rtl8822bs_write_port(drv, len, buf);
 	if (_SUCCESS == ret)
 		ret = _TRUE;
 	else

@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2015 - 2016 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2015 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,19 +11,14 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 /*
  * Public General Config
  */
 #define AUTOCONF_INCLUDED
 
-#define RTL871X_MODULE_NAME "8822BS"
-#define DRV_NAME "rtl8822bs"
+#define RTL871X_MODULE_NAME "88x2BS"
+#define DRV_NAME "rtl88x2bs"
 
 /* Set CONFIG_RTL8822B from Makefile */
 #ifndef CONFIG_RTL8822B
@@ -98,12 +93,11 @@
 /* Set CONFIG_CONCURRENT_MODE from Makefile */
 #ifdef CONFIG_CONCURRENT_MODE
 	/*#define CONFIG_HWPORT_SWAP*/		/* Port0->Sec , Port1->Pri */
-	#define CONFIG_RUNTIME_PORT_SWITCH
+	/*#define CONFIG_RUNTIME_PORT_SWITCH*/
 	#ifndef CONFIG_RUNTIME_PORT_SWITCH
 		/* #define CONFIG_TSF_RESET_OFFLOAD */	/* For 2 PORT TSF SYNC. */
 	#endif
 	/*#define DBG_RUNTIME_PORT_SWITCH*/
-	#define CONFIG_SCAN_BACKOP
 #endif /* CONFIG_CONCURRENT_MODE */
 
 #define CONFIG_LAYER2_ROAMING
@@ -111,7 +105,7 @@
 
 /*#define CONFIG_80211D*/
 
-/*#define CONFIG_BEAMFORMING*/
+#define CONFIG_BEAMFORMING
 
 
 /*
@@ -120,13 +114,16 @@
 /* Set CONFIG_BT_COEXIST from Makefile */
 /* Set CONFIG_ANTENNA_DIVERSITY from Makefile */
 /*#define SUPPORT_HW_RFOFF_DETECTED*/
-/*#define CONFIG_SW_LED*/
+/*#define CONFIG_RTW_LED*/
+#ifdef CONFIG_RTW_LED
+	/*#define CONFIG_RTW_SW_LED*/
+#endif /* CONFIG_RTW_LED */
+
 #define CONFIG_XMIT_ACK
 #ifdef CONFIG_XMIT_ACK
 	#define CONFIG_ACTIVE_KEEP_ALIVE_CHECK
 #endif
 
-#define CONFIG_RF_POWER_TRIM
 
 #define DISABLE_BB_RF		0
 #define RTW_NOTCH_FILTER	0 /* 0:Disable, 1:Enable */
@@ -134,7 +131,7 @@
 #define CONFIG_SUPPORT_TRX_SHARED
 #ifdef CONFIG_SUPPORT_TRX_SHARED
 #define DFT_TRX_SHARE_MODE	1
-#endif
+#endif /* CONFIG_SUPPORT_TRX_SHARED */
 
 /*
  * Software feature Related Config
@@ -150,8 +147,6 @@
 #define CONFIG_XMIT_THREAD_MODE	/* necessary for SDIO */
 /*#define CONFIG_SDIO_TX_ENABLE_AVAL_INT*/ /* not implemented yet */
 #define CONFIG_SDIO_RX_COPY
-/* #define CONFIG_SDIO_RX_DISABLE_POLLING */
-/*#define CONFIG_SDIO_RX_READ_IN_THREAD*/
 
 
 /*
@@ -164,7 +159,7 @@
 #ifdef CONFIG_EMBEDDED_FWIMG
 	#define	LOAD_FW_HEADER_FROM_DRIVER
 #endif
-#define CONFIG_FILE_FWIMG
+/*#define CONFIG_FILE_FWIMG*/
 #define CONFIG_LONG_DELAY_ISSUE
 /*#define CONFIG_PATCH_JOIN_WRONG_CHANNEL*/
 #define CONFIG_ATTEMPT_TO_FIX_AP_BEACON_ERROR
@@ -173,9 +168,6 @@
 #define CONFIG_RTW_NAPI_DYNAMIC
 #define CONFIG_RTW_NAPI_V2
 #endif
-
-/*#define CONFIG_TCP_CSUM_OFFLOAD_TX*/ /* not ready */
-#define CONFIG_TCP_CSUM_OFFLOAD_RX
 
 /*
  * Platform
@@ -237,6 +229,10 @@
 	/*#define CONFIG_SWLPS_IN_IPS*/ /* Do SW LPS flow when entering and leaving IPS */
 	/*#define CONFIG_FWLPS_IN_IPS*/ /* issue H2C command to let FW do LPS when entering IPS */
 	#endif
+
+	#ifdef CONFIG_LPS
+		#define CONFIG_WMMPS_STA 1
+	#endif /* CONFIG_LPS */
 #endif /* CONFIG_POWER_SAVING */
 
 #ifdef CONFIG_BT_COEXIST
@@ -245,6 +241,14 @@
 		#define CONFIG_LPS	/* download reserved page to FW */
 	#endif
 #endif /* !CONFIG_BT_COEXIST */
+
+#ifdef CONFIG_GPIO_WAKEUP
+	#ifndef WAKEUP_GPIO_IDX
+		/* 1315 module WIFI Chip Side */
+		#define WAKEUP_GPIO_IDX	10
+	#endif /* !WAKEUP_GPIO_IDX */
+#endif /* CONFIG_GPIO_WAKEUP */
+
 
 #ifdef CONFIG_ANTENNA_DIVERSITY
 #define CONFIG_HW_ANTENNA_DIVERSITY

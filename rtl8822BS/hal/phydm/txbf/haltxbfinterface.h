@@ -1,8 +1,25 @@
+/******************************************************************************
+ *
+ * Copyright(c) 2016 - 2017 Realtek Corporation.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of version 2 of the GNU General Public License as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+ * more details.
+ *
+ *****************************************************************************/
 #ifndef __HAL_TXBF_INTERFACE_H__
 #define __HAL_TXBF_INTERFACE_H__
 
 #if (BEAMFORMING_SUPPORT == 1)
 #if (DM_ODM_SUPPORT_TYPE == ODM_WIN)
+
+#define a_SifsTime					((IS_WIRELESS_MODE_5G(adapter)|| IS_WIRELESS_MODE_N_24G(adapter))? 16 : 10)
+
 void
 beamforming_gid_paid(
 	struct _ADAPTER	*adapter,
@@ -22,34 +39,34 @@ beamforming_get_ndpa_frame(
 	OCTET_STRING	pdu_os
 );
 
-bool
+boolean
 send_fw_ht_ndpa_packet(
 	void			*p_dm_void,
 	u8			*RA,
-	CHANNEL_WIDTH	BW
+	enum channel_width	BW
 );
 
-bool
+boolean
 send_fw_vht_ndpa_packet(
 	void			*p_dm_void,
 	u8			*RA,
 	u16			AID,
-	CHANNEL_WIDTH	BW
+	enum channel_width	BW
 );
 
-bool
+boolean
 send_sw_vht_ndpa_packet(
 	void			*p_dm_void,
 	u8			*RA,
 	u16			AID,
-	CHANNEL_WIDTH	BW
+	enum channel_width	BW
 );
 
-bool
+boolean
 send_sw_ht_ndpa_packet(
 	void			*p_dm_void,
 	u8			*RA,
-	CHANNEL_WIDTH	BW
+	enum channel_width	BW
 );
 
 #if (SUPPORT_MU_BF == 1)
@@ -60,24 +77,24 @@ beamforming_get_vht_gid_mgnt_frame(
 	POCTET_STRING	p_pdu_os
 );
 
-bool
+boolean
 send_sw_vht_gid_mgnt_frame(
 	void			*p_dm_void,
 	u8			*RA,
 	u8			idx
 );
 
-bool
+boolean
 send_sw_vht_bf_report_poll(
 	void			*p_dm_void,
 	u8			*RA,
-	bool			is_final_poll
+	boolean			is_final_poll
 );
 
-bool
+boolean
 send_sw_vht_mu_ndpa_packet(
 	void			*p_dm_void,
-	CHANNEL_WIDTH	BW
+	enum channel_width	BW
 );
 #else
 #define beamforming_get_vht_gid_mgnt_frame(adapter, p_rfd, p_pdu_os) RT_STATUS_FAILURE
@@ -95,34 +112,34 @@ beamforming_get_report_frame(
 	union recv_frame *precv_frame
 );
 
-bool
+boolean
 send_fw_ht_ndpa_packet(
 	void			*p_dm_void,
 	u8			*RA,
-	CHANNEL_WIDTH	BW
+	enum channel_width	BW
 );
 
-bool
+boolean
 send_sw_ht_ndpa_packet(
 	void			*p_dm_void,
 	u8			*RA,
-	CHANNEL_WIDTH	BW
+	enum channel_width	BW
 );
 
-bool
+boolean
 send_fw_vht_ndpa_packet(
 	void			*p_dm_void,
 	u8			*RA,
 	u16			AID,
-	CHANNEL_WIDTH	BW
+	enum channel_width	BW
 );
 
-bool
+boolean
 send_sw_vht_ndpa_packet(
 	void			*p_dm_void,
 	u8			*RA,
 	u16			AID,
-	CHANNEL_WIDTH	BW
+	enum channel_width	BW
 );
 #endif
 
@@ -136,14 +153,14 @@ beamforming_get_ndpa_frame(
 #endif
 );
 
-bool
+boolean
 dbg_send_sw_vht_mundpa_packet(
 	void			*p_dm_void,
-	CHANNEL_WIDTH	BW
+	enum channel_width	BW
 );
 
 #else
-#define beamforming_get_ndpa_frame(p_dm_odm, _pdu_os)
+#define beamforming_get_ndpa_frame(p_dm, _pdu_os)
 #if (DM_ODM_SUPPORT_TYPE == ODM_CE)
 	#define beamforming_get_report_frame(adapter, precv_frame)		RT_STATUS_FAILURE
 #elif (DM_ODM_SUPPORT_TYPE == ODM_WIN)

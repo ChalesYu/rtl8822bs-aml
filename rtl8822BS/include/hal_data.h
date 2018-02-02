@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,12 +11,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 #ifndef __HAL_DATA_H__
 #define __HAL_DATA_H__
 
@@ -33,6 +28,11 @@
 #ifdef CONFIG_GSPI_HCI
 	#include <hal_gspi.h>
 #endif
+
+#if defined(CONFIG_RTW_ACS) || defined(CONFIG_BACKGROUND_NOISE_MONITOR)
+#include "../hal/hal_dm_acs.h"
+#endif
+
 /*
  * <Roger_Notes> For RTL8723 WiFi/BT/GPS multi-function configuration. 2010.10.06.
  *   */
@@ -199,24 +199,6 @@ typedef struct _BB_INIT_REGISTER {
 #define HCI_SUS_ENTERING	3
 #define HCI_SUS_ERR			4
 
-#ifdef CONFIG_AUTO_CHNL_SEL_NHM
-typedef enum _ACS_OP {
-	ACS_INIT,		/*ACS - Variable init*/
-	ACS_RESET,		/*ACS - NHM Counter reset*/
-	ACS_SELECT,		/*ACS - NHM Counter Statistics */
-} ACS_OP;
-
-typedef enum _ACS_STATE {
-	ACS_DISABLE,
-	ACS_ENABLE,
-} ACS_STATE;
-
-struct auto_chan_sel {
-	ATOMIC_T state;
-	u8	ch; /* previous channel*/
-};
-#endif /*CONFIG_AUTO_CHNL_SEL_NHM*/
-
 #define EFUSE_FILE_UNUSED 0
 #define EFUSE_FILE_FAILED 1
 #define EFUSE_FILE_LOADED 2
@@ -255,7 +237,8 @@ struct hal_spec_t {
 	u8 rfpath_num_5g:4;	/* used for tx power index path */
 
 	u8 max_tx_cnt;
-	u8 nss_num;
+	u8 tx_nss_num:4;
+	u8 rx_nss_num:4;
 	u8 band_cap;	/* value of BAND_CAP_XXX */
 	u8 bw_cap;		/* value of BW_CAP_XXX */
 	u8 port_num;
@@ -287,6 +270,72 @@ struct hal_iqk_reg_backup {
 	u32 reg_backup[MAX_RF_PATH][MAX_IQK_INFO_BACKUP_REG_NUM];
 };
 
+
+typedef struct hal_p2p_ps_para {
+	/*DW0*/
+	u8  offload_en:1;
+	u8  role:1;
+	u8  ctwindow_en:1;
+	u8  noa_en:1;
+	u8  noa_sel:1;
+	u8  all_sta_sleep:1;
+	u8  discovery:1;
+	u8  rsvd2:1;
+	u8  p2p_port_id;
+	u8  p2p_group;
+	u8  p2p_macid;
+
+	/*DW1*/
+	u8 ctwindow_length;
+	u8 rsvd3;
+	u8 rsvd4;
+	u8 rsvd5;
+
+	/*DW2*/
+	u32 noa_duration_para;
+
+	/*DW3*/
+	u32 noa_interval_para;
+
+	/*DW4*/
+	u32 noa_start_time_para;
+
+	/*DW5*/
+	u32 noa_count_para;
+} HAL_P2P_PS_PARA, *PHAL_P2P_PS_PARA;
+
+#define TXPWR_LMT_RS_CCK	0
+#define TXPWR_LMT_RS_OFDM	1
+#define TXPWR_LMT_RS_HT		2
+#define TXPWR_LMT_RS_VHT	3
+#define TXPWR_LMT_RS_NUM	4
+
+#define TXPWR_LMT_RS_NUM_2G	4 /* CCK, OFDM, HT, VHT */
+#define TXPWR_LMT_RS_NUM_5G	3 /* OFDM, HT, VHT */
+
+#ifdef CONFIG_TXPWR_LIMIT
+extern const char *const _txpwr_lmt_rs_str[];
+#define txpwr_lmt_rs_str(rs) (((rs) >= TXPWR_LMT_RS_NUM) ? _txpwr_lmt_rs_str[TXPWR_LMT_RS_NUM] : _txpwr_lmt_rs_str[(rs)])
+
+struct txpwr_lmt_ent {
+	_list list;
+
+	s8 lmt_2g[MAX_2_4G_BANDWIDTH_NUM]
+		[TXPWR_LMT_RS_NUM_2G]
+		[CENTER_CH_2G_NUM]
+		[MAX_TX_COUNT];
+
+#ifdef CONFIG_IEEE80211_BAND_5GHZ
+	s8 lmt_5g[MAX_5G_BANDWIDTH_NUM]
+		[TXPWR_LMT_RS_NUM_5G]
+		[CENTER_CH_5G_ALL_NUM]
+		[MAX_TX_COUNT];
+#endif
+
+	char regd_name[0];
+};
+#endif /* CONFIG_TXPWR_LIMIT */
+
 typedef struct hal_com_data {
 	HAL_VERSION			version_id;
 	RT_MULTI_FUNC		MultiFunc; /* For multi-function consideration. */
@@ -294,18 +343,20 @@ typedef struct hal_com_data {
 	RT_REGULATOR_MODE	RegulatorMode; /* switching regulator or LDO */
 	u8	hw_init_completed;
 	/****** FW related ******/
+	u32 firmware_size;
 	u16 firmware_version;
 	u16	FirmwareVersionRev;
 	u16 firmware_sub_version;
 	u16	FirmwareSignature;
 	u8	RegFWOffload;
+	u8	bFWReady;
+	u8	bBTFWReady;
 	u8	fw_ractrl;
-	u8	FwRsvdPageStartOffset; /* 2010.06.23. Added by tynli. Reserve page start offset except beacon in TxQ.*/
 	u8	LastHMEBoxNum;	/* H2C - for host message to fw */
 
 	/****** current WIFI_PHY values ******/
 	WIRELESS_MODE	CurrentWirelessMode;
-	CHANNEL_WIDTH	current_channel_bw;
+	enum channel_width current_channel_bw;
 	BAND_TYPE		current_band_type;	/* 0:2.4G, 1:5G */
 	BAND_TYPE		BandSet;
 	u8				current_channel;
@@ -319,6 +370,7 @@ typedef struct hal_com_data {
 	u8				bDisableSWChannelPlan; /* flag of disable software change channel plan	 */
 	u16				BasicRateSet;
 	u32				ReceiveConfig;
+	u32				rcr_backup; /* used for switching back from monitor mode */
 	u8				rx_tsf_addr_filter_config; /* for 8822B/8821C USE */
 	BOOLEAN			bSwChnl;
 	BOOLEAN			bSetChnlBW;
@@ -326,22 +378,27 @@ typedef struct hal_com_data {
 	BOOLEAN			bSWToBW80M;
 	BOOLEAN			bChnlBWInitialized;
 	u32				BackUp_BB_REG_4_2nd_CCA[3];
-#ifdef CONFIG_AUTO_CHNL_SEL_NHM
+
+#ifdef CONFIG_RTW_ACS
 	struct auto_chan_sel acs;
 #endif
+#ifdef CONFIG_BCN_RECOVERY
+	u8 issue_bcn_fail;
+#endif /*CONFIG_BCN_RECOVERY*/
+
 	/****** rf_ctrl *****/
 	u8	rf_chip;
-	u8	rf_type;
+	u8	rf_type;	/*enum rf_type*/
 	u8	PackageType;
 	u8	NumTotalRFPath;
 	u8	antenna_test;
 
 	/****** Debug ******/
 	u16	ForcedDataRate;	/* Force Data Rate. 0: Auto, 0x02: 1M ~ 0x6C: 54M. */
-	u8	u1ForcedIgiLb;	/* forced IGI lower bound */
 	u8	bDumpRxPkt;
 	u8	bDumpTxPkt;
 	u8	bDisableTXPowerTraining;
+	u8	dis_turboedca;
 
 
 	/****** EEPROM setting.******/
@@ -378,12 +435,8 @@ typedef struct hal_com_data {
 	u8	EEPROMMACAddr[ETH_ALEN];
 	u8	tx_bbswing_24G;
 	u8	tx_bbswing_5G;
-#ifdef RTW_TX_PA_BIAS
-	u8	tx_pa_bias_2g4_a;	/* 2.4G TX PA Bias for Path A */
-	u8	tx_pa_bias_2g4_b;	/* 2.4G TX PA Bias for Path B */
-	u8	tx_pa_bias_a;		/* 5G TX PA Bias for Path A */
-	u8	tx_pa_bias_b;		/* 5G TX PA Bias for Path B */
-#endif /* RTW_TX_PA_BIAS */
+	u8	efuse0x3d7;	/* efuse[0x3D7] */
+	u8	efuse0x3d8;	/* efuse[0x3D8] */
 
 #ifdef CONFIG_RF_POWER_TRIM
 	u8	EEPROMRFGainOffset;
@@ -420,74 +473,17 @@ typedef struct hal_com_data {
 	s8	BW80_5G_Diff[MAX_RF_PATH][MAX_TX_COUNT];
 #endif
 
-	u8	Regulation2_4G;
-	u8	Regulation5G;
-
-	/********************************
-	*	TX power by rate table at most 4RF path.
-	*	The register is
-	*
-	*	VHT TX power by rate off setArray =
-	*	Band:-2G&5G = 0 / 1
-	*	RF: at most 4*4 = ABCD=0/1/2/3
-	*	CCK=0 OFDM=1/2 HT-MCS 0-15=3/4/56 VHT=7/8/9/10/11
-	**********************************/
-
 	u8 txpwr_by_rate_undefined_band_path[TX_PWR_BY_RATE_NUM_BAND]
 		[TX_PWR_BY_RATE_NUM_RF];
 
 	s8	TxPwrByRateOffset[TX_PWR_BY_RATE_NUM_BAND]
 		[TX_PWR_BY_RATE_NUM_RF]
-		[TX_PWR_BY_RATE_NUM_RF]
 		[TX_PWR_BY_RATE_NUM_RATE];
 
-#ifdef CONFIG_PHYDM_POWERTRACK_BY_TSSI
-	s8	TxPwrByRate[TX_PWR_BY_RATE_NUM_BAND]
-		[TX_PWR_BY_RATE_NUM_RF]
-		[TX_PWR_BY_RATE_NUM_RF]
-		[TX_PWR_BY_RATE_NUM_RATE];
-#endif
-	/* --------------------------------------------------------------------------------- */
-
-	u8 tx_pwr_lmt_5g_20_40_ref;
-
-	/* Power Limit Table for 2.4G */
-	s8	TxPwrLimit_2_4G[MAX_REGULATION_NUM]
-		[MAX_2_4G_BANDWIDTH_NUM]
-		[MAX_RATE_SECTION_NUM]
-		[CENTER_CH_2G_NUM]
-		[MAX_RF_PATH];
-
-	/* Power Limit Table for 5G */
-	s8	TxPwrLimit_5G[MAX_REGULATION_NUM]
-		[MAX_5G_BANDWIDTH_NUM]
-		[MAX_RATE_SECTION_NUM]
-		[CENTER_CH_5G_ALL_NUM]
-		[MAX_RF_PATH];
-
-
-#ifdef CONFIG_PHYDM_POWERTRACK_BY_TSSI
-	s8	TxPwrLimit_2_4G_Original[MAX_REGULATION_NUM]
-		[MAX_2_4G_BANDWIDTH_NUM]
-		[MAX_RATE_SECTION_NUM]
-		[CENTER_CH_2G_NUM]
-		[MAX_RF_PATH];
-
-
-	s8	TxPwrLimit_5G_Original[MAX_REGULATION_NUM]
-		[MAX_5G_BANDWIDTH_NUM]
-		[MAX_RATE_SECTION_NUM]
-		[CENTER_CH_5G_ALL_NUM]
-		[MAX_RF_PATH];
-
-#endif
-
-	/* Store the original power by rate value of the base of each rate section of rf path A & B */
+	/* Store the original power by rate value of the base rate for each rate section and rf path */
 	u8	TxPwrByRateBase2_4G[TX_PWR_BY_RATE_NUM_RF]
-		[TX_PWR_BY_RATE_NUM_RF]
 		[MAX_BASE_NUM_IN_PHY_REG_PG_2_4G];
 	u8	TxPwrByRateBase5G[TX_PWR_BY_RATE_NUM_RF]
-		[TX_PWR_BY_RATE_NUM_RF]
 		[MAX_BASE_NUM_IN_PHY_REG_PG_5G];
 
 	u8	txpwr_by_rate_loaded:1;
@@ -515,7 +511,8 @@ typedef struct hal_com_data {
 
 	u8	bLedOpenDrain; /* Support Open-drain arrangement for controlling the LED. Added by Roger, 2009.10.16. */
 	u32	ac_param_be; /* Original parameter for BE, use for EDCA turbo.	*/
-
+	u8	is_turbo_edca;
+	u8	prv_traffic_idx;
 	BB_REGISTER_DEFINITION_T	PHYRegDef[MAX_RF_PATH];	/* Radio A/B/C/D */
 
 	u32	RfRegChnlVal[MAX_RF_PATH];
@@ -536,17 +533,15 @@ typedef struct hal_com_data {
 	u8 sw_antdiv_bl_state;
 
 	/******** PHY DM & DM Section **********/
-	u8			DM_Type;
 	_lock		IQKSpinLock;
 	u8			INIDATA_RATE[MACID_NUM_SW_LIMIT];
-	/* Upper and Lower Signal threshold for Rate Adaptive*/
-	int			entry_min_undecorated_smoothed_pwdb;
-	int			entry_max_undecorated_smoothed_pwdb;
-	int			min_undecorated_pwdb_for_dm;
+
 	struct PHY_DM_STRUCT	 odmpriv;
+	u64			bk_rf_ability;
 	u8			bIQKInitialized;
 	u8			bNeedIQK;
-	u8		IQK_MP_Switch;
+	u8			IQK_MP_Switch;
+	u8			bScanInProcess;
 	/******** PHY DM & DM Section **********/
 
 
@@ -621,17 +616,19 @@ typedef struct hal_com_data {
 	u16			tx_normal_page;
 	u16			tx_extra_page;
 	u16			tx_pub_page;
-	u16			max_oqt_page;
+	u8			max_oqt_size;
+	#ifdef XMIT_BUF_SIZE
 	u32			max_xmit_size_vovi;
 	u32			max_xmit_size_bebk;
-#endif
-#endif /* !RTW_HALMAC */
+	#endif /*XMIT_BUF_SIZE*/
+	u16			max_xmit_page;
+	u16			max_xmit_page_vo;
+	u16			max_xmit_page_vi;
+	u16			max_xmit_page_be;
+	u16			max_xmit_page_bk;
 
-#ifdef CONFIG_SDIO_RX_READ_IN_THREAD
-	_thread_hdl_		rx_polling_thread;
-	_sema			rx_polling_sema;
-	_sema			rx_polling_terminate_sema;
-#endif /* CONFIG_SDIO_RX_READ_IN_THREAD */
+#endif /*#ifdef CONFIG_RTL8821C*/
+#endif /* !RTW_HALMAC */
 #endif /* CONFIG_SDIO_HCI */
 
 #ifdef CONFIG_USB_HCI
@@ -676,6 +673,7 @@ typedef struct hal_com_data {
 
 	BOOLEAN		bL1OffSupport;
 	BOOLEAN	bSupportBackDoor;
+	u32			pci_backdoor_ctrl;
 
 	u8			bDefaultAntenna;
 
@@ -683,6 +681,9 @@ typedef struct hal_com_data {
 	u8			bDisableTxInt;
 
 	u16			RxTag;
+#ifdef CONFIG_PCI_DYNAMIC_ASPM
+	BOOLEAN		bAspmL1LastIdle;
+#endif
 #endif /* CONFIG_PCI_HCI */
 
 
@@ -727,7 +728,7 @@ typedef struct hal_com_data {
 #endif
 
 #ifdef CONFIG_BACKGROUND_NOISE_MONITOR
-	s16 noise[ODM_MAX_CHANNEL_NUM];
+	struct noise_monitor nm;
 #endif
 
 	struct hal_spec_t hal_spec;
@@ -759,6 +760,9 @@ typedef struct hal_com_data {
 #endif /* CONFIG_BEAMFORMING */
 
 	u8 not_xmitframe_fw_dl; /*not use xmitframe to download fw*/
+	u8 phydm_op_mode;
+
+	u8 in_cta_test;
 } HAL_DATA_COMMON, *PHAL_DATA_COMMON;
 
 
@@ -766,7 +770,6 @@ typedef struct hal_com_data {
 typedef struct hal_com_data HAL_DATA_TYPE, *PHAL_DATA_TYPE;
 #define GET_HAL_DATA(__pAdapter)			((HAL_DATA_TYPE *)((__pAdapter)->HalData))
 #define GET_HAL_SPEC(__pAdapter)			(&(GET_HAL_DATA((__pAdapter))->hal_spec))
-#define GET_ODM(__pAdapter)			(&(GET_HAL_DATA((__pAdapter))->odmpriv))
 
 #define GET_HAL_RFPATH_NUM(__pAdapter)		(((HAL_DATA_TYPE *)((__pAdapter)->HalData))->NumTotalRFPath)
 #define RT_GetInterfaceSelection(_Adapter)		(GET_HAL_DATA(_Adapter)->InterfaceSel)
@@ -782,13 +785,6 @@ typedef struct hal_com_data HAL_DATA_TYPE, *PHAL_DATA_TYPE;
 #define rtw_get_hw_init_completed(adapter)		(GET_HAL_DATA(adapter)->hw_init_completed)
 #define rtw_is_hw_init_completed(adapter)		(GET_HAL_DATA(adapter)->hw_init_completed == _TRUE)
 #endif
-
-#ifdef CONFIG_AUTO_CHNL_SEL_NHM
-#define GET_ACS_STATE(padapter)					(ATOMIC_READ(&GET_HAL_DATA(padapter)->acs.state))
-#define SET_ACS_STATE(padapter, set_state)			(ATOMIC_SET(&GET_HAL_DATA(padapter)->acs.state, set_state))
-#define rtw_get_acs_channel(padapter)				(GET_HAL_DATA(padapter)->acs.ch)
-#define rtw_set_acs_channel(padapter, survey_ch)	(GET_HAL_DATA(padapter)->acs.ch = survey_ch)
-#endif /*CONFIG_AUTO_CHNL_SEL_NHM*/
 
 #ifdef RTW_HALMAC
 int rtw_halmac_deinit_adapter(struct dvobj_priv *);

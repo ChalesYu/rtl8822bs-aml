@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2012 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,12 +11,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 #define _RTW_IOCTL_SET_C_
 
 #include <drv_types.h>
@@ -514,8 +509,8 @@ u8 rtw_set_802_11_infrastructure_mode(_adapter *padapter,
 	struct	mlme_priv	*pmlmepriv = &padapter->mlmepriv;
 	struct	wlan_network	*cur_network = &pmlmepriv->cur_network;
 	NDIS_802_11_NETWORK_INFRASTRUCTURE *pold_state = &(cur_network->network.InfrastructureMode);
-
-
+	u8 ap2sta_mode = _FALSE;
+	u8 ret = _TRUE;
 
 	if (*pold_state != networktype) {
 		/* RTW_INFO("change mode, old_mode=%d, new_mode=%d, fw_state=0x%x\n", *pold_state, networktype, get_fwstate(pmlmepriv)); */
@@ -523,7 +518,7 @@ u8 rtw_set_802_11_infrastructure_mode(_adapter *padapter,
 		if (*pold_state == Ndis802_11APMode) {
 			/* change to other mode from Ndis802_11APMode			 */
 			cur_network->join_res = -1;
-
+			ap2sta_mode = _TRUE;
 #ifdef CONFIG_NATIVEAP_MLME
 			stop_ap_mode(padapter);
 #endif
@@ -555,6 +550,9 @@ u8 rtw_set_802_11_infrastructure_mode(_adapter *padapter,
 
 		case Ndis802_11Infrastructure:
 			set_fwstate(pmlmepriv, WIFI_STATION_STATE);
+
+			if (ap2sta_mode)
+				rtw_init_bcmc_stainfo(padapter);
 			break;
 
 		case Ndis802_11APMode:
@@ -572,6 +570,9 @@ u8 rtw_set_802_11_infrastructure_mode(_adapter *padapter,
 		case Ndis802_11Monitor:
 			set_fwstate(pmlmepriv, WIFI_MONITOR_STATE);
 			break;
+		default:
+			ret = _FALSE;
+			rtw_warn_on(1);
 		}
 
 		/* SecClearAllKeys(adapter); */
@@ -580,8 +581,7 @@ u8 rtw_set_802_11_infrastructure_mode(_adapter *padapter,
 		_exit_critical_bh(&pmlmepriv->lock, &irqL);
 	}
 
-
-	return _TRUE;
+	return ret;
 }
 
 
@@ -1022,9 +1022,6 @@ u8 rtw_set_802_11_add_key(_adapter *padapter, NDIS_802_11_KEY *key)
 			if (encryptionalgo == _TKIP_) {
 				padapter->securitypriv.busetkipkey = _FALSE;
 
-				/* _set_timer(&padapter->securitypriv.tkip_timer, 50); */
-
-
 				/* if TKIP, save the Receive/Transmit MIC key in KeyMaterial[128-255] */
 				if ((key->KeyIndex & 0x10000000)) {
 					_rtw_memcpy(&stainfo->dot11tkiptxmickey, key->KeyMaterial + 16, 8);
@@ -1150,22 +1147,20 @@ u16 rtw_get_cur_max_rate(_adapter *adapter)
 	if (psta == NULL)
 		return 0;
 
-	short_GI = query_ra_short_GI(psta, psta->bw_mode);
+	short_GI = query_ra_short_GI(psta, rtw_get_tx_bw_mode(adapter, psta));
 
 #ifdef CONFIG_80211N_HT
 	if (is_supported_ht(psta->wireless_mode)) {
 		rtw_hal_get_hwreg(adapter, HW_VAR_RF_TYPE, (u8 *)(&rf_type));
-
-		max_rate = rtw_mcs_rate(
-				   rf_type,
-			   ((psta->bw_mode == CHANNEL_WIDTH_40) ? 1 : 0),
-				   short_GI,
-				   psta->htpriv.ht_cap.supp_mcs_set
-			   );
+		max_rate = rtw_mcs_rate(rf_type
+			, (psta->cmn.bw_mode == CHANNEL_WIDTH_40) ? 1 : 0
+			, short_GI
+			, psta->htpriv.ht_cap.supp_mcs_set
+		);
 	}
 #ifdef CONFIG_80211AC_VHT
 	else if (is_supported_vht(psta->wireless_mode))
-		max_rate = ((rtw_vht_mcs_to_data_rate(psta->bw_mode, short_GI, pmlmepriv->vhtpriv.vht_highest_rate) + 1) >> 1) * 10;
+		max_rate = ((rtw_vht_mcs_to_data_rate(psta->cmn.bw_mode, short_GI, pmlmepriv->vhtpriv.vht_highest_rate) + 1) >> 1) * 10;
 #endif /* CONFIG_80211AC_VHT */
 	else
 #endif /* CONFIG_80211N_HT */

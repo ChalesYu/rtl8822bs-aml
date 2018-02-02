@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2015 - 2016 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2015 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,19 +11,13 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 #define _RTL8822BS_HALINIT_C_
 
 #include <drv_types.h>		/* PADAPTER, basic_types.h and etc. */
 #include <hal_data.h>		/* HAL_DATA_TYPE */
 #include "../../hal_halmac.h"	/* rtw_halmac_query_tx_page_num() */
 #include "../rtl8822b.h"	/* rtl8822b_hal_init(), rtl8822b_phy_init_haldm() and etc. */
-#include "rtl8822bs.h"		/* rtl8822bs_init_interrupt() */
 
 
 u32 rtl8822bs_init(PADAPTER adapter)
@@ -40,7 +34,6 @@ u32 rtl8822bs_init(PADAPTER adapter)
 
 	rtw_halmac_query_tx_page_num(adapter_to_dvobj(adapter));
 
-	rtl8822bs_init_interrupt(adapter);
 	rtl8822b_mac_verify(adapter);
 
 	rtl8822b_phy_init_haldm(adapter);

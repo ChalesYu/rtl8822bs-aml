@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2015 - 2017 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2015 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,19 +11,14 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- ******************************************************************************/
+ *****************************************************************************/
 #define _RTL8822BS_OPS_C_
 
 #include <drv_types.h>		/* PADAPTER, basic_types.h and etc. */
 #include <hal_data.h>		/* HAL_DATA_TYPE, GET_HAL_DATA() and etc. */
 #include <hal_intf.h>		/* struct hal_ops */
-#include "../rtl8822b.h"
+#include "../rtl8822b.h"	/* rtl8822b_sethwreg() and etc. */
 #include "rtl8822bs.h"		/* rtl8822bs_hal_init() */
-
 
 static void intf_chip_configure(PADAPTER adapter)
 {
@@ -38,12 +33,15 @@ static void intf_chip_configure(PADAPTER adapter)
  *	2. Read registers to initialize
  *	3. Other vaiables initialization
  */
-static void read_adapter_info(PADAPTER adapter)
+static u8 read_adapter_info(PADAPTER adapter)
 {
+	u8 ret = _FAIL;
+
 	/*
 	 * 1. Read Efuse/EEPROM to initialize
 	 */
-	rtl8822b_read_efuse(adapter);
+	if (rtl8822b_read_efuse(adapter) != _SUCCESS)
+		goto exit;
 
 	/*
 	 * 2. Read registers to initialize
@@ -52,45 +50,12 @@ static void read_adapter_info(PADAPTER adapter)
 	/*
 	 * 3. Other Initialization
 	 */
-}
 
-#ifdef CONFIG_RTW_SDIO_OOB_INT
-static void oob_interrupt_switch(struct dvobj_priv *d, u8 enable)
-{
-	struct _ADAPTER *adapter;
-	u32 val, val_org;
-	u32 himr = 0;
+	ret = _SUCCESS;
 
-
-	adapter = dvobj_get_primary_adapter(d);
-
-	val = rtw_read32(adapter, REG_SYS_SDIO_CTRL_8822B);
-	val_org = val;
-	if (enable)
-		val |= BIT_SDIO_INT_8822B;
-	else
-		val &= ~BIT_SDIO_INT_8822B;
-	if (val == val_org)
-		goto exit;
-
-	/* Disable interrupt first if enable OOB function */
-	if (enable) {
-		himr = rtw_read32(adapter, REG_SDIO_HIMR_8822B);
-		if (himr)
-			rtw_write32(adapter, REG_SDIO_HIMR_8822B, 0);
-	}
-
-	rtw_write32(adapter, REG_SYS_SDIO_CTRL_8822B, val);
-
-	/* Enable original interrupt again */
-	if (himr)
-		rtw_write32(adapter, REG_SDIO_HIMR_8822B, himr);
 exit:
-	RTW_PRINT("%s: %s OOB interrupt, 0x%x=0x%08x\n",
-		  __FUNCTION__, enable ? "enable" : "disable",
-		  REG_SYS_SDIO_CTRL_8822B, val);
+	return ret;
 }
-#endif /* CONFIG_RTW_SDIO_OOB_INT */
 
 void rtl8822bs_get_interrupt(PADAPTER adapter, u32 *hisr, u16 *rx_len)
 {
@@ -114,17 +79,6 @@ void rtl8822bs_clear_interrupt(PADAPTER adapter, u32 hisr)
 
 static void update_himr(PADAPTER adapter, u32 himr)
 {
-#if defined(CONFIG_RTW_SDIO_OOB_INT) && defined(CONFIG_PLATFORM_AML_S905)
-	u32 val32;
-
-
-	val32 = rtw_read32(adapter, REG_SDIO_HIMR_8822B);
-	if (val32 == himr) {
-		RTW_WARN("%s: HIMR not change (0x%08x)\n", __FUNCTION__, himr);
-		return;
-	}
-#endif /* CONFIG_RTW_SDIO_OOB_INT && CONFIG_PLATFORM_AML_S905 */
-
 	rtw_write32(adapter, REG_SDIO_HIMR_8822B, himr);
 }
 
@@ -132,12 +86,10 @@ static void update_himr(PADAPTER adapter, u32 himr)
  * Description:
  *	Initialize SDIO Host Interrupt Mask configuration variables for future use.
  *
- * Assumption:
- *	Using SDIO Local register ONLY for configuration.
  */
-void rtl8822bs_init_interrupt(PADAPTER adapter)
+static void init_interrupt(PADAPTER adapter)
 {
-	PHAL_DATA_TYPE hal;
+	struct hal_com_data *hal;
 
 
 	hal = GET_HAL_DATA(adapter);
@@ -174,12 +126,6 @@ void rtl8822bs_init_interrupt(PADAPTER adapter)
 				 BIT_SDIO_CRCERR_MSK_8822B	|
 #endif
 				 0);
-
-#ifdef CONFIG_RTW_SDIO_OOB_INT
-	oob_interrupt_switch(adapter_to_dvobj(adapter), 1);
-#endif /* CONFIG_RTW_SDIO_OOB_INT */
-
-	update_himr(adapter, hal->sdio_himr);
 }
 
 /*
@@ -239,68 +185,17 @@ static void disable_interrupt(PADAPTER adapter)
 	RTW_INFO("%s: update SDIO HIMR=0\n", __FUNCTION__);
 }
 
-#ifdef CONFIG_SDIO_RX_READ_IN_THREAD
-void rtl8822bs_enable_rx_interrupt(struct dvobj_priv *d)
-{
-	struct _ADAPTER *a;
-	struct hal_com_data *hal;
-
-
-	a = dvobj_get_primary_adapter(d);
-	hal = GET_HAL_DATA(a);
-
-	if (hal->sdio_himr & BIT_RX_REQUEST_MSK_8822B)
-		return;
-
-	hal->sdio_himr |= BIT_RX_REQUEST_MSK_8822B;
-	update_himr(a, hal->sdio_himr);
-}
-
-void rtl8822bs_disable_rx_interrupt(struct dvobj_priv *d)
-{
-	struct _ADAPTER *a;
-	struct hal_com_data *hal;
-
-
-	a = dvobj_get_primary_adapter(d);
-	hal = GET_HAL_DATA(a);
-
-	if (!(hal->sdio_himr & BIT_RX_REQUEST_MSK_8822B))
-		return;
-
-	hal->sdio_himr &= ~BIT_RX_REQUEST_MSK_8822B;
-	update_himr(a, hal->sdio_himr);
-}
-#endif /* CONFIG_SDIO_RX_READ_IN_THREAD */
-#ifdef CONFIG_WOWLAN
-void rtl8822bs_disable_interrupt_but_cpwm2(PADAPTER adapter)
-{
-	u32 himr, tmp;
-
-	tmp = rtw_read32(adapter, REG_SDIO_HIMR);
-	RTW_INFO("%s: Read SDIO_REG_HIMR: 0x%08x\n", __FUNCTION__, tmp);
-
-	himr = BIT_SDIO_CPWM2_MSK;
-	update_himr(adapter, himr);
-
-	tmp = rtw_read32(adapter, REG_SDIO_HIMR);
-	RTW_INFO("%s: Read again SDIO_REG_HIMR: 0x%08x\n", __FUNCTION__, tmp);
-}
-#endif /* CONFIG_WOWLAN */
-
 static void _run_thread(PADAPTER adapter)
 {
 #ifndef CONFIG_SDIO_TX_TASKLET
 	struct xmit_priv *xmitpriv = &adapter->xmitpriv;
 
 	xmitpriv->SdioXmitThread = kthread_run(rtl8822bs_xmit_thread, adapter, "RTWHALXT");
-	if (IS_ERR(xmitpriv->SdioXmitThread))
-		RTW_INFO("%s: start rtl8822bs_xmit_thread FAIL!!\n", __FUNCTION__);
+	if (IS_ERR(xmitpriv->SdioXmitThread)) {
+		RTW_ERR("%s: start rtl8822bs_xmit_thread FAIL!!\n", __FUNCTION__);
+		xmitpriv->SdioXmitThread = NULL;
+	}
 #endif /* !CONFIG_SDIO_TX_TASKLET */
-
-#ifdef CONFIG_SDIO_RX_READ_IN_THREAD
-	rtl8822bs_rx_polling_thread_start(adapter_to_dvobj(adapter));
-#endif /* CONFIG_SDIO_RX_READ_IN_THREAD */
 }
 
 static void run_thread(PADAPTER adapter)
@@ -317,14 +212,10 @@ static void _cancel_thread(PADAPTER adapter)
 	/* stop xmit_buf_thread */
 	if (xmitpriv->SdioXmitThread) {
 		_rtw_up_sema(&xmitpriv->SdioXmitSema);
-		_rtw_down_sema(&xmitpriv->SdioXmitTerminateSema);
-		xmitpriv->SdioXmitThread = 0;
+		rtw_thread_stop(xmitpriv->SdioXmitThread);
+		xmitpriv->SdioXmitThread = NULL;
 	}
 #endif /* !CONFIG_SDIO_TX_TASKLET */
-
-#ifdef CONFIG_SDIO_RX_READ_IN_THREAD
-	rtl8822bs_rx_polling_thread_stop(adapter_to_dvobj(adapter));
-#endif /* CONFIG_SDIO_RX_READ_IN_THREAD */
 }
 
 static void cancel_thread(PADAPTER adapter)
@@ -337,9 +228,10 @@ static void cancel_thread(PADAPTER adapter)
  * If variable not handled here,
  * some variables will be processed in rtl8822b_sethwreg()
  */
-static void sethwreg(PADAPTER adapter, u8 variable, u8 *val)
+static u8 sethwreg(PADAPTER adapter, u8 variable, u8 *val)
 {
 	PHAL_DATA_TYPE hal;
+	u8 ret = _SUCCESS;
 	u8 val8;
 
 
@@ -359,14 +251,14 @@ static void sethwreg(PADAPTER adapter, u8 variable, u8 *val)
 		 * and keep the value to be 0
 		 */
 		if (val8 && (val8 < PS_STATE_S2))
-			val8 = BIT_SYS_CLK_8822B;
+			val8 = BIT_REQ_PS_8822B;
 		else
 			val8 = 0;
 
 		if (*val & PS_ACK)
-			val8 |= BIT(6);
+			val8 |= BIT_ACK_8822B;
 		if (*val & PS_TOGGLE)
-			val8 |= BIT_TOGGLING_8822B;
+			val8 |= BIT_TOGGLE_8822B;
 
 		rtw_write8(adapter, REG_SDIO_HRPWM1_8822B, val8);
 		break;
@@ -386,9 +278,11 @@ static void sethwreg(PADAPTER adapter, u8 variable, u8 *val)
 	break;
 
 	default:
-		rtl8822b_sethwreg(adapter, variable, val);
+		ret = rtl8822b_sethwreg(adapter, variable, val);
 		break;
 	}
+
+	return ret;
 }
 
 /*
@@ -407,19 +301,19 @@ static void gethwreg(PADAPTER adapter, u8 variable, u8 *val)
 	case HW_VAR_CPWM:
 		val8 = rtw_read8(adapter, REG_SDIO_HCPWM1_V2_8822B);
 
-		if (val8 & BIT_SYS_CLK_8822B)
+		if (val8 & BIT_CUR_PS_8822B)
 			*val = PS_STATE_S0;
 		else
 			*val = PS_STATE_S4;
 
-		if (val8 & BIT_TOGGLING_8822B)
+		if (val8 & BIT_TOGGLE_8822B)
 			*val |= PS_TOGGLE;
 		break;
 
 #if defined(CONFIG_WOWLAN) || defined(CONFIG_AP_WOWLAN)
 	case HW_VAR_RPWM_TOG:
 		*val = rtw_read8(adapter, REG_SDIO_HRPWM1_8822B);
-		*val &= BIT_TOGGLING_8822B;
+		*val &= BIT_TOGGLE_8822B;
 		break;
 #endif
 
@@ -447,6 +341,15 @@ static u8 gethaldefvar(PADAPTER adapter, HAL_DEF_VARIABLE eVariable, void *pval)
 	hal = GET_HAL_DATA(adapter);
 
 	switch (eVariable) {
+	case HW_VAR_MAX_RX_AMPDU_FACTOR:
+		if (check_fwstate(&adapter->mlmepriv, WIFI_AP_STATE) == _TRUE)
+			/* Set AMPDU Factor 32K for AP mode */
+			*(HT_CAP_AMPDU_FACTOR *)pval = MAX_AMPDU_FACTOR_32K;
+		else
+			/* Default use MAX size */
+			*(HT_CAP_AMPDU_FACTOR *)pval = MAX_AMPDU_FACTOR_64K;
+		break;
+
 	default:
 		bResult = rtl8822b_gethaldefvar(adapter, eVariable, pval);
 		break;
@@ -486,6 +389,7 @@ void rtl8822bs_set_hal_ops(PADAPTER adapter)
 	}
 
 	rtl8822b_set_hal_ops(adapter);
+	init_interrupt(adapter);
 
 	ops = &adapter->hal_func;
 
@@ -518,11 +422,28 @@ void rtl8822bs_set_hal_ops(PADAPTER adapter)
 	ops->clear_interrupt = clear_interrupt_all;
 #endif
 
+#ifdef CONFIG_RTW_SW_LED
 	ops->InitSwLeds = rtl8822bs_initswleds;
 	ops->DeInitSwLeds = rtl8822bs_deinitswleds;
-
+#endif
 	ops->set_hw_reg_handler = sethwreg;
 	ops->GetHwRegHandler = gethwreg;
 	ops->get_hal_def_var_handler = gethaldefvar;
 	ops->SetHalDefVarHandler = sethaldefvar;
 }
+
+#if defined(CONFIG_WOWLAN) || defined(CONFIG_AP_WOWLAN)
+void rtl8822bs_disable_interrupt_but_cpwm2(PADAPTER adapter)
+{
+	u32 himr, tmp;
+
+	tmp = rtw_read32(adapter, REG_SDIO_HIMR);
+	RTW_INFO("%s: Read SDIO_REG_HIMR: 0x%08x\n", __FUNCTION__, tmp);
+
+	himr = BIT_SDIO_CPWM2_MSK;
+	update_himr(adapter, himr);
+
+	tmp = rtw_read32(adapter, REG_SDIO_HIMR);
+	RTW_INFO("%s: Read again SDIO_REG_HIMR: 0x%08x\n", __FUNCTION__, tmp);
+}
+#endif /* CONFIG_WOWLAN */

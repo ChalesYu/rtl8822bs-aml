@@ -1,3 +1,17 @@
+/******************************************************************************
+ *
+ * Copyright(c) 2016 - 2017 Realtek Corporation.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of version 2 of the GNU General Public License as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+ * more details.
+ *
+ *****************************************************************************/
 #include <hal_btcoex_wifionly.h>
 
 #if (CONFIG_BTCOEX_SUPPORT_WIFI_ONLY_CFG == 1)
@@ -74,7 +88,7 @@ void halwifionly_bitmaskwrite1byte(PVOID pwifionlyContext, u32 regAddr, u8 bitMa
 	rtw_write8(Adapter, regAddr, data);
 }
 
-void halwifionly_phy_set_rf_reg(PVOID pwifionlyContext, u8 eRFPath, u32 RegAddr, u32 BitMask, u32 Data)
+void halwifionly_phy_set_rf_reg(PVOID pwifionlyContext, enum rf_path eRFPath, u32 RegAddr, u32 BitMask, u32 Data)
 {
 	struct wifi_only_cfg *pwifionlycfg = (struct wifi_only_cfg *)pwifionlyContext;
 	PADAPTER		Adapter = pwifionlycfg->Adapter;
@@ -103,6 +117,11 @@ void hal_btcoex_wifionly_switchband_notify(PADAPTER padapter)
 		ex_hal8822b_wifi_only_switchbandnotify(&GLBtCoexistWifiOnly, is_5g);
 #endif
 	}
+
+#ifdef CONFIG_RTL8821C
+	else if (IS_HARDWARE_TYPE_8821C(padapter))
+		ex_hal8821c_wifi_only_switchbandnotify(&GLBtCoexistWifiOnly, is_5g);
+#endif
 }
 
 void hal_btcoex_wifionly_scan_notify(PADAPTER padapter)
@@ -118,6 +137,11 @@ void hal_btcoex_wifionly_scan_notify(PADAPTER padapter)
 		ex_hal8822b_wifi_only_scannotify(&GLBtCoexistWifiOnly, is_5g);
 #endif
 	}
+
+#ifdef CONFIG_RTL8821C
+	else if (IS_HARDWARE_TYPE_8821C(padapter))
+		ex_hal8821c_wifi_only_scannotify(&GLBtCoexistWifiOnly, is_5g);
+#endif
 }
 
 void hal_btcoex_wifionly_hw_config(PADAPTER padapter)
@@ -133,6 +157,11 @@ void hal_btcoex_wifionly_hw_config(PADAPTER padapter)
 #ifdef CONFIG_RTL8822B
 	else if (IS_HARDWARE_TYPE_8822B(padapter))
 		ex_hal8822b_wifi_only_hw_config(pwifionlycfg);
+#endif
+
+#ifdef CONFIG_RTL8821C
+	else if (IS_HARDWARE_TYPE_8821C(padapter))
+		ex_hal8821c_wifi_only_hw_config(pwifionlycfg);
 #endif
 }
 
@@ -159,6 +188,8 @@ void hal_btcoex_wifionly_initlizevariables(PADAPTER padapter)
 	pwifionly_haldata->customer_id = CUSTOMER_NORMAL;
 	pwifionly_haldata->efuse_pg_antnum = pHalData->EEPROMBluetoothAntNum;
 	pwifionly_haldata->efuse_pg_antpath = pHalData->ant_path;
+	pwifionly_haldata->rfe_type = pHalData->rfe_type;
+	pwifionly_haldata->ant_div_cfg = pHalData->AntDivCfg;
 }
 
 #endif

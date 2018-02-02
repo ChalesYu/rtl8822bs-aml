@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2012 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,12 +11,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 #ifndef __HAL_INTF_H__
 #define __HAL_INTF_H__
 
@@ -45,6 +40,14 @@ enum _CHIP_TYPE {
 	MAX_CHIP_TYPE
 };
 
+#ifdef RTW_HALMAC
+enum fw_mem {
+	FW_EMEM,
+	FW_IMEM,
+	FW_DMEM,
+};
+#endif
+
 extern const u32 _chip_type_to_odm_ic_type[];
 #define chip_type_to_odm_ic_type(chip_type) (((chip_type) >= MAX_CHIP_TYPE) ? _chip_type_to_odm_ic_type[MAX_CHIP_TYPE] : _chip_type_to_odm_ic_type[(chip_type)])
 
@@ -65,7 +68,7 @@ typedef enum _HW_VARIABLES {
 	HW_VAR_TXPAUSE,
 	HW_VAR_BCN_FUNC,
 	HW_VAR_CORRECT_TSF,
-	HW_VAR_CHECK_BSSID,
+	HW_VAR_RCR,
 	HW_VAR_MLME_DISCONNECT,
 	HW_VAR_MLME_SITESURVEY,
 	HW_VAR_MLME_JOIN,
@@ -87,9 +90,9 @@ typedef enum _HW_VARIABLES {
 	HW_VAR_AC_PARAM_BE,
 	HW_VAR_AC_PARAM_BK,
 	HW_VAR_ACM_CTRL,
-#ifdef CONFIG_WMMPS
+#ifdef CONFIG_WMMPS_STA
 	HW_VAR_UAPSD_TID,
-#endif
+#endif /* CONFIG_WMMPS_STA */
 	HW_VAR_AMPDU_MIN_SPACE,
 	HW_VAR_AMPDU_FACTOR,
 	HW_VAR_RXDMA_AGG_PG_TH,
@@ -105,6 +108,9 @@ typedef enum _HW_VARIABLES {
 	HW_VAR_LPS_POFF_DEINIT,
 	HW_VAR_LPS_POFF_SET_MODE,
 	HW_VAR_LPS_POFF_WOW_EN,
+#endif
+#ifdef CONFIG_LPS_PG
+	HW_VAR_LPS_PG_HANDLE,
 #endif
 	HW_VAR_TRIGGER_GPIO_0,
 	HW_VAR_BT_SET_COEXIST,
@@ -135,13 +141,15 @@ typedef enum _HW_VARIABLES {
 	HW_VAR_RPT_TIMER_SETTING,
 	HW_VAR_TX_RPT_MAX_MACID,
 	HW_VAR_CHK_HI_QUEUE_EMPTY,
+	HW_VAR_CHK_MGQ_CPU_EMPTY,
 	HW_VAR_DL_BCN_SEL,
 	HW_VAR_AMPDU_MAX_TIME,
 	HW_VAR_WIRELESS_MODE,
 	HW_VAR_USB_MODE,
 	HW_VAR_PORT_SWITCH,
+	HW_VAR_PORT_CFG,
 	HW_VAR_DO_IQK,
-	HW_VAR_DM_IN_LPS,
+	HW_VAR_DM_IN_LPS_LCLK,/*flag CONFIG_LPS_LCLK_WD_TIMER*/
 	HW_VAR_SET_REQ_FW_PS,
 	HW_VAR_FW_PS_STATE,
 	HW_VAR_SOUNDING_ENTER,
@@ -174,13 +182,19 @@ typedef enum _HW_VARIABLES {
 	HW_VAR_CH_SW_NEED_TO_TAKE_CARE_IQK_INFO,
 	HW_VAR_CH_SW_IQK_INFO_BACKUP,
 	HW_VAR_CH_SW_IQK_INFO_RESTORE,
+
+	HW_VAR_DBI,
+	HW_VAR_MDIO,
+	HW_VAR_L1OFF_CAPABILITY,
+	HW_VAR_L1OFF_NIC_SUPPORT,
 #ifdef CONFIG_TDLS
-	HW_VAR_TDLS_WRCR,
-	HW_VAR_TDLS_RS_RCR,
 #ifdef CONFIG_TDLS_CH_SW
-	HW_VAR_TDLS_BCN_EARLY_C2H_RPT
+	HW_VAR_TDLS_BCN_EARLY_C2H_RPT,
 #endif
 #endif
+	HW_VAR_DUMP_MAC_TXFIFO,
+	HW_VAR_PWR_CMD,
+	HW_VAR_ENABLE_RX_BAR,
 } HW_VARIABLES;
 
 typedef enum _HAL_DEF_VARIABLE {
@@ -228,17 +242,10 @@ typedef enum _HAL_ODM_VARIABLE {
 	HAL_ODM_STA_INFO,
 	HAL_ODM_P2P_STATE,
 	HAL_ODM_WIFI_DISPLAY_STATE,
-	HAL_ODM_NOISE_MONITOR,
 	HAL_ODM_REGULATION,
 	HAL_ODM_INITIAL_GAIN,
-	HAL_ODM_FA_CNT_DUMP,
-	HAL_ODM_DBG_FLAG,
-	HAL_ODM_DBG_LEVEL,
 	HAL_ODM_RX_INFO_DUMP,
 	HAL_ODM_RX_Dframe_INFO,
-#ifdef CONFIG_AUTO_CHNL_SEL_NHM
-	HAL_ODM_AUTO_CHNL_SEL,
-#endif
 #ifdef CONFIG_ANTENNA_DIVERSITY
 	HAL_ODM_ANTDIV_SELECT
 #endif
@@ -258,7 +265,7 @@ struct hal_ops {
 	void	(*read_chip_version)(_adapter *padapter);
 	void	(*init_default_value)(_adapter *padapter);
 	void	(*intf_chip_configure)(_adapter *padapter);
-	void	(*read_adapter_info)(_adapter *padapter);
+	u8	(*read_adapter_info)(_adapter *padapter);
 	u32(*hal_power_on)(_adapter *padapter);
 	void	(*hal_power_off)(_adapter *padapter);
 	u32(*hal_init)(_adapter *padapter);
@@ -308,25 +315,21 @@ struct hal_ops {
 #endif
 
 	/*** DM section ***/
-
+#ifdef CONFIG_RTW_SW_LED
 	void	(*InitSwLeds)(_adapter *padapter);
 	void	(*DeInitSwLeds)(_adapter *padapter);
-
-	void	(*set_chnl_bw_handler)(_adapter *padapter, u8 channel, CHANNEL_WIDTH Bandwidth, u8 Offset40, u8 Offset80);
+#endif
+	void	(*set_chnl_bw_handler)(_adapter *padapter, u8 channel, enum channel_width Bandwidth, u8 Offset40, u8 Offset80);
 
 	void	(*set_tx_power_level_handler)(_adapter *padapter, u8 channel);
 	void	(*get_tx_power_level_handler)(_adapter *padapter, s32 *powerlevel);
 
-	void (*set_tx_power_index_handler)(_adapter *padapter, u32 powerindex, u8 rfpath, u8 rate);
-	u8(*get_tx_power_index_handler)(_adapter *padapter, u8 rfpath, u8 rate, u8 bandwidth, u8 channel, struct txpwr_idx_comp *tic);
+	void (*set_tx_power_index_handler)(_adapter *padapter, u32 powerindex, enum rf_path rfpath, u8 rate);
+	u8 (*get_tx_power_index_handler)(_adapter *padapter, enum rf_path rfpath, u8 rate, u8 bandwidth, u8 channel, struct txpwr_idx_comp *tic);
 
 	void	(*hal_dm_watchdog)(_adapter *padapter);
-#ifdef CONFIG_LPS_LCLK_WD_TIMER
-	void	(*hal_dm_watchdog_in_lps)(_adapter *padapter);
-#endif
 
-
-	void	(*set_hw_reg_handler)(_adapter *padapter, u8	variable, u8 *val);
+	u8	(*set_hw_reg_handler)(_adapter *padapter, u8	variable, u8 *val);
 
 	void	(*GetHwRegHandler)(_adapter *padapter, u8	variable, u8 *val);
 
@@ -339,15 +342,14 @@ struct hal_ops {
 	void	(*GetHalODMVarHandler)(_adapter *padapter, HAL_ODM_VARIABLE eVariable, PVOID pValue1, PVOID pValue2);
 	void	(*SetHalODMVarHandler)(_adapter *padapter, HAL_ODM_VARIABLE eVariable, PVOID pValue1, BOOLEAN bSet);
 
-	void	(*UpdateRAMaskHandler)(_adapter *padapter, struct sta_info *psta, u32 mac_id, u8 rssi_level);
 	void	(*SetBeaconRelatedRegistersHandler)(_adapter *padapter);
 
 	u8(*interface_ps_func)(_adapter *padapter, HAL_INTF_PS_FUNC efunc_id, u8 *val);
 
 	u32(*read_bbreg)(_adapter *padapter, u32 RegAddr, u32 BitMask);
 	void	(*write_bbreg)(_adapter *padapter, u32 RegAddr, u32 BitMask, u32 Data);
-	u32(*read_rfreg)(_adapter *padapter, u8 eRFPath, u32 RegAddr, u32 BitMask);
-	void	(*write_rfreg)(_adapter *padapter, u8 eRFPath, u32 RegAddr, u32 BitMask, u32 Data);
+	u32 (*read_rfreg)(_adapter *padapter, enum rf_path eRFPath, u32 RegAddr, u32 BitMask);
+	void	(*write_rfreg)(_adapter *padapter, enum rf_path eRFPath, u32 RegAddr, u32 BitMask, u32 Data);
 
 #ifdef CONFIG_HOSTAPD_MLME
 	s32(*hostap_mgnt_xmit_entry)(_adapter *padapter, _pkt *pkt);
@@ -383,10 +385,14 @@ struct hal_ops {
 #else
 	s32(*c2h_handler)(_adapter *adapter, u8 id, u8 seq, u8 plen, u8 *payload);
 #endif
+	void (*reqtxrpt)(_adapter *padapter, u8 macid);
 	s32(*fill_h2c_cmd)(PADAPTER, u8 ElementID, u32 CmdLen, u8 *pCmdBuffer);
 	void (*fill_fake_txdesc)(PADAPTER, u8 *pDesc, u32 BufferLen,
 				 u8 IsPsPoll, u8 IsBTQosNull, u8 bDataFrame);
 	s32(*fw_dl)(_adapter *adapter, u8 wowlan);
+#ifdef RTW_HALMAC
+	s32 (*fw_mem_dl)(_adapter *adapter, enum fw_mem mem);
+#endif
 
 #if defined(CONFIG_WOWLAN) || defined(CONFIG_AP_WOWLAN) || defined(CONFIG_PCI_HCI)
 	void (*clear_interrupt)(_adapter *padapter);
@@ -403,6 +409,15 @@ struct hal_ops {
 	u8(*init_mac_register)(PADAPTER);
 	u8(*init_phy)(PADAPTER);
 #endif /* RTW_HALMAC */
+
+#ifdef CONFIG_PCI_HCI
+	void (*hal_set_l1ssbackdoor_handler)(_adapter *padapter, u8 enable);
+#endif
+
+#ifdef CONFIG_RFKILL_POLL
+	bool (*hal_radio_onoff_check)(_adapter *adapter, u8 *valid);
+#endif
+
 };
 
 typedef	enum _RT_EEPROM_TYPE {
@@ -587,20 +602,21 @@ void	rtw_hal_free_data(_adapter *padapter);
 
 void rtw_hal_dm_init(_adapter *padapter);
 void rtw_hal_dm_deinit(_adapter *padapter);
+#ifdef CONFIG_RTW_SW_LED
 void rtw_hal_sw_led_init(_adapter *padapter);
 void rtw_hal_sw_led_deinit(_adapter *padapter);
-
+#endif
 u32 rtw_hal_power_on(_adapter *padapter);
 void rtw_hal_power_off(_adapter *padapter);
 
 uint rtw_hal_init(_adapter *padapter);
 uint rtw_hal_deinit(_adapter *padapter);
 void rtw_hal_stop(_adapter *padapter);
-void rtw_hal_set_hwreg(PADAPTER padapter, u8 variable, u8 *val);
+u8 rtw_hal_set_hwreg(PADAPTER padapter, u8 variable, u8 *val);
 void rtw_hal_get_hwreg(PADAPTER padapter, u8 variable, u8 *val);
 
 void rtw_hal_chip_configure(_adapter *padapter);
-void rtw_hal_read_chip_info(_adapter *padapter);
+u8 rtw_hal_read_chip_info(_adapter *padapter);
 void rtw_hal_read_chip_version(_adapter *padapter);
 
 u8 rtw_hal_set_def_var(_adapter *padapter, HAL_DEF_VARIABLE eVariable, PVOID pValue);
@@ -621,6 +637,12 @@ u8 rtw_hal_check_ips_status(_adapter *padapter);
 
 #if defined(CONFIG_PCI_HCI)
 	void	rtw_hal_irp_reset(_adapter *padapter);
+void	rtw_hal_pci_dbi_write(_adapter *padapter, u16 addr, u8 data);
+u8	rtw_hal_pci_dbi_read(_adapter *padapter, u16 addr);
+void	rtw_hal_pci_mdio_write(_adapter *padapter, u8 addr, u16 data);
+u16	rtw_hal_pci_mdio_read(_adapter *padapter, u8 addr);
+u8	rtw_hal_pci_l1off_nic_support(_adapter *padapter);
+u8	rtw_hal_pci_l1off_capability(_adapter *padapter);
 #endif
 
 u8	rtw_hal_intf_ps_func(_adapter *padapter, HAL_INTF_PS_FUNC efunc_id, u8 *val);
@@ -635,8 +657,7 @@ void	rtw_hal_free_xmit_priv(_adapter *padapter);
 s32	rtw_hal_init_recv_priv(_adapter *padapter);
 void	rtw_hal_free_recv_priv(_adapter *padapter);
 
-void rtw_hal_update_ra_mask(struct sta_info *psta, u8 rssi_level);
-void rtw_update_ramask(_adapter *padapter, struct sta_info *psta, u32 mac_id, u8 rssi_level);
+void rtw_hal_update_ra_mask(struct sta_info *psta);
 
 void	rtw_hal_start_thread(_adapter *padapter);
 void	rtw_hal_stop_thread(_adapter *padapter);
@@ -645,8 +666,9 @@ void rtw_hal_bcn_related_reg_setting(_adapter *padapter);
 
 u32	rtw_hal_read_bbreg(_adapter *padapter, u32 RegAddr, u32 BitMask);
 void	rtw_hal_write_bbreg(_adapter *padapter, u32 RegAddr, u32 BitMask, u32 Data);
-u32	rtw_hal_read_rfreg(_adapter *padapter, u32 eRFPath, u32 RegAddr, u32 BitMask);
-void	rtw_hal_write_rfreg(_adapter *padapter, u32 eRFPath, u32 RegAddr, u32 BitMask, u32 Data);
+u32	rtw_hal_read_rfreg(_adapter *padapter, enum rf_path eRFPath, u32 RegAddr, u32 BitMask);
+void	rtw_hal_write_rfreg(_adapter *padapter, enum rf_path eRFPath, u32 RegAddr, u32 BitMask, u32 Data);
+
 
 #define phy_query_bb_reg(Adapter, RegAddr, BitMask) rtw_hal_read_bbreg((Adapter), (RegAddr), (BitMask))
 #define phy_set_bb_reg(Adapter, RegAddr, BitMask, Data) rtw_hal_write_bbreg((Adapter), (RegAddr), (BitMask), (Data))
@@ -664,7 +686,7 @@ void	rtw_hal_write_rfreg(_adapter *padapter, u32 eRFPath, u32 RegAddr, u32 BitMa
 	void	rtw_hal_interrupt_handler(_adapter *padapter, u16 pkt_len, u8 *pbuf);
 #endif
 
-void	rtw_hal_set_chnl_bw(_adapter *padapter, u8 channel, CHANNEL_WIDTH Bandwidth, u8 Offset40, u8 Offset80);
+void	rtw_hal_set_chnl_bw(_adapter *padapter, u8 channel, enum channel_width Bandwidth, u8 Offset40, u8 Offset80);
 void	rtw_hal_dm_watchdog(_adapter *padapter);
 void	rtw_hal_dm_watchdog_in_lps(_adapter *padapter);
 
@@ -738,14 +760,20 @@ s32 rtw_hal_fw_dl(_adapter *padapter, u8 wowlan);
 	void rtw_hal_clear_interrupt(_adapter *padapter);
 #endif
 
-void rtw_hal_set_tx_power_index(PADAPTER, u32 powerindex, u8 rfpath, u8 rate);
-u8 rtw_hal_get_tx_power_index(PADAPTER, u8 rfpath, u8 rate, u8 bandwidth, u8 channel,struct txpwr_idx_comp *tic);
+void rtw_hal_set_tx_power_index(PADAPTER adapter, u32 powerindex, enum rf_path rfpath, u8 rate);
+u8 rtw_hal_get_tx_power_index(PADAPTER adapter, enum rf_path
+	rfpath, u8 rate, u8 bandwidth, u8 channel, struct txpwr_idx_comp *tic);
 
 u8 rtw_hal_ops_check(_adapter *padapter);
 
 #ifdef RTW_HALMAC
 	u8 rtw_hal_init_mac_register(PADAPTER);
 	u8 rtw_hal_init_phy(PADAPTER);
+s32 rtw_hal_fw_mem_dl(_adapter *padapter, enum fw_mem mem);
 #endif /* RTW_HALMAC */
+
+#ifdef CONFIG_RFKILL_POLL
+bool rtw_hal_rfkill_poll(_adapter *adapter, u8 *valid);
+#endif
 
 #endif /* __HAL_INTF_H__ */
