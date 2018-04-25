@@ -259,16 +259,8 @@ static void Hal_EfuseParseBoardType(PADAPTER adapter, u8 *map, u8 mapvalid)
 static void Hal_EfuseParseBTCoexistInfo(PADAPTER adapter, u8 *map, u8 mapvalid)
 {
 	PHAL_DATA_TYPE hal = GET_HAL_DATA(adapter);
-	struct hal_spec_t *hal_spec = GET_HAL_SPEC(adapter);
 	u8 setting;
 	u32 tmpu4;
-
-#ifdef CONFIG_RTW_MAC_HIDDEN_RPT
-	if (hal_spec->hci_type <= 3 && hal_spec->hci_type >= 1) {
-		hal->EEPROMBluetoothCoexist = _FALSE;
-		goto exit;
-	}
-#endif /* CONFIG_RTW_MAC_HIDDEN_RPT */
 
 	if ((_TRUE == mapvalid) && (map[EEPROM_RF_BOARD_OPTION_8822B] != 0xFF)) {
 		/* 0xc1[7:5] = 0x01 */
@@ -601,11 +593,6 @@ u8 rtl8822b_read_efuse(PADAPTER adapter)
 	hal = GET_HAL_DATA(adapter);
 	efuse_map = hal->efuse_eeprom_data;
 
-#ifdef CONFIG_RTW_MAC_HIDDEN_RPT
-	if (hal_read_mac_hidden_rpt(adapter) != _SUCCESS)
-		goto exit;
-#endif
-
 	/* 1. Read registers to check hardware eFuse available or not */
 	val8 = rtw_read8(adapter, REG_SYS_EEPROM_CTRL_8822B);
 	hal->EepromOrEfuse = (val8 & BIT_EERPOMSEL_8822B) ? _TRUE : _FALSE;
@@ -655,6 +642,22 @@ u8 rtl8822b_read_efuse(PADAPTER adapter)
 #ifdef CONFIG_USB_HCI
 	Hal_ReadUsbModeSwitch(adapter, efuse_map, valid);
 #endif /* CONFIG_USB_HCI */
+
+	/* set coex. ant info once efuse parsing is done */
+	rtw_btcoex_set_ant_info(adapter);
+
+#ifdef CONFIG_RTW_MAC_HIDDEN_RPT
+	hal_read_mac_hidden_rpt(adapter);
+	{
+		struct hal_spec_t *hal_spec = GET_HAL_SPEC(adapter);
+
+		if (hal_spec->hci_type <= 3 && hal_spec->hci_type >= 1) {
+			hal->EEPROMBluetoothCoexist = _FALSE;
+			RTW_INFO("EEPROM Disable BT-coex by hal_spec\n");
+			rtw_btcoex_wifionly_AntInfoSetting(adapter);
+		}
+	}
+#endif
 
 	ret = _SUCCESS;
 
@@ -1969,8 +1972,17 @@ static void hw_port_reconfig(_adapter * if_ap, _adapter *if_port0)
 	Set_MSR(if_port0, vnet_type);
 	rtw_write8(if_port0, port_cfg[if_port0->hw_port].bcn_ctl, vbcn_ctrl);
 
-	if (is_client_associated_to_ap(if_port0))
+	if (is_client_associated_to_ap(if_port0)) {
 		rtw_hal_set_hwreg(if_port0, HW_VAR_BSSID, bssid);
+		#ifdef CONFIG_FW_MULTI_PORT_SUPPORT
+		rtw_set_default_port_id(if_port0);
+		#endif
+	}
+
+#if defined(CONFIG_BT_COEXIST) && defined(CONFIG_FW_MULTI_PORT_SUPPORT)
+	if (GET_HAL_DATA(if_port0)->EEPROMBluetoothCoexist == _TRUE)
+		rtw_hal_set_wifi_btc_port_id_cmd(if_port0);
+#endif
 
 	if_ap->hw_port =HW_PORT0;
 	/* port mac addr switch to adapter mac addr */
@@ -2246,6 +2258,10 @@ u8 rtl8822b_sethwreg(PADAPTER adapter, u8 variable, u8 *val)
 */
 #ifdef CONFIG_P2P_PS
 	case HW_VAR_H2C_FW_P2P_PS_OFFLOAD:
+		#ifdef CONFIG_FW_MULTI_PORT_SUPPORT
+		if (*val == P2P_PS_ENABLE)
+			rtw_set_default_port_id(adapter);
+		#endif
 		rtw_set_p2p_ps_offload_cmd(adapter, *val);
 		break;
 #endif /* CONFIG_P2P_PS */
@@ -2564,6 +2580,12 @@ u8 rtl8822b_sethwreg(PADAPTER adapter, u8 variable, u8 *val)
 #endif
 */
 #endif
+
+	case HW_VAR_SET_SOML_PARAM:
+#ifdef CONFIG_DYNAMIC_SOML
+		rtw_dyn_soml_para_set(adapter, 4, 20, 1, 0);
+#endif
+		break;
 
 	default:
 		ret = SetHwReg(adapter, variable, val);

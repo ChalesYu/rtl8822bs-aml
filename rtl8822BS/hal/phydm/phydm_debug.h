@@ -214,25 +214,41 @@
 
 #define	PHYDM_SSCANF(x, y, z)	sscanf(x, y, z)
 
-#define	PHYDM_VAST_INFO_SNPRINTF(msg)\
-	do {\
-		snprintf msg;\
-		dbg_print(output);\
-	} while (0)
-
-#if (PHYDM_DBGPRINT == 1)
-#define	PHYDM_SNPRINTF(msg)\
-	do {\
-		snprintf msg;\
-		dbg_print(output);\
-	} while (0)
+#if (DM_ODM_SUPPORT_TYPE == ODM_CE)
+	#define	PHYDM_VAST_INFO_SNPRINTF(msg)\
+		do {\
+			snprintf msg;\
+			dbg_print("%s\n", output);\
+		} while (0)
 #else
-#define	PHYDM_SNPRINTF(msg)\
+	#define	PHYDM_VAST_INFO_SNPRINTF(msg)\
 	do {\
-		if (out_len > used)\
-			used += snprintf msg;\
+		snprintf msg;\
+		dbg_print(output);\
 	} while (0)
 #endif
+
+#if (PHYDM_DBGPRINT == 1)
+	#if (DM_ODM_SUPPORT_TYPE == ODM_CE)
+	#define	PHYDM_SNPRINTF(msg)\
+		do {\
+			snprintf msg;\
+			dbg_print("%s\n", output);\
+		} while (0)
+	#else
+	#define	PHYDM_SNPRINTF(msg)\
+		do {\
+			snprintf msg;\
+			dbg_print(output);\
+		} while (0)
+	#endif
+#else
+	#define	PHYDM_SNPRINTF(msg)\
+		do {\
+			if (out_len > used)\
+				used += snprintf msg;\
+		} while (0)
+#endif /*#if (PHYDM_DBGPRINT == 1)*/
 #endif
 
 void

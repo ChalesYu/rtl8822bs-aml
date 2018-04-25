@@ -512,7 +512,7 @@ enum {
 	RTW_CHF_NON_OCP = BIT6,
 };
 
-bool rtw_choose_shortest_waiting_ch(_adapter *adapter, u8 req_bw, u8 *dec_ch, u8 *dec_bw, u8 *dec_offset, u8 d_flags);
+bool rtw_choose_shortest_waiting_ch(_adapter *adapter, u8 sel_ch, u8 max_bw, u8 *dec_ch, u8 *dec_bw, u8 *dec_offset, u8 d_flags);
 
 void dump_country_chplan(void *sel, const struct country_chplan *ent);
 void dump_country_chplan_map(void *sel);
@@ -523,6 +523,8 @@ void dump_cur_chset(void *sel, _adapter *adapter);
 
 int rtw_chset_search_ch(RT_CHANNEL_INFO *ch_set, const u32 ch);
 u8 rtw_chset_is_chbw_valid(RT_CHANNEL_INFO *ch_set, u8 ch, u8 bw, u8 offset);
+void rtw_chset_sync_chbw(RT_CHANNEL_INFO *ch_set, u8 *req_ch, u8 *req_bw, u8 *req_offset
+	, u8 *g_ch, u8 *g_bw, u8 *g_offset);
 
 bool rtw_mlme_band_check(_adapter *adapter, const u32 ch);
 
@@ -609,6 +611,7 @@ struct mlme_ext_priv {
 
 	systime last_scan_time;
 	u8	scan_abort;
+	u8 join_abort;
 	u8	tx_rate; /* TXRATE when USERATE is set. */
 
 	u32	retry; /* retry for issue probereq */
@@ -736,7 +739,6 @@ systime rtw_get_on_oper_ch_time(_adapter *adapter);
 systime rtw_get_on_cur_ch_time(_adapter *adapter);
 
 u8 rtw_get_offset_by_chbw(u8 ch, u8 bw, u8 *r_offset);
-u8 rtw_get_offset_by_ch(u8 channel);
 
 void set_channel_bwmode(_adapter *padapter, unsigned char channel, unsigned char channel_offset, unsigned short bwmode);
 

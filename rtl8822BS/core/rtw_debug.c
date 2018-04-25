@@ -129,6 +129,14 @@ void dump_drv_cfg(void *sel)
 	RTW_PRINT_SEL(sel, "CONFIG_RTW_80211R\n");
 #endif
 
+#ifdef CONFIG_RTW_NETIF_SG
+	RTW_PRINT_SEL(sel, "CONFIG_RTW_NETIF_SG\n");
+#endif
+
+#ifdef CONFIG_RTW_WIFI_HAL
+	RTW_PRINT_SEL(sel, "CONFIG_RTW_WIFI_HAL\n");
+#endif
+
 #ifdef CONFIG_USB_HCI
 #ifdef CONFIG_SUPPORT_USB_INT
 	RTW_PRINT_SEL(sel, "CONFIG_SUPPORT_USB_INT\n");
@@ -418,7 +426,7 @@ void dump_adapters_status(void *sel, struct dvobj_priv *dvobj)
 	dump_mi_status(sel, dvobj);
 
 #ifdef CONFIG_FW_MULTI_PORT_SUPPORT
-	RTW_PRINT_SEL(sel, "default port id:%d\n\n", dvobj->default_port_id);
+	RTW_PRINT_SEL(sel, "default port id:%d\n\n", dvobj->dft.port_id);
 #endif /* CONFIG_FW_MULTI_PORT_SUPPORT */
 
 	RTW_PRINT_SEL(sel, "dev status:%s%s\n\n"

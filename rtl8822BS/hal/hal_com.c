@@ -3257,15 +3257,21 @@ s32 rtw_hal_set_default_port_id_cmd(_adapter *adapter, u8 mac_id)
 	s32 ret = _SUCCESS;
 	u8 parm[H2C_DEFAULT_PORT_ID_LEN] = {0};
 	struct dvobj_priv *dvobj = adapter_to_dvobj(adapter);
+	u8 port_id = get_hw_port(adapter);
 
-	SET_H2CCMD_DFTPID_PORT_ID(parm, adapter->hw_port);
+	if ((dvobj->dft.port_id == port_id) && (dvobj->dft.mac_id == mac_id))
+		return ret;
+
+	SET_H2CCMD_DFTPID_PORT_ID(parm, port_id);
 	SET_H2CCMD_DFTPID_MAC_ID(parm, mac_id);
 
 	RTW_DBG_DUMP("DFT port id parm:", parm, H2C_DEFAULT_PORT_ID_LEN);
-	RTW_INFO("%s port_id :%d, mad_id:%d\n", __func__, adapter->hw_port, mac_id);
+	RTW_INFO("%s ("ADPT_FMT") port_id :%d, mad_id:%d\n",
+		__func__, ADPT_ARG(adapter), port_id, mac_id);
 
 	ret = rtw_hal_fill_h2c_cmd(adapter, H2C_DEFAULT_PORT_ID, H2C_DEFAULT_PORT_ID_LEN, parm);
-	dvobj->default_port_id = adapter->hw_port;
+	dvobj->dft.port_id = port_id;
+	dvobj->dft.mac_id = mac_id;
 
 	return ret;
 }
@@ -3274,12 +3280,8 @@ s32 rtw_set_default_port_id(_adapter *adapter)
 	s32 ret = _SUCCESS;
 	struct sta_info		*psta;
 	struct mlme_priv *pmlmepriv = &adapter->mlmepriv;
-	struct dvobj_priv *dvobj = adapter_to_dvobj(adapter);
 
-	if (adapter->hw_port == dvobj->default_port_id)
-		return ret;
-
-	if (check_fwstate(pmlmepriv, WIFI_STATION_STATE) == _TRUE) {
+	if (is_client_associated_to_ap(adapter)) {
 		psta = rtw_get_stainfo(&adapter->stapriv, get_bssid(pmlmepriv));
 		if (psta)
 			ret = rtw_hal_set_default_port_id_cmd(adapter, psta->cmn.mac_id);
@@ -3294,9 +3296,9 @@ s32 rtw_set_ps_rsvd_page(_adapter *adapter)
 {
 	s32 ret = _SUCCESS;
 	u16 media_status_rpt = RT_MEDIA_CONNECT;
-	struct dvobj_priv *dvobj = adapter_to_dvobj(adapter);
+	struct pwrctrl_priv *pwrctl = adapter_to_pwrctl(adapter);
 
-	if (adapter->hw_port == dvobj->default_port_id)
+	if (adapter->iface_id == pwrctl->fw_psmode_iface_id)
 		return ret;
 
 	rtw_hal_set_hwreg(adapter, HW_VAR_H2C_FW_JOINBSSRPT,
@@ -3305,7 +3307,123 @@ s32 rtw_set_ps_rsvd_page(_adapter *adapter)
 	return ret;
 }
 
+#if 0
+_adapter * _rtw_search_dp_iface(_adapter *adapter)
+{
+	struct dvobj_priv *dvobj = adapter_to_dvobj(adapter);
+	_adapter *iface;
+	_adapter *target_iface = NULL;
+	int i;
+	u8 sta_num = 0, tdls_num = 0, ap_num = 0, mesh_num = 0, adhoc_num = 0;
+	u8 p2p_go_num = 0, p2p_gc_num = 0;
+	_adapter *sta_ifs[8];
+	_adapter *ap_ifs[8];
+	_adapter *mesh_ifs[8];
+	_adapter *gc_ifs[8];
+	_adapter *go_ifs[8];
+
+	for (i = 0; i < dvobj->iface_nums; i++) {
+		iface = dvobj->padapters[i];
+
+		if (check_fwstate(&iface->mlmepriv, WIFI_STATION_STATE) == _TRUE) {
+			if (check_fwstate(&iface->mlmepriv, _FW_LINKED) == _TRUE) {
+				sta_ifs[sta_num++] = iface;
+
+				#ifdef CONFIG_TDLS
+				if (iface->tdlsinfo.link_established == _TRUE)
+					tdls_num++;
+				#endif
+				#ifdef CONFIG_P2P
+				if (MLME_IS_GC(iface))
+					gc_ifs[p2p_gc_num++] = iface;
+				#endif
+			}
+#ifdef CONFIG_AP_MODE
+		} else if (check_fwstate(&iface->mlmepriv, WIFI_AP_STATE) == _TRUE ) {
+			if (check_fwstate(&iface->mlmepriv, _FW_LINKED) == _TRUE) {
+				ap_ifs[ap_num++] = iface;
+				#ifdef CONFIG_P2P
+				if (MLME_IS_GO(iface))
+					go_ifs[p2p_go_num++] = iface;
+				#endif
+			}
 #endif
+		} else if (check_fwstate(&iface->mlmepriv, WIFI_ADHOC_STATE | WIFI_ADHOC_MASTER_STATE) == _TRUE
+			&& check_fwstate(&iface->mlmepriv, _FW_LINKED) == _TRUE
+		) {
+			adhoc_num++;
+
+#ifdef CONFIG_RTW_MESH
+		} else if (check_fwstate(&iface->mlmepriv, WIFI_MESH_STATE) == _TRUE
+			&& check_fwstate(&iface->mlmepriv, _FW_LINKED) == _TRUE
+		) {
+			mesh_ifs[mesh_num++] = iface;
+#endif
+		}
+	}
+
+	if (p2p_gc_num) {
+		target_iface = gc_ifs[0];
+	}
+	else if (sta_num) {
+		if(sta_num == 1) {
+			target_iface = sta_ifs[0];
+		} else if (sta_num >= 2) {
+			/*TODO get target_iface by timestamp*/
+			target_iface = sta_ifs[0];
+		}
+	} else if (ap_num) {
+		target_iface = ap_ifs[0];
+	}
+
+	RTW_INFO("[IFS_ASSOC_STATUS] - STA :%d", sta_num);
+	RTW_INFO("[IFS_ASSOC_STATUS] - TDLS :%d", tdls_num);
+	RTW_INFO("[IFS_ASSOC_STATUS] - AP:%d", ap_num);
+	RTW_INFO("[IFS_ASSOC_STATUS] - MESH :%d", mesh_num);
+	RTW_INFO("[IFS_ASSOC_STATUS] - ADHOC :%d", adhoc_num);
+	RTW_INFO("[IFS_ASSOC_STATUS] - P2P-GC :%d", p2p_gc_num);
+	RTW_INFO("[IFS_ASSOC_STATUS] - P2P-GO :%d", p2p_go_num);
+
+	if (target_iface)
+		RTW_INFO("%s => target_iface ("ADPT_FMT")\n",
+			__func__, ADPT_ARG(target_iface));
+	else
+		RTW_INFO("%s => target_iface NULL\n", __func__);
+
+	return target_iface;
+}
+
+void rtw_search_default_port(_adapter *adapter)
+{
+	struct dvobj_priv *dvobj = adapter_to_dvobj(adapter);
+	_adapter *adp_iface = NULL;
+#ifdef CONFIG_WOWLAN
+	struct pwrctrl_priv *pwrpriv = dvobj_to_pwrctl(dvobj);
+
+	if (pwrpriv->wowlan_mode == _TRUE) {
+		adp_iface = adapter;
+		goto exit;
+	}
+#endif
+	adp_iface = _rtw_search_dp_iface(adapter);
+
+exit :
+	if ((adp_iface != NULL) && (MLME_IS_STA(adp_iface)))
+		rtw_set_default_port_id(adp_iface);
+	else
+		rtw_hal_set_default_port_id_cmd(adapter, 0);
+
+	if (1) {
+		_adapter *tmp_adp;
+
+		tmp_adp = (adp_iface) ? adp_iface : adapter;
+
+		RTW_INFO("%s ("ADPT_FMT")=> hw_port :%d, default_port(%d)\n",
+			__func__, ADPT_ARG(adapter), get_hw_port(tmp_adp), get_dft_portid(tmp_adp));
+	}
+}
+#endif
+#endif /*CONFIG_FW_MULTI_PORT_SUPPORT*/
 
 #ifdef CONFIG_P2P_PS
 #ifdef RTW_HALMAC
@@ -9756,12 +9874,12 @@ void rtw_hal_update_uapsd_tid(_adapter *adapter)
 
 #if defined(CONFIG_BT_COEXIST) && defined(CONFIG_FW_MULTI_PORT_SUPPORT)
 /* For multi-port support, driver needs to inform the port ID to FW for btc operations */
-s32 rtw_hal_set_wifi_port_id_cmd(_adapter *adapter)
+s32 rtw_hal_set_wifi_btc_port_id_cmd(_adapter *adapter)
 {
-	u8 port_id = 0;
+	u8 port_id = adapter->hw_port;
 	u8 h2c_buf[H2C_BTC_WL_PORT_ID_LEN] = {0};
 
-	SET_H2CCMD_BTC_WL_PORT_ID(h2c_buf, adapter->hw_port);
+	SET_H2CCMD_BTC_WL_PORT_ID(h2c_buf, port_id);
 	return rtw_hal_fill_h2c_cmd(adapter, H2C_BTC_WL_PORT_ID, H2C_BTC_WL_PORT_ID_LEN, h2c_buf);
 }
 #endif

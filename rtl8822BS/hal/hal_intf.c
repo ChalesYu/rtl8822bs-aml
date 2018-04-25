@@ -78,9 +78,16 @@ void rtw_hal_read_chip_version(_adapter *padapter)
 void rtw_hal_def_value_init(_adapter *padapter)
 {
 	if (is_primary_adapter(padapter)) {
+
+		adapter_to_pwrctl(padapter)->fw_psmode_iface_id = 0xff;
 		padapter->hal_func.init_default_value(padapter);
 
 		rtw_init_hal_com_default_value(padapter);
+		
+	#ifdef CONFIG_FW_MULTI_PORT_SUPPORT
+		adapter_to_dvobj(padapter)->dft.port_id = 0xFF;
+		adapter_to_dvobj(padapter)->dft.mac_id = 0xFF;
+	#endif
 
 		{
 			struct dvobj_priv *dvobj = adapter_to_dvobj(padapter);
@@ -166,11 +173,12 @@ void rtw_hal_sw_led_deinit(_adapter *padapter)
 u32 rtw_hal_power_on(_adapter *padapter)
 {
 	u32 ret = 0;
+	PHAL_DATA_TYPE pHalData = GET_HAL_DATA(padapter);
 
 	ret = padapter->hal_func.hal_power_on(padapter);
 
 #ifdef CONFIG_BT_COEXIST
-	if (ret == _SUCCESS)
+	if ((ret == _SUCCESS) && (pHalData->EEPROMBluetoothCoexist == _TRUE))
 		rtw_btcoex_PowerOnSetting(padapter);
 #endif
 
@@ -242,6 +250,12 @@ uint	 rtw_hal_init(_adapter *padapter)
 #ifdef CONFIG_RF_POWER_TRIM
 		rtw_bb_rf_gain_offset(padapter);
 #endif /*CONFIG_RF_POWER_TRIM*/
+
+#if (RTL8822B_SUPPORT == 1)
+#ifdef CONFIG_DYNAMIC_SOML
+		rtw_dyn_soml_config(padapter);
+#endif
+#endif
 
 	} else {
 		pHalData->hw_init_completed = _FALSE;

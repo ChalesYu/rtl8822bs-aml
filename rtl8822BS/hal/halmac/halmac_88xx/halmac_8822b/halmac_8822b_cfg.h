@@ -17,6 +17,7 @@
 #define _HALMAC_8822B_CFG_H_
 
 #include "../../halmac_hw_cfg.h"
+#include "../halmac_88xx_cfg.h"
 
 #if HALMAC_8822B_SUPPORT
 
@@ -33,7 +34,7 @@
 #define HALMAC_TX_DESC_SIZE_8822B				48
 #define HALMAC_RX_DESC_SIZE_8822B				24
 #define HALMAC_C2H_PKT_BUF_8822B		256
-#define HALMAC_RX_DESC_DUMMY_SIZE_MAX_8822B      80 /*8*10 Bytes*/
+#define HALMAC_RX_DESC_DUMMY_SIZE_MAX_8822B      72 /*8*9 Bytes*/
 #define HALMAC_RX_FIFO_EXPANDING_MODE_PKT_SIZE_MAX_8822B    80 /* should be 8 Byte alignment*/
 
 #define HALMAC_RX_FIFO_EXPANDING_UNIT_8822B			(HALMAC_RX_DESC_SIZE_8822B + HALMAC_RX_DESC_DUMMY_SIZE_MAX_8822B + HALMAC_RX_FIFO_EXPANDING_MODE_PKT_SIZE) /* should be 8 Byte alignment*/
@@ -88,9 +89,6 @@
 /* OQT entry */
 #define HALMAC_OQT_ENTRY_AC_8822B		32
 #define HALMAC_OQT_ENTRY_NOAC_8822B		32
-
-/* MACID number */
-#define HALMAC_MACID_MAX_8822B		127
 
 #endif /* HALMAC_8822B_SUPPORT*/
 

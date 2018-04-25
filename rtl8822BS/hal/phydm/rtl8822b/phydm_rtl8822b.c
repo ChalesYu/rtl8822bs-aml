@@ -347,12 +347,12 @@ phydm_somlrxhp_setting(
 )
 {
 	if (switch_soml == true) {
-		odm_set_bb_reg(p_dm, 0x19a8, MASKDWORD, 0xd10a0000);
+		odm_set_bb_reg(p_dm, 0x19a8, MASKDWORD, 0xd90a0000);
 	/* Following are RxHP settings for T2R as always low, workaround for OTA test, required to classify */
 		odm_set_bb_reg(p_dm, 0xc04, (BIT(21)|BIT(18)), 0x0);
 		odm_set_bb_reg(p_dm, 0xe04, (BIT(21)|BIT(18)), 0x0);
 	} else {
-		odm_set_bb_reg(p_dm, 0x19a8, MASKDWORD, 0x010a0000);
+		odm_set_bb_reg(p_dm, 0x19a8, MASKDWORD, 0x090a0000);
 		odm_set_bb_reg(p_dm, 0xc04, (BIT(21)|BIT(18)), 0x0);
 		odm_set_bb_reg(p_dm, 0xe04, (BIT(21)|BIT(18)), 0x0);
 	}
@@ -451,13 +451,21 @@ phydm_dynamic_ant_weighting_8822b(
 			/*fix sec_min_wgt = 1/2*/
 			reg_8 = (u8)odm_get_bb_reg(p_dm, 0xf94, BIT(0)|BIT(1)|BIT(2));
 			PHYDM_DBG(p_dm, ODM_COMP_API, ("AGC weighting ,rssi_min = %d\n, 0xf94[2:0] = 0x%x\n", p_dm->rssi_min, reg_8));
-        }
+		}
 	} else {
-			odm_set_bb_reg(p_dm, 0x98c, MASKDWORD, 0x43440000);
+		if (p_dm->rssi_min >= rssi_l2h) {
+			odm_set_bb_reg(p_dm, 0x98c, 0x7fc0000, 0x0);
 
+			/*equal weighting*/
+			reg_8 = (u8)odm_get_bb_reg(p_dm, 0xf94, BIT(0)|BIT(1)|BIT(2));
+			PHYDM_DBG(p_dm, ODM_COMP_API, ("Equal weighting ,rssi_min = %d\n, 0xf94[2:0] = 0x%x\n", p_dm->rssi_min, reg_8));
+		} else if (p_dm->rssi_min <= rssi_h2l) {
+			odm_set_bb_reg(p_dm, 0x98c, MASKDWORD, 0x43440000);
+	
+			/*fix sec_min_wgt = 1/2*/
 			reg_8 = (u8)odm_get_bb_reg(p_dm, 0xf94, BIT(0)|BIT(1)|BIT(2));
 			PHYDM_DBG(p_dm, ODM_COMP_API, ("AGC weighting ,rssi_min = %d\n, 0xf94[2:0] = 0x%x\n", p_dm->rssi_min, reg_8));
-		/*fix sec_min_wgt = 1/2*/
+        	}
     }
 
 }

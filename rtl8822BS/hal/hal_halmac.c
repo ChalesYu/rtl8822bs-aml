@@ -4375,6 +4375,121 @@ int rtw_halmac_cfg_phy_para(struct dvobj_priv *d, struct rtw_phy_parameter *para
 	return ret;
 }
 
+static enum _HALMAC_WLLED_MODE _led_mode_drv2halmac(u8 drv_mode)
+{
+	enum _HALMAC_WLLED_MODE halmac_mode;
+
+
+	switch (drv_mode) {
+	case 1:
+		halmac_mode = HALMAC_WLLED_MODE_TX;
+		break;
+	case 2:
+		halmac_mode = HALMAC_WLLED_MODE_RX;
+		break;
+	case 3:
+		halmac_mode = HALMAC_WLLED_MODE_SW_CTRL;
+		break;
+	case 0:
+	default:
+		halmac_mode = HALMAC_WLLED_MODE_TRX;
+		break;
+	}
+
+	return halmac_mode;
+}
+
+/**
+ * rtw_halmac_led_cfg() - Configure Hardware LED Mode
+ * @d:		struct dvobj_priv*
+ * @enable:	enable or disable LED function
+ *		0: disable
+ *		1: enable
+ * @mode:	WLan LED mode (valid when enable==1)
+ *		0: Blink when TX(transmit packet) and RX(receive packet)
+ *		1: Blink when TX only
+ *		2: Blink when RX only
+ *		3: Software control
+ *
+ * Configure hardware WLan LED mode.
+ * If want to change LED mode after enabled, need to disable LED first and
+ * enable again to set new mode.
+ *
+ * Rteurn 0 for OK, otherwise fail.
+ */
+int rtw_halmac_led_cfg(struct dvobj_priv *d, u8 enable, u8 mode)
+{
+	struct _HALMAC_ADAPTER *halmac;
+	struct _HALMAC_API *api;
+	enum _HALMAC_WLLED_MODE led_mode;
+	enum _HALMAC_RET_STATUS status;
+
+
+	halmac = dvobj_to_halmac(d);
+	api = HALMAC_GET_API(halmac);
+
+	if (enable) {
+		status = api->halmac_pinmux_set_func(halmac,
+						     HALMAC_GPIO_FUNC_WL_LED);
+		if (status != HALMAC_RET_SUCCESS) {
+			RTW_ERR("%s: pinmux set fail!(0x%x)\n",
+				__FUNCTION__, status);
+			return -1;
+		}
+
+		led_mode = _led_mode_drv2halmac(mode);
+		status = api->halmac_pinmux_wl_led_mode(halmac, led_mode);
+		if (status != HALMAC_RET_SUCCESS) {
+			RTW_ERR("%s: mode set fail!(0x%x)\n",
+				__FUNCTION__, status);
+			return -1;
+		}
+	} else {
+		/* Change LED to software control and turn off */
+		api->halmac_pinmux_wl_led_mode(halmac,
+					       HALMAC_WLLED_MODE_SW_CTRL);
+		api->halmac_pinmux_wl_led_sw_ctrl(halmac, 0);
+
+		status = api->halmac_pinmux_free_func(halmac,
+						      HALMAC_GPIO_FUNC_WL_LED);
+		if (status != HALMAC_RET_SUCCESS) {
+			RTW_ERR("%s: pinmux free fail!(0x%x)\n",
+				__FUNCTION__, status);
+			return -1;
+		}
+	}
+
+	return 0;
+}
+
+/**
+ * rtw_halmac_led_switch() - Turn Hardware LED on/off
+ * @d:		struct dvobj_priv*
+ * @on:		LED light or not
+ *		0: Off
+ *		1: On(Light)
+ *
+ * Turn Hardware WLan LED On/Off.
+ * Before use this function, user should call rtw_halmac_led_ctrl() to switch
+ * mode to "software control(3)" first, otherwise control would fail.
+ * The interval between on and off must be longer than 1 ms, or the LED would
+ * keep light or dark only.
+ * Ex. Turn off LED at first, turn on after 0.5ms and turn off again after
+ * 0.5ms. The LED during this flow will only keep dark, and miss the turn on
+ * operation between two turn off operations.
+ */
+void rtw_halmac_led_switch(struct dvobj_priv *d, u8 on)
+{
+	struct _HALMAC_ADAPTER *halmac;
+	struct _HALMAC_API *api;
+
+
+	halmac = dvobj_to_halmac(d);
+	api = HALMAC_GET_API(halmac);
+
+	api->halmac_pinmux_wl_led_sw_ctrl(halmac, on);
+}
+
 #ifdef CONFIG_SDIO_HCI
 
 /*

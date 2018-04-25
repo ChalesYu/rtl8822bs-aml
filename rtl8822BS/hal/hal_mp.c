@@ -2006,12 +2006,10 @@ static	VOID mpt_StartOfdmContTx(
 void mpt_ProSetPMacTx(PADAPTER	Adapter)
 {
 	PMPT_CONTEXT	pMptCtx		=	&(Adapter->mppriv.mpt_ctx);
+	struct mp_priv *pmppriv = &Adapter->mppriv;
 	RT_PMAC_TX_INFO	PMacTxInfo	=	pMptCtx->PMacTxInfo;
 	u32			u4bTmp;
 
-	dbg_print("SGI %d bSPreamble %d bSTBC %d bLDPC %d NDP_sound %d\n", PMacTxInfo.bSGI, PMacTxInfo.bSPreamble, PMacTxInfo.bSTBC, PMacTxInfo.bLDPC, PMacTxInfo.NDP_sound);
-	dbg_print("TXSC %d BandWidth %d PacketPeriod %d PacketCount %d PacketLength %d PacketPattern %d\n", PMacTxInfo.TX_SC, PMacTxInfo.BandWidth, PMacTxInfo.PacketPeriod, PMacTxInfo.PacketCount,
-		 PMacTxInfo.PacketLength, PMacTxInfo.PacketPattern);
 #if 0
 	PRINT_DATA("LSIG ", PMacTxInfo.LSIG, 3);
 	PRINT_DATA("HT_SIG", PMacTxInfo.HT_SIG, 6);
@@ -2020,39 +2018,53 @@ void mpt_ProSetPMacTx(PADAPTER	Adapter)
 	dbg_print("VHT_SIG_B_CRC %x\n", PMacTxInfo.VHT_SIG_B_CRC);
 	PRINT_DATA("VHT_Delimiter", PMacTxInfo.VHT_Delimiter, 4);
 
-	PRINT_DATA("Src Address", Adapter->mac_addr, 6);
-	PRINT_DATA("Dest Address", PMacTxInfo.MacAddress, 6);
+	PRINT_DATA("Src Address", Adapter->mac_addr, ETH_ALEN);
+	PRINT_DATA("Dest Address", PMacTxInfo.MacAddress, ETH_ALEN);
 #endif
+	if (pmppriv->pktInterval != 0)
+		PMacTxInfo.PacketPeriod = pmppriv->pktInterval;
+
+    	if (pmppriv->tx.count != 0)
+        	PMacTxInfo.PacketCount = pmppriv->tx.count;
+
+	RTW_INFO("SGI %d bSPreamble %d bSTBC %d bLDPC %d NDP_sound %d\n", PMacTxInfo.bSGI, PMacTxInfo.bSPreamble, PMacTxInfo.bSTBC, PMacTxInfo.bLDPC, PMacTxInfo.NDP_sound);
+	RTW_INFO("TXSC %d BandWidth %d PacketPeriod %d PacketCount %d PacketLength %d PacketPattern %d\n", PMacTxInfo.TX_SC, PMacTxInfo.BandWidth, PMacTxInfo.PacketPeriod, PMacTxInfo.PacketCount,
+		 PMacTxInfo.PacketLength, PMacTxInfo.PacketPattern);
 
 	if (PMacTxInfo.bEnPMacTx == FALSE) {
-		if (PMacTxInfo.Mode == CONTINUOUS_TX) {
+		if (pMptCtx->HWTxmode == CONTINUOUS_TX) {
 			phy_set_bb_reg(Adapter, 0xb04, 0xf, 2);			/*	TX Stop*/
-			if (IS_MPT_CCK_RATE(PMacTxInfo.TX_RATE))
+			if (IS_MPT_CCK_RATE(pMptCtx->mpt_rate_index))
 				mpt_StopCckContTx(Adapter);
 			else
 				mpt_StopOfdmContTx(Adapter);
-		} else if (IS_MPT_CCK_RATE(PMacTxInfo.TX_RATE)) {
+		} else if (IS_MPT_CCK_RATE(pMptCtx->mpt_rate_index)) {
 			u4bTmp = phy_query_bb_reg(Adapter, 0xf50, bMaskLWord);
 			phy_set_bb_reg(Adapter, 0xb1c, bMaskLWord, u4bTmp + 50);
 			phy_set_bb_reg(Adapter, 0xb04, 0xf, 2);		/*TX Stop*/
 		} else
 			phy_set_bb_reg(Adapter, 0xb04, 0xf, 2);		/*	TX Stop*/
 
-		if (PMacTxInfo.Mode == OFDM_Single_Tone_TX) {
+		if (pMptCtx->HWTxmode == OFDM_Single_Tone_TX) {
 			/* Stop HW TX -> Stop Continuous TX -> Stop RF Setting*/
-			if (IS_MPT_CCK_RATE(PMacTxInfo.TX_RATE))
+			if (IS_MPT_CCK_RATE(pMptCtx->mpt_rate_index))
 				mpt_StopCckContTx(Adapter);
 			else
 				mpt_StopOfdmContTx(Adapter);
 
 			mpt_SetSingleTone_8814A(Adapter, FALSE, TRUE);
 		}
-
+		pMptCtx->HWTxmode = TEST_NONE;
 		return;
 	}
 
+    	pMptCtx->mpt_rate_index = PMacTxInfo.TX_RATE;
+
 	if (PMacTxInfo.Mode == CONTINUOUS_TX) {
+		pMptCtx->HWTxmode = CONTINUOUS_TX;
 		PMacTxInfo.PacketCount = 1;
+
+        	hal_mpt_SetTxPower(Adapter);
 
 		if (IS_MPT_CCK_RATE(PMacTxInfo.TX_RATE))
 			mpt_StartCckContTx(Adapter);
@@ -2060,6 +2072,7 @@ void mpt_ProSetPMacTx(PADAPTER	Adapter)
 			mpt_StartOfdmContTx(Adapter);
 	} else if (PMacTxInfo.Mode == OFDM_Single_Tone_TX) {
 		/* Continuous TX -> HW TX -> RF Setting */
+		pMptCtx->HWTxmode = OFDM_Single_Tone_TX;
 		PMacTxInfo.PacketCount = 1;
 
 		if (IS_MPT_CCK_RATE(PMacTxInfo.TX_RATE))
@@ -2067,6 +2080,7 @@ void mpt_ProSetPMacTx(PADAPTER	Adapter)
 		else
 			mpt_StartOfdmContTx(Adapter);
 	} else if (PMacTxInfo.Mode == PACKETS_TX) {
+		pMptCtx->HWTxmode = PACKETS_TX;
 		if (IS_MPT_CCK_RATE(PMacTxInfo.TX_RATE) && PMacTxInfo.PacketCount == 0)
 			PMacTxInfo.PacketCount = 0xffff;
 	}

@@ -172,6 +172,8 @@ struct rtw_wdev_priv {
 
 };
 
+bool rtw_cfg80211_is_connect_requested(_adapter *adapter);
+
 #if RTW_CFG80211_ALWAYS_INFORM_STA_DISCONNECT_EVENT
 #define rtw_wdev_not_indic_disco(rtw_wdev_data) 0
 #define rtw_wdev_set_not_indic_disco(rtw_wdev_data, val) do {} while (0)

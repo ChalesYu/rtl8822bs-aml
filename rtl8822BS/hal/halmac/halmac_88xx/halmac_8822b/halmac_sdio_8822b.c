@@ -151,10 +151,11 @@ halmac_tx_allowed_8822b_sdio(
 	u8 *pCurr_packet;
 	u16 *pCurr_free_space;
 	u32 i, counter;
-	u32 tx_agg_num, packet_size = 0;
+	u32 tx_agg_num, packet_size = 0, macid_map_size;
 	u32 tx_required_page_num, total_required_page_num = 0;
-	u8 macid_group[HALMAC_MACID_MAX_8822B + 1] = {0}, qsel;
-	u8 macid, macid_counter = 0;
+	/*tx descriptor DMA_TXAGG_NUM (8bits), support max 0xFF packets AGG*/
+	u8 qsel_first, qsel_now;
+	u8 macid, qsel_err_flag = 0, macid_counter = 0;
 	HALMAC_RET_STATUS status = HALMAC_RET_SUCCESS;
 	VOID *pDriver_adapter = NULL;
 	HALMAC_DMA_MAPPING dma_mapping;
@@ -166,16 +167,24 @@ halmac_tx_allowed_8822b_sdio(
 		return HALMAC_RET_API_INVALID;
 
 	pDriver_adapter = pHalmac_adapter->pDriver_adapter;
+	macid_map_size = pHalmac_adapter->sdio_free_space.macid_map_size;
 
 	PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_COMMON, HALMAC_DBG_TRACE, "[TRACE]halmac_tx_allowed_sdio_88xx ==========>\n");
+
+	if (NULL == pHalmac_adapter->sdio_free_space.pMacid_map) {
+			PLATFORM_MSG_PRINT(pHalmac_adapter->pDriver_adapter, HALMAC_MSG_COMMON, HALMAC_DBG_ERR, "[ERR]halmac allocate Macid_map Fail!!\n");
+			return HALMAC_RET_MALLOC_FAIL;
+	}
+
+	PLATFORM_RTL_MEMSET(pDriver_adapter, pHalmac_adapter->sdio_free_space.pMacid_map, 0x00, macid_map_size);
 
 	tx_agg_num = GET_TX_DESC_DMA_TXAGG_NUM(pHalmac_buf);
 	pCurr_packet = pHalmac_buf;
 
 	tx_agg_num = (tx_agg_num == 0) ? 1 : tx_agg_num;
 
-	qsel = (u8)GET_TX_DESC_QSEL(pCurr_packet);
-	switch ((HALMAC_QUEUE_SELECT)qsel) {
+	qsel_first = (u8)GET_TX_DESC_QSEL(pCurr_packet);
+	switch ((HALMAC_QUEUE_SELECT)qsel_first) {
 	case HALMAC_QUEUE_SELECT_VO:
 	case HALMAC_QUEUE_SELECT_VO_V2:
 		dma_mapping = pHalmac_adapter->halmac_ptcl_queue[HALMAC_PTCL_QUEUE_VO];
@@ -200,6 +209,7 @@ halmac_tx_allowed_8822b_sdio(
 		break;
 	case HALMAC_QUEUE_SELECT_BCN:
 	case HALMAC_QUEUE_SELECT_CMD:
+		PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_COMMON, HALMAC_DBG_WARN, "QSEL = %d. BCN/CMD always return HALMAC_RET_SUCCESS\n", qsel_first);
 		return HALMAC_RET_SUCCESS;
 	default:
 		PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_COMMON, HALMAC_DBG_ERR, "[ERR]Qsel is out of range\n");
@@ -227,23 +237,73 @@ halmac_tx_allowed_8822b_sdio(
 	for (i = 0; i < tx_agg_num; i++) {
 		/*MACID parser*/
 		macid = (u8)GET_TX_DESC_MACID(pCurr_packet);
-		if (macid_group[macid] == 0) {
-			macid_group[macid] = 1;
-			macid_counter++;
-		}
+		qsel_now = (u8)GET_TX_DESC_QSEL(pCurr_packet);
 		/*QSEL parser*/
-		if (qsel != GET_TX_DESC_QSEL(pCurr_packet)) {
-			PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_COMMON, HALMAC_DBG_ERR, "[ERR]Multi-Qsel in a bus agg is not allowed, qsel = %d, %d\n", qsel, GET_TX_DESC_QSEL(pCurr_packet));
-			return HALMAC_RET_QSEL_INCORRECT;
+		if (qsel_first == qsel_now) {
+			if (*(pHalmac_adapter->sdio_free_space.pMacid_map + macid) == 0) {
+				*(pHalmac_adapter->sdio_free_space.pMacid_map + macid) = 1;
+				macid_counter++;
+			}
+		} else {
+			switch ((HALMAC_QUEUE_SELECT)qsel_now) {
+			case HALMAC_QUEUE_SELECT_VO:
+				if ((HALMAC_QUEUE_SELECT)qsel_first != HALMAC_QUEUE_SELECT_VO_V2)
+					qsel_err_flag = 1;
+				break;
+			case HALMAC_QUEUE_SELECT_VO_V2:
+				if ((HALMAC_QUEUE_SELECT)qsel_first != HALMAC_QUEUE_SELECT_VO)
+					qsel_err_flag = 1;
+				break;
+			case HALMAC_QUEUE_SELECT_VI:
+				if ((HALMAC_QUEUE_SELECT)qsel_first != HALMAC_QUEUE_SELECT_VI_V2)
+					qsel_err_flag = 1;
+				break;
+			case HALMAC_QUEUE_SELECT_VI_V2:
+				if ((HALMAC_QUEUE_SELECT)qsel_first != HALMAC_QUEUE_SELECT_VI)
+					qsel_err_flag = 1;
+				break;
+			case HALMAC_QUEUE_SELECT_BE:
+				if ((HALMAC_QUEUE_SELECT)qsel_first != HALMAC_QUEUE_SELECT_BE_V2)
+					qsel_err_flag = 1;
+				break;
+			case HALMAC_QUEUE_SELECT_BE_V2:
+				if ((HALMAC_QUEUE_SELECT)qsel_first != HALMAC_QUEUE_SELECT_BE)
+					qsel_err_flag = 1;
+				break;
+			case HALMAC_QUEUE_SELECT_BK:
+				if ((HALMAC_QUEUE_SELECT)qsel_first != HALMAC_QUEUE_SELECT_BK_V2)
+					qsel_err_flag = 1;
+				break;
+			case HALMAC_QUEUE_SELECT_BK_V2:
+				if ((HALMAC_QUEUE_SELECT)qsel_first != HALMAC_QUEUE_SELECT_BK)
+					qsel_err_flag = 1;
+				break;
+			case HALMAC_QUEUE_SELECT_MGNT:
+			case HALMAC_QUEUE_SELECT_HIGH:
+			case HALMAC_QUEUE_SELECT_BCN:
+			case HALMAC_QUEUE_SELECT_CMD:
+				qsel_err_flag = 1;
+				break;
+			default:
+				PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_COMMON, HALMAC_DBG_ERR, "Qsel is out of range: %d\n", qsel_first);
+				return HALMAC_RET_QSEL_INCORRECT;
+			}
+			if (qsel_err_flag == 1) {
+				PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_COMMON, HALMAC_DBG_ERR, "Multi-Qsel in a bus agg is not allowed, qsel = %d, %d\n", qsel_first, qsel_now);
+				return HALMAC_RET_QSEL_INCORRECT;
+			}
+
+			if (*(pHalmac_adapter->sdio_free_space.pMacid_map + macid + HALMAC_MACID_MAX_88XX) == 0) {
+				*(pHalmac_adapter->sdio_free_space.pMacid_map + macid + HALMAC_MACID_MAX_88XX) = 1;
+				macid_counter++;
+			}
 		}
 		/*Page number parser*/
-		packet_size = GET_TX_DESC_TXPKTSIZE(pCurr_packet) + GET_TX_DESC_OFFSET(pCurr_packet) + (GET_TX_DESC_PKT_OFFSET(pCurr_packet) << 3);
+		packet_size = GET_TX_DESC_TXPKTSIZE(pCurr_packet) + GET_TX_DESC_OFFSET(pCurr_packet);
 		tx_required_page_num = (packet_size >> pHalmac_adapter->hw_config_info.page_size_2_power) + ((packet_size & (pHalmac_adapter->hw_config_info.page_size - 1)) ? 1 : 0);
 		total_required_page_num += tx_required_page_num;
 
-		packet_size = HALMAC_ALIGN(packet_size, 8);
-
-		pCurr_packet += packet_size;
+		pCurr_packet += HALMAC_ALIGN(GET_TX_DESC_TXPKTSIZE(pCurr_packet) + (GET_TX_DESC_PKT_OFFSET(pCurr_packet) << 3) + HALMAC_TX_DESC_SIZE_88XX, 8);
 	}
 
 	counter = 10;
@@ -301,8 +361,8 @@ halmac_check_oqt_8822b(
 	case HALMAC_QUEUE_SELECT_BE_V2:
 	case HALMAC_QUEUE_SELECT_BK:
 	case HALMAC_QUEUE_SELECT_BK_V2:
-		if (tx_agg_num > HALMAC_OQT_ENTRY_AC_8822B)
-			PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_COMMON, HALMAC_DBG_WARN, "[WARN]tx_agg_num %d > HALMAC_OQT_ENTRY_AC_8822B %d\n", tx_agg_num, HALMAC_OQT_ENTRY_AC_8822B);
+		if ((macid_counter > HALMAC_ACQ_NUM_MAX_88XX) && (tx_agg_num > HALMAC_OQT_ENTRY_AC_8822B))
+			PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_COMMON, HALMAC_DBG_WARN, "tx_agg_num %d > HALMAC_OQT_ENTRY_AC_88XX, macid_counter %d > HALMAC_ACQ_NUM_MAX_88XX\n", tx_agg_num, macid_counter);
 		counter = 10;
 		do {
 			if (pHalmac_adapter->sdio_free_space.ac_empty >= macid_counter) {
@@ -326,7 +386,7 @@ halmac_check_oqt_8822b(
 	case HALMAC_QUEUE_SELECT_MGNT:
 	case HALMAC_QUEUE_SELECT_HIGH:
 		if (tx_agg_num > HALMAC_OQT_ENTRY_NOAC_8822B)
-			PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_COMMON, HALMAC_DBG_WARN, "[WARN]tx_agg_num %d > HALMAC_OQT_ENTRY_NOAC_8822B %d\n", tx_agg_num, HALMAC_OQT_ENTRY_NOAC_8822B);
+			PLATFORM_MSG_PRINT(pDriver_adapter, HALMAC_MSG_COMMON, HALMAC_DBG_WARN, "tx_agg_num %d > HALMAC_OQT_ENTRY_NOAC_88XX\n", tx_agg_num);
 		counter = 10;
 		do {
 			if (pHalmac_adapter->sdio_free_space.non_ac_oqt_number >= tx_agg_num) {

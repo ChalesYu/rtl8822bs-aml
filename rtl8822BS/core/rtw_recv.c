@@ -1152,6 +1152,9 @@ void count_rx_stats(_adapter *padapter, union recv_frame *prframe, struct sta_in
 			/*record rx packets for every tid*/
 			pstats->rx_data_qos_pkts[pattrib->priority]++;
 		}
+#ifdef CONFIG_DYNAMIC_SOML
+		rtw_dyn_soml_byte_update(padapter, pattrib->data_rate, sz);
+#endif
 	}
 
 #ifdef CONFIG_CHECK_LEAVE_LPS

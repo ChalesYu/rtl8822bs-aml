@@ -17,9 +17,7 @@
 #include <drv_types.h>
 #include <hal_data.h>
 #include "rtw_proc.h"
-#ifdef CONFIG_BT_COEXIST
 #include <rtw_btcoex.h>
-#endif
 
 #ifdef CONFIG_PROC_DEBUG
 
@@ -1688,13 +1686,15 @@ static ssize_t proc_set_tx_power_ext_info(struct file *file, const char __user *
 		#endif
 
 		rtw_ps_deny(adapter, PS_DENY_IOCTL);
-		LeaveAllPowerSaveModeDirect(adapter);
+		if (rtw_pwr_wakeup(adapter) == _FALSE)
+			goto clear_ps_deny;
 
 		if (strcmp("default", cmd) == 0)
 			rtw_run_in_thread_cmd(adapter, ((void *)(phy_reload_default_tx_power_ext_info)), adapter);
 		else
 			rtw_run_in_thread_cmd(adapter, ((void *)(phy_reload_tx_power_ext_info)), adapter);
 
+clear_ps_deny:
 		rtw_ps_deny_cancel(adapter, PS_DENY_IOCTL);
 	}
 
@@ -2681,6 +2681,52 @@ static int proc_get_dynamic_agg_enable(struct seq_file *m, void *v)
 	return 0;
 }
 
+#define VHT_2G4_STATUS_STR(adapter)	rtw_is_vht_2g4(adapter)?"allow":"deny"
+
+static int proc_get_vht_2g4(struct seq_file *m, void *v)
+{
+	struct net_device *dev = m->private;
+	struct _ADAPTER *a = (_adapter *)rtw_netdev_priv(dev);
+
+
+	RTW_PRINT_SEL(m, "Use VHT rate on 2.4G: %s\n", VHT_2G4_STATUS_STR(a));
+
+	return 0;
+}
+
+static ssize_t proc_set_vht_2g4(struct file *file, const char __user *buffer,
+				size_t count, loff_t *pos, void *data)
+{
+	struct net_device *dev = data;
+	struct _ADAPTER *a = (_adapter *)rtw_netdev_priv(dev);
+	char tmp[32];
+	int num = 0;
+	int enable = 0;
+
+	if (count > sizeof(tmp)) {
+		rtw_warn_on(1);
+		return -EFAULT;
+	}
+
+	if (!buffer || copy_from_user(tmp, buffer, count))
+		goto exit;
+
+	num = sscanf(tmp, "%d", &enable);
+	if (num !=  1) {
+		RTW_ERR("%s: invalid parameter!\n", __FUNCTION__);
+		goto exit;
+	}
+
+	RTW_PRINT("%s: Original state of use VHT rate on 2.4G: %s\n",
+		  __FUNCTION__, VHT_2G4_STATUS_STR(a));
+	rtw_set_vht_2g4(a, enable);
+	RTW_PRINT("%s: New state of use VHT rate on 2.4G: %s\n",
+		  __FUNCTION__, VHT_2G4_STATUS_STR(a));
+
+exit:
+	return count;
+}
+
 /*
 * rtw_adapter_proc:
 * init/deinit when register/unregister net_device
@@ -2963,7 +3009,7 @@ const struct rtw_proc_hdl adapter_proc_hdls[] = {
 
 	RTW_PROC_HDL_SSEQ("dynamic_agg_enable", proc_get_dynamic_agg_enable, proc_set_dynamic_agg_enable),
 	RTW_PROC_HDL_SSEQ("iqk_fw_offload", proc_get_iqk_fw_offload, proc_set_iqk_fw_offload),
-
+	RTW_PROC_HDL_SSEQ("vht_2g4", proc_get_vht_2g4, proc_set_vht_2g4),
 };
 
 const int adapter_proc_hdls_num = sizeof(adapter_proc_hdls) / sizeof(struct rtw_proc_hdl);

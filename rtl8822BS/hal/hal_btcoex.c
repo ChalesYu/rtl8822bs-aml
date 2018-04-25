@@ -2501,7 +2501,6 @@ void BT_CoexOffloadC2hCheck(PADAPTER Adapter, u8 *Buffer, u8 Length)
 u8 EXhalbtcoutsrc_BindBtCoexWithAdapter(void *padapter)
 {
 	PBTC_COEXIST		pBtCoexist = &GLBtCoexist;
-	u8	antNum = 1, chipType = 0, singleAntPath = 0;
 	HAL_DATA_TYPE	*pHalData = GET_HAL_DATA((PADAPTER)padapter);
 
 	if (pBtCoexist->bBinded)
@@ -2521,6 +2520,14 @@ u8 EXhalbtcoutsrc_BindBtCoexWithAdapter(void *padapter)
 
 	pBtCoexist->bt_info.increase_scan_dev_num = _FALSE;
 	pBtCoexist->bt_info.miracast_plus_bt = _FALSE;
+
+	return _TRUE;
+}
+
+void EXhalbtcoutsrc_AntInfoSetting(void *padapter)
+{
+	PBTC_COEXIST		pBtCoexist = &GLBtCoexist;
+	u8	antNum = 1, singleAntPath = 0;
 
 	antNum = rtw_btcoex_get_pg_ant_num((PADAPTER)padapter);
 	EXhalbtcoutsrc_SetAntNum(BT_COEX_ANT_TYPE_PG, antNum);
@@ -2544,7 +2551,6 @@ u8 EXhalbtcoutsrc_BindBtCoexWithAdapter(void *padapter)
 
 	pBtCoexist->board_info.ant_div_cfg = rtw_btcoex_get_ant_div_cfg((PADAPTER)padapter);
 
-	return _TRUE;
 }
 
 u8 EXhalbtcoutsrc_InitlizeVariables(void *padapter)
@@ -2795,10 +2801,6 @@ void EXhalbtcoutsrc_init_hw_config(PBTC_COEXIST pBtCoexist, u8 bWifiOnly)
 			ex_halbtc8822b1ant_init_hw_config(pBtCoexist, bWifiOnly);
 		else if (pBtCoexist->board_info.btdm_ant_num == 2)
 			ex_halbtc8822b2ant_init_hw_config(pBtCoexist, bWifiOnly);
-		#ifdef CONFIG_FW_MULTI_PORT_SUPPORT
-		rtw_hal_set_default_port_id_cmd(pBtCoexist->Adapter, 0);
-		rtw_hal_set_wifi_port_id_cmd(pBtCoexist->Adapter);
-		#endif
 	}
 #endif
 
@@ -2808,10 +2810,6 @@ void EXhalbtcoutsrc_init_hw_config(PBTC_COEXIST pBtCoexist, u8 bWifiOnly)
 			ex_halbtc8821c2ant_init_hw_config(pBtCoexist, bWifiOnly);
 		else if (pBtCoexist->board_info.btdm_ant_num == 1)
 			ex_halbtc8821c1ant_init_hw_config(pBtCoexist, bWifiOnly);
-		#ifdef CONFIG_FW_MULTI_PORT_SUPPORT
-		rtw_hal_set_default_port_id_cmd(pBtCoexist->Adapter, 0);
-		rtw_hal_set_wifi_port_id_cmd(pBtCoexist->Adapter);
-		#endif
 	}
 #endif
 }
@@ -4744,10 +4742,6 @@ u8 hal_btcoex_Initialize(PADAPTER padapter)
 
 	_rtw_memset(&GLBtCoexist, 0, sizeof(GLBtCoexist));
 
-	hal_btcoex_SetBTCoexist(padapter, rtw_btcoex_get_bt_coexist(padapter));
-	hal_btcoex_SetChipType(padapter, rtw_btcoex_get_chip_type(padapter));
-	hal_btcoex_SetPgAntNum(padapter, rtw_btcoex_get_pg_ant_num(padapter));
-	
 	ret = EXhalbtcoutsrc_InitlizeVariables((void *)padapter);
 
 	return ret;
@@ -4756,6 +4750,15 @@ u8 hal_btcoex_Initialize(PADAPTER padapter)
 void hal_btcoex_PowerOnSetting(PADAPTER padapter)
 {
 	EXhalbtcoutsrc_PowerOnSetting(&GLBtCoexist);
+}
+
+void hal_btcoex_AntInfoSetting(PADAPTER padapter)
+{
+	hal_btcoex_SetBTCoexist(padapter, rtw_btcoex_get_bt_coexist(padapter));
+	hal_btcoex_SetChipType(padapter, rtw_btcoex_get_chip_type(padapter));
+	hal_btcoex_SetPgAntNum(padapter, rtw_btcoex_get_pg_ant_num(padapter));
+
+	EXhalbtcoutsrc_AntInfoSetting(padapter);
 }
 
 void hal_btcoex_PowerOffSetting(PADAPTER padapter)
@@ -4902,7 +4905,7 @@ void hal_btcoex_SuspendNotify(PADAPTER padapter, u8 state)
 	case BTCOEX_SUSPEND_STATE_RESUME:
 #ifdef CONFIG_FW_MULTI_PORT_SUPPORT
 		/* re-download FW after resume, inform WL FW port number */
-		rtw_hal_set_wifi_port_id_cmd(GLBtCoexist.Adapter);
+		rtw_hal_set_wifi_btc_port_id_cmd(GLBtCoexist.Adapter);
 #endif
 		EXhalbtcoutsrc_pnp_notify(&GLBtCoexist, BTC_WIFI_PNP_WAKE_UP);
 		break;

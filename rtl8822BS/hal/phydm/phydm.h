@@ -80,6 +80,8 @@ extern const u16 phy_rate_table[28];
 #define MAX_2(_x_, _y_)	(((_x_)>(_y_))? (_x_) : (_y_))
 #define MIN_2(_x_, _y_)	(((_x_)<(_y_))? (_x_) : (_y_))
 
+#define IS_FUNC_EN(name)	((name) && (*name))
+
 #if (DM_ODM_SUPPORT_TYPE == ODM_AP)
 	#define PHYDM_WATCH_DOG_PERIOD	1 /*second*/
 #else
@@ -253,6 +255,7 @@ enum odm_cmninfo_e {
 	ODM_CMNINFO_CHNL,
 	ODM_CMNINFO_FORCED_RATE,
 	ODM_CMNINFO_ANT_DIV,
+	ODM_CMNINFO_ADAPTIVE_SOML,
 	ODM_CMNINFO_ADAPTIVITY,
 	ODM_CMNINFO_SCAN,
 	ODM_CMNINFO_POWER_SAVING,
@@ -616,6 +619,7 @@ struct	phydm_iot_center {
 
 	u16			*p_forced_data_rate;
 	u8			*p_enable_antdiv;
+	u8			*en_adap_soml;
 	u8			*p_enable_adaptivity;
 	u8			*hub_usb_mode;		/*1: USB 2.0, 2: USB 3.0*/
 	boolean		*p_is_fw_dw_rsvd_page_in_progress;

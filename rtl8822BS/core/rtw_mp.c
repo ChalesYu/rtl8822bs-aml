@@ -938,13 +938,8 @@ end_of_mp_start_test:
 			/* set msr to WIFI_FW_ADHOC_STATE */
 			pmlmeinfo->state = WIFI_FW_ADHOC_STATE;
 			Set_MSR(padapter, (pmlmeinfo->state & 0x3));
-
 			rtw_hal_set_hwreg(padapter, HW_VAR_BSSID, padapter->registrypriv.dev_network.MacAddress);
-			join_type = 0;
-			rtw_hal_set_hwreg(padapter, HW_VAR_MLME_JOIN, (u8 *)(&join_type));
 			rtw_hal_rcr_set_chk_bssid(padapter, MLME_ADHOC_STARTED);
-
-			report_join_res(padapter, 1);
 			pmlmeinfo->state |= WIFI_FW_ASSOC_SUCCESS;
 		} else {
 			Set_MSR(padapter, WIFI_FW_STATION_STATE);
@@ -1020,7 +1015,7 @@ s32 mp_start_test(PADAPTER padapter)
 
 	mpt_ProStartTest(padapter);
 
-	mp_join(padapter, WIFI_FW_ADHOC_STATE);
+	/*mp_join(padapter, WIFI_FW_ADHOC_STATE);*/ /* solve FW IQK Fail,Becon Err */
 
 	return res;
 }

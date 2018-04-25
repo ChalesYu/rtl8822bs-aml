@@ -1026,7 +1026,6 @@ inline void rtw_chset_update_non_ocp_ms(RT_CHANNEL_INFO *ch_set, u8 ch, u8 bw, u
 u32 rtw_get_ch_waiting_ms(_adapter *adapter, u8 ch, u8 bw, u8 offset, u32 *r_non_ocp_ms, u32 *r_cac_ms)
 {
 	struct rf_ctl_t *rfctl = adapter_to_rfctl(adapter);
-	struct mlme_ext_priv *mlmeext = &adapter->mlmeextpriv;
 	u32 non_ocp_ms;
 	u32 cac_ms;
 	u8 in_rd_range = 0; /* if in current radar detection range*/
@@ -1101,7 +1100,7 @@ void rtw_reset_cac(_adapter *adapter, u8 ch, u8 bw, u8 offset)
 #endif /* CONFIG_DFS_MASTER */
 
 /* choose channel with shortest waiting (non ocp + cac) time */
-bool rtw_choose_shortest_waiting_ch(_adapter *adapter, u8 req_bw, u8 *dec_ch, u8 *dec_bw, u8 *dec_offset, u8 d_flags)
+bool rtw_choose_shortest_waiting_ch(_adapter *adapter, u8 sel_ch, u8 max_bw, u8 *dec_ch, u8 *dec_bw, u8 *dec_offset, u8 d_flags)
 {
 #ifndef DBG_CHOOSE_SHORTEST_WAITING_CH
 #define DBG_CHOOSE_SHORTEST_WAITING_CH 0
@@ -1120,7 +1119,7 @@ bool rtw_choose_shortest_waiting_ch(_adapter *adapter, u8 req_bw, u8 *dec_ch, u8
 	}
 
 	/* full search and narrow bw judegement first to avoid potetial judegement timing issue */
-	for (bw = CHANNEL_WIDTH_20; bw <= req_bw; bw++) {
+	for (bw = CHANNEL_WIDTH_20; bw <= max_bw; bw++) {
 		if (!hal_is_bw_support(adapter, bw))
 			continue;
 
@@ -1130,6 +1129,8 @@ bool rtw_choose_shortest_waiting_ch(_adapter *adapter, u8 req_bw, u8 *dec_ch, u8
 			u32 waiting_ms = 0;
 
 			ch = rfctl->channel_set[i].ChannelNum;
+			if (sel_ch > 0 && ch != sel_ch)
+				continue;
 
 			if ((d_flags & RTW_CHF_2G) && ch <= 14)
 				continue;
@@ -1204,7 +1205,7 @@ bool rtw_choose_shortest_waiting_ch(_adapter *adapter, u8 req_bw, u8 *dec_ch, u8
 
 void dump_country_chplan(void *sel, const struct country_chplan *ent)
 {
-	_RTW_PRINT_SEL(sel, "\"%c%c\", 0x%02X%s\n"
+	RTW_PRINT_SEL(sel, "\"%c%c\", 0x%02X%s\n"
 		, ent->alpha2[0], ent->alpha2[1], ent->chplan
 		, COUNTRY_CHPLAN_EN_11AC(ent) ? " ac" : ""
 	);
@@ -1216,10 +1217,10 @@ void dump_country_chplan_map(void *sel)
 	u8 code[2];
 
 #if RTW_DEF_MODULE_REGULATORY_CERT
-	_RTW_PRINT_SEL(sel, "RTW_DEF_MODULE_REGULATORY_CERT:0x%x\n", RTW_DEF_MODULE_REGULATORY_CERT);
+	RTW_PRINT_SEL(sel, "RTW_DEF_MODULE_REGULATORY_CERT:0x%x\n", RTW_DEF_MODULE_REGULATORY_CERT);
 #endif
 #ifdef CONFIG_CUSTOMIZED_COUNTRY_CHPLAN_MAP
-	_RTW_PRINT_SEL(sel, "CONFIG_CUSTOMIZED_COUNTRY_CHPLAN_MAP\n");
+	RTW_PRINT_SEL(sel, "CONFIG_CUSTOMIZED_COUNTRY_CHPLAN_MAP\n");
 #endif
 
 	for (code[0] = 'A'; code[0] <= 'Z'; code[0]++) {
@@ -1235,16 +1236,21 @@ void dump_country_chplan_map(void *sel)
 
 void dump_chplan_id_list(void *sel)
 {
+	u8 first = 1;
 	int i;
 
 	for (i = 0; i < RTW_CHPLAN_MAX; i++) {
 		if (!rtw_is_channel_plan_valid(i))
 			continue;
 
-		_RTW_PRINT_SEL(sel, "0x%02X ", i);
+		if (first) {
+			RTW_PRINT_SEL(sel, "0x%02X ", i);
+			first = 0;
+		} else
+			_RTW_PRINT_SEL(sel, "0x%02X ", i);
 	}
 
-	RTW_PRINT_SEL(sel, "0x7F\n");
+	_RTW_PRINT_SEL(sel, "0x7F\n");
 }
 
 void dump_chplan_test(void *sel)
@@ -1322,13 +1328,13 @@ void dump_cur_chset(void *sel, _adapter *adapter)
 			break;
 
 	if (i < MAX_CHANNEL_NUM) {
-		_RTW_PRINT_SEL(sel, "excl_chs:");
+		RTW_PRINT_SEL(sel, "excl_chs:");
 		for (i = 0; i < MAX_CHANNEL_NUM; i++) {
 			if (regsty->excl_chs[i] == 0)
 				break;
 			_RTW_PRINT_SEL(sel, "%u ", regsty->excl_chs[i]);
 		}
-		RTW_PRINT_SEL(sel, "\n");
+		_RTW_PRINT_SEL(sel, "\n");
 	}
 
 	dump_chset(sel, rfctl->channel_set);
@@ -1390,6 +1396,50 @@ u8 rtw_chset_is_chbw_valid(RT_CHANNEL_INFO *ch_set, u8 ch, u8 bw, u8 offset)
 
 exit:
 	return valid;
+}
+
+/**
+ * rtw_chset_sync_chbw - obey g_ch, adjust g_bw, g_offset, bw, offset to fit in channel plan
+ * @ch_set: channel plan to check
+ * @req_ch: pointer of the request ch, may be modified further
+ * @req_bw: pointer of the request bw, may be modified further
+ * @req_offset: pointer of the request offset, may be modified further
+ * @g_ch: pointer of the ongoing group ch
+ * @g_bw: pointer of the ongoing group bw, may be modified further
+ * @g_offset: pointer of the ongoing group offset, may be modified further
+ */
+void rtw_chset_sync_chbw(RT_CHANNEL_INFO *ch_set, u8 *req_ch, u8 *req_bw, u8 *req_offset
+	, u8 *g_ch, u8 *g_bw, u8 *g_offset)
+{
+	u8 r_ch, r_bw, r_offset;
+	u8 u_ch, u_bw, u_offset;
+	u8 cur_bw = *req_bw;
+
+	while (1) {
+		r_ch = *req_ch;
+		r_bw = cur_bw;
+		r_offset = *req_offset;
+		u_ch = *g_ch;
+		u_bw = *g_bw;
+		u_offset = *g_offset;
+
+		rtw_sync_chbw(&r_ch, &r_bw, &r_offset, &u_ch, &u_bw, &u_offset);
+
+		if (rtw_chset_is_chbw_valid(ch_set, r_ch, r_bw, r_offset))
+			break;
+		if (cur_bw == CHANNEL_WIDTH_20) {
+			rtw_warn_on(1);
+			break;
+		}
+		cur_bw--;
+	};
+
+	*req_ch = r_ch;
+	*req_bw = r_bw;
+	*req_offset = r_offset;
+	*g_ch = u_ch;
+	*g_bw = u_bw;
+	*g_offset = u_offset;
 }
 
 /*
@@ -2232,9 +2282,9 @@ unsigned int OnBeacon(_adapter *padapter, union recv_frame *precv_frame)
 
 	if (_rtw_memcmp(GetAddr3Ptr(pframe), get_my_bssid(&pmlmeinfo->network), ETH_ALEN)) {
 		if ((pmlmeinfo->state & WIFI_FW_AUTH_NULL)
-			&& rtw_sta_linking_test_wait_done()
+			&& (rtw_sta_linking_test_wait_done() || pmlmeext->join_abort)
 		) {
-			if (rtw_sta_linking_test_force_fail()) {
+			if (rtw_sta_linking_test_force_fail() || pmlmeext->join_abort) {
 				set_link_timer(pmlmeext, 1);
 				return _SUCCESS;
 			}
@@ -2678,7 +2728,7 @@ unsigned int OnAuthClient(_adapter *padapter, union recv_frame *precv_frame)
 	if (!_rtw_memcmp(adapter_mac_addr(padapter), get_da(pframe), ETH_ALEN))
 		return _SUCCESS;
 
-	if (!(pmlmeinfo->state & WIFI_FW_AUTH_STATE))
+	if (!(pmlmeinfo->state & WIFI_FW_AUTH_STATE) || pmlmeext->join_abort)
 		return _SUCCESS;
 
 	offset = (GetPrivacy(pframe)) ? 4 : 0;
@@ -3107,7 +3157,7 @@ unsigned int OnAssocRsp(_adapter *padapter, union recv_frame *precv_frame)
 	if (!_rtw_memcmp(adapter_mac_addr(padapter), get_da(pframe), ETH_ALEN))
 		return _SUCCESS;
 
-	if (!(pmlmeinfo->state & (WIFI_FW_AUTH_SUCCESS | WIFI_FW_ASSOC_STATE)))
+	if (!(pmlmeinfo->state & (WIFI_FW_AUTH_SUCCESS | WIFI_FW_ASSOC_STATE)) || pmlmeext->join_abort)
 		return _SUCCESS;
 
 	if (pmlmeinfo->state & WIFI_FW_ASSOC_SUCCESS)
@@ -10524,9 +10574,7 @@ unsigned int send_beacon(_adapter *padapter)
 #ifdef CONFIG_PCI_HCI
 	/* bypass TX BCN queue because op ch is switching/waiting */
 	if (check_fwstate(&padapter->mlmepriv, WIFI_OP_CH_SWITCHING)
-		#ifdef CONFIG_DFS_MASTER
 		|| IS_CH_WAITING(adapter_to_rfctl(padapter))
-		#endif
 	)
 		return _SUCCESS;
 
@@ -10553,9 +10601,7 @@ unsigned int send_beacon(_adapter *padapter)
 
 	/* bypass TX BCN queue because op ch is switching/waiting */
 	if (check_fwstate(&padapter->mlmepriv, WIFI_OP_CH_SWITCHING)
-		#ifdef CONFIG_DFS_MASTER
 		|| IS_CH_WAITING(adapter_to_rfctl(padapter))
-		#endif
 	)
 		return _SUCCESS;
 
@@ -11140,7 +11186,7 @@ static void process_80211d(PADAPTER padapter, WLAN_BSSID_EX *bssid)
 		u8 *ie, *p;
 		u32 len;
 		RT_CHANNEL_PLAN chplan_ap;
-		RT_CHANNEL_INFO chplan_sta[MAX_CHANNEL_NUM];
+		RT_CHANNEL_INFO *chplan_sta = NULL;
 		u8 country[4];
 		u8 fcn; /* first channel number */
 		u8 noc; /* number of channel */
@@ -11188,7 +11234,11 @@ static void process_80211d(PADAPTER padapter, WLAN_BSSID_EX *bssid)
 		_RTW_INFO("}\n");
 #endif
 
-		_rtw_memcpy(chplan_sta, rfctl->channel_set, sizeof(chplan_sta));
+		chplan_sta = (RT_CHANNEL_INFO *)rtw_malloc(sizeof(RT_CHANNEL_INFO) * MAX_CHANNEL_NUM);
+		if (!chplan_sta)
+			goto done_update_chplan_from_ap;
+
+		_rtw_memcpy(chplan_sta, rfctl->channel_set, sizeof(RT_CHANNEL_INFO) * MAX_CHANNEL_NUM);
 #ifdef CONFIG_RTW_DEBUG
 		i = 0;
 		RTW_INFO("%s: STA channel plan {", __FUNCTION__);
@@ -11360,26 +11410,10 @@ static void process_80211d(PADAPTER padapter, WLAN_BSSID_EX *bssid)
 			k++;
 		}
 #endif
-	}
 
-	/* If channel is used by AP, set channel scan type to active */
-	channel = bssid->Configuration.DSConfig;
-	chplan_new = rfctl->channel_set;
-	i = 0;
-	while (i < MAX_CHANNEL_NUM && chplan_new[i].ChannelNum != 0) {
-		if (chplan_new[i].ChannelNum == channel) {
-			if (chplan_new[i].ScanType == SCAN_PASSIVE) {
-				/* 5G Bnad 2, 3 (DFS) doesn't change to active scan */
-				if (rtw_is_dfs_ch(channel))
-					break;
-
-				chplan_new[i].ScanType = SCAN_ACTIVE;
-				RTW_INFO("%s: change channel %d scan type from passive to active\n",
-					 __FUNCTION__, channel);
-			}
-			break;
-		}
-		i++;
+done_update_chplan_from_ap:
+		if (chplan_sta)
+			rtw_mfree((u8*)chplan_sta, sizeof(RT_CHANNEL_INFO) * MAX_CHANNEL_NUM);
 	}
 }
 #endif
@@ -11448,15 +11482,22 @@ void report_survey_event(_adapter *padapter, union recv_frame *precv_frame)
 	process_80211d(padapter, &psurvey_evt->bss);
 #endif
 
-#ifdef CONFIG_DFS
 	ch_set_idx = rtw_chset_search_ch(chset, psurvey_evt->bss.Configuration.DSConfig);
 	if (ch_set_idx >= 0) {
-		if (psurvey_evt->bss.InfrastructureMode == Ndis802_11Infrastructure
-			&& (psurvey_evt->bss.Ssid.SsidLength == 0
-				|| is_all_null(psurvey_evt->bss.Ssid.Ssid, psurvey_evt->bss.Ssid.SsidLength) == _TRUE))
-			chset[ch_set_idx].hidden_bss_cnt++;
+		if (psurvey_evt->bss.InfrastructureMode == Ndis802_11Infrastructure) {
+			if (chset[ch_set_idx].ScanType == SCAN_PASSIVE
+				&& !rtw_is_dfs_ch(psurvey_evt->bss.Configuration.DSConfig)
+			) {
+				RTW_INFO("%s: change ch:%d to active\n", __func__, psurvey_evt->bss.Configuration.DSConfig);
+				chset[ch_set_idx].ScanType = SCAN_ACTIVE;
+			}
+			#ifdef CONFIG_DFS
+			if (psurvey_evt->bss.Ssid.SsidLength == 0
+				|| is_all_null(psurvey_evt->bss.Ssid.Ssid, psurvey_evt->bss.Ssid.SsidLength) == _TRUE)
+				chset[ch_set_idx].hidden_bss_cnt++;
+			#endif
+		}
 	}
-#endif
 
 	rtw_enqueue_cmd(pcmdpriv, pcmd_obj);
 
@@ -11925,8 +11966,10 @@ static void rtw_mlmeext_disconnect(_adapter *padapter)
 		self_action = MLME_ADHOC_STOPPED;
 	else if (MLME_IS_NULL(padapter))
 		self_action = MLME_ACTION_NONE;
-	else
+	else {
+		RTW_INFO("state:0x%x\n", MLME_STATE(padapter));
 		rtw_warn_on(1);
+	}
 
 	/* set_opmode_cmd(padapter, infra_client_with_mlme); */
 
@@ -12071,10 +12114,6 @@ void mlmeext_joinbss_event_callback(_adapter *padapter, int join_res)
 	psta = rtw_get_stainfo(pstapriv, cur_network->MacAddress);
 	if (psta) { /* only for infra. mode */
 		psta->wireless_mode = pmlmeext->cur_wireless_mode;
-
-#ifdef CONFIG_FW_MULTI_PORT_SUPPORT
-		rtw_hal_set_default_port_id_cmd(padapter, psta->cmn.mac_id);
-#endif
 
 		/* set per sta rate after updating HT cap. */
 		set_sta_rate(padapter, psta);
@@ -12715,6 +12754,13 @@ void link_timer_hdl(void *ctx)
 	if (rtw_sta_linking_test_force_fail())
 		RTW_INFO("rtw_sta_linking_test_force_fail\n");
 
+	if (pmlmeext->join_abort && pmlmeinfo->state != WIFI_FW_NULL_STATE) {
+		RTW_INFO(FUNC_ADPT_FMT" join abort\n", FUNC_ADPT_ARG(padapter));
+		pmlmeinfo->state = WIFI_FW_NULL_STATE;
+		report_join_res(padapter, -4);
+		goto exit;
+	}
+
 	if (pmlmeinfo->state & WIFI_FW_AUTH_NULL) {
 		RTW_INFO("link_timer_hdl:no beacon while connecting\n");
 		pmlmeinfo->state = WIFI_FW_NULL_STATE;
@@ -12768,6 +12814,7 @@ void link_timer_hdl(void *ctx)
 		set_link_timer(pmlmeext, REASSOC_TO);
 	}
 
+exit:
 	return;
 }
 
@@ -13441,7 +13488,7 @@ u8 join_cmd_hdl(_adapter *padapter, u8 *pbuf)
 	}
 
 	rtw_bss_get_chbw(pnetwork
-		, &pmlmeext->cur_channel, &pmlmeext->cur_bwmode, &pmlmeext->cur_ch_offset);
+		, &pmlmeext->cur_channel, &pmlmeext->cur_bwmode, &pmlmeext->cur_ch_offset, 1, 1);
 
 	rtw_adjust_chbw(padapter, pmlmeext->cur_channel, &pmlmeext->cur_bwmode, &pmlmeext->cur_ch_offset);
 
@@ -15206,10 +15253,9 @@ void change_band_update_ie(_adapter *padapter, WLAN_BSSID_EX *pnetwork, u8 ch)
 			&& hal_chk_proto_cap(padapter, PROTO_CAP_11AC)
 			&& (!rfctl->country_ent || COUNTRY_CHPLAN_EN_11AC(rfctl->country_ent))
 		) {
-			if (REGSTY_IS_11AC_AUTO(&padapter->registrypriv))
+			if (REGSTY_IS_11AC_AUTO(&padapter->registrypriv)
+				|| pmlmepriv->ori_vht_en)
 				rtw_vht_ies_attach(padapter, pnetwork);
-			/*else*/
-				/*TODO vht_enable == 1*/
 		}
 		#endif
 	} else {
@@ -15297,7 +15343,8 @@ void rtw_join_done_chk_ch(_adapter *adapter, int join_res)
 					rtw_adjust_chbw(iface
 						, mlmeext->cur_channel, &mlmeext->cur_bwmode, &mlmeext->cur_ch_offset);
 
-					rtw_sync_chbw(&mlmeext->cur_channel, &mlmeext->cur_bwmode, &mlmeext->cur_ch_offset
+					rtw_chset_sync_chbw(adapter_to_chset(adapter)
+						, &mlmeext->cur_channel, &mlmeext->cur_bwmode, &mlmeext->cur_ch_offset
 						, &u_ch, &u_bw, &u_offset);
 
 					rtw_ap_update_bss_chbw(iface, &(mlmeext->mlmext_info.network)

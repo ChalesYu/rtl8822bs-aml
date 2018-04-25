@@ -527,7 +527,7 @@ int rtw_hal_reset_tsf(_adapter *adapter, u8 reset_port);
 	#endif
 #endif
 #if defined(CONFIG_BT_COEXIST) && defined(CONFIG_FW_MULTI_PORT_SUPPORT)
-s32 rtw_hal_set_wifi_port_id_cmd(_adapter *adapter);
+s32 rtw_hal_set_wifi_btc_port_id_cmd(_adapter *adapter);
 #endif
 
 #ifdef CONFIG_GPIO_API
@@ -635,6 +635,10 @@ void rtw_dump_fifo(void *sel, _adapter *adapter, u8 fifo_sel, u32 fifo_addr, u32
 s32 rtw_hal_set_default_port_id_cmd(_adapter *adapter, u8 mac_id);
 s32 rtw_set_default_port_id(_adapter *adapter);
 s32 rtw_set_ps_rsvd_page(_adapter *adapter);
+#define get_dft_portid(adapter) (adapter_to_dvobj(adapter)->dft.port_id)
+#define get_dft_macid(adapter) (adapter_to_dvobj(adapter)->dft.mac_id)
+
+/*void rtw_search_default_port(_adapter *adapter);*/
 #endif
 
 #ifdef CONFIG_P2P_PS

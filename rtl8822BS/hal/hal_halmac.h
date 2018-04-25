@@ -194,6 +194,8 @@ int rtw_halmac_fill_hal_spec(struct dvobj_priv *, struct hal_spec_t *);
 int rtw_halmac_p2pps(struct dvobj_priv *dvobj, PHAL_P2P_PS_PARA pp2p_ps_para);
 int rtw_halmac_iqk(struct dvobj_priv *d, u8 clear, u8 segment);
 int rtw_halmac_cfg_phy_para(struct dvobj_priv *d, struct rtw_phy_parameter *para);
+int rtw_halmac_led_cfg(struct dvobj_priv *d, u8 enable, u8 mode);
+void rtw_halmac_led_switch(struct dvobj_priv *d, u8 on);
 
 #ifdef CONFIG_SDIO_HCI
 int rtw_halmac_query_tx_page_num(struct dvobj_priv *);

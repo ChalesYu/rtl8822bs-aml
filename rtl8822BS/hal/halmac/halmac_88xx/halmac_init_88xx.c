@@ -156,6 +156,17 @@ halmac_init_adapter_para_88xx(
 	pHalmac_adapter->pinmux_info.sw_io_14 = 0;
 	pHalmac_adapter->pinmux_info.sw_io_15 = 0;
 
+	pHalmac_adapter->sdio_free_space.pMacid_map = (u8 *)NULL;
+	pHalmac_adapter->sdio_free_space.macid_map_size = HALMAC_MACID_MAX_88XX << 1;
+
+	if (HALMAC_INTERFACE_SDIO == pHalmac_adapter->halmac_interface) {
+		if (NULL == pHalmac_adapter->sdio_free_space.pMacid_map) {
+			pHalmac_adapter->sdio_free_space.pMacid_map = (u8 *)PLATFORM_RTL_MALLOC(pHalmac_adapter->pDriver_adapter, pHalmac_adapter->sdio_free_space.macid_map_size);
+			if (NULL == pHalmac_adapter->sdio_free_space.pMacid_map)
+				PLATFORM_MSG_PRINT(pHalmac_adapter->pDriver_adapter, HALMAC_MSG_COMMON, HALMAC_DBG_ERR, "[ERR]halmac allocate Macid_map Fail!!\n");
+		}
+	}
+
 	halmac_init_adapter_dynamic_para_88xx(pHalmac_adapter);
 	halmac_init_state_machine_88xx(pHalmac_adapter);
 }

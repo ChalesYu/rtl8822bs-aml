@@ -258,15 +258,21 @@ u32 rtl8822b_init(PADAPTER adapter)
 	rtl8822b_phy_bf_init(adapter);
 #endif
 
+#ifdef CONFIG_FW_MULTI_PORT_SUPPORT
+	/*HW / FW init*/
+	rtw_hal_set_default_port_id_cmd(adapter, 0);
+#endif
+
 #ifdef CONFIG_BT_COEXIST
 	/* Init BT hw config. */
-	if (_TRUE == hal->EEPROMBluetoothCoexist)
+	if (_TRUE == hal->EEPROMBluetoothCoexist) {
 		rtw_btcoex_HAL_Initialize(adapter, _FALSE);
-	else
-		rtw_btcoex_wifionly_hw_config(adapter);
-#else /* CONFIG_BT_COEXIST */
-	rtw_btcoex_wifionly_hw_config(adapter);
+		#ifdef CONFIG_FW_MULTI_PORT_SUPPORT
+		rtw_hal_set_wifi_btc_port_id_cmd(adapter);
+		#endif
+	} else
 #endif /* CONFIG_BT_COEXIST */
+		rtw_btcoex_wifionly_hw_config(adapter);
 
 	rtl8822b_init_misc(adapter);
 

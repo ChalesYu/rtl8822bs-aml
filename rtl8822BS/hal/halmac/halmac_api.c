@@ -280,6 +280,11 @@ halmac_deinit_adapter(
 		pHalmac_adapter->pHalEfuse_map = (u8 *)NULL;
 	}
 
+	if (NULL != pHalmac_adapter->sdio_free_space.pMacid_map) {
+		PLATFORM_RTL_FREE(pDriver_adapter, pHalmac_adapter->sdio_free_space.pMacid_map, pHalmac_adapter->sdio_free_space.macid_map_size);
+		pHalmac_adapter->sdio_free_space.pMacid_map = (u8 *)NULL;
+	}
+
 	if (pHalmac_adapter->halmac_state.psd_set.pData != NULL) {
 		PLATFORM_RTL_FREE(pDriver_adapter, pHalmac_adapter->halmac_state.psd_set.pData, pHalmac_adapter->halmac_state.psd_set.data_size);
 		pHalmac_adapter->halmac_state.psd_set.pData = (u8 *)NULL;

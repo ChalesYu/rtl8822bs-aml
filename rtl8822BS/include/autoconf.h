@@ -69,7 +69,7 @@
 	/*#define CONFIG_P2P_IPS*/
 	#define CONFIG_P2P_OP_CHK_SOCIAL_CH
 	#define CONFIG_CFG80211_ONECHANNEL_UNDER_CONCURRENT  /* Replace CONFIG_P2P_CHK_INVITE_CH_LIST flag */
-	#define CONFIG_P2P_INVITE_IOT
+	/*#define CONFIG_P2P_INVITE_IOT*/
 #endif /* CONFIG_P2P */
 
 /* Set CONFIG_TDLS from Makefile */
@@ -103,8 +103,6 @@
 #define CONFIG_LAYER2_ROAMING
 #define CONFIG_LAYER2_ROAMING_RESUME
 
-/*#define CONFIG_80211D*/
-
 #define CONFIG_BEAMFORMING
 
 
@@ -127,6 +125,7 @@
 
 #define DISABLE_BB_RF		0
 #define RTW_NOTCH_FILTER	0 /* 0:Disable, 1:Enable */
+#define CONFIG_DYNAMIC_SOML
 
 #define CONFIG_SUPPORT_TRX_SHARED
 #ifdef CONFIG_SUPPORT_TRX_SHARED
@@ -145,6 +144,7 @@
  */
 #define CONFIG_TX_AGGREGATION
 #define CONFIG_XMIT_THREAD_MODE	/* necessary for SDIO */
+#define RTW_XMIT_THREAD_HIGH_PRIORITY
 /*#define CONFIG_SDIO_TX_ENABLE_AVAL_INT*/ /* not implemented yet */
 #define CONFIG_SDIO_RX_COPY
 

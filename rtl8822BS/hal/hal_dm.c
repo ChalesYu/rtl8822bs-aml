@@ -330,6 +330,10 @@ void Init_ODM_ComInfo(_adapter *adapter)
 	odm_cmn_info_hook(pDM_Odm, ODM_CMNINFO_HUBUSBMODE, &(dvobj->usb_speed));
 #endif
 
+#ifdef CONFIG_DYNAMIC_SOML
+	odm_cmn_info_hook(pDM_Odm, ODM_CMNINFO_ADAPTIVE_SOML, &(adapter->registrypriv.dyn_soml_en));
+#endif
+
 	/*halrf info hook*/
 #ifdef CONFIG_MP_INCLUDED
 	halrf_cmn_info_hook(pDM_Odm, HALRF_CMNINFO_CON_TX, &(adapter->mppriv.mpt_ctx.is_start_cont_tx));
@@ -1090,6 +1094,53 @@ static u8 _rtw_phydm_pwr_tracking_rate_check(_adapter *adapter)
 	RTW_DBG("%s tx_low_rate (unlinked to any AP)=0x%x\n", __func__, tx_rate);
 	return tx_rate;
 }
+
+#ifdef CONFIG_DYNAMIC_SOML
+void rtw_dyn_soml_byte_update(_adapter *adapter, u8 data_rate, u32 size)
+{
+	struct PHY_DM_STRUCT *phydm = adapter_to_phydm(adapter);
+
+	phydm_soml_bytes_acq(phydm, data_rate, size);
+}
+
+void rtw_dyn_soml_para_set(_adapter *adapter, u8 train_num, u8 intvl,
+			u8 period, u8 delay)
+{
+	struct PHY_DM_STRUCT *phydm = adapter_to_phydm(adapter);
+
+	phydm_adaptive_soml_para_set(phydm, train_num, intvl, period, delay);
+	RTW_INFO("%s.\n", __func__);
+}
+
+void rtw_dyn_soml_config(_adapter *adapter)
+{
+	RTW_INFO("%s.\n", __func__);
+
+	if (adapter->registrypriv.dyn_soml_en == 1) {
+		/* Must after phydm_adaptive_soml_init() */
+		rtw_hal_set_hwreg(adapter , HW_VAR_SET_SOML_PARAM , NULL);
+		RTW_INFO("dyn_soml_en = 1\n");
+	} else {
+		if (adapter->registrypriv.dyn_soml_en == 2) {
+			rtw_dyn_soml_para_set(adapter, 
+				adapter->registrypriv.dyn_soml_train_num, 
+				adapter->registrypriv.dyn_soml_interval, 
+				adapter->registrypriv.dyn_soml_period,
+				adapter->registrypriv.dyn_soml_delay);
+			RTW_INFO("dyn_soml_en = 2\n");
+			RTW_INFO("dyn_soml_en, param = %d, %d, %d, %d\n",
+				adapter->registrypriv.dyn_soml_train_num,
+				adapter->registrypriv.dyn_soml_interval, 
+				adapter->registrypriv.dyn_soml_period,
+				adapter->registrypriv.dyn_soml_delay);
+		} else if (adapter->registrypriv.dyn_soml_en == 0) {
+			RTW_INFO("dyn_soml_en = 0\n");
+		} else
+			RTW_ERR("%s, wrong setting: dyn_soml_en = %d\n", __func__,
+				adapter->registrypriv.dyn_soml_en);
+	}
+}
+#endif
 
 void rtw_phydm_watchdog(_adapter *adapter)
 {

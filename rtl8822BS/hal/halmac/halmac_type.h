@@ -892,6 +892,8 @@ typedef struct _HALMAC_SDIO_FREE_SPACE {
 	u8 ac_oqt_number;
 	u8 non_ac_oqt_number;
 	u8 ac_empty;
+	u8 *pMacid_map;
+	u32 macid_map_size;
 } HALMAC_SDIO_FREE_SPACE, *PHALMAC_SDIO_FREE_SPACE;
 
 typedef enum _HAL_FIFO_SEL {

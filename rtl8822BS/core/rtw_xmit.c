@@ -2461,7 +2461,7 @@ s32 rtw_xmitframe_coalesce_amsdu(_adapter *padapter, struct xmit_frame *pxmitfra
 
 	xmitframe_swencrypt(padapter, pxmitframe);
 
-	pattrib->vcs_mode = NONE_VCS;
+	update_attrib_vcs_info(padapter, pxmitframe);
 
 exit:
 	return res;
@@ -4374,6 +4374,9 @@ s32 rtw_xmit(_adapter *padapter, _pkt **ppkt)
 
 	DBG_COUNTER(padapter->tx_logs.core_tx);
 
+	if (IS_CH_WAITING(adapter_to_rfctl(padapter)))
+		return -1;
+
 	if (start == 0)
 		start = rtw_get_current_time();
 
@@ -5303,7 +5306,13 @@ thread_return rtw_xmit_thread(thread_context context)
 {
 	s32 err;
 	PADAPTER padapter;
+#ifdef RTW_XMIT_THREAD_HIGH_PRIORITY
+#ifdef PLATFORM_LINUX
+	struct sched_param param = { .sched_priority = 1 };
 
+	sched_setscheduler(current, SCHED_FIFO, &param);
+#endif /* PLATFORM_LINUX */
+#endif /* RTW_XMIT_THREAD_HIGH_PRIORITY */
 
 	err = _SUCCESS;
 	padapter = (PADAPTER)context;

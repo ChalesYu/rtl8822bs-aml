@@ -146,9 +146,7 @@ typedef struct _ADAPTER _adapter, ADAPTER, *PADAPTER;
 #include <rtw_android.h>
 
 #include <rtw_btcoex_wifionly.h>
-#ifdef CONFIG_BT_COEXIST
-	#include <rtw_btcoex.h>
-#endif /* CONFIG_BT_COEXIST */
+#include <rtw_btcoex.h>
 
 #ifdef CONFIG_MCC_MODE
 	#include <rtw_mcc.h>
@@ -440,6 +438,20 @@ struct registry_priv {
 #ifdef CONFIG_FW_OFFLOAD_PARAM_INIT
 	u8 fw_param_init;
 #endif
+
+	/*
+	 * vht_2g4: use VHT rate on 2.4G or not
+	 * 0: deny
+	 * 1: allow
+	 */
+	u8 vht_2g4;
+#ifdef CONFIG_DYNAMIC_SOML
+	u8 dyn_soml_en;
+	u8 dyn_soml_train_num;
+	u8 dyn_soml_interval;
+	u8 dyn_soml_period;
+	u8 dyn_soml_delay;
+#endif
 };
 
 /* For registry parameters */
@@ -469,6 +481,10 @@ struct registry_priv {
 
 #define REGSTY_IS_11AC_ENABLE(regsty) ((regsty)->vht_enable != 0)
 #define REGSTY_IS_11AC_AUTO(regsty) ((regsty)->vht_enable == 2)
+
+#define rtw_is_vht_2g4(adapter)		((adapter)->registrypriv.vht_2g4 != 0)
+#define rtw_set_vht_2g4(adapter, enable) \
+			((adapter)->registrypriv.vht_2g4 = (enable ? 1 : 0))
 
 typedef struct rtw_if_operations {
 	int __must_check (*read)(struct dvobj_priv *d, unsigned int addr, void *buf,
@@ -867,9 +883,15 @@ struct rf_ctl_t {
 };
 
 #define RTW_CAC_STOPPED 0
+#ifdef CONFIG_DFS_MASTER
 #define IS_CAC_STOPPED(rfctl) ((rfctl)->cac_end_time == RTW_CAC_STOPPED)
 #define IS_CH_WAITING(rfctl) (!IS_CAC_STOPPED(rfctl) && time_after((rfctl)->cac_end_time, rtw_get_current_time()))
 #define IS_UNDER_CAC(rfctl) (IS_CH_WAITING(rfctl) && time_after(rtw_get_current_time(), (rfctl)->cac_start_time))
+#else
+#define IS_CAC_STOPPED(rfctl) 1
+#define IS_CH_WAITING(rfctl) 0
+#define IS_UNDER_CAC(rfctl) 0
+#endif /* CONFIG_DFS_MASTER */
 
 #ifdef CONFIG_MBSSID_CAM
 #define TOTAL_MBID_CAM_NUM	8
@@ -908,6 +930,14 @@ struct halmacpriv {
 #endif /* CONFIG_SDIO_HCI */
 };
 #endif /* RTW_HALMAC */
+
+#ifdef CONFIG_FW_MULTI_PORT_SUPPORT
+/*info for H2C-0x2C*/
+struct dft_info {
+	u8 port_id;
+	u8 mac_id;
+};
+#endif
 
 struct dvobj_priv {
 	/*-------- below is common data --------*/
@@ -1013,7 +1043,8 @@ struct dvobj_priv {
 #endif /* RTW_HALMAC */
 
 #ifdef CONFIG_FW_MULTI_PORT_SUPPORT
-	u8 default_port_id;
+	/*info for H2C-0x2C*/
+	struct dft_info dft;
 #endif
 	/*-------- below is for SDIO INTERFACE --------*/
 

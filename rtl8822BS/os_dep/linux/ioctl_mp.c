@@ -514,8 +514,7 @@ int rtw_mp_bandwidth(struct net_device *dev,
 
 	SetBandwidth(padapter);
 	pHalData->current_channel_bw = bandwidth;
-	/*cur_ch_offset =  rtw_get_offset_by_ch(padapter->mppriv.channel);*/
-	/*set_channel_bwmode(padapter, padapter->mppriv.channel, cur_ch_offset, bandwidth);*/
+
 	wrqu->length = strlen(extra);
 
 	return 0;

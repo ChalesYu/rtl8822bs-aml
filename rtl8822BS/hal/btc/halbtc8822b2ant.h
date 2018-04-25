@@ -41,19 +41,19 @@
 /* unit: % WiFi RSSI Threshold for 2-Ant free-run/2-Ant TDMA translation.
  * (default = 42)
  */
-#define	BT_8822B_2ANT_WIFI_RSSI_COEXSWITCH_THRES1			25
+#define	BT_8822B_2ANT_WIFI_RSSI_COEXSWITCH_THRES1			55
 /* unit: % BT RSSI Threshold for 2-Ant free-run/2-Ant TDMA translation.
  * (default = 46)
  */
-#define	BT_8822B_2ANT_BT_RSSI_COEXSWITCH_THRES1				22
+#define	BT_8822B_2ANT_BT_RSSI_COEXSWITCH_THRES1				40
 /* unit: % WiFi RSSI Threshold for 1-Ant TDMA/1-Ant PS-TDMA translation.
  * (default = 42)
  */
-#define	BT_8822B_2ANT_WIFI_RSSI_COEXSWITCH_THRES2			25
+#define	BT_8822B_2ANT_WIFI_RSSI_COEXSWITCH_THRES2			30
 /* unit: % BT RSSI Threshold for 1-Ant TDMA/1-Ant PS-TDMA translation.
  * (default = 46)
  */
-#define	BT_8822B_2ANT_BT_RSSI_COEXSWITCH_THRES2				22
+#define	BT_8822B_2ANT_BT_RSSI_COEXSWITCH_THRES2				23
 
 #define	BT_8822B_2ANT_DEFAULT_ISOLATION						25	 /*  unit: dB */
 #define   BT_8822B_2ANT_WIFI_MAX_TX_POWER						15	 /*  unit: dBm */

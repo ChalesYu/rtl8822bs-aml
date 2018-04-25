@@ -763,6 +763,10 @@ typedef struct hal_com_data {
 	u8 phydm_op_mode;
 
 	u8 in_cta_test;
+
+#ifdef CONFIG_RTW_LED
+        struct led_priv led;
+#endif
 } HAL_DATA_COMMON, *PHAL_DATA_COMMON;
 
 
@@ -770,6 +774,7 @@ typedef struct hal_com_data {
 typedef struct hal_com_data HAL_DATA_TYPE, *PHAL_DATA_TYPE;
 #define GET_HAL_DATA(__pAdapter)			((HAL_DATA_TYPE *)((__pAdapter)->HalData))
 #define GET_HAL_SPEC(__pAdapter)			(&(GET_HAL_DATA((__pAdapter))->hal_spec))
+#define adapter_to_led(adapter)			(&(GET_HAL_DATA(adapter)->led))
 
 #define GET_HAL_RFPATH_NUM(__pAdapter)		(((HAL_DATA_TYPE *)((__pAdapter)->HalData))->NumTotalRFPath)
 #define RT_GetInterfaceSelection(_Adapter)		(GET_HAL_DATA(_Adapter)->InterfaceSel)

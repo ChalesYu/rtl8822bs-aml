@@ -507,53 +507,6 @@ exit:
 	return valid;
 }
 
-u8 rtw_get_offset_by_ch(u8 channel)
-{
-	u8 offset = HAL_PRIME_CHNL_OFFSET_DONT_CARE;
-
-	if (channel >= 1 && channel <= 4)
-		offset = HAL_PRIME_CHNL_OFFSET_LOWER;
-	else if (channel >= 5 && channel <= 14)
-		offset = HAL_PRIME_CHNL_OFFSET_UPPER;
-	else {
-		switch (channel) {
-		case 36:
-		case 44:
-		case 52:
-		case 60:
-		case 100:
-		case 108:
-		case 116:
-		case 124:
-		case 132:
-		case 149:
-		case 157:
-			offset = HAL_PRIME_CHNL_OFFSET_LOWER;
-			break;
-		case 40:
-		case 48:
-		case 56:
-		case 64:
-		case 104:
-		case 112:
-		case 120:
-		case 128:
-		case 136:
-		case 153:
-		case 161:
-			offset = HAL_PRIME_CHNL_OFFSET_UPPER;
-			break;
-		default:
-			offset = HAL_PRIME_CHNL_OFFSET_DONT_CARE;
-			break;
-		}
-
-	}
-
-	return offset;
-
-}
-
 u8 rtw_get_center_ch(u8 channel, u8 chnl_bw, u8 chnl_offset)
 {
 	u8 center_ch = channel;

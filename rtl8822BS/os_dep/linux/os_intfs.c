@@ -680,6 +680,35 @@ module_param(rtw_trx_share_mode, int, 0644);
 MODULE_PARM_DESC(rtw_trx_share_mode, "TRx FIFO Shared");
 #endif
 
+int rtw_vht_2g4 = RTW_VHT_2G4;
+module_param(rtw_vht_2g4, int, 0644);
+MODULE_PARM_DESC(rtw_vht_2g4, "Allow VHT rate on 2.4G channel." \
+				"(0 for deny and 1 for allow)");
+
+
+#ifdef CONFIG_DYNAMIC_SOML
+uint rtw_dynamic_soml_en = 1;
+module_param(rtw_dynamic_soml_en, int, 0644);
+MODULE_PARM_DESC(rtw_dynamic_soml_en, "0: disable, 1: enable with default param, 2: enable with specified param.");
+
+uint rtw_dynamic_soml_train_num = 0;
+module_param(rtw_dynamic_soml_train_num, int, 0644);
+MODULE_PARM_DESC(rtw_dynamic_soml_train_num, "SOML training number");
+
+uint rtw_dynamic_soml_interval = 0;
+module_param(rtw_dynamic_soml_interval, int, 0644);
+MODULE_PARM_DESC(rtw_dynamic_soml_interval, "SOML training interval");
+
+uint rtw_dynamic_soml_period = 0;
+module_param(rtw_dynamic_soml_period, int, 0644);
+MODULE_PARM_DESC(rtw_dynamic_soml_period, "SOML training period");
+
+uint rtw_dynamic_soml_delay = 0;
+module_param(rtw_dynamic_soml_delay, int, 0644);
+MODULE_PARM_DESC(rtw_dynamic_soml_delay, "SOML training delay");
+#endif
+
+
 int _netdev_open(struct net_device *pnetdev);
 int netdev_open(struct net_device *pnetdev);
 static int netdev_close(struct net_device *pnetdev);
@@ -1049,6 +1078,14 @@ uint loadparam(_adapter *padapter)
 	registry_par->adaptivity_th_l2h_ini = (s8)rtw_adaptivity_th_l2h_ini;
 	registry_par->adaptivity_th_edcca_hl_diff = (s8)rtw_adaptivity_th_edcca_hl_diff;
 
+#ifdef CONFIG_DYNAMIC_SOML
+	registry_par->dyn_soml_en = (u8)rtw_dynamic_soml_en;
+	registry_par->dyn_soml_train_num = (u8)rtw_dynamic_soml_train_num;
+	registry_par->dyn_soml_interval = (u8)rtw_dynamic_soml_interval;
+	registry_par->dyn_soml_period = (u8)rtw_dynamic_soml_period;
+	registry_par->dyn_soml_delay = (u8)rtw_dynamic_soml_delay;
+#endif
+
 	registry_par->boffefusemask = (u8)rtw_OffEfuseMask;
 	registry_par->bFileMaskEfuse = (u8)rtw_FileMaskEfuse;
 
@@ -1127,6 +1164,9 @@ uint loadparam(_adapter *padapter)
 #ifdef CONFIG_AP_MODE
 	registry_par->bmc_tx_rate = rtw_bmc_tx_rate;
 #endif
+
+	registry_par->vht_2g4 = (u8)rtw_vht_2g4;
+
 	return status;
 }
 
@@ -1504,6 +1544,13 @@ struct net_device *rtw_init_netdev(_adapter *old_padapter)
 
 #ifdef CONFIG_TCP_CSUM_OFFLOAD_TX
 	pnetdev->features |= NETIF_F_IP_CSUM;
+#endif
+
+#ifdef CONFIG_RTW_NETIF_SG
+        pnetdev->features |= NETIF_F_SG;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 39)
+        pnetdev->hw_features |= NETIF_F_SG;
+#endif
 #endif
 
 	/* pnetdev->tx_timeout = NULL; */
@@ -3227,6 +3274,15 @@ netdev_open_normal_process:
 		#endif
 	}
 #endif
+
+#ifdef CONFIG_RTW_CFGVEDNOR_LLSTATS
+	pwrctrlpriv->radio_on_start_time = rtw_get_current_time();
+	pwrctrlpriv->pwr_saving_start_time = rtw_get_current_time();
+	pwrctrlpriv->pwr_saving_time = 0;
+	pwrctrlpriv->on_time = 0;
+	pwrctrlpriv->tx_time = 0;
+	pwrctrlpriv->rx_time = 0;
+#endif /* CONFIG_RTW_CFGVEDNOR_LLSTATS */
 
 	RTW_INFO("-871x_drv - drv_open, bup=%d\n", padapter->bup);
 

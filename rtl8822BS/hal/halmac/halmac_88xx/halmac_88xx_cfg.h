@@ -25,10 +25,10 @@
 #define HALMAC_MAJOR_VER_88XX        0x0001 /* major version, ver_1 for async_api */
 #define HALMAC_PROTOTYPE_VER_88XX    0x0004 /* For halmac_api num change or prototype change, increment prototype version */
 #define HALMAC_MINOR_VER_88XX        0x0003 /* else increment minor version */
-#define HALMAC_PATCH_VER_88XX        0x0006 /* patch version */
+#define HALMAC_PATCH_VER_88XX        0x0008 /* patch version */
 
 #define HALMAC_C2H_DATA_OFFSET_88XX             10
-#define HALMAC_RX_DESC_DUMMY_SIZE_MAX_88XX      80 /*8*10 Bytes*/
+#define HALMAC_RX_DESC_DUMMY_SIZE_MAX_88XX      72 /*8*9 Bytes*/
 
 #define HALMAC_EXTRA_INFO_BUFF_SIZE_88XX				2048  /*2K*/
 #define HALMAC_FW_OFFLOAD_CMD_SIZE_88XX					12    /*Fw config parameter cmd size, each 12 byte*/
@@ -37,6 +37,8 @@
 #define HALMAC_BLK_DESC_NUM_88XX			3 /* usb most tx desc num */
 #define HALMAC_TX_PAGE_SIZE_2_POWER_88XX	7   /* 128 = 2^7 */
 #define HALMAC_RX_BUF_FW_88XX				12288 /* 12K */
+
+#define HALMAC_TX_DESC_SIZE_88XX		48
 
 #define HALMAC_OFLD_FUNC_MALLOC_MAX_SIZE_88XX				16384 /*16K*/
 #define HALMAC_OFLD_FUNC_RSVD_PG_DRV_BUF_MAX_SIZE_88XX		16384 /*16K*/
@@ -152,6 +154,12 @@
 #define HALMAC_CFG_PARA_RSVDPG_SZ_88XX		2048 /* 2K */
 #define HALMAC_SCAN_INFO_RSVDPG_SZ_88XX		2048 /* 2K */
 #define HALMAC_SU0_SNDING_PKT_OFFSET_88XX	0 /* offset = 0, len = 128byte */
+
+/* MACID number */
+#define HALMAC_MACID_MAX_88XX		128
+
+/* AC queue number */
+#define HALMAC_ACQ_NUM_MAX_88XX		8
 
 #endif /* HALMAC_88XX_SUPPORT */
 

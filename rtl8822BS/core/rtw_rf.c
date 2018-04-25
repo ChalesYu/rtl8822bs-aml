@@ -806,7 +806,7 @@ static const struct country_chplan country_chplan_map[] = {
 	COUNTRY_CHPLAN_ENT("DZ", 0x26, 1, 0x7F1), /* Algeria */
 	COUNTRY_CHPLAN_ENT("EC", 0x34, 1, 0x7F1), /* Ecuador */
 	COUNTRY_CHPLAN_ENT("EE", 0x26, 1, 0x7FB), /* Estonia */
-	COUNTRY_CHPLAN_ENT("EG", 0x47, 0, 0x7F1), /* Egypt */
+	COUNTRY_CHPLAN_ENT("EG", 0x47, 1, 0x7F1), /* Egypt */
 	COUNTRY_CHPLAN_ENT("EH", 0x47, 1, 0x680), /* Western Sahara */
 	COUNTRY_CHPLAN_ENT("ER", 0x26, 1, 0x000), /* Eritrea */
 	COUNTRY_CHPLAN_ENT("ES", 0x26, 1, 0x7FB), /* Spain, Canary Islands, Ceuta, Melilla */

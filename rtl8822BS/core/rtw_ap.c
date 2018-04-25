@@ -1429,7 +1429,7 @@ void start_bss_network(_adapter *padapter, struct createbss_parm *parm)
 	struct mlme_ext_info	*pmlmeinfo = &(pmlmeext->mlmext_info);
 	WLAN_BSSID_EX *pnetwork_mlmeext = &(pmlmeinfo->network);
 	struct dvobj_priv *pdvobj = padapter->dvobj;
-	s16 req_ch = -1, req_bw = -1, req_offset = -1;
+	s16 req_ch = REQ_CH_NONE, req_bw = REQ_BW_NONE, req_offset = REQ_OFFSET_NONE;
 	bool ch_setting_changed = _FALSE;
 	u8 ch_to_set = 0, bw_to_set, offset_to_set;
 	u8 doiqk = _FALSE;
@@ -1554,8 +1554,10 @@ chbw_decision:
 	rtw_hal_mcc_issue_null_data(padapter, chbw_allow, 1);
 #endif /* CONFIG_MCC_MODE */
 
-	doiqk = _TRUE;
-	rtw_hal_set_hwreg(padapter , HW_VAR_DO_IQK , &doiqk);
+	if (!IS_CH_WAITING(adapter_to_rfctl(padapter))) {
+		doiqk = _TRUE;
+		rtw_hal_set_hwreg(padapter , HW_VAR_DO_IQK , &doiqk);
+	}
 
 	if (ch_to_set != 0) {
 		set_channel_bwmode(padapter, ch_to_set, offset_to_set, bw_to_set);
@@ -2043,9 +2045,17 @@ int rtw_check_beacon_data(_adapter *padapter, u8 *pbuf,  int len)
 
 	/* parsing HT_INFO_IE */
 	p = rtw_get_ie(ie + _BEACON_IE_OFFSET_, _HT_ADD_INFO_IE_, &ie_len, (pbss_network->IELength - _BEACON_IE_OFFSET_));
-	if (p && ie_len > 0)
+	if (p && ie_len > 0) {
 		pHT_info_ie = p;
+		if (channel == 0)
+			pbss_network->Configuration.DSConfig = GET_HT_OP_ELE_PRI_CHL(pHT_info_ie + 2);
+		else if (channel != GET_HT_OP_ELE_PRI_CHL(pHT_info_ie + 2)) {
+			RTW_INFO(FUNC_ADPT_FMT" ch inconsistent, DSSS:%u, HT primary:%u\n"
+				, FUNC_ADPT_ARG(padapter), channel, GET_HT_OP_ELE_PRI_CHL(pHT_info_ie + 2));
+		}
+	}
 #endif /* CONFIG_80211N_HT */
+
 	switch (network_type) {
 	case WIRELESS_11B:
 		pbss_network->NetworkTypeInUse = Ndis802_11DS;
@@ -2096,18 +2106,20 @@ int rtw_check_beacon_data(_adapter *padapter, u8 *pbuf,  int len)
 		vht_cap = _TRUE;
 	/* Parsing VHT OPERATION IE */
 
-
+	pmlmepriv->ori_vht_en = 0;
 	pmlmepriv->vhtpriv.vht_option = _FALSE;
 	/* if channel in 5G band, then add vht ie . */
 	if ((pbss_network->Configuration.DSConfig > 14)
-	    && (pmlmepriv->htpriv.ht_option == _TRUE)
-	    && REGSTY_IS_11AC_ENABLE(pregistrypriv)
-	    && hal_chk_proto_cap(padapter, PROTO_CAP_11AC)
-	    && (!rfctl->country_ent || COUNTRY_CHPLAN_EN_11AC(rfctl->country_ent))
-	   ) {
-		if (vht_cap == _TRUE)
+		&& (pmlmepriv->htpriv.ht_option == _TRUE)
+		&& REGSTY_IS_11AC_ENABLE(pregistrypriv)
+		&& hal_chk_proto_cap(padapter, PROTO_CAP_11AC)
+		&& (!rfctl->country_ent || COUNTRY_CHPLAN_EN_11AC(rfctl->country_ent))
+	) {
+		if (vht_cap == _TRUE) {
+			rtw_check_for_vht20(padapter, ie + _BEACON_IE_OFFSET_, pbss_network->IELength - _BEACON_IE_OFFSET_);
+			pmlmepriv->ori_vht_en = 1;
 			pmlmepriv->vhtpriv.vht_option = _TRUE;
-		else if (REGSTY_IS_11AC_AUTO(pregistrypriv))
+		} else if (REGSTY_IS_11AC_AUTO(pregistrypriv))
 			rtw_vht_ies_attach(padapter, pbss_network);
 	}
 #endif /* CONFIG_80211AC_VHT */
@@ -2124,7 +2136,7 @@ int rtw_check_beacon_data(_adapter *padapter, u8 *pbuf,  int len)
 	pbss_network->Length = get_WLAN_BSSID_EX_sz((WLAN_BSSID_EX *)pbss_network);
 
 	rtw_ies_get_chbw(pbss_network->IEs + _BEACON_IE_OFFSET_, pbss_network->IELength - _BEACON_IE_OFFSET_
-		, &pmlmepriv->ori_ch, &pmlmepriv->ori_bw, &pmlmepriv->ori_offset);
+		, &pmlmepriv->ori_ch, &pmlmepriv->ori_bw, &pmlmepriv->ori_offset, 1, 1);
 	rtw_warn_on(pmlmepriv->ori_ch == 0);
 
 	{
@@ -3955,6 +3967,7 @@ void rtw_ap_update_bss_chbw(_adapter *adapter, WLAN_BSSID_EX *bss, u8 ch, u8 bw,
 bool rtw_ap_chbw_decision(_adapter *adapter, s16 req_ch, s8 req_bw, s8 req_offset
 			  , u8 *ch, u8 *bw, u8 *offset, u8 *chbw_allow)
 {
+	RT_CHANNEL_INFO *chset = adapter_to_chset(adapter);
 	u8 cur_ie_ch, cur_ie_bw, cur_ie_offset;
 	u8 dec_ch, dec_bw, dec_offset;
 	u8 u_ch = 0, u_offset, u_bw;
@@ -3965,7 +3978,7 @@ bool rtw_ap_chbw_decision(_adapter *adapter, s16 req_ch, s8 req_bw, s8 req_offse
 	bool set_u_ch = _FALSE, set_dec_ch = _FALSE;
 
 	rtw_ies_get_chbw(BSS_EX_TLV_IES(network), BSS_EX_TLV_IES_LEN(network)
-		, &cur_ie_ch, &cur_ie_bw, &cur_ie_offset);
+		, &cur_ie_ch, &cur_ie_bw, &cur_ie_offset, 1, 1);
 
 #ifdef CONFIG_MCC_MODE
 	if (MCC_EN(adapter)) {
@@ -3993,10 +4006,17 @@ bool rtw_ap_chbw_decision(_adapter *adapter, s16 req_ch, s8 req_bw, s8 req_offse
 	}
 #endif /* CONFIG_MCC_MODE */
 
-	/* use chbw of cur_ie updated with specifying req as temporary decision */
-	dec_ch = (req_ch <= 0) ? cur_ie_ch : req_ch;
-	dec_bw = (req_bw < 0) ? cur_ie_bw : req_bw;
-	dec_offset = (req_offset < 0) ? cur_ie_offset : req_offset;
+	if (req_ch == 0) {
+		/* request comes from upper layer, use cur_ie values */
+		dec_ch = cur_ie_ch;
+		dec_bw = cur_ie_bw;
+		dec_offset = cur_ie_offset;
+	} else {
+		/* use chbw of cur_ie updated with specifying req as temporary decision */
+		dec_ch = (req_ch <= REQ_CH_NONE) ? cur_ie_ch : req_ch;
+		dec_bw = (req_bw <= REQ_BW_NONE) ? cur_ie_bw : req_bw;
+		dec_offset = (req_offset <= REQ_OFFSET_NONE) ? cur_ie_offset : req_offset;
+	}
 
 	rtw_mi_status_no_self(adapter, &mstate);
 	RTW_INFO(FUNC_ADPT_FMT" ld_sta_num:%u, lg_sta_num%u, ap_num:%u, mesh_num:%u\n"
@@ -4004,7 +4024,7 @@ bool rtw_ap_chbw_decision(_adapter *adapter, s16 req_ch, s8 req_bw, s8 req_offse
 		, MSTATE_AP_NUM(&mstate), MSTATE_MESH_NUM(&mstate));
 
 	if (MSTATE_STA_LD_NUM(&mstate) || MSTATE_AP_NUM(&mstate) || MSTATE_MESH_NUM(&mstate)) {
-		/* has linked STA or AP/Mesh mode, follow */
+		/* has linked STA or AP/Mesh mode */
 
 		rtw_warn_on(!rtw_mi_get_ch_setting_union_no_self(adapter, &u_ch, &u_bw, &u_offset));
 
@@ -4012,6 +4032,7 @@ bool rtw_ap_chbw_decision(_adapter *adapter, s16 req_ch, s8 req_bw, s8 req_offse
 		RTW_INFO(FUNC_ADPT_FMT" req: %d,%d,%d\n", FUNC_ADPT_ARG(adapter), req_ch, req_bw, req_offset);
 
 		rtw_adjust_chbw(adapter, u_ch, &dec_bw, &dec_offset);
+
 #ifdef CONFIG_MCC_MODE
 		if (MCC_EN(adapter)) {
 			if (!rtw_is_chbw_grouped(u_ch, u_bw, u_offset, dec_ch, dec_bw, dec_offset)) {
@@ -4028,10 +4049,11 @@ bool rtw_ap_chbw_decision(_adapter *adapter, s16 req_ch, s8 req_bw, s8 req_offse
 				*chbw_allow = _TRUE;
 		}
 #endif /* CONFIG_MCC_MODE */
-		rtw_sync_chbw(&dec_ch, &dec_bw, &dec_offset
-			      , &u_ch, &u_bw, &u_offset);
 
-		rtw_ap_update_bss_chbw(adapter, network, dec_ch, dec_bw, dec_offset);
+		/* follow */
+		rtw_chset_sync_chbw(chset
+			, &dec_ch, &dec_bw, &dec_offset
+			, &u_ch, &u_bw, &u_offset);
 
 		set_u_ch = _TRUE;
 	} else if (MSTATE_STA_LG_NUM(&mstate)) {
@@ -4046,10 +4068,9 @@ bool rtw_ap_chbw_decision(_adapter *adapter, s16 req_ch, s8 req_bw, s8 req_offse
 
 		if (rtw_is_chbw_grouped(u_ch, u_bw, u_offset, dec_ch, dec_bw, dec_offset)) {
 
-			rtw_sync_chbw(&dec_ch, &dec_bw, &dec_offset
-				      , &u_ch, &u_bw, &u_offset);
-
-			rtw_ap_update_bss_chbw(adapter, network, dec_ch, dec_bw, dec_offset);
+			rtw_chset_sync_chbw(chset
+				, &dec_ch, &dec_bw, &dec_offset
+				, &u_ch, &u_bw, &u_offset);
 
 			set_u_ch = _TRUE;
 
@@ -4069,6 +4090,7 @@ bool rtw_ap_chbw_decision(_adapter *adapter, s16 req_ch, s8 req_bw, s8 req_offse
 				goto exit;
 			}
 #endif /* CONFIG_MCC_MODE */
+
 			/* set this for possible ch change when join down*/
 			set_fwstate(&adapter->mlmepriv, WIFI_OP_CH_SWITCHING);
 		}
@@ -4077,27 +4099,38 @@ bool rtw_ap_chbw_decision(_adapter *adapter, s16 req_ch, s8 req_bw, s8 req_offse
 
 		RTW_INFO(FUNC_ADPT_FMT" req: %d,%d,%d\n", FUNC_ADPT_ARG(adapter), req_ch, req_bw, req_offset);
 
+		if (req_ch <= REQ_CH_NONE) /* channel is not specified */
+			goto choose_chbw;
+
+		if (rtw_chset_search_ch(chset, dec_ch) < 0) {
+			RTW_WARN(FUNC_ADPT_FMT" ch:%u doesn't fit in chplan\n", FUNC_ADPT_ARG(adapter), req_ch);
+			*chbw_allow = _FALSE;
+			goto exit;
+		}
+
 		/* check temporary decision first */
 		rtw_adjust_chbw(adapter, dec_ch, &dec_bw, &dec_offset);
-		if (!rtw_get_offset_by_chbw(dec_ch, dec_bw, &dec_offset)) {
-			if (req_ch == -1 || req_bw == -1)
-				goto choose_chbw;
+		if (!rtw_get_offset_by_chbw(dec_ch, dec_bw, &dec_offset)
+			&& req_bw > REQ_BW_NONE
+		) {
 			RTW_WARN(FUNC_ADPT_FMT" req: %u,%u has no valid offset\n", FUNC_ADPT_ARG(adapter), dec_ch, dec_bw);
 			*chbw_allow = _FALSE;
 			goto exit;
 		}
 
-		if (!rtw_chset_is_chbw_valid(adapter_to_chset(adapter), dec_ch, dec_bw, dec_offset)) {
-			if (req_ch == -1 || req_bw == -1)
-				goto choose_chbw;
-			RTW_WARN(FUNC_ADPT_FMT" req: %u,%u,%u doesn't fit in chplan\n", FUNC_ADPT_ARG(adapter), dec_ch, dec_bw, dec_offset);
-			*chbw_allow = _FALSE;
-			goto exit;
+		while (!rtw_chset_is_chbw_valid(chset, dec_ch, dec_bw, dec_offset)
+			|| (rtw_odm_dfs_domain_unknown(adapter) && rtw_is_dfs_chbw(dec_ch, dec_bw, dec_offset))
+			|| rtw_chset_is_ch_non_ocp(chset, dec_ch, dec_bw, dec_offset)
+		) {
+			dec_bw--;
+			if (dec_bw == CHANNEL_WIDTH_20) {
+				dec_offset = HAL_PRIME_CHNL_OFFSET_DONT_CARE;
+				break;
+			}
 		}
 
 		if (rtw_odm_dfs_domain_unknown(adapter) && rtw_is_dfs_chbw(dec_ch, dec_bw, dec_offset)) {
-			if (req_ch >= 0)
-				RTW_WARN(FUNC_ADPT_FMT" DFS channel %u,%u,%u can't be used\n", FUNC_ADPT_ARG(adapter), dec_ch, dec_bw, dec_offset);
+			RTW_WARN(FUNC_ADPT_FMT" DFS channel %u can't be used\n", FUNC_ADPT_ARG(adapter), dec_ch);
 			if (req_ch > 0) {
 				/* specific channel and not from IE => don't change channel setting */
 				*chbw_allow = _FALSE;
@@ -4106,38 +4139,38 @@ bool rtw_ap_chbw_decision(_adapter *adapter, s16 req_ch, s8 req_bw, s8 req_offse
 			goto choose_chbw;
 		}
 
-		if (rtw_chset_is_ch_non_ocp(adapter_to_chset(adapter), dec_ch, dec_bw, dec_offset) == _FALSE)
+		if (rtw_chset_is_ch_non_ocp(chset, dec_ch, dec_bw, dec_offset) == _FALSE)
 			goto update_bss_chbw;
+		RTW_WARN(FUNC_ADPT_FMT" DFS channel %u under non ocp\n", FUNC_ADPT_ARG(adapter), dec_ch);
 
 choose_chbw:
-		if (req_bw < 0)
+		req_ch = req_ch >= 0 ? dec_ch : 0;
+		if (req_bw <= REQ_BW_NONE)
 			req_bw = cur_ie_bw;
 
 #if defined(CONFIG_DFS_MASTER)
 		if (!rtw_odm_dfs_domain_unknown(adapter)) {
 			/* choose 5G DFS channel for debug */
 			if (adapter_to_rfctl(adapter)->dbg_dfs_master_choose_dfs_ch_first
-				&& rtw_choose_shortest_waiting_ch(adapter, req_bw, &dec_ch, &dec_bw, &dec_offset, RTW_CHF_2G | RTW_CHF_NON_DFS) == _TRUE)
+				&& rtw_choose_shortest_waiting_ch(adapter, req_ch, req_bw, &dec_ch, &dec_bw, &dec_offset, RTW_CHF_2G | RTW_CHF_NON_DFS) == _TRUE)
 				RTW_INFO(FUNC_ADPT_FMT" choose 5G DFS channel for debug\n", FUNC_ADPT_ARG(adapter));
 			else if (adapter_to_rfctl(adapter)->dfs_ch_sel_d_flags
-				&& rtw_choose_shortest_waiting_ch(adapter, req_bw, &dec_ch, &dec_bw, &dec_offset, adapter_to_rfctl(adapter)->dfs_ch_sel_d_flags) == _TRUE)
+				&& rtw_choose_shortest_waiting_ch(adapter, req_ch, req_bw, &dec_ch, &dec_bw, &dec_offset, adapter_to_rfctl(adapter)->dfs_ch_sel_d_flags) == _TRUE)
 				RTW_INFO(FUNC_ADPT_FMT" choose with dfs_ch_sel_d_flags:0x%02x for debug\n", FUNC_ADPT_ARG(adapter), adapter_to_rfctl(adapter)->dfs_ch_sel_d_flags);
-			else if (rtw_choose_shortest_waiting_ch(adapter, req_bw, &dec_ch, &dec_bw, &dec_offset, 0) == _FALSE) {
+			else if (rtw_choose_shortest_waiting_ch(adapter, req_ch, req_bw, &dec_ch, &dec_bw, &dec_offset, 0) == _FALSE) {
 				RTW_WARN(FUNC_ADPT_FMT" no available channel\n", FUNC_ADPT_ARG(adapter));
 				*chbw_allow = _FALSE;
 				goto exit;
 			}
 		} else
 #endif /* defined(CONFIG_DFS_MASTER) */
-		if (rtw_choose_shortest_waiting_ch(adapter, req_bw, &dec_ch, &dec_bw, &dec_offset, RTW_CHF_DFS) == _FALSE) {
+		if (rtw_choose_shortest_waiting_ch(adapter, req_ch, req_bw, &dec_ch, &dec_bw, &dec_offset, RTW_CHF_DFS) == _FALSE) {
 			RTW_WARN(FUNC_ADPT_FMT" no available channel\n", FUNC_ADPT_ARG(adapter));
 			*chbw_allow = _FALSE;
 			goto exit;
 		}
 
 update_bss_chbw:
-		rtw_ap_update_bss_chbw(adapter, network, dec_ch, dec_bw, dec_offset);
-
 		/* channel bw offset can be allowed for single AP, not need MCC */
 		*chbw_allow = _TRUE;
 		set_dec_ch = _TRUE;
@@ -4173,6 +4206,8 @@ update_bss_chbw:
 	mlmeext->cur_channel = dec_ch;
 	mlmeext->cur_bwmode = dec_bw;
 	mlmeext->cur_ch_offset = dec_offset;
+
+	rtw_ap_update_bss_chbw(adapter, network, dec_ch, dec_bw, dec_offset);
 
 	if (u_ch != 0)
 		RTW_INFO(FUNC_ADPT_FMT" union: %u,%u,%u\n", FUNC_ADPT_ARG(adapter), u_ch, u_bw, u_offset);
@@ -4352,9 +4387,7 @@ void tx_beacon_handlder(struct dvobj_priv *pdvobj)
 #endif
 		/* bypass TX BCN queue if op ch is switching/waiting */
 		if (!check_fwstate(&padapter->mlmepriv, WIFI_OP_CH_SWITCHING)
-			#ifdef CONFIG_DFS_MASTER
 			&& !IS_CH_WAITING(adapter_to_rfctl(padapter))
-			#endif
 		) {
 			/*update_beacon(padapter, _TIM_IE_, NULL, _FALSE);*/
 			/*issue_beacon(padapter, 0);*/

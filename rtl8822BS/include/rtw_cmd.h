@@ -1001,6 +1001,11 @@ u8 rtw_sitesurvey_cmd(_adapter  *padapter, NDIS_802_11_SSID *ssid, int ssid_num,
 
 u8 rtw_create_ibss_cmd(_adapter *adapter, int flags);
 u8 rtw_startbss_cmd(_adapter *adapter, int flags);
+
+#define REQ_CH_NONE		-1
+#define REQ_BW_NONE		-1
+#define REQ_OFFSET_NONE	-1
+
 u8 rtw_change_bss_chbw_cmd(_adapter *adapter, int flags, s16 req_ch, s8 req_bw, s8 req_offset);
 
 extern u8 rtw_setphy_cmd(_adapter  *padapter, u8 modem, u8 ch);

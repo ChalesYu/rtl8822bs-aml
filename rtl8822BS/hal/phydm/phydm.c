@@ -681,14 +681,6 @@ phydm_supportability_init_win(
 
 	}
 
-	/*[Config Antenna Diveristy]*/
-	if (*(p_dm->p_enable_antdiv))
-		support_ability |= ODM_BB_ANT_DIV;
-	
-	/*[Config Adaptivity]*/
-	if (*(p_dm->p_enable_adaptivity))
-		support_ability |= ODM_BB_ADAPTIVITY;
-
 	return support_ability;
 }
 #endif
@@ -920,15 +912,7 @@ phydm_supportability_init_ce(
 		break;
 
 	}
-	
-	/*[Config Antenna Diveristy]*/
-	if (*(p_dm->p_enable_antdiv))
-		support_ability |= ODM_BB_ANT_DIV;
-	
-	/*[Config Adaptivity]*/
-	if (*(p_dm->p_enable_adaptivity))
-		support_ability |= ODM_BB_ADAPTIVITY;
-	
+
 	return support_ability;
 }
 #endif
@@ -1181,15 +1165,7 @@ phydm_supportability_init_iot(
 		break;
 
 	}
-	
-	/*[Config Antenna Diveristy]*/
-	if (*(p_dm->p_enable_antdiv))
-		support_ability |= ODM_BB_ANT_DIV;
-	
-	/*[Config Adaptivity]*/
-	if (*(p_dm->p_enable_adaptivity))
-		support_ability |= ODM_BB_ADAPTIVITY;
-	
+
 	return support_ability;
 }
 #endif
@@ -1274,6 +1250,18 @@ phydm_supportability_init(
 		#elif(DM_ODM_SUPPORT_TYPE & (ODM_IOT))
 		support_ability = phydm_supportability_init_iot(p_dm);
 		#endif
+
+		/*[Config Antenna Diveristy]*/
+		if (IS_FUNC_EN(p_dm->p_enable_antdiv))
+			support_ability |= ODM_BB_ANT_DIV;
+
+		/*[Config Adaptive SOML]*/
+		if (IS_FUNC_EN(p_dm->en_adap_soml))
+			support_ability |= ODM_BB_ADAPTIVE_SOML;
+
+		/*[Config Adaptivity]*/
+		if (IS_FUNC_EN(p_dm->p_enable_adaptivity))
+			support_ability |= ODM_BB_ADAPTIVITY;
 	}
 	odm_cmn_info_init(p_dm, ODM_CMNINFO_ABILITY, support_ability);
 	PHYDM_DBG(p_dm, ODM_COMP_INIT, ("IC = ((0x%x)), Supportability Init = ((0x%llx))\n", p_dm->support_ic_type, p_dm->support_ability));
@@ -2128,6 +2116,9 @@ odm_cmn_info_hook(
 		break;
 	case	ODM_CMNINFO_ANT_DIV:
 		p_dm->p_enable_antdiv = (u8 *)p_value;
+		break;
+	case	ODM_CMNINFO_ADAPTIVE_SOML:
+		p_dm->en_adap_soml = (u8 *)p_value;
 		break;
 	case	ODM_CMNINFO_ADAPTIVITY:
 		p_dm->p_enable_adaptivity = (u8 *)p_value;

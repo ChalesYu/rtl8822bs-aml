@@ -34,6 +34,12 @@ void SetHalODMVar(
 
 void rtw_phydm_ra_registed(_adapter *adapter, struct sta_info *psta);
 
+#ifdef CONFIG_DYNAMIC_SOML
+void rtw_dyn_soml_byte_update(_adapter *adapter, u8 data_rate, u32 size);
+void rtw_dyn_soml_para_set(_adapter *adapter, u8 train_num, u8 intvl,
+			u8 period, u8 delay);
+void rtw_dyn_soml_config(_adapter *adapter);
+#endif
 void rtw_phydm_watchdog(_adapter *adapter);
 
 void rtw_hal_update_iqk_fw_offload_cap(_adapter *adapter);

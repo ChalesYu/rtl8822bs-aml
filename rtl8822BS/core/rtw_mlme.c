@@ -1771,6 +1771,55 @@ void rtw_scan_abort(_adapter *adapter)
 	rtw_scan_abort_timeout(adapter, 200);
 }
 
+static u32 _rtw_wait_join_done(_adapter *adapter, u8 abort, u32 timeout_ms)
+{
+	systime start;
+	u32 pass_ms;
+	struct mlme_priv *pmlmepriv = &(adapter->mlmepriv);
+	struct mlme_ext_priv *pmlmeext = &(adapter->mlmeextpriv);
+
+	start = rtw_get_current_time();
+
+	pmlmeext->join_abort = abort;
+	if (abort)
+		set_link_timer(pmlmeext, 1);
+
+	while (rtw_get_passing_time_ms(start) <= timeout_ms
+		&& (check_fwstate(pmlmepriv, _FW_UNDER_LINKING)
+			#ifdef CONFIG_IOCTL_CFG80211
+			|| rtw_cfg80211_is_connect_requested(adapter)
+			#endif
+			)
+	) {
+		if (RTW_CANNOT_RUN(adapter))
+			break;
+
+		RTW_INFO(FUNC_ADPT_FMT" linking...\n", FUNC_ADPT_ARG(adapter));
+		rtw_msleep_os(20);
+	}
+
+	if (abort) {
+		if (check_fwstate(pmlmepriv, _FW_UNDER_LINKING)
+			#ifdef CONFIG_IOCTL_CFG80211
+			|| rtw_cfg80211_is_connect_requested(adapter)
+			#endif
+		) {
+			if (!RTW_CANNOT_RUN(adapter))
+				RTW_INFO(FUNC_ADPT_FMT" waiting for join_abort time out!\n", FUNC_ADPT_ARG(adapter));
+		}
+	}
+
+	pmlmeext->join_abort = 0;
+	pass_ms = rtw_get_passing_time_ms(start);
+
+	return pass_ms;
+}
+
+u32 rtw_join_abort_timeout(_adapter *adapter, u32 timeout_ms)
+{
+	return _rtw_wait_join_done(adapter, _TRUE, timeout_ms);
+}
+
 static struct sta_info *rtw_joinbss_update_stainfo(_adapter *padapter, struct wlan_network *pnetwork)
 {
 	int i;
@@ -3872,84 +3921,130 @@ static int SecIsInPMKIDList(_adapter *Adapter, u8 *bssid)
 
 }
 
-/*
- * Check the RSN IE length
- * If the RSN IE length <= 20, the RSN IE didn't include the PMKID information
- * 0-11th element in the array are the fixed IE
- * 12th element in the array is the IE
- * 13th element in the array is the IE length
- *   */
-
-static int rtw_append_pmkid(_adapter *adapter, int iEntry, u8 *ie, uint ie_len)
-{
-	struct security_priv *sec = &adapter->securitypriv;
-
-	if (ie[13] > 20) {
-		int i;
-		u16 pmkid_cnt = RTW_GET_LE16(ie + 14 + 20);
-		if (pmkid_cnt == 1 && _rtw_memcmp(ie + 14 + 20 + 2, &sec->PMKIDList[iEntry].PMKID, 16)) {
-			RTW_INFO(FUNC_ADPT_FMT" has carried the same PMKID:"KEY_FMT"\n"
-				, FUNC_ADPT_ARG(adapter), KEY_ARG(&sec->PMKIDList[iEntry].PMKID));
-			goto exit;
-		}
-
-		RTW_INFO(FUNC_ADPT_FMT" remove original PMKID, count:%u\n"
-			 , FUNC_ADPT_ARG(adapter), pmkid_cnt);
-
-		for (i = 0; i < pmkid_cnt; i++)
-			RTW_INFO("    "KEY_FMT"\n", KEY_ARG(ie + 14 + 20 + 2 + i * 16));
-
-		ie_len -= 2 + pmkid_cnt * 16;
-		ie[13] = 20;
-	}
-
-	if (ie[13] <= 20) {
-		/* The RSN IE didn't include the PMK ID, append the PMK information */
-
-		RTW_INFO(FUNC_ADPT_FMT" append PMKID:"KEY_FMT"\n"
-			, FUNC_ADPT_ARG(adapter), KEY_ARG(&sec->PMKIDList[iEntry].PMKID));
-
-		RTW_PUT_LE16(&ie[ie_len], 1);
-		ie_len += 2;
-
-		_rtw_memcpy(&ie[ie_len], &sec->PMKIDList[iEntry].PMKID, 16);
-		ie_len += 16;
-
-		ie[13] += 18;/* PMKID length = 2+16 */
-	}
-
-exit:
-	return ie_len;
-}
-
-static int rtw_remove_pmkid(_adapter *adapter, u8 *ie, uint ie_len)
+static int rtw_rsn_sync_pmkid(_adapter *adapter, u8 *ie, uint ie_len, int i_ent)
 {
 	struct security_priv *sec = &adapter->securitypriv;
 	int i;
-	u16 pmkid_cnt = RTW_GET_LE16(ie + 14 + 20);
+	u8 *pos = ie;
+	u16 pair_cs_cnt;
+	u16 akm_suite_cnt;
+	u16 pmkid_cnt;
+	u8 gm_cs_exist = 0;
+	u8 gm_cs[4];
 
-	if (ie[13] <= 20)
+	pos += 2 + 2;
+	if (ie + ie_len < pos + 4) {
+		RTW_INFO(FUNC_ADPT_FMT" no group cipher\n"
+			, FUNC_ADPT_ARG(adapter));
+		goto exit;
+	}
+
+	pos += 4;
+	if (ie + ie_len < pos + 2) {
+		RTW_INFO(FUNC_ADPT_FMT" no pairwise cipher cnt\n"
+			, FUNC_ADPT_ARG(adapter));
+		goto exit;
+	}
+	pair_cs_cnt = RTW_GET_LE16(pos);
+
+	pos += 2;
+	if (ie + ie_len < pos + 4 * pair_cs_cnt) {
+		RTW_WARN(FUNC_ADPT_FMT" len too short for pairwise cipher list\n"
+			, FUNC_ADPT_ARG(adapter));
+		return 0;
+	}
+
+	pos += 4 * pair_cs_cnt;
+	if (ie + ie_len < pos + 2) {
+		RTW_INFO(FUNC_ADPT_FMT" no akm cnt\n"
+			, FUNC_ADPT_ARG(adapter));
+		goto exit;
+	}
+	akm_suite_cnt = RTW_GET_LE16(pos);
+
+	pos += 2;
+	if (ie + ie_len < pos + 4 * akm_suite_cnt) {
+		RTW_WARN(FUNC_ADPT_FMT" len too short for akm list\n"
+			, FUNC_ADPT_ARG(adapter));
+		return 0;
+	}
+
+	pos += 4 * akm_suite_cnt;
+	if (ie + ie_len < pos + 2) {
+		RTW_INFO(FUNC_ADPT_FMT" no rsn cap\n", FUNC_ADPT_ARG(adapter));
+		goto exit;
+	}
+
+	pos += 2;
+	if (ie + ie_len < pos + 2) {
+		RTW_INFO(FUNC_ADPT_FMT" no pmkid cnt\n", FUNC_ADPT_ARG(adapter));
+		goto exit;
+	}
+	pmkid_cnt = RTW_GET_LE16(pos);
+
+	pos += 2; /* point after pmkid_cnt */
+	if (ie + ie_len < pos + 16 * pmkid_cnt) {
+		RTW_WARN(FUNC_ADPT_FMT" len too short for pmkid list\n"
+			, FUNC_ADPT_ARG(adapter));
+		return 0;
+	}
+
+	if (ie + ie_len >= pos + 16 * pmkid_cnt + 4)
+		gm_cs_exist = 1;
+
+	if (i_ent < 0 && pmkid_cnt == 0)
 		goto exit;
 
-	RTW_INFO(FUNC_ADPT_FMT" remove original PMKID, count:%u\n"
-		 , FUNC_ADPT_ARG(adapter), pmkid_cnt);
+	if (i_ent >= 0 && pmkid_cnt == 1 && _rtw_memcmp(pos, sec->PMKIDList[i_ent].PMKID, 16)) {
+		RTW_INFO(FUNC_ADPT_FMT" has carried the same PMKID:"KEY_FMT"\n"
+			, FUNC_ADPT_ARG(adapter), KEY_ARG(&sec->PMKIDList[i_ent].PMKID));
+		goto exit;
+	}
 
-	for (i = 0; i < pmkid_cnt; i++)
-		RTW_INFO("    "KEY_FMT"\n", KEY_ARG(ie + 14 + 20 + 2 + i * 16));
+	if (pmkid_cnt) {
+		RTW_INFO(FUNC_ADPT_FMT" remove original PMKID, count:%u\n"
+			 , FUNC_ADPT_ARG(adapter), pmkid_cnt);
+		for (i = 0; i < pmkid_cnt; i++)
+			RTW_INFO("    "KEY_FMT"\n", KEY_ARG(pos + i * 16));
+	}
 
-	ie_len -= 2 + pmkid_cnt * 16;
-	ie[13] = 20;
+	/* bakcup group mgmt cs */
+	if (gm_cs_exist)
+		_rtw_memcpy(gm_cs, pos + 16 * pmkid_cnt, 4);
+
+	if (i_ent >= 0) {
+		RTW_INFO(FUNC_ADPT_FMT" append PMKID:"KEY_FMT"\n"
+			, FUNC_ADPT_ARG(adapter), KEY_ARG(sec->PMKIDList[i_ent].PMKID));
+
+		pmkid_cnt = 1; /* update new pmkid_cnt */
+		_rtw_memcpy(pos, sec->PMKIDList[i_ent].PMKID, 16);
+	} else
+		pmkid_cnt = 0; /* update new pmkid_cnt */
+
+	RTW_PUT_LE16(pos - 2, pmkid_cnt);
+	if (gm_cs_exist)
+		_rtw_memcpy(pos + 16 * pmkid_cnt, gm_cs, 4);
+
+	ie_len = 1 + 1 + 2 + 4
+		+ 2 + 4 * pair_cs_cnt
+		+ 2 + 4 * akm_suite_cnt
+		+ 2
+		+ 2 + 16 * pmkid_cnt
+		+ (gm_cs_exist ? 4 : 0)
+		;
+	
+	ie[1] = (u8)(ie_len - 2);
 
 exit:
 	return ie_len;
 }
 
-sint rtw_restruct_sec_ie(_adapter *adapter, u8 *in_ie, u8 *out_ie, uint in_len)
+sint rtw_restruct_sec_ie(_adapter *adapter, u8 *out_ie)
 {
 	u8 authmode = 0x0, securitytype, match;
 	u8 sec_ie[255], uncst_oui[4], bkup_ie[255];
 	u8 wpa_oui[4] = {0x0, 0x50, 0xf2, 0x01};
-	uint	ielength, cnt, remove_cnt;
+	uint	ielength = 0, cnt, remove_cnt;
 	int iEntry;
 
 	struct mlme_priv *pmlmepriv = &adapter->mlmepriv;
@@ -3957,23 +4052,18 @@ sint rtw_restruct_sec_ie(_adapter *adapter, u8 *in_ie, u8 *out_ie, uint in_len)
 	uint	ndisauthmode = psecuritypriv->ndisauthtype;
 	uint ndissecuritytype = psecuritypriv->ndisencryptstatus;
 
-
-
-	/* copy fixed ie only */
-	_rtw_memcpy(out_ie, in_ie, 12);
-	ielength = 12;
 	if ((ndisauthmode == Ndis802_11AuthModeWPA) || (ndisauthmode == Ndis802_11AuthModeWPAPSK))
 		authmode = _WPA_IE_ID_;
 	if ((ndisauthmode == Ndis802_11AuthModeWPA2) || (ndisauthmode == Ndis802_11AuthModeWPA2PSK))
 		authmode = _WPA2_IE_ID_;
 
 	if (check_fwstate(pmlmepriv, WIFI_UNDER_WPS)) {
-		_rtw_memcpy(out_ie + ielength, psecuritypriv->wps_ie, psecuritypriv->wps_ie_len);
+		_rtw_memcpy(out_ie, psecuritypriv->wps_ie, psecuritypriv->wps_ie_len);
+		ielength = psecuritypriv->wps_ie_len;
 
-		ielength += psecuritypriv->wps_ie_len;
 	} else if ((authmode == _WPA_IE_ID_) || (authmode == _WPA2_IE_ID_)) {
 		/* copy RSN or SSN		 */
-		_rtw_memcpy(&out_ie[ielength], &psecuritypriv->supplicant_ie[0], psecuritypriv->supplicant_ie[1] + 2);
+		_rtw_memcpy(out_ie, psecuritypriv->supplicant_ie, psecuritypriv->supplicant_ie[1] + 2);
 		/* debug for CONFIG_IEEE80211W
 		{
 			int jj;
@@ -3982,19 +4072,14 @@ sint rtw_restruct_sec_ie(_adapter *adapter, u8 *in_ie, u8 *out_ie, uint in_len)
 				printk(" %02x ", psecuritypriv->supplicant_ie[jj]);
 			printk("\n");
 		}*/
-		ielength += psecuritypriv->supplicant_ie[1] + 2;
+		ielength = psecuritypriv->supplicant_ie[1] + 2;
 		rtw_report_sec_ie(adapter, authmode, psecuritypriv->supplicant_ie);
 	}
 
-	iEntry = SecIsInPMKIDList(adapter, pmlmepriv->assoc_bssid);
-	if (iEntry < 0) {
-		if (authmode == _WPA2_IE_ID_)
-			ielength = rtw_remove_pmkid(adapter, out_ie, ielength);
-	} else {
-		if (authmode == _WPA2_IE_ID_)
-			ielength = rtw_append_pmkid(adapter, iEntry, out_ie, ielength);
+	if (authmode == WLAN_EID_RSN) {
+		iEntry = SecIsInPMKIDList(adapter, pmlmepriv->assoc_bssid);
+		ielength = rtw_rsn_sync_pmkid(adapter, out_ie, ielength, iEntry);
 	}
-
 
 	return ielength;
 }
@@ -4232,7 +4317,7 @@ unsigned int rtw_restructure_ht_ie(_adapter *padapter, u8 *in_ie, u8 *out_ie, ui
 	HT_CAP_AMPDU_DENSITY best_ampdu_density;
 	unsigned char *p, *pframe;
 	struct rtw_ieee80211_ht_cap ht_capie;
-	u8	cbw40_enable = 0, rf_type = 0, operation_bw = 0, rf_num = 0, rx_stbc_nss = 0, rx_nss = 0;
+	u8	cbw40_enable = 0, rf_type = 0, rf_num = 0, rx_stbc_nss = 0, rx_nss = 0;
 	struct registry_priv *pregistrypriv = &padapter->registrypriv;
 	struct mlme_priv	*pmlmepriv = &padapter->mlmepriv;
 	struct ht_priv		*phtpriv = &pmlmepriv->htpriv;
@@ -4254,36 +4339,7 @@ unsigned int rtw_restructure_ht_ie(_adapter *padapter, u8 *in_ie, u8 *out_ie, ui
 	if (phtpriv->sgi_20m)
 		ht_capie.cap_info |= IEEE80211_HT_CAP_SGI_20;
 
-	/* Get HT BW */
-	if (in_ie == NULL) {
-		/* TDLS: TODO 20/40 issue */
-		if (check_fwstate(pmlmepriv, WIFI_STATION_STATE)) {
-			operation_bw = padapter->mlmeextpriv.cur_bwmode;
-			if (operation_bw > CHANNEL_WIDTH_40)
-				operation_bw = CHANNEL_WIDTH_40;
-		} else
-			/* TDLS: TODO 40? */
-			operation_bw = CHANNEL_WIDTH_40;
-	} else {
-		p = rtw_get_ie(in_ie, _HT_ADD_INFO_IE_, &ielen, in_len);
-		if (p && (ielen == sizeof(struct ieee80211_ht_addt_info))) {
-			struct HT_info_element *pht_info = (struct HT_info_element *)(p + 2);
-			if (pht_info->infos[0] & BIT(2)) {
-				switch (pht_info->infos[0] & 0x3) {
-				case 1:
-				case 3:
-					operation_bw = CHANNEL_WIDTH_40;
-					break;
-				default:
-					operation_bw = CHANNEL_WIDTH_20;
-					break;
-				}
-			} else
-				operation_bw = CHANNEL_WIDTH_20;
-		}
-	}
-
-	/* to disable 40M Hz support while gd_bw_40MHz_en = 0 */
+	/* check if 40MHz is allowed according to hal cap and registry */
 	if (hal_chk_bw_cap(padapter, BW_CAP_40M)) {
 		if (channel > 14) {
 			if (REGSTY_IS_BW_5G_SUPPORT(pregistrypriv, CHANNEL_WIDTH_40))
@@ -4294,10 +4350,53 @@ unsigned int rtw_restructure_ht_ie(_adapter *padapter, u8 *in_ie, u8 *out_ie, ui
 		}
 	}
 
-	if ((cbw40_enable == 1) && (operation_bw == CHANNEL_WIDTH_40)) {
-		ht_capie.cap_info |= IEEE80211_HT_CAP_SUP_WIDTH;
-		if (phtpriv->sgi_40m)
-			ht_capie.cap_info |= IEEE80211_HT_CAP_SGI_40;
+	if (cbw40_enable) {
+		u8 oper_bw = CHANNEL_WIDTH_20, oper_offset = HAL_PRIME_CHNL_OFFSET_DONT_CARE;
+
+		if (in_ie == NULL) {
+			/* TDLS: TODO 20/40 issue */
+			if (check_fwstate(pmlmepriv, WIFI_STATION_STATE)) {
+				oper_bw = padapter->mlmeextpriv.cur_bwmode;
+				if (oper_bw > CHANNEL_WIDTH_40)
+					oper_bw = CHANNEL_WIDTH_40;
+			} else
+				/* TDLS: TODO 40? */
+				oper_bw = CHANNEL_WIDTH_40;
+		} else {
+			p = rtw_get_ie(in_ie, WLAN_EID_HT_OPERATION, &ielen, in_len);
+			if (p && ielen == HT_OP_IE_LEN) {
+				if (GET_HT_OP_ELE_STA_CHL_WIDTH(p + 2)) {
+					switch (GET_HT_OP_ELE_2ND_CHL_OFFSET(p + 2)) {
+					case SCA:
+						oper_bw = CHANNEL_WIDTH_40;
+						oper_offset = HAL_PRIME_CHNL_OFFSET_LOWER;
+						break;
+					case SCB:
+						oper_bw = CHANNEL_WIDTH_40;
+						oper_offset = HAL_PRIME_CHNL_OFFSET_UPPER;
+						break;
+					}
+				}
+			}
+		}
+
+		/* adjust bw to fit in channel plan setting */
+		if (oper_bw == CHANNEL_WIDTH_40
+			&& oper_offset != HAL_PRIME_CHNL_OFFSET_DONT_CARE /* check this because TDLS has no info to set offset */
+			&& !rtw_chset_is_chbw_valid(adapter_to_chset(padapter), channel, oper_bw, oper_offset)
+		) {
+			oper_bw = CHANNEL_WIDTH_20;
+			oper_offset = HAL_PRIME_CHNL_OFFSET_DONT_CARE;
+			rtw_warn_on(!rtw_chset_is_chbw_valid(adapter_to_chset(padapter), channel, oper_bw, oper_offset));
+		}
+
+		if (oper_bw == CHANNEL_WIDTH_40) {
+			ht_capie.cap_info |= IEEE80211_HT_CAP_SUP_WIDTH;
+			if (phtpriv->sgi_40m)
+				ht_capie.cap_info |= IEEE80211_HT_CAP_SGI_40;
+		}
+
+		cbw40_enable = oper_bw == CHANNEL_WIDTH_40 ? 1 : 0;
 	}
 
 	/* todo: disable SM power save mode */
@@ -4341,7 +4440,7 @@ unsigned int rtw_restructure_ht_ie(_adapter *padapter, u8 *in_ie, u8 *out_ie, ui
 		break;
 	case 2:
 		#ifdef CONFIG_DISABLE_MCS13TO15
-		if (((cbw40_enable == 1) && (operation_bw == CHANNEL_WIDTH_40)) && (pregistrypriv->wifi_spec != 1))
+		if (cbw40_enable && pregistrypriv->wifi_spec != 1)
 			set_mcs_rate_by_mask(ht_capie.supp_mcs_set, MCS_RATE_2R_13TO15_OFF);
 		else
 		#endif

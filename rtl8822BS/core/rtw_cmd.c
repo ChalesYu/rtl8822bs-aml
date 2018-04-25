@@ -1311,7 +1311,7 @@ inline u8 rtw_create_ibss_cmd(_adapter *adapter, int flags)
 {
 	return rtw_createbss_cmd(adapter, flags
 		, 1
-		, 0, -1, -1 /* for now, adhoc doesn't support ch,bw,offset request */
+		, 0, REQ_BW_NONE, REQ_OFFSET_NONE /* for now, adhoc doesn't support ch,bw,offset request */
 	);
 }
 
@@ -1319,7 +1319,7 @@ inline u8 rtw_startbss_cmd(_adapter *adapter, int flags)
 {
 	return rtw_createbss_cmd(adapter, flags
 		, 0
-		, 0, -1, -1 /* excute entire AP setup cmd */
+		, 0, REQ_BW_NONE, REQ_OFFSET_NONE /* excute entire AP setup cmd */
 	);
 }
 
@@ -1433,7 +1433,11 @@ u8 rtw_joinbss_cmd(_adapter  *padapter, struct wlan_network *pnetwork)
 	if (pmlmepriv->assoc_by_bssid == _FALSE)
 		_rtw_memcpy(&pmlmepriv->assoc_bssid[0], &pnetwork->network.MacAddress[0], ETH_ALEN);
 
-	psecnetwork->IELength = rtw_restruct_sec_ie(padapter, &pnetwork->network.IEs[0], &psecnetwork->IEs[0], pnetwork->network.IELength);
+	/* copy fixed ie */
+	_rtw_memcpy(psecnetwork->IEs, pnetwork->network.IEs, 12);
+	psecnetwork->IELength = 12;
+
+	psecnetwork->IELength += rtw_restruct_sec_ie(padapter, psecnetwork->IEs + psecnetwork->IELength);
 
 
 	pqospriv->qos_option = 0;
@@ -1473,6 +1477,18 @@ u8 rtw_joinbss_cmd(_adapter  *padapter, struct wlan_network *pnetwork)
 
 #ifdef CONFIG_80211AC_VHT
 	pvhtpriv->vht_option = _FALSE;
+	if (psecnetwork->Configuration.DSConfig <= 14) {
+		if (!rtw_is_vht_2g4(padapter)) {
+			RTW_PRINT("%s: Not support VHT rate on 2.4G (ch:%d)\n",
+				  __FUNCTION__,
+				  psecnetwork->Configuration.DSConfig);
+			goto skip_vht;
+		}
+
+		RTW_PRINT("%s: AP support VHT rate on 2.4G (ch:%d)\n",
+			  __FUNCTION__,
+			  psecnetwork->Configuration.DSConfig);
+	}
 	if (phtpriv->ht_option
 	    && REGSTY_IS_11AC_ENABLE(pregistrypriv)
 	    && hal_chk_proto_cap(padapter, PROTO_CAP_11AC)
@@ -1481,6 +1497,7 @@ u8 rtw_joinbss_cmd(_adapter  *padapter, struct wlan_network *pnetwork)
 		rtw_restructure_vht_ie(padapter, &pnetwork->network.IEs[0], &psecnetwork->IEs[0],
 			pnetwork->network.IELength, &psecnetwork->IELength);
 	}
+skip_vht:
 #endif
 
 	rtw_append_exented_cap(padapter, &psecnetwork->IEs[0], &psecnetwork->IELength);
@@ -3465,11 +3482,26 @@ exit:
 #ifdef CONFIG_DFS_MASTER
 u8 rtw_dfs_master_hdl(_adapter *adapter)
 {
+	struct dvobj_priv *dvobj = adapter_to_dvobj(adapter);
 	struct rf_ctl_t *rfctl = adapter_to_rfctl(adapter);
 	struct mlme_priv *mlme = &adapter->mlmepriv;
+	int i;
 
 	if (!rfctl->dfs_master_enabled)
 		goto exit;
+
+	for (i = 0; i < dvobj->iface_nums; i++) {
+		if (!dvobj->padapters[i])
+			continue;
+		if (check_fwstate(&dvobj->padapters[i]->mlmepriv, WIFI_AP_STATE | WIFI_MESH_STATE)
+			&& check_fwstate(&dvobj->padapters[i]->mlmepriv, WIFI_ASOC_STATE))
+			break;
+	}
+
+	if (i >= dvobj->iface_nums)
+		goto cac_status_chk;
+	else
+		adapter = dvobj->padapters[i];
 
 	if (rtw_get_on_cur_ch_time(adapter) == 0
 		|| rtw_get_passing_time_ms(rtw_get_on_cur_ch_time(adapter)) < 300
@@ -3487,45 +3519,32 @@ u8 rtw_dfs_master_hdl(_adapter *adapter)
 		&& rtw_odm_radar_detect(adapter) != _TRUE)
 		goto cac_status_chk;
 
+	if (!rfctl->dbg_dfs_master_fake_radar_detect_cnt
+		&& rfctl->dbg_dfs_master_radar_detect_trigger_non
+	) {
+		/* radar detect debug mode, trigger no mlme flow */
+		RTW_INFO(FUNC_ADPT_FMT" radar detected on test mode, trigger no mlme flow\n", FUNC_ADPT_ARG(adapter));
+		goto cac_status_chk;
+	}
+
+
 	if (rfctl->dbg_dfs_master_fake_radar_detect_cnt != 0) {
-		RTW_INFO(FUNC_ADPT_FMT" fake radar detect, cnt:%d\n", FUNC_ADPT_ARG(adapter)
+		RTW_INFO(FUNC_ADPT_FMT" fake radar detected, cnt:%d\n", FUNC_ADPT_ARG(adapter)
 			, rfctl->dbg_dfs_master_fake_radar_detect_cnt);
 		rfctl->dbg_dfs_master_fake_radar_detect_cnt--;
-	}
+	} else
+		RTW_INFO(FUNC_ADPT_FMT" radar detected\n", FUNC_ADPT_ARG(adapter));
 
-	if (rfctl->dbg_dfs_master_radar_detect_trigger_non) {
-		/* radar detect debug mode, trigger no mlme flow */
-		if (0)
-			RTW_INFO(FUNC_ADPT_FMT" radar detected, trigger no mlme flow for debug\n", FUNC_ADPT_ARG(adapter));
-	} else {
-		/* TODO: move timer to rfctl */
-		struct dvobj_priv *dvobj = adapter_to_dvobj(adapter);
-		int i;
+	rtw_chset_update_non_ocp(rfctl->channel_set
+		, rfctl->radar_detect_ch, rfctl->radar_detect_bw, rfctl->radar_detect_offset);
+	rfctl->radar_detected = 1;
 
-		for (i = 0; i < dvobj->iface_nums; i++) {
-			if (!dvobj->padapters[i])
-				continue;
-			if (check_fwstate(&dvobj->padapters[i]->mlmepriv, WIFI_AP_STATE | WIFI_MESH_STATE)
-				&& check_fwstate(&dvobj->padapters[i]->mlmepriv, WIFI_ASOC_STATE))
-				break;
-		}
+	/* trigger channel selection */
+	rtw_change_bss_chbw_cmd(adapter, RTW_CMDF_DIRECTLY, -1, adapter->mlmepriv.ori_bw, -1);
 
-		if (i >= dvobj->iface_nums) {
-			/* what? */
-			rtw_warn_on(1);
-		} else {
-			rtw_chset_update_non_ocp(rfctl->channel_set
-				, rfctl->radar_detect_ch, rfctl->radar_detect_bw, rfctl->radar_detect_offset);
-			rfctl->radar_detected = 1;
-
-			/* trigger channel selection */
-			rtw_change_bss_chbw_cmd(dvobj->padapters[i], RTW_CMDF_DIRECTLY, -1, dvobj->padapters[i]->mlmepriv.ori_bw, -1);
-		}
-
-		if (rfctl->dfs_master_enabled)
-			goto set_timer;
-		goto exit;
-	}
+	if (rfctl->dfs_master_enabled)
+		goto set_timer;
+	goto exit;
 
 cac_status_chk:
 
@@ -3536,12 +3555,26 @@ cac_status_chk:
 		rfctl->cac_start_time = rfctl->cac_end_time = RTW_CAC_STOPPED;
 
 		if (rtw_mi_check_fwstate(adapter, WIFI_UNDER_LINKING|WIFI_SITE_MONITOR) == _FALSE) {
+			u8 doiqk = _TRUE;
+			u8 u_ch, u_bw, u_offset;
+
+			rtw_hal_set_hwreg(adapter , HW_VAR_DO_IQK , &doiqk);
+
+			if (rtw_mi_get_ch_setting_union(adapter, &u_ch, &u_bw, &u_offset))
+				set_channel_bwmode(adapter, u_ch, u_offset, u_bw);
+			else
+				rtw_warn_on(1);
+
+			doiqk = _FALSE;
+			rtw_hal_set_hwreg(adapter , HW_VAR_DO_IQK , &doiqk);
+
 			ResumeTxBeacon(adapter);
 			rtw_mi_tx_beacon_hdl(adapter);
 		}
 	}
 
 set_timer:
+	/* TODO: move timer to rfctl */
 	_set_timer(&mlme->dfs_master_timer, DFS_MASTER_TIMER_MS);
 
 exit:
