@@ -88,6 +88,8 @@ extern const u16 phy_rate_table[28];
 	#define PHYDM_WATCH_DOG_PERIOD	2 /*second*/
 #endif
 
+#define PHY_HIST_SIZE		12
+
 /*============================================================*/
 /*structure and define*/
 /*============================================================*/
@@ -105,17 +107,23 @@ struct phydm_phystatus_statistic {
 	u32		rssi_ofdm_cnt;
 	u32		evm_ofdm_sum;
 	u32		snr_ofdm_sum;
+	u16		evm_ofdm_hist[PHY_HIST_SIZE];
+	u16		snr_ofdm_hist[PHY_HIST_SIZE];
 	/*[1SS]*/
 	u32		rssi_1ss_cnt;
 	u32		rssi_1ss_sum;
 	u32		evm_1ss_sum;
 	u32		snr_1ss_sum;
+	u16		evm_1ss_hist[PHY_HIST_SIZE];
+	u16		snr_1ss_hist[PHY_HIST_SIZE];
 	/*[2SS]*/
 	#if (defined(PHYDM_COMPILE_ABOVE_2SS))
 	u32		rssi_2ss_cnt;
 	u32		rssi_2ss_sum[2];
 	u32		evm_2ss_sum[2];
 	u32		snr_2ss_sum[2];
+	u16		evm_2ss_hist[2][PHY_HIST_SIZE];
+	u16		snr_2ss_hist[2][PHY_HIST_SIZE];
 	#endif
 	/*[3SS]*/
 	#if (defined(PHYDM_COMPILE_ABOVE_3SS))
@@ -123,6 +131,8 @@ struct phydm_phystatus_statistic {
 	u32		rssi_3ss_sum[3];
 	u32		evm_3ss_sum[3];
 	u32		snr_3ss_sum[3];
+	u16		evm_3ss_hist[3][PHY_HIST_SIZE];
+	u16		snr_3ss_hist[3][PHY_HIST_SIZE];
 	#endif
 	/*[4SS]*/
 	#if (defined(PHYDM_COMPILE_ABOVE_4SS))
@@ -130,6 +140,8 @@ struct phydm_phystatus_statistic {
 	u32		rssi_4ss_sum[4];
 	u32		evm_4ss_sum[4];	
 	u32		snr_4ss_sum[4];
+	u16		evm_4ss_hist[4][PHY_HIST_SIZE];
+	u16		snr_4ss_hist[4][PHY_HIST_SIZE];
 	#endif
 };
 
@@ -191,6 +203,8 @@ struct _odm_phy_dbg_info_ {
 	u16		num_qry_vht_pkt[VHT_RATE_NUM];
 	u8		vht_pkt_not_zero;
 	#endif
+	u16		snr_hist_th[PHY_HIST_SIZE - 1];
+	u16		evm_hist_th[PHY_HIST_SIZE - 1];
 	struct phydm_phystatus_statistic	phystatus_statistic_info;
 	struct phydm_phystatus_avg	phystatus_statistic_avg;
 };

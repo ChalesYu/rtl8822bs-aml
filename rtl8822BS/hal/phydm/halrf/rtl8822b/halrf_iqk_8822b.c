@@ -574,7 +574,10 @@ _iqk_configure_macbb_8822b(
 	/*disable PMAC*/
 	odm_set_bb_reg(p_dm, 0xb00, BIT(8), 0x0);
 	/*	ODM_RT_TRACE(p_dm, ODM_COMP_CALIBRATION, ODM_DBG_LOUD, ("[IQK]Set MACBB setting for IQK!!!!\n"));*/
-
+	/*disable CCK block*/
+	odm_set_bb_reg(p_dm, 0x808, BIT(28), 0x0);
+	/*disable OFDM CCA*/
+	odm_set_bb_reg(p_dm, 0x838, BIT(3) | BIT(2) | BIT(1), 0x7);
 }
 
 void
@@ -1309,7 +1312,7 @@ _phy_iq_calibrate_8822b(
 
 	u32	MAC_backup[MAC_REG_NUM_8822B], BB_backup[BB_REG_NUM_8822B], RF_backup[RF_REG_NUM_8822B][SS_8822B];
 	u32	backup_mac_reg[MAC_REG_NUM_8822B] = {0x520, 0x550};
-	u32	backup_bb_reg[BB_REG_NUM_8822B] = {0x808, 0x90c, 0xc00, 0xcb0, 0xcb4, 0xcbc, 0xe00, 0xeb0, 0xeb4, 0xebc, 0x1990, 0x9a4, 0xa04, 0xb00};
+	u32	backup_bb_reg[BB_REG_NUM_8822B] = {0x808, 0x90c, 0xc00, 0xcb0, 0xcb4, 0xcbc, 0xe00, 0xeb0, 0xeb4, 0xebc, 0x1990, 0x9a4, 0xa04, 0xb00, 0x838};
 	u32	backup_rf_reg[RF_REG_NUM_8822B] = {0xdf, 0x8f, 0x65, 0x0, 0x1};
 	boolean is_mp = false;
 
@@ -1400,9 +1403,8 @@ _phy_iq_calibrate_by_fw_8822b(
 		ODM_RT_TRACE(p_dm, ODM_COMP_CALIBRATION, ODM_DBG_LOUD, ("[IQK]FWIQK fail!!!\n"));
 }
 
-/*IQK_version:0x2e NCTL:0x8*/
-/*1.add fwiqk reload check*/
-/*2.fix gain search overflow issue*/
+/*IQK_version:0x2f, NCTL:0x8*/
+/*1.disable CCK block and OFDM CCA block while IQKing*/
 void
 phy_iq_calibrate_8822b(
 	void		*p_dm_void,

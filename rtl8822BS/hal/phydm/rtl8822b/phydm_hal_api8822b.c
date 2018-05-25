@@ -51,7 +51,7 @@ u32 cca_efem_ccut[3][4] = {
 u32 cca_ifem_ccut_rfetype[3][4] = {
 	{0x75da8010, 0x75da8010, 0x75da8010, 0x75da8010}, /*Reg82C*/
 	{0x79a0eaaa, 0x97A0EAAC, 0x79a0eaaa, 0x79a0eaaa}, /*Reg830*/
-	{0x87765541, 0x86666341, 0x87765561, 0x86666361} /*Reg838*/
+	{0x87765561, 0x86666361, 0x87765561, 0x86666361} /*Reg838*/
 };
 
 __iram_odm_func__

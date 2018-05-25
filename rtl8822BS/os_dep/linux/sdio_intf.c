@@ -90,6 +90,7 @@ MODULE_DEVICE_TABLE(sdio, sdio_ids);
 
 static int rtw_drv_init(struct sdio_func *func, const struct sdio_device_id *id);
 static void rtw_dev_remove(struct sdio_func *func);
+static void rtw_dev_shutdown(struct device *dev);
 static int rtw_sdio_resume(struct device *dev);
 static int rtw_sdio_suspend(struct device *dev);
 extern void rtw_dev_unload(PADAPTER padapter);
@@ -113,6 +114,7 @@ static struct sdio_drv_priv sdio_drvpriv = {
 	.r871xs_drv.id_table = sdio_ids,
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 29))
 	.r871xs_drv.drv = {
+		.shutdown = rtw_dev_shutdown,
 		.pm = &rtw_sdio_pm_ops,
 	}
 #endif
@@ -958,6 +960,12 @@ static void rtw_dev_remove(struct sdio_func *func)
 
 
 }
+static void rtw_dev_shutdown(struct device *dev)
+{
+	RTW_PRINT("+%s\n", __FUNCTION__);
+	rtw_dev_remove(dev_to_sdio_func(dev));
+}
+
 extern int pm_netdev_open(struct net_device *pnetdev, u8 bnormal);
 extern int pm_netdev_close(struct net_device *pnetdev, u8 bnormal);
 

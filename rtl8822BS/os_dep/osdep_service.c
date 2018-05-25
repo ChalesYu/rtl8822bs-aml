@@ -1177,12 +1177,15 @@ u32 _rtw_down_sema(_sema *sema)
 {
 
 #ifdef PLATFORM_LINUX
-
+#if 0
 	if (down_interruptible(sema))
 		return _FAIL;
 	else
 		return _SUCCESS;
-
+#else
+	down(sema);
+	return _SUCCESS;
+#endif
 #endif
 #ifdef PLATFORM_FREEBSD
 	sema_wait(sema);

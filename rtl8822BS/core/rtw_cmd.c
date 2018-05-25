@@ -1477,17 +1477,12 @@ u8 rtw_joinbss_cmd(_adapter  *padapter, struct wlan_network *pnetwork)
 
 #ifdef CONFIG_80211AC_VHT
 	pvhtpriv->vht_option = _FALSE;
-	if (psecnetwork->Configuration.DSConfig <= 14) {
-		if (!rtw_is_vht_2g4(padapter)) {
-			RTW_PRINT("%s: Not support VHT rate on 2.4G (ch:%d)\n",
-				  __FUNCTION__,
-				  psecnetwork->Configuration.DSConfig);
-			goto skip_vht;
-		}
-
-		RTW_PRINT("%s: AP support VHT rate on 2.4G (ch:%d)\n",
+	if ((psecnetwork->Configuration.DSConfig <= 14) &&
+	    (!rtw_is_vht_2g4(padapter))) {
+		RTW_PRINT("%s: Not support VHT rate on 2.4G (ch:%d)\n",
 			  __FUNCTION__,
 			  psecnetwork->Configuration.DSConfig);
+		goto skip_vht;
 	}
 	if (phtpriv->ht_option
 	    && REGSTY_IS_11AC_ENABLE(pregistrypriv)
@@ -1496,6 +1491,12 @@ u8 rtw_joinbss_cmd(_adapter  *padapter, struct wlan_network *pnetwork)
 	   ) {
 		rtw_restructure_vht_ie(padapter, &pnetwork->network.IEs[0], &psecnetwork->IEs[0],
 			pnetwork->network.IELength, &psecnetwork->IELength);
+
+		if ((psecnetwork->Configuration.DSConfig <= 14) &&
+		    (pvhtpriv->vht_option == _TRUE))
+			RTW_INFO("%s: AP support VHT rate on 2.4G (ch:%d)\n",
+				  __FUNCTION__,
+				  psecnetwork->Configuration.DSConfig);
 	}
 skip_vht:
 #endif

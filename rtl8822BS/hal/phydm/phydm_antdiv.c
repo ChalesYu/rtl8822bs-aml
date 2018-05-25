@@ -1204,17 +1204,23 @@ odm_s0s1_sw_ant_div_init_8723d(
        /*keep antsel_map when GNT_BT = 1*/
 	odm_set_bb_reg(p_dm, 0x864, BIT(12), 1);
 
+	/* Disable antsw when GNT_BT=1 */
+	odm_set_bb_reg(p_dm, 0x874, BIT(23), 0);
+
 	/* Mapping Table */
 	odm_set_bb_reg(p_dm, 0x914, MASKBYTE0, 0);
 	odm_set_bb_reg(p_dm, 0x914, MASKBYTE1, 1);
 
 	/* Output Pin Settings */
 	/* odm_set_bb_reg(p_dm, R_0x948, BIT6, 0x1); */
-	odm_set_bb_reg(p_dm, 0x870, BIT(9) | BIT(8), 0);
+	odm_set_bb_reg(p_dm, 0x870, BIT(8), 1);
+	odm_set_bb_reg(p_dm, 0x870, BIT(9), 1);
 
 	p_dm_fat_table->is_become_linked  = false;
 	p_dm_swat_table->try_flag = SWAW_STEP_INIT;
 	p_dm_swat_table->double_chk_flag = 0;
+	p_dm_swat_table->cur_antenna = MAIN_ANT;
+	p_dm_swat_table->pre_antenna = MAIN_ANT;
 
 	/* 2 [--For HW Bug setting] */
 	odm_set_bb_reg(p_dm, 0x80c, BIT(21), 0); /* TX ant  by Reg */
@@ -1240,7 +1246,10 @@ odm_update_rx_idle_ant_8723d(
 #endif
 
 /*	odm_set_bb_reg(p_dm, 0x948, BIT(6), 0x1);	*/
-	odm_set_bb_reg(p_dm, 0x948, BIT(7), default_ant);
+	if (p_dm->ant_div_type == S0S1_SW_ANTDIV) {
+	odm_set_bb_reg(p_dm, 0x860, BIT(8), default_ant);
+	odm_set_bb_reg(p_dm, 0x860, BIT(9), default_ant);
+	}
 	odm_set_bb_reg(p_dm, 0x864, BIT(5) | BIT(4) | BIT(3), default_ant);      /*Default RX*/
 	odm_set_bb_reg(p_dm, 0x864, BIT(8) | BIT(7) | BIT(6), optional_ant);     /*Optional RX*/
 	odm_set_bb_reg(p_dm, 0x860, BIT(14) | BIT(13) | BIT(12), default_ant);    /*Default TX*/
@@ -2751,13 +2760,7 @@ odm_s0s1_sw_ant_div(
 				p_dm_swat_table->rssi_trying = 0;
 
 				PHYDM_DBG(p_dm, DBG_ANT_DIV, ("Test the current ant for (( %d )) ms again\n", p_dm_swat_table->train_time));
-				if (p_dm->support_ic_type == ODM_RTL8723D) {
-					value32 = odm_get_bb_reg(p_dm, 0x864, BIT(5) | BIT(4) | BIT(3));
-					if ((p_dm_fat_table->rx_idle_ant == MAIN_ANT && value32 == 1) || (p_dm_fat_table->rx_idle_ant == AUX_ANT && value32 == 0))
-						odm_update_rx_idle_ant(p_dm, p_dm_fat_table->rx_idle_ant);
-				} else {
-					odm_update_rx_idle_ant(p_dm, p_dm_fat_table->rx_idle_ant);
-				}
+		odm_update_rx_idle_ant(p_dm, p_dm_fat_table->rx_idle_ant);
 				odm_set_timer(p_dm, &(p_dm_swat_table->phydm_sw_antenna_switch_timer), p_dm_swat_table->train_time); /*ms*/
 				return;
 			}

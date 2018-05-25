@@ -2062,22 +2062,18 @@ struct psd_init_regs {
 
 static int rtw_mp_psd_init(PADAPTER padapter, struct psd_init_regs *regs)
 {
-	long unsigned int bits;
-	int rx_paths;
+	HAL_DATA_TYPE	*phal_data	= GET_HAL_DATA(padapter);
 
-	bits = padapter->mppriv.antenna_rx;
-	rx_paths = bitmap_weight(&bits, 16);
-	switch (rx_paths) {
+	switch (phal_data->rf_type) {
 	/* 1R */
-	case 1:
-	    	if (hal_chk_proto_cap(padapter, PROTO_CAP_11AC)) {
+	case RF_1T1R:
+		if (hal_chk_proto_cap(padapter, PROTO_CAP_11AC)) {
 			/* 11AC 1R PSD Setting 3wire & cck off */
 			regs->reg_c00 = rtw_read32(padapter, 0xC00);
 			phy_set_bb_reg(padapter, 0xC00, 0x3, 0x00);
 			regs->reg_808 = rtw_read32(padapter, 0x808);
 			phy_set_bb_reg(padapter, 0x808, 0x10000000, 0x0);
-		}
-		else {
+		} else {
 			/* 11N 3-wire off 1 */
 			regs->reg_88c = rtw_read32(padapter, 0x88C);
 			phy_set_bb_reg(padapter, 0x88C, 0x300000, 0x3);
@@ -2085,11 +2081,12 @@ static int rtw_mp_psd_init(PADAPTER padapter, struct psd_init_regs *regs)
 			regs->reg_800 = rtw_read32(padapter, 0x800);
 			phy_set_bb_reg(padapter, 0x800, 0x1000000, 0x0);
 		}
-		break;
+	break;
 
 	/* 2R */
-	case 2:
-	    	if (hal_chk_proto_cap(padapter, PROTO_CAP_11AC)) {
+	case RF_1T2R:
+	case RF_2T2R:
+		if (hal_chk_proto_cap(padapter, PROTO_CAP_11AC)) {
 			/* 11AC 2R PSD Setting 3wire & cck off */
 			regs->reg_c00 = rtw_read32(padapter, 0xC00);
 			regs->reg_e00 = rtw_read32(padapter, 0xE00);
@@ -2097,8 +2094,7 @@ static int rtw_mp_psd_init(PADAPTER padapter, struct psd_init_regs *regs)
 			phy_set_bb_reg(padapter, 0xE00, 0x3, 0x00);
 			regs->reg_808 = rtw_read32(padapter, 0x808);
 			phy_set_bb_reg(padapter, 0x808, 0x10000000, 0x0);
-		}
-		else {
+		} else {
 			/* 11N 3-wire off 2 */
 			regs->reg_88c = rtw_read32(padapter, 0x88C);
 			phy_set_bb_reg(padapter, 0x88C, 0xF00000, 0xF);
@@ -2106,11 +2102,12 @@ static int rtw_mp_psd_init(PADAPTER padapter, struct psd_init_regs *regs)
 			regs->reg_800 = rtw_read32(padapter, 0x800);
 			phy_set_bb_reg(padapter, 0x800, 0x1000000, 0x0);
 		}
-		break;
+	break;
 
 	/* 3R */
-	case 3:
-	    	if (hal_chk_proto_cap(padapter, PROTO_CAP_11AC)) {
+	case RF_2T3R:
+	case RF_3T3R:
+		if (hal_chk_proto_cap(padapter, PROTO_CAP_11AC)) {
 			/* 11AC 3R PSD Setting 3wire & cck off */
 			regs->reg_c00 = rtw_read32(padapter, 0xC00);
 			regs->reg_e00 = rtw_read32(padapter, 0xE00);
@@ -2120,16 +2117,17 @@ static int rtw_mp_psd_init(PADAPTER padapter, struct psd_init_regs *regs)
 			phy_set_bb_reg(padapter, 0x1800, 0x3, 0x00);
 			regs->reg_808 = rtw_read32(padapter, 0x808);
 			phy_set_bb_reg(padapter, 0x808, 0x10000000, 0x0);
-		}
-		else {
+		} else {
 			RTW_ERR("%s: 11n don't support 3R\n", __func__);
 			return -1;
 		}
 		break;
 
 	/* 4R */
-	case 4:
-	    	if (hal_chk_proto_cap(padapter, PROTO_CAP_11AC)) {
+	case RF_2T4R:
+	case RF_3T4R:
+	case RF_4T4R:
+		if (hal_chk_proto_cap(padapter, PROTO_CAP_11AC)) {
 			/* 11AC 4R PSD Setting 3wire & cck off */
 			regs->reg_c00 = rtw_read32(padapter, 0xC00);
 			regs->reg_e00 = rtw_read32(padapter, 0xE00);
@@ -2141,73 +2139,73 @@ static int rtw_mp_psd_init(PADAPTER padapter, struct psd_init_regs *regs)
 			phy_set_bb_reg(padapter, 0x1A00, 0x3, 0x00);
 			regs->reg_808 = rtw_read32(padapter, 0x808);
 			phy_set_bb_reg(padapter, 0x808, 0x10000000, 0x0);
-		}
-		else {
+		} else {
 			RTW_ERR("%s: 11n don't support 4R\n", __func__);
 			return -1;
 		}
 		break;
 
 	default:
-		RTW_ERR("%s: unknown %d rx paths\n", __func__, rx_paths);
+		RTW_ERR("%s: unknown %d rf type\n", __func__, phal_data->rf_type);
 		return -1;
 	}
-	
+
 	/* Set PSD points, 0=128, 1=256, 2=512, 3=1024 */
 	if (hal_chk_proto_cap(padapter, PROTO_CAP_11AC))
 		phy_set_bb_reg(padapter, 0x910, 0xC000, 3);
 	else
 		phy_set_bb_reg(padapter, 0x808, 0xC000, 3);
 
-	RTW_INFO("%s: set %d rx paths done\n", __func__, rx_paths);
+	RTW_INFO("%s: set %d rf type done\n", __func__, phal_data->rf_type);
 	return 0;
 }
 
 static int rtw_mp_psd_close(PADAPTER padapter, struct psd_init_regs *regs)
 {
-	long unsigned int bits;
-	int rx_paths;
+	HAL_DATA_TYPE	*phal_data	= GET_HAL_DATA(padapter);
 
-	bits = padapter->mppriv.antenna_rx;
-	rx_paths = bitmap_weight(&bits, 16);
 
-    	if (!hal_chk_proto_cap(padapter, PROTO_CAP_11AC)) {
+	if (!hal_chk_proto_cap(padapter, PROTO_CAP_11AC)) {
 		/* 11n 3wire restore */
 		rtw_write32(padapter, 0x88C, regs->reg_88c);
 		/* 11n cck restore */
 		rtw_write32(padapter, 0x800, regs->reg_800);
-		RTW_INFO("%s: restore %d rx paths done\n", __func__, rx_paths);
+		RTW_INFO("%s: restore %d rf type\n", __func__, phal_data->rf_type);
 		return 0;
 	}
 
 	/* 11ac 3wire restore */
-	switch (rx_paths) {
-	case 1:
+	switch (phal_data->rf_type) {
+	case RF_1T1R:
 		rtw_write32(padapter, 0xC00, regs->reg_c00);
 		break;
-	case 2:
+	case RF_1T2R:
+	case RF_2T2R:
 		rtw_write32(padapter, 0xC00, regs->reg_c00);
 		rtw_write32(padapter, 0xE00, regs->reg_e00);
 		break;
-	case 3:
+	case RF_2T3R:
+	case RF_3T3R:
 		rtw_write32(padapter, 0xC00, regs->reg_c00);
 		rtw_write32(padapter, 0xE00, regs->reg_e00);
 		rtw_write32(padapter, 0x1800, regs->reg_1800);
 		break;
-	case 4:
+	case RF_2T4R:
+	case RF_3T4R:
+	case RF_4T4R:
 		rtw_write32(padapter, 0xC00, regs->reg_c00);
 		rtw_write32(padapter, 0xE00, regs->reg_e00);
 		rtw_write32(padapter, 0x1800, regs->reg_1800);
 		rtw_write32(padapter, 0x1A00, regs->reg_1a00);
 		break;
 	default:
-		RTW_WARN("%s: unknown %d rx paths\n", __func__, rx_paths);
+		RTW_WARN("%s: unknown %d rf type\n", __func__, phal_data->rf_type);
 		break;
 	}
 
 	/* 11ac cck restore */
 	rtw_write32(padapter, 0x808, regs->reg_808);
-	RTW_INFO("%s: restore %d rx paths done\n", __func__, rx_paths);
+	RTW_INFO("%s: restore %d rf type done\n", __func__, phal_data->rf_type);
 	return 0;
 }
 

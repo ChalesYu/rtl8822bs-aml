@@ -52,7 +52,7 @@
 #define IQK_VERSION_8703B	"0x05"
 #define IQK_VERSION_8710B	"0x01"
 #define IQK_VERSION_8723D	"0x02"
-#define IQK_VERSION_8822B	"0x2e"
+#define IQK_VERSION_8822B	"0x2f"
 #define IQK_VERSION_8821C	"0x23"
 
 /*LCK version*/

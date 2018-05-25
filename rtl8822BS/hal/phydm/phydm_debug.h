@@ -73,6 +73,8 @@
 #define	RA_H2C			BIT(5)
 #define	F_RATE_AP_RPT	BIT(7)
 
+#define PHYDM_SNPRINT_SIZE	64
+
 /* -----------------------------------------------------------------------------
  * Define the tracing components
  *
@@ -95,20 +97,24 @@
 	#define	dcmd_printf				DCMD_Printf
 	#define	dcmd_scanf				DCMD_Scanf
 	#define RT_PRINTK				dbg_print
+	#define PHYDM_PRINT2BUF				RT_SPRINTF
 #elif (DM_ODM_SUPPORT_TYPE == ODM_CE) && defined(DM_ODM_CE_MAC80211)
 	#define dbg_print(args...)
 	#define RT_PRINTK(fmt, args...)	\
 			RT_TRACE(((struct rtl_priv *)p_dm->adapter),	\
 				 COMP_PHYDM, DBG_DMESG, fmt, ## args)
 	#define	RT_DISP(dbgtype, dbgflag, printstr)
+	#define PHYDM_PRINT2BUF				snprintf
 #elif (DM_ODM_SUPPORT_TYPE == ODM_CE)
 	#define dbg_print	printk
 	#define RT_PRINTK(fmt, args...)	dbg_print(fmt, ## args)
 	#define	RT_DISP(dbgtype, dbgflag, printstr)
+	#define PHYDM_PRINT2BUF				snprintf
 #else
 	#define dbg_print	panic_printk
 	/*#define RT_PRINTK(fmt, args...)	dbg_print("%s(): " fmt, __FUNCTION__, ## args);*/
 	#define RT_PRINTK(args...)	dbg_print(args)
+	#define PHYDM_PRINT2BUF				snprintf
 #endif
 
 #ifndef ASSERT
@@ -250,6 +256,8 @@
 		} while (0)
 #endif /*#if (PHYDM_DBGPRINT == 1)*/
 #endif
+
+void phydm_show_phy_hitogram(void *dm_void);
 
 void
 phydm_init_debug_setting(

@@ -454,6 +454,11 @@ void sd_int_hdl(PADAPTER adapter)
 
 	phal = GET_HAL_DATA(adapter);
 
+	if (!phal->sdio_himr) {
+		RTW_WARN("%s: unexpected interrupt!\n", __FUNCTION__);
+		return;
+	}
+
 	rtl8822bs_get_interrupt(adapter, &phal->sdio_hisr, &phal->SdioRxFIFOSize);
 	if (phal->sdio_hisr & phal->sdio_himr) {
 		phal->sdio_hisr &= phal->sdio_himr;

@@ -19,7 +19,7 @@
 #if (RTL8822B_SUPPORT == 1)
 /*--------------------------Define Parameters-------------------------------*/
 #define	MAC_REG_NUM_8822B 2
-#define	BB_REG_NUM_8822B 14
+#define BB_REG_NUM_8822B 15
 #define	RF_REG_NUM_8822B 5
 #define	LOK_delay_8822B 2
 #define	GS_delay_8822B 2
