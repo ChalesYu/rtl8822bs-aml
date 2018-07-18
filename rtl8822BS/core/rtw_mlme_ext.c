@@ -12551,9 +12551,8 @@ void linked_status_chk(_adapter *padapter, u8 from_timer)
 
 			if (sta_last_tx_pkts(psta) == sta_tx_pkts(psta))
 				tx_chk = _FAIL;
-
-#if defined(CONFIG_ACTIVE_KEEP_ALIVE_CHECK) && !defined(CONFIG_LPS_LCLK_WD_TIMER)
-			if (pmlmeext->active_keep_alive_check && (rx_chk == _FAIL || tx_chk == _FAIL)
+#ifdef CONFIG_ACTIVE_KEEP_ALIVE_CHECK
+			if (!from_timer && pmlmeext->active_keep_alive_check && (rx_chk == _FAIL || tx_chk == _FAIL)
 				#ifdef CONFIG_MCC_MODE
 				/* Driver don't know operation channel under MCC*/
 				/* So driver don't  do KEEP_ALIVE_CHECK */
