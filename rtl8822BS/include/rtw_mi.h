@@ -138,8 +138,8 @@ u8 rtw_mi_buddy_netif_caron_qstart(_adapter *padapter);
 
 void rtw_mi_scan_abort(_adapter *adapter, bool bwait);
 void rtw_mi_buddy_scan_abort(_adapter *adapter, bool bwait);
-void rtw_mi_start_drv_threads(_adapter *adapter);
-void rtw_mi_buddy_start_drv_threads(_adapter *adapter);
+u32 rtw_mi_start_drv_threads(_adapter *adapter);
+u32 rtw_mi_buddy_start_drv_threads(_adapter *adapter);
 void rtw_mi_stop_drv_threads(_adapter *adapter);
 void rtw_mi_buddy_stop_drv_threads(_adapter *adapter);
 void rtw_mi_cancel_all_timer(_adapter *adapter);

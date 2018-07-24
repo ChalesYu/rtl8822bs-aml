@@ -191,10 +191,14 @@ static void _run_thread(PADAPTER adapter)
 	struct xmit_priv *xmitpriv = &adapter->xmitpriv;
 
 	xmitpriv->SdioXmitThread = kthread_run(rtl8822bs_xmit_thread, adapter, "RTWHALXT");
-	if (IS_ERR(xmitpriv->SdioXmitThread)) {
-		RTW_ERR("%s: start rtl8822bs_xmit_thread FAIL!!\n", __FUNCTION__);
-		xmitpriv->SdioXmitThread = NULL;
-	}
+	if (xmitpriv->SdioXmitThread == NULL) {
+		RTW_INFO(FUNC_ADPT_FMT " start RTWHALXT\n", FUNC_ADPT_ARG(adapter));
+		xmitpriv->SdioXmitThread = kthread_run(rtl8822bs_xmit_thread, adapter, "RTWHALXT");
+		if (IS_ERR(xmitpriv->SdioXmitThread)) {
+			RTW_ERR("%s: start rtl8822bs_xmit_thread FAIL!!\n", __FUNCTION__);
+			xmitpriv->SdioXmitThread = NULL;
+		}
+ 	}
 #endif /* !CONFIG_SDIO_TX_TASKLET */
 }
 

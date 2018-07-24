@@ -637,18 +637,34 @@ void rtw_mi_buddy_scan_abort(_adapter *adapter, bool bwait)
 	_rtw_mi_process(adapter, _TRUE, &in_data, _rtw_mi_scan_abort);
 }
 
-static u8 _rtw_mi_start_drv_threads(_adapter *adapter, void *data)
+static u32 _rtw_mi_start_drv_threads(_adapter *adapter, bool exclude_self)
 {
-	rtw_start_drv_threads(adapter);
-	return _TRUE;
+	int i;
+	_adapter *iface = NULL;
+	struct dvobj_priv *dvobj = adapter_to_dvobj(adapter);
+	u32 _status = _SUCCESS;
+
+	for (i = 0; i < dvobj->iface_nums; i++) {
+		iface = dvobj->padapters[i];
+		if (iface) {
+			if ((exclude_self) && (iface == adapter))
+				continue;
+
+			if (rtw_start_drv_threads(iface) == _FAIL) {
+				_status = _FAIL;
+				break;
+			}
+		}
+	}
+	return _status;
 }
-void rtw_mi_start_drv_threads(_adapter *adapter)
+u32 rtw_mi_start_drv_threads(_adapter *adapter)
 {
-	_rtw_mi_process(adapter, _FALSE, NULL, _rtw_mi_start_drv_threads);
+	return _rtw_mi_start_drv_threads(adapter, _FALSE);
 }
-void rtw_mi_buddy_start_drv_threads(_adapter *adapter)
+u32 rtw_mi_buddy_start_drv_threads(_adapter *adapter)
 {
-	_rtw_mi_process(adapter, _TRUE, NULL, _rtw_mi_start_drv_threads);
+	return _rtw_mi_start_drv_threads(adapter, _TRUE);
 }
 
 static void _rtw_mi_stop_drv_threads(_adapter *adapter, bool exclude_self)
@@ -659,10 +675,12 @@ static void _rtw_mi_stop_drv_threads(_adapter *adapter, bool exclude_self)
 
 	for (i = 0; i < dvobj->iface_nums; i++) {
 		iface = dvobj->padapters[i];
-		if ((iface) && (iface->bup == _TRUE))
-			if ((exclude_self) && (iface == adapter))
+		if (iface) {
+		    	if ((exclude_self) && (iface == adapter))
 				continue;
+
 			rtw_stop_drv_threads(iface);
+		}
 	}
 }
 void rtw_mi_stop_drv_threads(_adapter *adapter)

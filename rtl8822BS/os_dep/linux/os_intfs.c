@@ -1840,32 +1840,43 @@ u32 rtw_start_drv_threads(_adapter *padapter)
 	if (is_primary_adapter(padapter))
 #endif
 	{
-		padapter->xmitThread = kthread_run(rtw_xmit_thread, padapter, "RTW_XMIT_THREAD");
-		if (IS_ERR(padapter->xmitThread)) {
-			padapter->xmitThread = NULL;
-			_status = _FAIL;
+		if (padapter->xmitThread == NULL) {
+			RTW_INFO(FUNC_ADPT_FMT " start RTW_XMIT_THREAD\n", FUNC_ADPT_ARG(padapter));
+			padapter->xmitThread = kthread_run(rtw_xmit_thread, padapter, "RTW_XMIT_THREAD");
+			if (IS_ERR(padapter->xmitThread)) {
+				padapter->xmitThread = NULL;
+				_status = _FAIL;
+			}
 		}
 	}
 #endif /* #ifdef CONFIG_XMIT_THREAD_MODE */
 
 #ifdef CONFIG_RECV_THREAD_MODE
 	if (is_primary_adapter(padapter)) {
-		padapter->recvThread = kthread_run(rtw_recv_thread, padapter, "RTW_RECV_THREAD");
-		if (IS_ERR(padapter->recvThread)) {
-			padapter->recvThread = NULL;
-			_status = _FAIL;
+		if (padapter->recvThread == NULL) {
+			RTW_INFO(FUNC_ADPT_FMT " start RTW_RECV_THREAD\n", FUNC_ADPT_ARG(padapter));
+			padapter->recvThread = kthread_run(rtw_recv_thread, padapter, "RTW_RECV_THREAD");
+			if (IS_ERR(padapter->recvThread)) {
+				padapter->recvThread = NULL;
+				_status = _FAIL;
+			}
 		}
 	}
 #endif
 
 	if (is_primary_adapter(padapter)) {
-		padapter->cmdThread = kthread_run(rtw_cmd_thread, padapter, "RTW_CMD_THREAD");
-		if (IS_ERR(padapter->cmdThread)) {
-			padapter->cmdThread = NULL;
-			_status = _FAIL;
-		}
-		else
-			_rtw_down_sema(&padapter->cmdpriv.start_cmdthread_sema); /* wait for cmd_thread to run */
+
+		if (padapter->cmdThread == NULL) {
+			RTW_INFO(FUNC_ADPT_FMT " start RTW_CMD_THREAD\n", FUNC_ADPT_ARG(padapter));
+			padapter->cmdThread = kthread_run(rtw_cmd_thread, padapter, "RTW_CMD_THREAD");
+			if (IS_ERR(padapter->cmdThread)) {
+				padapter->cmdThread = NULL;
+				_status = _FAIL;
+			}
+			else {
+				_rtw_down_sema(&padapter->cmdpriv.start_cmdthread_sema); /* wait for cmd_thread to run */
+			}
+ 		}
 	}
 
 

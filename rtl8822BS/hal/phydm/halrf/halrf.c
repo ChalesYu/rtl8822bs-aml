@@ -118,18 +118,19 @@ void phydm_get_iqk_cfir(
 	else
 		ch = 0;
 
-		odm_set_bb_reg(p_dm, 0x1b00, MASKDWORD, 0xf8000008 | path << 1);
-		if (idx == 0)
-			odm_set_bb_reg(p_dm, 0x1b0c, BIT(13) | BIT(12), 0x3);
-		else
-			odm_set_bb_reg(p_dm, 0x1b0c, BIT(13) | BIT(12), 0x1);
-		odm_set_bb_reg(p_dm, 0x1bd4, BIT(20) | BIT(19) | BIT(18) | BIT(17) | BIT(16), 0x10);
-		for (i = 0; i < 8; i++) {
-			odm_set_bb_reg(p_dm, 0x1bd8, MASKDWORD, 0xe0000001 + (i * 4));
-			tmp = odm_get_bb_reg(p_dm, 0x1bfc, MASKDWORD);
-			p_iqk_info->IQK_CFIR_real[ch][path][idx][i] = (tmp & 0x0fff0000) >> 16;
-			p_iqk_info->IQK_CFIR_imag[ch][path][idx][i] = tmp & 0xfff;
-		}
+	odm_set_bb_reg(p_dm, 0x1b00, MASKDWORD, 0xf8000008 | path << 1);
+	if (idx == 0)
+		odm_set_bb_reg(p_dm, 0x1b0c, BIT(13) | BIT(12), 0x3);
+	else
+		odm_set_bb_reg(p_dm, 0x1b0c, BIT(13) | BIT(12), 0x1);
+
+	odm_set_bb_reg(p_dm, 0x1bd4, BIT(20) | BIT(19) | BIT(18) | BIT(17) | BIT(16), 0x10);
+	for (i = 0; i < 8; i++) {
+		odm_set_bb_reg(p_dm, 0x1bd8, MASKDWORD, 0xe0000001 + (i * 4));
+		tmp = odm_get_bb_reg(p_dm, 0x1bfc, MASKDWORD);
+		p_iqk_info->IQK_CFIR_real[ch][path][idx][i] = (tmp & 0x0fff0000) >> 16;
+		p_iqk_info->IQK_CFIR_imag[ch][path][idx][i] = tmp & 0xfff;
+	}
 	odm_set_bb_reg(p_dm, 0x1bd8, MASKDWORD, 0x0);
 	odm_set_bb_reg(p_dm, 0x1b0c, BIT(13) | BIT(12), 0x0);
 }
