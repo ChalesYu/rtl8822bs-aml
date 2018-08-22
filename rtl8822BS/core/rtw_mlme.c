@@ -1568,11 +1568,11 @@ void rtw_free_assoc_resources(_adapter *adapter, int lock_scanned_queue)
 /*
 *rtw_indicate_connect: the caller has to lock pmlmepriv->lock
 */
-void rtw_indicate_connect(_adapter *padapter)
+int rtw_indicate_connect(_adapter *padapter)
 {
 	struct mlme_priv	*pmlmepriv = &padapter->mlmepriv;
 	struct xmit_priv	*pxmitpriv = &padapter->xmitpriv;
-
+	int err = 0;
 
 
 	pmlmepriv->to_join = _FALSE;
@@ -1583,7 +1583,7 @@ void rtw_indicate_connect(_adapter *padapter)
 
 		rtw_led_control(padapter, LED_CTL_LINK);
 
-		rtw_os_indicate_connect(padapter);
+		err = rtw_os_indicate_connect(padapter);
 	}
 
 	rtw_set_to_roam(padapter, 0);
@@ -1597,7 +1597,7 @@ void rtw_indicate_connect(_adapter *padapter)
 	if (!MLME_IS_AP(padapter) && !MLME_IS_MESH(padapter))
 		rtw_mi_set_scan_deny(padapter, 3000);
 
-
+	return err;
 }
 
 
@@ -1720,7 +1720,7 @@ static u32 _rtw_wait_scan_done(_adapter *adapter, u8 abort, u32 timeout_ms)
 			break;
 
 		RTW_INFO(FUNC_NDEV_FMT"fw_state=_FW_UNDER_SURVEY!\n", FUNC_NDEV_ARG(adapter->pnetdev));
-		rtw_msleep_os(20);
+		rtw_msleep_os(SURVEY_TO);
 	}
 
 	if (_TRUE == abort) {
@@ -1768,7 +1768,7 @@ void rtw_scan_abort_no_wait(_adapter *adapter)
 
 void rtw_scan_abort(_adapter *adapter)
 {
-	rtw_scan_abort_timeout(adapter, 200);
+	rtw_scan_abort_timeout(adapter, 3000);
 }
 
 static u32 _rtw_wait_join_done(_adapter *adapter, u8 abort, u32 timeout_ms)
@@ -1983,9 +1983,12 @@ static void rtw_joinbss_update_network(_adapter *padapter, struct wlan_network *
  * if join_res > 0, for (fw_state==WIFI_STATION_STATE), we check if  "ptarget_sta" & "ptarget_wlan" exist.
  * if join_res > 0, for (fw_state==WIFI_ADHOC_STATE), we only check if "ptarget_wlan" exist.
  * if join_res > 0, update "cur_network->network" from "pnetwork->network" if (ptarget_wlan !=NULL).
+ *
+ * Return
+ *	-1	indicate connect fail
  */
 /* #define REJOIN */
-void rtw_joinbss_event_prehandle(_adapter *adapter, u8 *pbuf)
+int rtw_joinbss_event_prehandle(_adapter *adapter, u8 *pbuf)
 {
 	_irqL irqL, irqL2;
 	static u8 retry = 0;
@@ -1996,6 +1999,7 @@ void rtw_joinbss_event_prehandle(_adapter *adapter, u8 *pbuf)
 	struct wlan_network	*cur_network = &(pmlmepriv->cur_network);
 	struct wlan_network	*pcur_wlan = NULL, *ptarget_wlan = NULL;
 	unsigned int		the_same_macaddr = _FALSE;
+	int err = 0;
 
 
 #ifdef CONFIG_RTL8712
@@ -2027,9 +2031,8 @@ void rtw_joinbss_event_prehandle(_adapter *adapter, u8 *pbuf)
 	the_same_macaddr = _rtw_memcmp(pnetwork->network.MacAddress, cur_network->network.MacAddress, ETH_ALEN);
 
 	pnetwork->network.Length = get_WLAN_BSSID_EX_sz(&pnetwork->network);
-	if (pnetwork->network.Length > sizeof(WLAN_BSSID_EX)) {
-		goto ignore_joinbss_callback;
-	}
+	if (pnetwork->network.Length > sizeof(WLAN_BSSID_EX))
+		goto exit;
 
 	_enter_critical_bh(&pmlmepriv->lock, &irqL);
 
@@ -2095,7 +2098,12 @@ void rtw_joinbss_event_prehandle(_adapter *adapter, u8 *pbuf)
 			/* s4. indicate connect			 */
 			if (MLME_IS_STA(adapter) || MLME_IS_ADHOC(adapter)) {
 				pmlmepriv->cur_network_scanned = ptarget_wlan;
-				rtw_indicate_connect(adapter);
+				err = rtw_indicate_connect(adapter);
+				if (err) {
+					RTW_ERR(FUNC_ADPT_FMT ": Fail to indicate connect! err=%d\n",
+						FUNC_ADPT_ARG(adapter), err);
+					err = -1;
+				}
 			}
 
 			/* s5. Cancle assoc_timer					 */
@@ -2149,6 +2157,9 @@ void rtw_joinbss_event_prehandle(_adapter *adapter, u8 *pbuf)
 
 ignore_joinbss_callback:
 	_exit_critical_bh(&pmlmepriv->lock, &irqL);
+
+exit:
+	return err;
 }
 
 void rtw_joinbss_event_callback(_adapter *adapter, u8 *pbuf)

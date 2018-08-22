@@ -1037,6 +1037,7 @@ extern u8 rtw_addbareq_cmd(_adapter *padapter, u8 tid, u8 *addr);
 extern u8 rtw_addbarsp_cmd(_adapter *padapter, u8 *addr, u16 tid, u8 status, u8 size, u16 start_seq);
 /* add for CONFIG_IEEE80211W, none 11w also can use */
 extern u8 rtw_reset_securitypriv_cmd(_adapter *padapter);
+extern u8 rtw_free_assoc_resources_cmd_and_wait(_adapter *padapter, u32 timeout, int flags);
 extern u8 rtw_free_assoc_resources_cmd(_adapter *padapter);
 extern u8 rtw_dynamic_chk_wk_cmd(_adapter *adapter);
 

@@ -34,6 +34,8 @@
 #define REASSOC_LIMIT	(4)
 #define READDBA_LIMIT	(2)
 
+#define DEAUTH_DENY_TO		500 /* unit: ms */
+
 #ifdef CONFIG_GSPI_HCI
 	#define ROAMING_LIMIT	5
 #else
@@ -615,6 +617,10 @@ struct mlme_ext_priv {
 	u8	tx_rate; /* TXRATE when USERATE is set. */
 
 	u32	retry; /* retry for issue probereq */
+
+	/* Don't handle deauth in DEAUTH_DENY_TO ms after sending deauth */
+	/* value 0 means always handle deauth packet */
+	systime last_deauth_time;
 
 	u64 TSFValue;
 

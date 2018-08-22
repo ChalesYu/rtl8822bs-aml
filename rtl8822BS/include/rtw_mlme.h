@@ -890,7 +890,7 @@ extern void hostapd_mode_unload(_adapter *padapter);
 #endif
 
 
-extern void rtw_joinbss_event_prehandle(_adapter *adapter, u8 *pbuf);
+extern int rtw_joinbss_event_prehandle(_adapter *adapter, u8 *pbuf);
 extern void rtw_survey_event_callback(_adapter *adapter, u8 *pbuf);
 extern void rtw_surveydone_event_callback(_adapter *adapter, u8 *pbuf);
 extern void rtw_joinbss_event_callback(_adapter *adapter, u8 *pbuf);
@@ -1023,7 +1023,7 @@ struct wlan_network *rtw_find_same_network(_queue *scanned_queue, struct wlan_ne
 
 extern void rtw_free_assoc_resources(_adapter *adapter, int lock_scanned_queue);
 extern void rtw_indicate_disconnect(_adapter *adapter, u16 reason, u8 locally_generated);
-extern void rtw_indicate_connect(_adapter *adapter);
+extern int rtw_indicate_connect(_adapter *adapter);
 void rtw_indicate_scan_done(_adapter *padapter, bool aborted);
 
 void rtw_drv_scan_by_self(_adapter *padapter, u8 reason);

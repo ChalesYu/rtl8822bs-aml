@@ -15,11 +15,14 @@
 #ifndef __IOCTL_CFG80211_H__
 #define __IOCTL_CFG80211_H__
 
-#ifndef RTW_CFG80211_ALWAYS_INFORM_STA_DISCONNECT_EVENT
+#define RTW_CFG80211_BLOCK_DISCON_WHEN_CONNECT		BIT0
+#define RTW_CFG80211_BLOCK_DISCON_WHEN_DISCONNECT	BIT1
+
+#ifndef RTW_CFG80211_BLOCK_STA_DISCON_EVENT
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 2, 0))
-#define RTW_CFG80211_ALWAYS_INFORM_STA_DISCONNECT_EVENT 1
+#define RTW_CFG80211_BLOCK_STA_DISCON_EVENT (RTW_CFG80211_BLOCK_DISCON_WHEN_CONNECT)
 #else
-#define RTW_CFG80211_ALWAYS_INFORM_STA_DISCONNECT_EVENT 0
+#define RTW_CFG80211_BLOCK_STA_DISCON_EVENT (RTW_CFG80211_BLOCK_DISCON_WHEN_CONNECT | RTW_CFG80211_BLOCK_DISCON_WHEN_DISCONNECT)
 #endif
 #endif
 
@@ -133,7 +136,7 @@ struct rtw_wdev_priv {
 
 	_adapter *padapter;
 
-	#if !RTW_CFG80211_ALWAYS_INFORM_STA_DISCONNECT_EVENT
+	#if RTW_CFG80211_BLOCK_STA_DISCON_EVENT
 	u8 not_indic_disco;
 	#endif
 
@@ -174,12 +177,12 @@ struct rtw_wdev_priv {
 
 bool rtw_cfg80211_is_connect_requested(_adapter *adapter);
 
-#if RTW_CFG80211_ALWAYS_INFORM_STA_DISCONNECT_EVENT
-#define rtw_wdev_not_indic_disco(rtw_wdev_data) 0
-#define rtw_wdev_set_not_indic_disco(rtw_wdev_data, val) do {} while (0)
-#else
+#if RTW_CFG80211_BLOCK_STA_DISCON_EVENT
 #define rtw_wdev_not_indic_disco(rtw_wdev_data) ((rtw_wdev_data)->not_indic_disco)
 #define rtw_wdev_set_not_indic_disco(rtw_wdev_data, val) do { (rtw_wdev_data)->not_indic_disco = (val); } while (0)
+#else
+#define rtw_wdev_not_indic_disco(rtw_wdev_data) 0
+#define rtw_wdev_set_not_indic_disco(rtw_wdev_data, val) do {} while (0)
 #endif
 
 #define rtw_wdev_free_connect_req(rtw_wdev_data) \
@@ -255,7 +258,7 @@ void rtw_cfg80211_surveydone_event_callback(_adapter *padapter);
 struct cfg80211_bss *rtw_cfg80211_inform_bss(_adapter *padapter, struct wlan_network *pnetwork);
 int rtw_cfg80211_check_bss(_adapter *padapter);
 void rtw_cfg80211_ibss_indicate_connect(_adapter *padapter);
-void rtw_cfg80211_indicate_connect(_adapter *padapter);
+int rtw_cfg80211_indicate_connect(_adapter *padapter);
 void rtw_cfg80211_indicate_disconnect(_adapter *padapter, u16 reason, u8 locally_generated);
 void rtw_cfg80211_indicate_scan_done(_adapter *adapter, bool aborted);
 u32 rtw_cfg80211_wait_scan_req_empty(_adapter *adapter, u32 timeout_ms);

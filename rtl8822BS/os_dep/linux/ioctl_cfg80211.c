@@ -858,6 +858,35 @@ exit:
 }
 
 /*
+ * Return _TRUE if netwrok is valid in wdev, otherwise _FALSE for not found.
+ */
+static int _cfg80211_check_bss(struct _ADAPTER *a)
+{
+	struct wireless_dev *wdev;
+	struct _WLAN_BSSID_EX *network;
+
+
+	wdev = a->rtw_wdev;
+	network = &a->mlmeextpriv.mlmext_info.network;
+
+	if ((!wdev->ssid_len) || (wdev->ssid_len != network->Ssid.SsidLength)
+	    || (_rtw_memcmp(wdev->ssid, network->Ssid.Ssid,
+			    network->Ssid.SsidLength) == _FALSE)) {
+		RTW_PRINT(FUNC_ADPT_FMT ": bssid:"MAC_FMT"\n",
+			  FUNC_ADPT_ARG(a), MAC_ARG(network->MacAddress));
+		RTW_PRINT(FUNC_ADPT_FMT ": ssid:[%s] len=%d\n",
+			  FUNC_ADPT_ARG(a), network->Ssid.Ssid,
+			  network->Ssid.SsidLength);
+		RTW_PRINT(FUNC_ADPT_FMT ": (wdev) ssid:[%s] len=%d\n",
+			  FUNC_ADPT_ARG(a), wdev->ssid, wdev->ssid_len);
+
+		return _FALSE;
+	}
+
+	return _TRUE;
+}
+
+/*
 	Check the given bss is valid by kernel API cfg80211_get_bss()
 	@padapter : the given adapter
 
@@ -964,7 +993,7 @@ void rtw_cfg80211_ibss_indicate_connect(_adapter *padapter)
 #endif
 }
 
-void rtw_cfg80211_indicate_connect(_adapter *padapter)
+int rtw_cfg80211_indicate_connect(_adapter *padapter)
 {
 	struct mlme_priv *pmlmepriv = &padapter->mlmepriv;
 	struct wlan_network  *cur_network = &(pmlmepriv->cur_network);
@@ -986,10 +1015,10 @@ void rtw_cfg80211_indicate_connect(_adapter *padapter)
 		&& pwdev->iftype != NL80211_IFTYPE_P2P_CLIENT
 		#endif
 	)
-		return;
+		return 0;
 
 	if (!MLME_IS_STA(padapter))
-		return;
+		return 0;
 
 #ifdef CONFIG_P2P
 	if (pwdinfo->driver_interface == DRIVER_CFG80211) {
@@ -1033,6 +1062,17 @@ void rtw_cfg80211_indicate_connect(_adapter *padapter)
 	}
 
 check_bss:
+	if (_cfg80211_check_bss(padapter) == _FALSE) {
+		RTW_ERR(FUNC_ADPT_FMT ": BSS not found!! Skip!\n",
+			FUNC_ADPT_ARG(padapter));
+
+		_enter_critical_bh(&pwdev_priv->connect_req_lock, &irqL);
+		rtw_wdev_free_connect_req(pwdev_priv);
+		_exit_critical_bh(&pwdev_priv->connect_req_lock, &irqL);
+
+		return -1;
+	}
+
 	if (!rtw_cfg80211_check_bss(padapter))
 		RTW_PRINT(FUNC_ADPT_FMT" BSS not found !!\n", FUNC_ADPT_ARG(padapter));
 
@@ -1096,6 +1136,8 @@ check_bss:
 	rtw_wdev_free_connect_req(pwdev_priv);
 
 	_exit_critical_bh(&pwdev_priv->connect_req_lock, &irqL);
+
+	return 0;
 }
 
 void rtw_cfg80211_indicate_disconnect(_adapter *padapter, u16 reason, u8 locally_generated)
@@ -3321,13 +3363,14 @@ static int cfg80211_rtw_leave_ibss(struct wiphy *wiphy, struct net_device *ndev)
 {
 	_adapter *padapter = (_adapter *)rtw_netdev_priv(ndev);
 	struct wireless_dev *rtw_wdev = padapter->rtw_wdev;
-	struct rtw_wdev_priv *pwdev_priv = adapter_wdev_data(padapter);
 	enum nl80211_iftype old_type;
 	int ret = 0;
 
 	RTW_INFO(FUNC_NDEV_FMT"\n", FUNC_NDEV_ARG(ndev));
 
-	rtw_wdev_set_not_indic_disco(pwdev_priv, 1);
+#if (RTW_CFG80211_BLOCK_STA_DISCON_EVENT & RTW_CFG80211_BLOCK_DISCON_WHEN_DISCONNECT)
+	rtw_wdev_set_not_indic_disco(adapter_wdev_data(padapter), 1);
+#endif
 
 	old_type = rtw_wdev->iftype;
 
@@ -3348,7 +3391,9 @@ static int cfg80211_rtw_leave_ibss(struct wiphy *wiphy, struct net_device *ndev)
 	}
 
 leave_ibss:
-	rtw_wdev_set_not_indic_disco(pwdev_priv, 0);
+#if (RTW_CFG80211_BLOCK_STA_DISCON_EVENT & RTW_CFG80211_BLOCK_DISCON_WHEN_DISCONNECT)
+	rtw_wdev_set_not_indic_disco(adapter_wdev_data(padapter), 0);
+#endif
 
 	return 0;
 }
@@ -3364,6 +3409,107 @@ bool rtw_cfg80211_is_connect_requested(_adapter *adapter)
 	_exit_critical_bh(&pwdev_priv->connect_req_lock, &irqL);
 
 	return requested;
+}
+
+static int _rtw_disconnect(struct wiphy *wiphy, struct net_device *ndev)
+{
+	struct _ADAPTER *adapter = (struct _ADAPTER *)rtw_netdev_priv(ndev);
+
+
+	rtw_set_to_roam(adapter, 0);
+
+	/* if (check_fwstate(&adapter->mlmepriv, _FW_LINKED) == _TRUE) */
+	{
+		rtw_scan_abort(adapter);
+		rtw_join_abort_timeout(adapter, 300);
+		LeaveAllPowerSaveMode(adapter);
+		rtw_disassoc_cmd(adapter, 500, RTW_CMDF_WAIT_ACK);
+#ifdef CONFIG_RTW_REPEATER_SON
+		rtw_rson_do_disconnect(adapter);
+#endif
+		rtw_free_assoc_resources_cmd_and_wait(adapter, 500, RTW_CMDF_WAIT_ACK);
+
+		RTW_INFO("%s...call rtw_indicate_disconnect\n", __func__);
+		/* indicate locally_generated = 0 when suspend */
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 2, 0))
+		rtw_indicate_disconnect(adapter, 0, wiphy->dev.power.is_prepared ? _FALSE : _TRUE);
+#else /* kernel < 4.2 */
+		/*
+		* for kernel < 4.2, DISCONNECT event is hardcoded with
+		* NL80211_ATTR_DISCONNECTED_BY_AP=1 in NL80211 layer
+		* no need to judge if under suspend
+		*/
+		rtw_indicate_disconnect(adapter, 0, _TRUE);
+#endif
+
+		rtw_pwr_wakeup(adapter);
+	}
+
+	return 0;
+}
+
+static u8 compare_connect_params(struct _ADAPTER *a,
+				 struct cfg80211_connect_params *org,
+				 struct cfg80211_connect_params *req)
+{
+	struct rtw_wdev_priv *pwdev_priv;
+	struct mlme_priv *mlme;
+	_irqL irqL;
+	u8 ret = _TRUE;
+	u8 *ssid = NULL, *bssid = NULL;
+	u8 ssid_len;
+
+
+	pwdev_priv = adapter_wdev_data(a);
+	mlme = &a->mlmepriv;
+
+	_enter_critical_bh(&pwdev_priv->connect_req_lock, &irqL);
+	/* check ssid & ssid_len */
+	ssid_len = mlme->assoc_ssid.SsidLength;
+	ssid = mlme->assoc_ssid.Ssid;
+	if (ssid_len != req->ssid_len) {
+		ret = _FALSE;
+		goto exit;
+	}
+	if (_rtw_memcmp(ssid, req->ssid, ssid_len) == _FALSE) {
+		ret = _FALSE;
+		goto exit;
+	}
+
+	/* check bssid */
+	if (mlme->assoc_by_bssid == _TRUE)
+		bssid = mlme->assoc_bssid;
+	if (bssid) {
+		if (!req->bssid) {
+			RTW_PRINT(FUNC_ADPT_FMT ": bssid not the same,"
+				  "only org:" MAC_FMT "\n",
+				  FUNC_ADPT_ARG(a), MAC_ARG(bssid));
+			ret = _FALSE;
+			goto exit;
+		}
+		if (_rtw_memcmp(bssid, req->bssid, ETH_ALEN) == _FALSE) {
+			RTW_PRINT(FUNC_ADPT_FMT ": bssid not the same,"
+				  "org:" MAC_FMT " new:" MAC_FMT "\n",
+				  FUNC_ADPT_ARG(a),
+				  MAC_ARG(bssid), MAC_ARG(req->bssid));
+			ret = _FALSE;
+			goto exit;
+		}
+	} else if (req->bssid) {
+		RTW_PRINT(FUNC_ADPT_FMT ": bssid not the same,"
+			  "only new:" MAC_FMT "\n",
+			  FUNC_ADPT_ARG(a), MAC_ARG(req->bssid));
+		ret = _FALSE;
+		goto exit;
+	}
+
+	/* update new req */
+	_rtw_memcpy(org, req, sizeof(*org));
+
+exit:
+	_exit_critical_bh(&pwdev_priv->connect_req_lock, &irqL);
+
+	return ret;
 }
 
 static int cfg80211_rtw_connect(struct wiphy *wiphy, struct net_device *ndev,
@@ -3386,18 +3532,56 @@ static int cfg80211_rtw_connect(struct wiphy *wiphy, struct net_device *ndev,
 	struct rtw_wdev_priv *pwdev_priv = adapter_wdev_data(padapter);
 	_irqL irqL;
 
+#if (RTW_CFG80211_BLOCK_STA_DISCON_EVENT & RTW_CFG80211_BLOCK_DISCON_WHEN_CONNECT)
 	rtw_wdev_set_not_indic_disco(pwdev_priv, 1);
+#endif
 
 	RTW_INFO("=>"FUNC_NDEV_FMT" - Start to Connection\n", FUNC_NDEV_ARG(ndev));
 	RTW_INFO("privacy=%d, key=%p, key_len=%d, key_idx=%d, auth_type=%d\n",
 		sme->privacy, sme->key, sme->key_len, sme->key_idx, sme->auth_type);
-
 
 	if (pwdev_priv->block == _TRUE) {
 		ret = -EBUSY;
 		RTW_INFO("%s wdev_priv.block is set\n", __FUNCTION__);
 		goto exit;
 	}
+
+	_enter_critical_bh(&pmlmepriv->lock, &irqL);
+
+	if ((check_fwstate(pmlmepriv, _FW_UNDER_LINKING) == _TRUE)
+	    || pwdev_priv->connect_req) {
+		RTW_WARN(FUNC_NDEV_FMT ": new request when linking!"
+			 "fw_state=0x%x, to_join is %s\n",
+			 FUNC_NDEV_ARG(ndev), get_fwstate(pmlmepriv),
+			 (pmlmepriv->to_join == _TRUE)?"true":"false");
+		if (!pwdev_priv->connect_req) {
+			RTW_ERR(FUNC_NDEV_FMT ": no connect_req when under linking?!\n",
+				FUNC_NDEV_ARG(ndev));
+		} else if (compare_connect_params(padapter, pwdev_priv->connect_req, sme) == _TRUE) {
+			RTW_WARN(FUNC_NDEV_FMT ": skip the same request!\n",
+				FUNC_NDEV_ARG(ndev));
+
+			_exit_critical_bh(&pmlmepriv->lock, &irqL);
+
+			goto exit;
+		}
+
+		_exit_critical_bh(&pmlmepriv->lock, &irqL);
+	} else if (check_fwstate(pmlmepriv, _FW_LINKED) == _TRUE) {
+		RTW_WARN(FUNC_NDEV_FMT ": run disconnect first! fw_state=0x%x\n",
+			FUNC_NDEV_ARG(ndev), get_fwstate(pmlmepriv));
+
+		_exit_critical_bh(&pmlmepriv->lock, &irqL);
+
+		_rtw_disconnect(wiphy, ndev);
+	} else {
+		RTW_INFO(FUNC_NDEV_FMT": fw_state=0x%x\n",
+			 FUNC_NDEV_ARG(ndev), get_fwstate(pmlmepriv));
+
+		_exit_critical_bh(&pmlmepriv->lock, &irqL);
+	}
+
+	/* make sure everyone already call _exit_critical_bh() before here */
 
 #ifdef CONFIG_PLATFORM_MSTAR_SCAN_BEFORE_CONNECT
 	printk("MStar Android!\n");
@@ -3607,7 +3791,9 @@ cancel_ps_deny:
 exit:
 	RTW_INFO("<=%s, ret %d\n", __FUNCTION__, ret);
 
+#if (RTW_CFG80211_BLOCK_STA_DISCON_EVENT & RTW_CFG80211_BLOCK_DISCON_WHEN_CONNECT)
 	rtw_wdev_set_not_indic_disco(pwdev_priv, 0);
+#endif
 
 	return ret;
 }
@@ -3616,35 +3802,21 @@ static int cfg80211_rtw_disconnect(struct wiphy *wiphy, struct net_device *ndev,
 				   u16 reason_code)
 {
 	_adapter *padapter = (_adapter *)rtw_netdev_priv(ndev);
-	struct rtw_wdev_priv *pwdev_priv = adapter_wdev_data(padapter);
 
 	RTW_INFO(FUNC_NDEV_FMT" - Start to Disconnect\n", FUNC_NDEV_ARG(ndev));
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 11, 0))
+#if (RTW_CFG80211_BLOCK_STA_DISCON_EVENT & RTW_CFG80211_BLOCK_DISCON_WHEN_DISCONNECT)
+	#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 11, 0))
 	if (!wiphy->dev.power.is_prepared)
+	#endif
+		rtw_wdev_set_not_indic_disco(adapter_wdev_data(padapter), 1);
 #endif
-		rtw_wdev_set_not_indic_disco(pwdev_priv, 1);
 
-	rtw_set_to_roam(padapter, 0);
+	_rtw_disconnect(wiphy, ndev);
 
-	/* if(check_fwstate(&padapter->mlmepriv, _FW_LINKED)) */
-	{
-		rtw_scan_abort(padapter);
-		rtw_join_abort_timeout(padapter, 300);
-		LeaveAllPowerSaveMode(padapter);
-		rtw_disassoc_cmd(padapter, 500, RTW_CMDF_WAIT_ACK);
-#ifdef CONFIG_RTW_REPEATER_SON
-		rtw_rson_do_disconnect(padapter);
+#if (RTW_CFG80211_BLOCK_STA_DISCON_EVENT & RTW_CFG80211_BLOCK_DISCON_WHEN_DISCONNECT)
+	rtw_wdev_set_not_indic_disco(adapter_wdev_data(padapter), 0);
 #endif
-		RTW_INFO("%s...call rtw_indicate_disconnect\n", __func__);
-
-		rtw_free_assoc_resources(padapter, 1);
-		rtw_indicate_disconnect(padapter, 0, wiphy->dev.power.is_prepared ? _FALSE : _TRUE);
-
-		rtw_pwr_wakeup(padapter);
-	}
-
-	rtw_wdev_set_not_indic_disco(pwdev_priv, 0);
 
 	RTW_INFO(FUNC_NDEV_FMT" return 0\n", FUNC_NDEV_ARG(ndev));
 	return 0;

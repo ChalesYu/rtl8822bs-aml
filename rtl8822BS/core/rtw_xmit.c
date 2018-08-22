@@ -1443,6 +1443,13 @@ static s32 update_attrib(_adapter *padapter, _pkt *pkt, struct pkt_attrib *pattr
 	if ((pattrib->ether_type == 0x888e) || (pattrib->dhcp_pkt == 1))
 		rtw_mi_set_scan_deny(padapter, 3000);
 
+	if (check_fwstate(pmlmepriv, WIFI_STATION_STATE) &&
+	pattrib->ether_type == ETH_P_ARP &&
+	!IS_MCAST(pattrib->dst)) {
+		rtw_mi_set_scan_deny(padapter, 3000);
+		rtw_mi_scan_abort(padapter, _FALSE); /*rtw_scan_abort_no_wait*/
+	}
+
 #ifdef CONFIG_LPS
 	/* If EAPOL , ARP , OR DHCP packet, driver must be in active mode. */
 #ifdef CONFIG_WAPI_SUPPORT
