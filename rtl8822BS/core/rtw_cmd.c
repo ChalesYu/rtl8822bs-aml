@@ -2023,43 +2023,67 @@ exit:
 
 }
 
-u8 rtw_free_assoc_resources_cmd(_adapter *padapter)
+u8 rtw_free_assoc_resources_cmd_and_wait(_adapter *padapter, u32 timeout, int flags)
 {
-	struct cmd_obj		*ph2c;
-	struct drvextra_cmd_parm  *pdrvextra_cmd_parm;
-	struct cmd_priv	*pcmdpriv = &padapter->cmdpriv;
-	u8	res = _SUCCESS;
+	struct cmd_obj *cmdobj = NULL;
+	struct drvextra_cmd_parm *param = NULL;
+	struct cmd_priv *cmdpriv = &padapter->cmdpriv;
+	struct submit_ctx sctx;
+	u8 res = _SUCCESS;
 
 
-	ph2c = (struct cmd_obj *)rtw_zmalloc(sizeof(struct cmd_obj));
-	if (ph2c == NULL) {
+	/* prepare cmd parameter */
+	param = (struct drvextra_cmd_parm *)rtw_zmalloc(sizeof(*param));
+	if (param == NULL) {
 		res = _FAIL;
 		goto exit;
 	}
+	param->ec_id = FREE_ASSOC_RESOURCES;
+	param->type = 0;
+	param->size = 0;
+	param->pbuf = NULL;
 
-	pdrvextra_cmd_parm = (struct drvextra_cmd_parm *)rtw_zmalloc(sizeof(struct drvextra_cmd_parm));
-	if (pdrvextra_cmd_parm == NULL) {
-		rtw_mfree((unsigned char *)ph2c, sizeof(struct cmd_obj));
-		res = _FAIL;
+	if (flags & RTW_CMDF_DIRECTLY) {
+		_irqL irqL;
+
+		_enter_critical_bh(&padapter->mlmepriv.lock, &irqL);
+		rtw_free_assoc_resources(padapter, 1);
+		_exit_critical_bh(&padapter->mlmepriv.lock, &irqL);
+
+		rtw_mfree((u8 *)param, sizeof(*param));
 		goto exit;
 	}
 
-	pdrvextra_cmd_parm->ec_id = FREE_ASSOC_RESOURCES;
-	pdrvextra_cmd_parm->type = 0;
-	pdrvextra_cmd_parm->size = 0;
-	pdrvextra_cmd_parm->pbuf = NULL;
+	/* en-queue */
+	cmdobj = (struct cmd_obj *)rtw_zmalloc(sizeof(*cmdobj));
+	if (cmdobj == NULL) {
+		res = _FAIL;
+		rtw_mfree((u8 *)param, sizeof(*param));
+		goto exit;
+	}
+	init_h2fwcmd_w_parm_no_rsp(cmdobj, param, GEN_CMD_CODE(_Set_Drv_Extra));
 
-	init_h2fwcmd_w_parm_no_rsp(ph2c, pdrvextra_cmd_parm, GEN_CMD_CODE(_Set_Drv_Extra));
-
-
-	/* rtw_enqueue_cmd(pcmdpriv, ph2c);	 */
-	res = rtw_enqueue_cmd(pcmdpriv, ph2c);
+	if (flags & RTW_CMDF_WAIT_ACK) {
+		cmdobj->sctx = &sctx;
+		rtw_sctx_init(&sctx, timeout);
+	}
+	res = rtw_enqueue_cmd(cmdpriv, cmdobj);
+	if (res == _SUCCESS && (flags & RTW_CMDF_WAIT_ACK)) {
+		rtw_sctx_wait(&sctx, __FUNCTION__);
+		_enter_critical_mutex(&cmdpriv->sctx_mutex, NULL);
+		if (sctx.status == RTW_SCTX_SUBMITTED)
+			cmdobj->sctx = NULL;
+		_exit_critical_mutex(&cmdpriv->sctx_mutex, NULL);
+	}
 
 exit:
 
-
 	return res;
+}
 
+u8 rtw_free_assoc_resources_cmd(_adapter *padapter)
+{
+	return rtw_free_assoc_resources_cmd_and_wait(padapter, 0, 0);
 }
 
 u8 rtw_dynamic_chk_wk_cmd(_adapter *padapter)

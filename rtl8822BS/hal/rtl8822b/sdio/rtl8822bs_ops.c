@@ -190,7 +190,6 @@ static void _run_thread(PADAPTER adapter)
 #ifndef CONFIG_SDIO_TX_TASKLET
 	struct xmit_priv *xmitpriv = &adapter->xmitpriv;
 
-	xmitpriv->SdioXmitThread = kthread_run(rtl8822bs_xmit_thread, adapter, "RTWHALXT");
 	if (xmitpriv->SdioXmitThread == NULL) {
 		RTW_INFO(FUNC_ADPT_FMT " start RTWHALXT\n", FUNC_ADPT_ARG(adapter));
 		xmitpriv->SdioXmitThread = kthread_run(rtl8822bs_xmit_thread, adapter, "RTWHALXT");

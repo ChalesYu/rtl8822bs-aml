@@ -3344,6 +3344,13 @@ unsigned int OnDeAuth(_adapter *padapter, union recv_frame *precv_frame)
 		RTW_PRINT(FUNC_ADPT_FMT" reason=%u, ta=%pM, ignore=%d\n"
 			, FUNC_ADPT_ARG(padapter), reason, get_addr2_ptr(pframe), ignore_received_deauth);
 
+		if ((!pmlmeext->last_deauth_time)
+		    && (rtw_get_passing_time_ms(pmlmeext->last_deauth_time) < DEAUTH_DENY_TO)) {
+			RTW_PRINT(FUNC_ADPT_FMT ": ignore deauth triggered by self\n",
+				  FUNC_ADPT_ARG(padapter));
+			ignore_received_deauth = 1;
+		}
+
 		if (0 == ignore_received_deauth)
 			receive_disconnect(padapter, get_addr2_ptr(pframe), reason, _FALSE);
 	}
@@ -9356,10 +9363,6 @@ int issue_nulldata(_adapter *padapter, unsigned char *da, unsigned int power_mod
 
 		if (RTW_CANNOT_RUN(padapter))
 			break;
-
-		if (i < try_cnt && wait_ms > 0 && ret == _FAIL)
-			rtw_msleep_os(wait_ms);
-
 	} while ((i < try_cnt) && ((ret == _FAIL) || (wait_ms == 0)));
 
 	if (ret != _FAIL) {
@@ -9604,6 +9607,7 @@ static int _issue_deauth(_adapter *padapter, unsigned char *da, unsigned short r
 
 	pattrib->last_txcmdsz = pattrib->pktlen;
 
+	pmlmeext->last_deauth_time = rtw_get_current_time();
 
 	if (wait_ack)
 		ret = dump_mgntframe_and_wait_ack(padapter, pmgntframe);
@@ -11564,6 +11568,7 @@ u32 report_join_res(_adapter *padapter, int res)
 	struct mlme_ext_info	*pmlmeinfo = &(pmlmeext->mlmext_info);
 	struct cmd_priv *pcmdpriv = &padapter->cmdpriv;
 	u32 ret = _FAIL;
+	int err = 0;
 
 	pcmd_obj = (struct cmd_obj *)rtw_zmalloc(sizeof(struct cmd_obj));
 	if (pcmd_obj == NULL)
@@ -11597,10 +11602,27 @@ u32 report_join_res(_adapter *padapter, int res)
 	RTW_INFO("report_join_res(%d)\n", res);
 
 
-	rtw_joinbss_event_prehandle(padapter, (u8 *)&pjoinbss_evt->network);
-
+	err = rtw_joinbss_event_prehandle(padapter, (u8 *)&pjoinbss_evt->network);
+	if (err) {
+		RTW_WARN(FUNC_ADPT_FMT": joinbss pre-handle fail!(err=%d) fw_state=0x%x\n",
+			 FUNC_ADPT_ARG(padapter), err, get_fwstate(&padapter->mlmepriv));
+		if (err == -1) {
+			rtw_mfree((u8 *)pevtcmd, sizeof(*pevtcmd));
+			rtw_mfree((u8 *)pcmd_obj, sizeof(struct cmd_obj));
+			goto disconnect;
+		}
+	}
 
 	ret = rtw_enqueue_cmd(pcmdpriv, pcmd_obj);
+	goto exit;
+
+disconnect:
+	/* Follow rtw_indicate_disconnect flow */
+	rtw_reset_securitypriv(padapter);
+	rtw_set_ips_deny(padapter, 3000);
+	_clr_fwstate_(&padapter->mlmepriv, _FW_LINKED);
+	rtw_clear_scan_deny(padapter);
+	ret = rtw_disassoc_cmd(padapter, 0, 0);
 
 exit:
 	return ret;
@@ -12467,6 +12489,10 @@ void linked_status_chk(_adapter *padapter, u8 from_timer)
 		int rx_chk_limit;
 		int link_count_limit;
 
+		/* DO NOT keep alive while scanning */
+		if (check_fwstate(pmlmepriv, _FW_UNDER_SURVEY) == _TRUE)
+			return;
+
 #if defined(CONFIG_RTW_REPEATER_SON)
 	rtw_rson_scan_wk_cmd(padapter, RSON_SCAN_PROCESS);
 #elif defined(CONFIG_LAYER2_ROAMING)
@@ -12551,6 +12577,7 @@ void linked_status_chk(_adapter *padapter, u8 from_timer)
 
 			if (sta_last_tx_pkts(psta) == sta_tx_pkts(psta))
 				tx_chk = _FAIL;
+
 #ifdef CONFIG_ACTIVE_KEEP_ALIVE_CHECK
 			if (!from_timer && pmlmeext->active_keep_alive_check && (rx_chk == _FAIL || tx_chk == _FAIL)
 				#ifdef CONFIG_MCC_MODE
@@ -12578,7 +12605,10 @@ void linked_status_chk(_adapter *padapter, u8 from_timer)
 					issue_probereq_ex(padapter, &pmlmeinfo->network.Ssid, psta->cmn.mac_addr, 0, 0, 3, 1);
 
 				if ((tx_chk != _SUCCESS && pmlmeinfo->link_count++ == link_count_limit) || rx_chk != _SUCCESS) {
-					tx_chk = issue_nulldata(padapter, psta->cmn.mac_addr, 0, 3, 1);
+					if (rtw_mi_check_fwstate(padapter, _FW_UNDER_SURVEY))
+						tx_chk = issue_nulldata(padapter, psta->cmn.mac_addr, 1, 3, 1);
+					else
+						tx_chk = issue_nulldata(padapter, psta->cmn.mac_addr, 0, 3, 1);
 					/* if tx acked and p2p disabled, set rx_chk _SUCCESS to reset retry count */
 					if (tx_chk == _SUCCESS && !is_p2p_enable)
 						rx_chk = _SUCCESS;
@@ -12616,9 +12646,12 @@ bypass_active_keep_alive:
 					if (from_timer) {
 						tx_chk = issue_nulldata_in_interrupt(padapter, NULL, _TRUE);
 					} else {
+						unsigned int ps_mode = _FALSE;
+						if (rtw_mi_check_fwstate(padapter, _FW_UNDER_SURVEY))
+							ps_mode = _TRUE;
 						tx_chk = _issue_nulldata(padapter,
 									get_my_bssid(&(pmlmeinfo->network)),
-									_FALSE,
+									ps_mode,
 									_TRUE);
 					}
 				}
