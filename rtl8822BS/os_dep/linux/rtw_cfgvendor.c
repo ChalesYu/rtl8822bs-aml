@@ -1242,18 +1242,12 @@ static int rtw_cfgvendor_lstats_get_info(struct wiphy *wiphy,
 	radio->on_time = pwrpriv->on_time;
 	radio->tx_time = pwrpriv->tx_time;
 	radio->rx_time = pwrpriv->rx_time;
-	
-	radio->num_tx_levels = 1;
-	radio->tx_time_per_levels = NULL;
-	radio->tx_time_per_levels = (u32*)(output+sizeof(wifi_radio_stat) + sizeof(wifi_iface_stat));
-	*(radio->tx_time_per_levels) = DUMMY_TIME_STATICS;
-
 	radio->on_time_scan = 0;
 	radio->on_time_nbd = 0;
 	radio->on_time_gscan = 0;
 	radio->on_time_pno_scan = 0;
 	radio->on_time_hs20 = 0;
-	#ifdef CONFIG_RTW_WIFI_HAL_DEBUG
+#ifdef CONFIG_RTW_WIFI_HAL_DEBUG
 	RTW_INFO("==== %s ====\n", __func__);
 	RTW_INFO("radio->radio : %d\n", (radio->radio));
 	RTW_INFO("pwrpriv->on_time : %u ms\n", (pwrpriv->on_time));
@@ -1262,8 +1256,7 @@ static int rtw_cfgvendor_lstats_get_info(struct wiphy *wiphy,
 	RTW_INFO("radio->on_time :  %u ms\n", (radio->on_time));
 	RTW_INFO("radio->tx_time :  %u ms\n", (radio->tx_time));
 	RTW_INFO("radio->rx_time :  %u ms\n", (radio->rx_time));
-	RTW_INFO("radio->tx_time_per_levels value :  %u ms\n", *(radio->tx_time_per_levels));
-	#endif /* CONFIG_RTW_WIFI_HAL_DEBUG */
+#endif /* CONFIG_RTW_WIFI_HAL_DEBUG */
 	
 	RTW_DBG(FUNC_NDEV_FMT" %s\n", FUNC_NDEV_ARG(wdev_to_ndev(wdev)), (char*)data);
 	err =  rtw_cfgvendor_send_cmd_reply(wiphy, wdev_to_ndev(wdev), 
