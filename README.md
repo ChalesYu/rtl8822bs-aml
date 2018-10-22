@@ -16,6 +16,6 @@ sudo make install
 sudo modprobe 8822bs
 ```
 
-need AP mode ?   see [here](https://github.com/ChalesYu/rtl8822bs-aml/)
+need AP mode ?   see [here](https://github.com/ChalesYu/rtl8822bs-aml/tree/master/getAP)
 
-need bluetooth ? see [here](https://github.com/ChalesYu/rtl8822bs-aml/)
+need bluetooth ? see [here](https://github.com/ChalesYu/rtl8822bs-aml/tree/master/bluetooth)
