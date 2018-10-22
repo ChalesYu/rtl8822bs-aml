@@ -8,6 +8,7 @@ install linux-header deb
 make sure kernel config file include `CONFIG_BT_HCIUART_3WIRE=y`
 
 ```
+cd bluetooth
 make
 sudo make install
 sudo ./start_bt.sh
