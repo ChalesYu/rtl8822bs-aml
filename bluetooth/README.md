@@ -1,11 +1,24 @@
 Forked from github.com/Staars/RTL8822BS_BT
 
+# Note
+
+You should check if your kernel support 3-wire-protocol
+
+```
+sudo modprobe hci_uart
+dmesg |grep Three-wire
+```
+
+it should have output like this:
+```
+Bluetooth: HCI UART protocol Three-wire (H5) registered
+```
+
+If no output : Unfortunately , you can't use this bluetooth
+
 # How to use
 
-
 install linux-header deb
-
-make sure kernel config file include `CONFIG_BT_HCIUART_3WIRE=y`
 
 ```
 cd bluetooth
