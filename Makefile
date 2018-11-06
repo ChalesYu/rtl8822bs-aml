@@ -143,6 +143,7 @@ CONFIG_PLATFORM_ARM_RTD299X = n
 CONFIG_PLATFORM_ARM_SPREADTRUM_6820 = n
 CONFIG_PLATFORM_ARM_SPREADTRUM_8810 = n
 CONFIG_PLATFORM_AML_S905 = n
+CONFIG_PLATFORM_AML_S905_LINUX = n
 CONFIG_PLATFORM_ARM_WMT = n
 CONFIG_PLATFORM_TI_DM365 = n
 CONFIG_PLATFORM_MOZART = n
@@ -1717,7 +1718,8 @@ endif
 ifeq ($(CONFIG_PLATFORM_AML_S905), y)
 EXTRA_CFLAGS += -DCONFIG_PLATFORM_AML_S905
 EXTRA_CFLAGS += -DCONFIG_LITTLE_ENDIAN -fno-pic
-EXTRA_CFLAGS += -DCONFIG_IOCTL_CFG80211 -DCONFIG_CONCURRENT_MODE
+EXTRA_CFLAGS += -DCONFIG_IOCTL_CFG80211
+#EXTRA_CFLAGS += -DCONFIG_CONCURRENT_MODE
 EXTRA_CFLAGS += -DCONFIG_P2P_IPS -DRTW_USE_CFG80211_STA_EVENT
 
 # Enable this for Android 5.0 and later
@@ -1733,12 +1735,16 @@ EXTRA_CFLAGS += -DCONFIG_RADIO_WORK
 #_PLATFORM_FILES += platform/platform_aml_s905_sdio.o
 #endif
 
-ARCH ?= arm64
-CROSS_COMPILE ?= /4.4_S905L_8822bs_compile/gcc-linaro-aarch64-linux-gnu-4.9-2014.09_linux/bin/aarch64-linux-gnu-
-ifndef KSRC
-KSRC := /4.4_S905L_8822bs_compile/common
-# To locate output files in a separate directory.
-KSRC += O=/4.4_S905L_8822bs_compile/KERNEL_OBJ
+ifeq ($(CONFIG_PLATFORM_AML_S905_LINUX), y)
+SUBARCH := $(shell uname -m)
+ARCH ?= $(SUBARCH)
+KVER  := $(shell uname -r)
+KSRC := /lib/modules/$(KVER)/build
+MODDESTDIR := /lib/modules/$(KVER)/kernel/drivers/net/wireless/
+else
+ARCH := arm64
+CROSS_COMPILE := aarch64-linux-gnu-
+KSRC := ~/Amlogic_s905-kernel
 endif
 
 ifeq ($(CONFIG_RTL8822B), y)

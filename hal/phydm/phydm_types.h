@@ -131,7 +131,11 @@ enum rt_spinlock_type {
 	#define	u64		u8Byte
 	#define	s64		s8Byte
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 15, 0))
+	#define	timer_list	legacy_timer_emu
+#else
 	#define	timer_list	_RT_TIMER
+#endif
 	
 
 #elif (DM_ODM_SUPPORT_TYPE == ODM_AP)
