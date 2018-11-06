@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,12 +11,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 
 #ifndef	__PHYDMCFOTRACK_H__
 #define    __PHYDMCFOTRACK_H__
@@ -27,10 +22,10 @@
 #define		CFO_TH_XTAL_LOW			10			/* kHz */
 #define		CFO_TH_ATC					80			/* kHz */
 
-struct _CFO_TRACKING_ {
-	bool			is_atc_status;
-	bool			large_cfo_hit;
-	bool			is_adjust;
+struct phydm_cfo_track_struct {
+	boolean			is_atc_status;
+	boolean			large_cfo_hit;
+	boolean			is_adjust;
 	u8			crystal_cap;
 	u8			def_x_cap;
 	s32			CFO_tail[4];
@@ -39,9 +34,15 @@ struct _CFO_TRACKING_ {
 	u32			packet_count;
 	u32			packet_count_pre;
 
-	bool			is_force_xtal_cap;
-	bool			is_reset;
+	boolean			is_force_xtal_cap;
+	boolean			is_reset;
 };
+
+void
+phydm_set_crystal_cap(
+	void					*p_dm_void,
+	u8					crystal_cap
+);
 
 void
 odm_cfo_tracking_reset(
@@ -49,7 +50,7 @@ odm_cfo_tracking_reset(
 );
 
 void
-odm_cfo_tracking_init(
+phydm_cfo_tracking_init(
 	void					*p_dm_void
 );
 

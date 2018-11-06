@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2015 - 2016 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2015 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,12 +11,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 #ifndef _RTL8822BS_H_
 #define _RTL8822BS_H_
 
@@ -33,10 +28,6 @@ int rtl8822bs_halmac_init_adapter(PADAPTER);
 /* rtl8822bs_io.c */
 u32 rtl8822bs_read_port(struct dvobj_priv *, u32 cnt, u8 *mem);
 u32 rtl8822bs_write_port(struct dvobj_priv *, u32 cnt, u8 *mem);
-
-#ifdef CONFIG_PLATFORM_ZTE_ZX296716
-extern void dw_mci_clear_sdio_irq_status(void);
-#endif /* CONFIG_PLATFORM_ZTE_ZX296716 */
 
 /* rtl8822bs_led.c */
 void rtl8822bs_initswleds(PADAPTER);
@@ -60,8 +51,7 @@ s32 rtl8822bs_recv_hdl(_adapter *adapter);
 void rtl8822bs_rxhandler(PADAPTER, struct recv_buf *);
 
 /* rtl8822bs_ops.c */
-void rtl8822bs_get_interrupt(PADAPTER adapter, u32 *hisr, u32 *rx_len);
+void rtl8822bs_get_interrupt(PADAPTER, u32 *hisr, u16 *rx_len);
 void rtl8822bs_clear_interrupt(PADAPTER, u32 hisr);
-void rtl8822bs_init_interrupt(PADAPTER);
 
 #endif /* _RTL8822BS_H_ */

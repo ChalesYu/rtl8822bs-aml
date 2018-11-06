@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2012 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,21 +11,14 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 #ifndef _WIFI_H_
 #define _WIFI_H_
 
 
-#ifdef BIT
-/* #error	"BIT define occurred earlier elsewhere!\n" */
-#undef BIT
-#endif
+#ifndef BIT
 #define BIT(x)	(1 << (x))
+#endif
 
 
 #define WLAN_ETHHDR_LEN		14
@@ -97,6 +90,7 @@ enum WIFI_FRAME_SUBTYPE {
 	/* below is for control frame */
 	WIFI_BF_REPORT_POLL = (BIT(6) | WIFI_CTRL_TYPE),
 	WIFI_NDPA         = (BIT(6) | BIT(4) | WIFI_CTRL_TYPE),
+	WIFI_BAR            = (BIT(7) | WIFI_CTRL_TYPE),
 	WIFI_PSPOLL         = (BIT(7) | BIT(5) | WIFI_CTRL_TYPE),
 	WIFI_RTS            = (BIT(7) | BIT(5) | BIT(4) | WIFI_CTRL_TYPE),
 	WIFI_CTS            = (BIT(7) | BIT(6) | WIFI_CTRL_TYPE),
@@ -472,6 +466,7 @@ __inline static unsigned char *get_ta(unsigned char *pframe)
 	return ta;
 }
 
+/* can't apply to mesh mode */
 __inline static unsigned char *get_da(unsigned char *pframe)
 {
 	unsigned char	*da;
@@ -495,7 +490,7 @@ __inline static unsigned char *get_da(unsigned char *pframe)
 	return da;
 }
 
-
+/* can't apply to mesh mode */
 __inline static unsigned char *get_sa(unsigned char *pframe)
 {
 	unsigned char	*sa;
@@ -519,6 +514,7 @@ __inline static unsigned char *get_sa(unsigned char *pframe)
 	return sa;
 }
 
+/* can't apply to mesh mode */
 __inline static unsigned char *get_hdr_bssid(unsigned char *pframe)
 {
 	unsigned char	*sa = NULL;
@@ -550,6 +546,22 @@ __inline static int IsFrameTypeCtrl(unsigned char *pframe)
 	else
 		return _FALSE;
 }
+static inline int IsFrameTypeMgnt(unsigned char *pframe)
+{
+	if (GetFrameType(pframe) == WIFI_MGT_TYPE)
+		return _TRUE;
+	else
+		return _FALSE;
+}
+static inline int IsFrameTypeData(unsigned char *pframe)
+{
+	if (GetFrameType(pframe) == WIFI_DATA_TYPE)
+		return _TRUE;
+	else
+		return _FALSE;
+}
+
+
 /*-----------------------------------------------------------------------------
 			Below is for the security related definition
 ------------------------------------------------------------------------------*/
@@ -817,6 +829,7 @@ struct rtw_ieee80211_ht_cap {
  * This structure refers to "HT information element" as
  * described in 802.11n draft section 7.3.2.53
  */
+#ifndef CONFIG_IEEE80211_HT_ADDT_INFO
 struct ieee80211_ht_addt_info {
 	unsigned char	control_chan;
 	unsigned char		ht_param;
@@ -824,7 +837,7 @@ struct ieee80211_ht_addt_info {
 	unsigned short	stbc_param;
 	unsigned char		basic_set[16];
 } __attribute__((packed));
-
+#endif
 
 struct HT_caps_element {
 	union {
@@ -943,6 +956,13 @@ typedef enum _HT_CAP_AMPDU_FACTOR {
 	MAX_AMPDU_FACTOR_64K	= 3,
 } HT_CAP_AMPDU_FACTOR;
 
+typedef enum _VHT_CAP_AMPDU_FACTOR {
+	MAX_AMPDU_FACTOR_128K = 4,
+	MAX_AMPDU_FACTOR_256K = 5,
+	MAX_AMPDU_FACTOR_512K = 6,
+	MAX_AMPDU_FACTOR_1M = 7,
+} VHT_CAP_AMPDU_FACTOR;
+
 
 typedef enum _HT_CAP_AMPDU_DENSITY {
 	AMPDU_DENSITY_VALUE_0 = 0 , /* For no restriction */
@@ -1009,9 +1029,7 @@ typedef enum _HT_CAP_AMPDU_DENSITY {
  * According to IEEE802.11n spec size varies from 8K to 64K (in powers of 2)
  */
 #define IEEE80211_MIN_AMPDU_BUF 0x8
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,19,0))
 #define IEEE80211_MAX_AMPDU_BUF 0x40
-#endif
 
 
 /* Spatial Multiplexing Power Save Modes */
@@ -1155,7 +1173,7 @@ typedef enum _HT_CAP_AMPDU_DENSITY {
 #define	P2P_ATTR_LISTEN_CH				0x06
 #define	P2P_ATTR_GROUP_BSSID				0x07
 #define	P2P_ATTR_EX_LISTEN_TIMING		0x08
-#define	P2P_ATTR_INTENTED_IF_ADDR		0x09
+#define	P2P_ATTR_INTENDED_IF_ADDR		0x09
 #define	P2P_ATTR_MANAGEABILITY			0x0A
 #define	P2P_ATTR_CH_LIST					0x0B
 #define	P2P_ATTR_NOA						0x0C
@@ -1316,6 +1334,7 @@ enum P2P_PROTO_WK_ID {
 	P2P_PRE_TX_INVITEREQ_PROCESS_WK = 4,
 	P2P_AP_P2P_CH_SWITCH_PROCESS_WK = 5,
 	P2P_RO_CH_WK = 6,
+	P2P_CANCEL_RO_CH_WK = 7,
 };
 
 #ifdef CONFIG_P2P_PS

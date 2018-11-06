@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2015 - 2016 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2015 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,11 +11,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- ******************************************************************************/
+ *****************************************************************************/
 #define _RTL8822BS_IO_C_
 
 #include <drv_types.h>		/* PADAPTER and etc. */
@@ -50,14 +46,15 @@ static size_t sdio_cmd53_align_size(size_t len)
 static u8 sdio_f0_read8(struct intf_hdl *pintfhdl, u32 addr)
 {
 	struct dvobj_priv *d;
-	u8 val;
+	u8 val = 0;
 	u8 ret;
 
 
 	d = pintfhdl->pintf_dev;
 	ret = rtw_sdio_f0_read(d, addr, &val, 1);
 	if (_FAIL == ret)
-		RTW_INFO("%s: [ERROR] Read f0 register FAIL!\n", __FUNCTION__);
+		RTW_ERR("%s: Read f0 register(0x%x) FAIL!\n",
+			__FUNCTION__, addr);
 
 	return val;
 }
@@ -362,6 +359,7 @@ void sd_int_dpc(PADAPTER adapter)
 #ifdef CONFIG_SDIO_TX_ENABLE_AVAL_INT
 	if (phal->sdio_hisr & BIT_SDIO_AVAL_8822B)
 		_rtw_up_sema(&adapter->xmitpriv.xmit_sema);
+
 #endif /* CONFIG_SDIO_TX_ENABLE_AVAL_INT */
 
 	if (phal->sdio_hisr & BIT_SDIO_CPWM1_8822B) {
@@ -404,7 +402,7 @@ void sd_int_dpc(PADAPTER adapter)
 	if (phal->sdio_hisr & BIT_RX_REQUEST_8822B) {
 		struct recv_buf *precvbuf;
 		int rx_fail_time = 0;
-		u32 rx_len;
+		u16 rx_len;
 
 
 		/* No need to write 1 clear for RX_REQUEST */
@@ -436,11 +434,8 @@ void sd_int_dpc(PADAPTER adapter)
 					break;
 #endif /* !CONFIG_RECV_THREAD_MODE */
 			}
+
 			rx_len = 0;
-#ifdef CONFIG_PLATFORM_ZTE_ZX296716
-			/* clear Host cached interrupt */
-			dw_mci_clear_sdio_irq_status();
-#endif /* CONFIG_PLATFORM_ZTE_ZX296716 */
 			rtl8822bs_get_interrupt(adapter, NULL, &rx_len);
 		} while (1);
 
@@ -459,24 +454,23 @@ void sd_int_hdl(PADAPTER adapter)
 
 	phal = GET_HAL_DATA(adapter);
 
-#ifdef CONFIG_RTW_SDIO_OOB_INT
-	rtw_hal_disable_interrupt(adapter);/* disable interrupt -> clear HIMR */
-#endif
+	if (!phal->sdio_himr) {
+		RTW_WARN("%s: unexpected interrupt!\n", __FUNCTION__);
+		return;
+	}
 
 	rtl8822bs_get_interrupt(adapter, &phal->sdio_hisr, &phal->SdioRxFIFOSize);
 	if (phal->sdio_hisr & phal->sdio_himr) {
 		phal->sdio_hisr &= phal->sdio_himr;
 		sd_int_dpc(adapter);
 		rtl8822bs_clear_interrupt(adapter, phal->sdio_hisr);
-	} else {
+	}
+#if 0
+	else {
 		RTW_INFO("%s: HISR(0x%08x) and HIMR(0x%08x) no match!\n",
 			 __FUNCTION__, phal->sdio_hisr, phal->sdio_himr);
 	}
-
-#ifdef CONFIG_RTW_SDIO_OOB_INT
-	rtw_hal_enable_interrupt(adapter);/* enable interrupt -> set HIMR */
 #endif
-
 }
 
 #if defined(CONFIG_WOWLAN) || defined(CONFIG_AP_WOWLAN)

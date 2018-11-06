@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2015 - 2016 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2015 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,19 +11,14 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- ******************************************************************************/
+ *****************************************************************************/
 #define _RTL8822BS_OPS_C_
 
 #include <drv_types.h>		/* PADAPTER, basic_types.h and etc. */
 #include <hal_data.h>		/* HAL_DATA_TYPE, GET_HAL_DATA() and etc. */
 #include <hal_intf.h>		/* struct hal_ops */
-#include "../rtl8822b.h"
+#include "../rtl8822b.h"	/* rtl8822b_sethwreg() and etc. */
 #include "rtl8822bs.h"		/* rtl8822bs_hal_init() */
-
 
 static void intf_chip_configure(PADAPTER adapter)
 {
@@ -38,12 +33,15 @@ static void intf_chip_configure(PADAPTER adapter)
  *	2. Read registers to initialize
  *	3. Other vaiables initialization
  */
-static void read_adapter_info(PADAPTER adapter)
+static u8 read_adapter_info(PADAPTER adapter)
 {
+	u8 ret = _FAIL;
+
 	/*
 	 * 1. Read Efuse/EEPROM to initialize
 	 */
-	rtl8822b_read_efuse(adapter);
+	if (rtl8822b_read_efuse(adapter) != _SUCCESS)
+		goto exit;
 
 	/*
 	 * 2. Read registers to initialize
@@ -52,34 +50,24 @@ static void read_adapter_info(PADAPTER adapter)
 	/*
 	 * 3. Other Initialization
 	 */
+
+	ret = _SUCCESS;
+
+exit:
+	return ret;
 }
 
-void rtl8822bs_get_interrupt(PADAPTER adapter, u32 *hisr, u32 *rx_len)
+void rtl8822bs_get_interrupt(PADAPTER adapter, u32 *hisr, u16 *rx_len)
 {
-	u8 data[8] = {0};
-	u32 addr, sz;
-	u8 *buf;
+	u8 data[6] = {0};
 
 
-	if (hisr) {
-		addr = REG_SDIO_HISR_8822B;
-		sz = 4;
-		buf = data;
-		if (rx_len)
-			sz += 4;
-	} else {
-		addr = REG_SDIO_RX_REQ_LEN_8822B;
-		sz = 4;
-		buf = &data[4];
-	}
-
-	rtw_read_mem(adapter, addr, sz, buf);
+	rtw_read_mem(adapter, REG_SDIO_HISR_8822B, 6, data);
 
 	if (hisr)
 		*hisr = le32_to_cpu(*(u32 *)data);
-	/* REG_SDIO_RX_REQ_LEN_8822B[17:0] */
 	if (rx_len)
-		*rx_len = le32_to_cpu(*(u32 *)&data[4]) & 0x3FFFF;
+		*rx_len = le16_to_cpu(*(u16 *)&data[4]);
 }
 
 void rtl8822bs_clear_interrupt(PADAPTER adapter, u32 hisr)
@@ -98,12 +86,10 @@ static void update_himr(PADAPTER adapter, u32 himr)
  * Description:
  *	Initialize SDIO Host Interrupt Mask configuration variables for future use.
  *
- * Assumption:
- *	Using SDIO Local register ONLY for configuration.
  */
-void rtl8822bs_init_interrupt(PADAPTER adapter)
+static void init_interrupt(PADAPTER adapter)
 {
-	PHAL_DATA_TYPE hal;
+	struct hal_com_data *hal;
 
 
 	hal = GET_HAL_DATA(adapter);
@@ -140,8 +126,6 @@ void rtl8822bs_init_interrupt(PADAPTER adapter)
 				 BIT_SDIO_CRCERR_MSK_8822B	|
 #endif
 				 0);
-
-	update_himr(adapter, hal->sdio_himr);
 }
 
 /*
@@ -207,8 +191,10 @@ static void _run_thread(PADAPTER adapter)
 	struct xmit_priv *xmitpriv = &adapter->xmitpriv;
 
 	xmitpriv->SdioXmitThread = kthread_run(rtl8822bs_xmit_thread, adapter, "RTWHALXT");
-	if (IS_ERR(xmitpriv->SdioXmitThread))
-		RTW_INFO("%s: start rtl8822bs_xmit_thread FAIL!!\n", __FUNCTION__);
+	if (IS_ERR(xmitpriv->SdioXmitThread)) {
+		RTW_ERR("%s: start rtl8822bs_xmit_thread FAIL!!\n", __FUNCTION__);
+		xmitpriv->SdioXmitThread = NULL;
+	}
 #endif /* !CONFIG_SDIO_TX_TASKLET */
 }
 
@@ -226,8 +212,8 @@ static void _cancel_thread(PADAPTER adapter)
 	/* stop xmit_buf_thread */
 	if (xmitpriv->SdioXmitThread) {
 		_rtw_up_sema(&xmitpriv->SdioXmitSema);
-		_rtw_down_sema(&xmitpriv->SdioXmitTerminateSema);
-		xmitpriv->SdioXmitThread = 0;
+		rtw_thread_stop(xmitpriv->SdioXmitThread);
+		xmitpriv->SdioXmitThread = NULL;
 	}
 #endif /* !CONFIG_SDIO_TX_TASKLET */
 }
@@ -242,9 +228,10 @@ static void cancel_thread(PADAPTER adapter)
  * If variable not handled here,
  * some variables will be processed in rtl8822b_sethwreg()
  */
-static void sethwreg(PADAPTER adapter, u8 variable, u8 *val)
+static u8 sethwreg(PADAPTER adapter, u8 variable, u8 *val)
 {
 	PHAL_DATA_TYPE hal;
+	u8 ret = _SUCCESS;
 	u8 val8;
 
 
@@ -264,14 +251,14 @@ static void sethwreg(PADAPTER adapter, u8 variable, u8 *val)
 		 * and keep the value to be 0
 		 */
 		if (val8 && (val8 < PS_STATE_S2))
-			val8 = BIT_SYS_CLK_8822B;
+			val8 = BIT_REQ_PS_8822B;
 		else
 			val8 = 0;
 
 		if (*val & PS_ACK)
-			val8 |= BIT(6);
+			val8 |= BIT_ACK_8822B;
 		if (*val & PS_TOGGLE)
-			val8 |= BIT_TOGGLING_8822B;
+			val8 |= BIT_TOGGLE_8822B;
 
 		rtw_write8(adapter, REG_SDIO_HRPWM1_8822B, val8);
 		break;
@@ -291,9 +278,11 @@ static void sethwreg(PADAPTER adapter, u8 variable, u8 *val)
 	break;
 
 	default:
-		rtl8822b_sethwreg(adapter, variable, val);
+		ret = rtl8822b_sethwreg(adapter, variable, val);
 		break;
 	}
+
+	return ret;
 }
 
 /*
@@ -312,19 +301,19 @@ static void gethwreg(PADAPTER adapter, u8 variable, u8 *val)
 	case HW_VAR_CPWM:
 		val8 = rtw_read8(adapter, REG_SDIO_HCPWM1_V2_8822B);
 
-		if (val8 & BIT_SYS_CLK_8822B)
+		if (val8 & BIT_CUR_PS_8822B)
 			*val = PS_STATE_S0;
 		else
 			*val = PS_STATE_S4;
 
-		if (val8 & BIT_TOGGLING_8822B)
+		if (val8 & BIT_TOGGLE_8822B)
 			*val |= PS_TOGGLE;
 		break;
 
 #if defined(CONFIG_WOWLAN) || defined(CONFIG_AP_WOWLAN)
 	case HW_VAR_RPWM_TOG:
 		*val = rtw_read8(adapter, REG_SDIO_HRPWM1_8822B);
-		*val &= BIT_TOGGLING_8822B;
+		*val &= BIT_TOGGLE_8822B;
 		break;
 #endif
 
@@ -353,17 +342,12 @@ static u8 gethaldefvar(PADAPTER adapter, HAL_DEF_VARIABLE eVariable, void *pval)
 
 	switch (eVariable) {
 	case HW_VAR_MAX_RX_AMPDU_FACTOR:
-#ifdef RTW_DYNAMIC_AMPDU_SIZE
-		/* Default use MAX size */
-		*(HT_CAP_AMPDU_FACTOR *)pval = MAX_AMPDU_FACTOR_64K;
-#else /* !RTW_DYNAMIC_AMPDU_SIZE */
-#ifdef CONFIG_SUPPORT_TRX_SHARED
-		*(HT_CAP_AMPDU_FACTOR *)pval = MAX_AMPDU_FACTOR_32K;
-#else /* !CONFIG_SUPPORT_TRX_SHARED */
-		/* 8822B RX FIFO is 24KB */
-		*(HT_CAP_AMPDU_FACTOR *)pval = MAX_AMPDU_FACTOR_16K;
-#endif /* !CONFIG_SUPPORT_TRX_SHARED */
-#endif /* !RTW_DYNAMIC_AMPDU_SIZE */
+		if (check_fwstate(&adapter->mlmepriv, WIFI_AP_STATE) == _TRUE)
+			/* Set AMPDU Factor 32K for AP mode */
+			*(HT_CAP_AMPDU_FACTOR *)pval = MAX_AMPDU_FACTOR_32K;
+		else
+			/* Default use MAX size */
+			*(HT_CAP_AMPDU_FACTOR *)pval = MAX_AMPDU_FACTOR_64K;
 		break;
 
 	default:
@@ -405,6 +389,7 @@ void rtl8822bs_set_hal_ops(PADAPTER adapter)
 	}
 
 	rtl8822b_set_hal_ops(adapter);
+	init_interrupt(adapter);
 
 	ops = &adapter->hal_func;
 
@@ -437,9 +422,10 @@ void rtl8822bs_set_hal_ops(PADAPTER adapter)
 	ops->clear_interrupt = clear_interrupt_all;
 #endif
 
+#ifdef CONFIG_RTW_SW_LED
 	ops->InitSwLeds = rtl8822bs_initswleds;
 	ops->DeInitSwLeds = rtl8822bs_deinitswleds;
-
+#endif
 	ops->set_hw_reg_handler = sethwreg;
 	ops->GetHwRegHandler = gethwreg;
 	ops->get_hal_def_var_handler = gethaldefvar;

@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2015 - 2016 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2015 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,17 +11,12 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 #define _RTL8822BS_RECV_C_
 
 #include <drv_types.h>		/* PADAPTER and etc. */
 #include <hal_data.h>		/* HAL_DATA_TYPE */
-#include "../../hal_halmac.h"	/* BIT_ACRC32_8822B, HALMAC_RX_DESC_SIZE_8822B and etc. */
+#include "../../hal_halmac.h"	/* BIT_ACRC32_8822B and etc. */
 #include "../rtl8822b.h"	/* rtl8822b_rxdesc2attribute(), rtl8822b_c2h_handler_no_io() */
 
 
@@ -78,7 +73,7 @@ static _pkt *alloc_recvbuf_skb(struct recv_buf *recvbuf, u32 size)
 	size += alignsz;
 	skb = rtw_skb_alloc(size);
 	if (!skb) {
-		RTW_INFO("%s: <WARN> alloc_skb fail! size=%d\n", __FUNCTION__, size);
+		RTW_WARN("%s: alloc_skb fail! size=%d\n", __FUNCTION__, size);
 		return NULL;
 	}
 
@@ -120,11 +115,11 @@ _pkt *rtl8822bs_alloc_recvbuf_skb(struct recv_buf *recvbuf, u32 size)
 		return skb;
 	}
 
-	RTW_INFO("%s: <WARN> skb not exist in recv_buf!\n", __FUNCTION__);
+	RTW_WARN("%s: skb not exist in recv_buf!\n", __FUNCTION__);
 	size = MAX_RECVBUF_SZ;
 #else /* !CONFIG_SDIO_RX_COPY */
 	if (skb) {
-		RTW_INFO("%s: <WARN> skb already exist in recv_buf!\n", __FUNCTION__);
+		RTW_WARN("%s: skb already exist in recv_buf!\n", __FUNCTION__);
 		rtl8822bs_free_recvbuf_skb(recvbuf);
 	}
 #endif /* !CONFIG_SDIO_RX_COPY */
@@ -215,7 +210,7 @@ static union recv_frame *copy_recvframe(union recv_frame *recvframe, PADAPTER ad
 	copypkt = rtw_skb_copy(recvframe->u.hdr.pkt);
 	if (!copypkt) {
 		if ((attrib->mfrag == 1) && (attrib->frag_num == 0)) {
-			RTW_INFO(FUNC_ADPT_FMT ": <ERR> rtw_skb_copy fail for first fragment!\n",
+			RTW_ERR(FUNC_ADPT_FMT ": rtw_skb_copy fail for first fragment!\n",
 				 FUNC_ADPT_ARG(adapter));
 			rtw_free_recvframe(recvframe, &precvpriv->free_recv_queue);
 			return NULL;
@@ -223,7 +218,7 @@ static union recv_frame *copy_recvframe(union recv_frame *recvframe, PADAPTER ad
 
 		copypkt = rtw_skb_clone(recvframe->u.hdr.pkt);
 		if (!copypkt) {
-			RTW_INFO(FUNC_ADPT_FMT ": <ERR> rtw_skb_clone fail, drop frame!\n",
+			RTW_ERR(FUNC_ADPT_FMT ": rtw_skb_clone fail, drop frame!\n",
 				 FUNC_ADPT_ARG(adapter));
 			rtw_free_recvframe(recvframe, &precvpriv->free_recv_queue);
 			return NULL;
@@ -261,7 +256,6 @@ static s32 recv_entry(union recv_frame *recvframe, u8 *phy_status)
 
 	attrib = &recvframe->u.hdr.attrib;
 
-#ifdef CONFIG_CONCURRENT_MODE
 #if 0
 	d = adapter_to_dvobj(recvframe->u.hdr.adapter);
 	addr1 = GetAddr1Ptr(recvframe->u.hdr.rx_data);
@@ -302,14 +296,8 @@ static s32 recv_entry(union recv_frame *recvframe, u8 *phy_status)
 		}
 	}
 #else
-	pre_recv_entry(recvframe, phy_status);
+	ret = pre_recv_entry(recvframe, attrib->physt ? phy_status : NULL);
 #endif
-#endif /* CONFIG_CONCURRENT_MODE */
-
-	if (attrib->physt)
-		rx_query_phy_status(recvframe, phy_status);
-
-	ret = rtw_recv_entry(recvframe);
 
 	return ret;
 }
@@ -323,6 +311,7 @@ static _pkt *prepare_recvframe_pkt(struct recv_buf *recvbuf, union recv_frame *r
 {
 	_pkt *pkt = NULL;
 	struct rx_pkt_attrib *attrib;
+	u32 desc_size;
 	u32 skb_len;
 	u8 *data;
 #ifdef CONFIG_SDIO_RX_COPY
@@ -332,15 +321,17 @@ static _pkt *prepare_recvframe_pkt(struct recv_buf *recvbuf, union recv_frame *r
 
 	pkt = recvframe->u.hdr.pkt;
 	if (pkt) {
-		RTW_INFO("%s: <WARN> recvframe pkt already exist!\n", __FUNCTION__);
+		RTW_WARN("%s: recvframe pkt already exist!\n", __FUNCTION__);
 		return pkt;
 	}
 
+	desc_size = rtl8822b_get_rx_desc_size(recvbuf->adapter);
+
 	attrib = &recvframe->u.hdr.attrib;
 	skb_len = attrib->pkt_len;
-	if (rtl8822b_rx_fcs_appended(recvbuf->adapter) == _TRUE)
+	if (rtl8822b_rx_fcs_appended(recvbuf->adapter))
 		skb_len -= IEEE80211_FCS_LEN;
-	data = recvbuf->pdata + HALMAC_RX_DESC_SIZE_8822B + attrib->drvinfo_sz;
+	data = recvbuf->pdata + desc_size + attrib->drvinfo_sz;
 #if 0
 	data += attrib->shift_sz;
 #endif
@@ -384,7 +375,7 @@ static _pkt *prepare_recvframe_pkt(struct recv_buf *recvbuf, union recv_frame *r
 		skb_reserve(pkt, shift_sz);
 		_rtw_memcpy(skb_put(pkt, skb_len), data, skb_len);
 	} else if ((attrib->mfrag == 1) && (attrib->frag_num == 0)) {
-		RTW_INFO("%s: <ERR> alloc_skb fail for first fragement\n", __FUNCTION__);
+		RTW_ERR("%s: alloc_skb fail for first fragement\n", __FUNCTION__);
 		return NULL;
 	}
 #endif /* CONFIG_SDIO_RX_COPY */
@@ -392,7 +383,7 @@ static _pkt *prepare_recvframe_pkt(struct recv_buf *recvbuf, union recv_frame *r
 	if (!pkt) {
 		pkt = rtw_skb_clone(recvbuf->pskb);
 		if (!pkt) {
-			RTW_INFO("%s: <ERR> rtw_skb_clone fail\n", __FUNCTION__);
+			RTW_ERR("%s: rtw_skb_clone fail\n", __FUNCTION__);
 			return NULL;
 		}
 		pkt->data = data;
@@ -421,8 +412,9 @@ static u8 recvbuf_handler(struct recv_buf *recvbuf)
 	struct recv_priv *recvpriv;
 	union recv_frame *recvframe;
 	struct rx_pkt_attrib *attrib;
+	u32 desc_size;
 	_pkt *pkt;
-	u32 rx_report_sz, pkt_offset;
+	u32 rx_report_sz, pkt_offset, pkt_len;
 	u8 *ptr;
 	u8 ret = _SUCCESS;
 
@@ -430,11 +422,12 @@ static u8 recvbuf_handler(struct recv_buf *recvbuf)
 	p = recvbuf->adapter;
 	recvpriv = &p->recvpriv;
 	ptr = recvbuf->pdata;
+	desc_size = rtl8822b_get_rx_desc_size(p);
 
 	while (ptr < recvbuf->ptail) {
 		recvframe = rtw_alloc_recvframe(&recvpriv->free_recv_queue);
 		if (!recvframe) {
-			RTW_INFO("%s: <WARN> no enough recv frame!\n", __FUNCTION__);
+			RTW_WARN("%s: no enough recv frame!\n", __FUNCTION__);
 			ret = RTW_RFRAME_UNAVAIL;
 			break;
 		}
@@ -443,20 +436,35 @@ static u8 recvbuf_handler(struct recv_buf *recvbuf)
 		attrib = &recvframe->u.hdr.attrib;
 		rtl8822b_rxdesc2attribute(attrib, ptr);
 
-		rx_report_sz = HALMAC_RX_DESC_SIZE_8822B + attrib->drvinfo_sz;
+		/* drop recvbuf if pkt_len of rx desc is too small */
+		pkt_len = attrib->pkt_len;
+		if (pkt_len && rtl8822b_rx_fcs_appended(recvbuf->adapter)) {
+			if (pkt_len > IEEE80211_FCS_LEN)
+				pkt_len -= IEEE80211_FCS_LEN;
+			else
+				pkt_len = 0;
+		}
+		if (pkt_len == 0) {
+			RTW_WARN("%s: pkt len(%u) is too small, skip!\n",
+				 __FUNCTION__, attrib->pkt_len);
+			rtw_free_recvframe(recvframe, &recvpriv->free_recv_queue);
+			break;
+		}
+
+		rx_report_sz = desc_size + attrib->drvinfo_sz;
 		pkt_offset = rx_report_sz + attrib->shift_sz + attrib->pkt_len;
 
 		if ((ptr + pkt_offset) > recvbuf->ptail) {
-			RTW_INFO("%s: <WARN> next pkt len(%p,%d) exceed ptail(%p)!\n",
+			RTW_WARN("%s: next pkt len(%p,%d) exceed ptail(%p)!\n",
 				 __FUNCTION__, ptr, pkt_offset, recvbuf->ptail);
 			rtw_free_recvframe(recvframe, &recvpriv->free_recv_queue);
 			break;
 		}
 
 		/* fix Hardware RX data error, drop whole recv_buffer */
-		if ((rtl8822b_rcr_check(p, BIT_ACRC32_8822B) == _FALSE)
+		if (!rtw_hal_rcr_check(p, BIT_ACRC32_8822B)
 		    && attrib->crc_err) {
-			RTW_INFO("%s: <WARN> Received unexpected CRC error packet!!\n", __FUNCTION__);
+			RTW_WARN("%s: Received unexpected CRC error packet!!\n", __FUNCTION__);
 			rtw_free_recvframe(recvframe, &recvpriv->free_recv_queue);
 			break;
 		}
@@ -484,8 +492,8 @@ static u8 recvbuf_handler(struct recv_buf *recvbuf)
 			}
 
 			/* move to start of PHY_STATUS */
-			ptr += HALMAC_RX_DESC_SIZE_8822B;
-			if (rtl8822b_rx_ba_ssn_appended(p) == _TRUE)
+			ptr += desc_size;
+			if (rtl8822b_rx_ba_ssn_appended(p))
 				ptr += RTW_HALMAC_BA_SSN_RPT_SIZE;
 
 			recv_entry(recvframe, ptr);
@@ -508,6 +516,20 @@ s32 rtl8822bs_recv_hdl(_adapter *adapter)
 
 	recvpriv = &adapter->recvpriv;
 
+#ifdef CONFIG_RTW_NAPI_DYNAMIC
+	if (adapter->registrypriv.en_napi) {
+		struct dvobj_priv *d;
+		struct registry_priv *registry;
+
+		d = adapter_to_dvobj(adapter);
+		registry = &adapter->registrypriv;
+		if (d->traffic_stat.cur_rx_tp > registry->napi_threshold)
+			d->en_napi_dynamic = 1;
+		else
+			d->en_napi_dynamic = 0;
+	}
+#endif /* CONFIG_RTW_NAPI_DYNAMIC */
+	
 	do {
 		recvbuf = rtw_dequeue_recvbuf(&recvpriv->recv_buf_pending_queue);
 		if (NULL == recvbuf)
@@ -539,9 +561,10 @@ s32 rtl8822bs_recv_hdl(_adapter *adapter)
 		d = adapter_to_dvobj(adapter);
 		for (i = 0; i < d->iface_nums; i++) {
 			a = d->padapters[i];
-			if (rtw_if_up(a) == _TRUE)
+			recvpriv = &a->recvpriv;
+			if ((rtw_if_up(a) == _TRUE)
+			    && skb_queue_len(&recvpriv->rx_napi_skb_queue))
 				napi_schedule(&a->napi);
-
 		}
 	}
 #endif /* CONFIG_RTW_NAPI_V2 */

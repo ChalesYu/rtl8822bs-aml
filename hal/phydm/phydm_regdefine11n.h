@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,12 +11,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 
 #ifndef	__ODM_REGDEFINE11N_H__
 #define __ODM_REGDEFINE11N_H__
@@ -81,6 +76,7 @@
 #define	ODM_REG_ANT_MAPPING2_11N		0x918
 #define	ODM_REG_EDCCA_DOWN_OPT_11N	0x948
 #define	ODM_REG_RX_DFIR_MOD_97F			0x948
+#define	ODM_REG_SOML_97F					0x998
 
 /* PAGE A */
 #define	ODM_REG_CCK_ANTDIV_PARA1_11N	0xA00
@@ -186,6 +182,7 @@
 #define	ODM_REG_CCK_CRC32_OK_CNT_11N		0xF88
 #define	ODM_REG_HT_CRC32_CNT_11N		0xF90
 #define	ODM_REG_OFDM_CRC32_CNT_11N		0xF94
+#define	ODM_REG_HT_CRC32_CNT_11N_AGG	0xFB8
 
 /* 2 MAC REG LIST */
 #define	ODM_REG_BB_RST_11N				0x02

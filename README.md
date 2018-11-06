@@ -1,8 +1,8 @@
 rtl8822bs-aml
 
-Forked from github.com/9crk/rockchip_wifi/tree/master/rtl8822bs
+Reference : tieba.baidu.com/p/5289928584
 
-Update for kernel 4.18 , tested on mgv2000 (`gxlx_p261_1g` with `6222B-SRB`)
+Update for kernel 4.19 , tested on mgv2000 (`gxlx_p261_1g` with `6222B-SRB`)
 
 ### How to use
 

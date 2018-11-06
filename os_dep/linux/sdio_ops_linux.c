@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2012 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2018 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,14 +11,18 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *******************************************************************************/
+ *****************************************************************************/
 #define _SDIO_OPS_LINUX_C_
 
 #include <drv_types.h>
+
+inline bool rtw_is_sdio30(_adapter *adapter)
+{
+	struct dvobj_priv *dvobj = adapter_to_dvobj(adapter);
+	PSDIO_DATA psdio_data = &dvobj->intf_data;
+
+	return (psdio_data->sd3_bus_mode) ? _TRUE : _FALSE;
+}
 
 static bool rtw_sdio_claim_host_needed(struct sdio_func *func)
 {
@@ -864,8 +868,8 @@ s32 sd_write(struct intf_hdl *pintfhdl, u32 addr, u32 cnt, void *pdata)
 /**
  *	Returns driver error code,
  *	0	no error
- *	-1	critical error and can't be recovered
- *	-2	normal error, retry to recover is possible
+ *	-1	Level 1 error, critical error and can't be recovered
+ *	-2	Level 2 error, normal error, retry to recover is possible
  */
 static int linux_io_err_to_drv_err(int err)
 {
@@ -913,22 +917,19 @@ int __must_check rtw_sdio_raw_read(struct dvobj_priv *d, unsigned int addr,
 	 * make sure addr is in valid range
 	 */
 	if (f0)
-		addr &= 0xFF;
+		addr &= 0xFFF;
 	else
 		addr &= 0x1FFFF;
 
 #ifdef RTW_SDIO_DUMP
 	if (f0)
 		dev_dbg(&func->dev, "rtw_sdio: READ F0\n");
-	if (cmd52)
+	else if (cmd52)
 		dev_dbg(&func->dev, "rtw_sdio: READ use CMD52\n");
 	else
 		dev_dbg(&func->dev, "rtw_sdio: READ use CMD53\n");
 
 	dev_dbg(&func->dev, "rtw_sdio: READ from 0x%05x\n", addr);
-	print_hex_dump(KERN_DEBUG, "rtw_sdio: READ ",
-		       DUMP_PREFIX_OFFSET, 16, 1,
-		       buf, len, false);
 #endif /* RTW_SDIO_DUMP */
 
 	if (claim_needed)
@@ -978,6 +979,12 @@ int __must_check rtw_sdio_raw_read(struct dvobj_priv *d, unsigned int addr,
 	if (claim_needed)
 		sdio_release_host(func);
 
+#ifdef RTW_SDIO_DUMP
+	print_hex_dump(KERN_DEBUG, "rtw_sdio: READ ",
+		       DUMP_PREFIX_OFFSET, 16, 1,
+		       buf, len>32?32:len, false);
+#endif /* RTW_SDIO_DUMP */
+
 	if (WARN_ON(error)) {
 		dev_err(&func->dev, "%s: sdio read failed (%d)\n", __func__, error);
 #ifndef RTW_SDIO_DUMP
@@ -990,7 +997,7 @@ int __must_check rtw_sdio_raw_read(struct dvobj_priv *d, unsigned int addr,
 		dev_err(&func->dev, "rtw_sdio: READ from 0x%05x, %zu bytes\n", addr, len);
 		print_hex_dump(KERN_ERR, "rtw_sdio: READ ",
 			       DUMP_PREFIX_OFFSET, 16, 1,
-			       buf, len, false);
+			       buf, len>32?32:len, false);
 #endif /* !RTW_SDIO_DUMP */
 	}
 
@@ -1028,21 +1035,21 @@ int __must_check rtw_sdio_raw_write(struct dvobj_priv *d, unsigned int addr,
 	 * make sure addr is in valid range
 	 */
 	if (f0)
-		addr &= 0xFF;
+		addr &= 0xFFF;
 	else
 		addr &= 0x1FFFF;
 
 #ifdef RTW_SDIO_DUMP
 	if (f0)
 		dev_dbg(&func->dev, "rtw_sdio: WRITE F0\n");
-	if (cmd52)
+	else if (cmd52)
 		dev_dbg(&func->dev, "rtw_sdio: WRITE use CMD52\n");
 	else
 		dev_dbg(&func->dev, "rtw_sdio: WRITE use CMD53\n");
 	dev_dbg(&func->dev, "rtw_sdio: WRITE to 0x%05x\n", addr);
 	print_hex_dump(KERN_DEBUG, "rtw_sdio: WRITE ",
 		       DUMP_PREFIX_OFFSET, 16, 1,
-		       buf, len, false);
+		       buf, len>32?32:len, false);
 #endif /* RTW_SDIO_DUMP */
 
 	if (claim_needed)
@@ -1104,7 +1111,7 @@ int __must_check rtw_sdio_raw_write(struct dvobj_priv *d, unsigned int addr,
 		dev_err(&func->dev, "rtw_sdio: WRITE to 0x%05x, %zu bytes\n", addr, len);
 		print_hex_dump(KERN_ERR, "rtw_sdio: WRITE ",
 			       DUMP_PREFIX_OFFSET, 16, 1,
-			       buf, len, false);
+			       buf, len>32?32:len, false);
 #endif /* !RTW_SDIO_DUMP */
 	}
 

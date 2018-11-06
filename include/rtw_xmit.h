@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,12 +11,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 #ifndef _RTW_XMIT_H_
 #define _RTW_XMIT_H_
 
@@ -89,7 +84,7 @@
 #endif
 
 #ifdef CONFIG_RTL8812A
-	#define MAX_CMDBUF_SZ	(512*14)
+	#define MAX_CMDBUF_SZ	(512 * 17)
 #elif defined(CONFIG_RTL8723D) && defined(CONFIG_LPS_POFF)
 	#define MAX_CMDBUF_SZ	(128*70) /*(8960)*/
 #else
@@ -158,6 +153,18 @@
 		dot11txpn.val = dot11txpn.val == 0xffffffffffffULL ? 0 : (dot11txpn.val+1);\
 	} while (0)
 
+/* Check if AMPDU Tx is supported or not. If it is supported,
+* it need to check "amsdu in ampdu" is supported or not.
+* (ampdu_en, amsdu_ampdu_en) =
+* (0, x) : AMPDU is not enable, but AMSDU is valid to send.
+* (1, 0) : AMPDU is enable, AMSDU in AMPDU is not enable. So, AMSDU is not valid to send.
+* (1, 1) : AMPDU and AMSDU in AMPDU are enable. So, AMSDU is valid to send.
+*/
+#define IS_AMSDU_AMPDU_NOT_VALID(pattrib)\
+	 ((pattrib->ampdu_en == _TRUE) && (pattrib->amsdu_ampdu_en == _FALSE))
+
+#define IS_AMSDU_AMPDU_VALID(pattrib)\
+	 !((pattrib->ampdu_en == _TRUE) && (pattrib->amsdu_ampdu_en == _FALSE))
 
 #define HWXMIT_ENTRY	4
 
@@ -312,6 +319,21 @@ struct rtw_tx_ring {
 	u16		hw_rp_cache;
 #endif
 };
+
+#ifdef DBG_TXBD_DESC_DUMP
+
+#define TX_BAK_FRMAE_CNT	10
+#define TX_BAK_DESC_LEN	48	/* byte */
+#define TX_BAK_DATA_LEN		30	/* byte */
+
+struct rtw_tx_desc_backup {
+	int tx_bak_rp;
+	int tx_bak_wp;
+	u8 tx_bak_desc[TX_BAK_DESC_LEN];
+	u8 tx_bak_data_hdr[TX_BAK_DATA_LEN];
+	u8 tx_desc_size;
+};
+#endif
 #endif
 
 struct	hw_xmit	{
@@ -413,6 +435,7 @@ struct pkt_attrib {
 	u8	ampdu_en;/* tx ampdu enable */
 	u8	ampdu_spacing; /* ampdu_min_spacing for peer sta's rx */
 	u8	amsdu;
+	u8	amsdu_ampdu_en;/* tx amsdu in ampdu enable */
 	u8	mdata;/* more data bit */
 	u8	pctrl;/* per packet txdesc control enable */
 	u8	triggered;/* for ap mode handling Power Saving sta */
@@ -425,6 +448,10 @@ struct pkt_attrib {
 	u8   mbssid;
 	u8	ldpc;
 	u8	stbc;
+#ifdef CONFIG_WMMPS_STA
+	u8	trigger_frame;
+#endif /* CONFIG_WMMPS_STA */
+	
 	struct sta_info *psta;
 #ifdef CONFIG_TCP_CSUM_OFFLOAD_TX
 	u8	hw_tcp_csum;
@@ -492,7 +519,7 @@ enum {
 bool rtw_xmit_ac_blocked(_adapter *adapter);
 
 struct  submit_ctx {
-	u32 submit_time; /* */
+	systime submit_time; /* */
 	u32 timeout_ms; /* <0: not synchronous, 0: wait forever, >0: up to ms waiting */
 	int status; /* status for operation */
 #ifdef PLATFORM_LINUX
@@ -514,6 +541,7 @@ enum {
 	RTW_SCTX_DONE_DRV_STOP,
 	RTW_SCTX_DONE_DEV_REMOVE,
 	RTW_SCTX_DONE_CMD_ERROR,
+	RTW_SCTX_DONE_CMD_DROP,
 	RTX_SCTX_CSTR_WAIT_RPT2,
 };
 
@@ -695,7 +723,6 @@ struct	xmit_priv	{
 	_lock	lock;
 
 	_sema	xmit_sema;
-	_sema	terminate_xmitthread_sema;
 
 	/* _queue	blk_strms[MAX_NUMBLKS]; */
 	_queue	be_pending;
@@ -785,7 +812,6 @@ struct	xmit_priv	{
 #else
 	_thread_hdl_	SdioXmitThread;
 	_sema		SdioXmitSema;
-	_sema		SdioXmitTerminateSema;
 #endif /* CONFIG_SDIO_TX_TASKLET */
 #endif /* CONFIG_SDIO_HCI */
 
@@ -840,7 +866,11 @@ struct	xmit_priv	{
 	u32 amsdu_debug_coalesce_two;
 
 #endif
+#ifdef DBG_TXBD_DESC_DUMP
+	BOOLEAN	 dump_txbd_desc;
+#endif
 	_lock lock_sctx;
+
 };
 
 extern struct xmit_frame *__rtw_alloc_cmdxmitframe(struct xmit_priv *pxmitpriv,
@@ -872,6 +902,11 @@ void rtw_count_tx_stats(_adapter *padapter, struct xmit_frame *pxmitframe, int s
 extern void rtw_update_protection(_adapter *padapter, u8 *ie, uint ie_len);
 static s32 update_attrib_sec_info(_adapter *padapter, struct pkt_attrib *pattrib, struct sta_info *psta);
 static void update_attrib_phy_info(_adapter *padapter, struct pkt_attrib *pattrib, struct sta_info *psta);
+
+#ifdef CONFIG_WMMPS_STA
+static void update_attrib_trigger_frame_info(_adapter *padapter, struct pkt_attrib *pattrib);
+#endif /* CONFIG_WMMPS_STA */
+
 extern s32 rtw_make_wlanhdr(_adapter *padapter, u8 *hdr, struct pkt_attrib *pattrib);
 extern s32 rtw_put_snap(u8 *data, u16 h_proto);
 
@@ -958,8 +993,15 @@ extern void rtw_amsdu_set_timer(_adapter *padapter, u8 priority);
 extern void rtw_amsdu_cancel_timer(_adapter *padapter, u8 priority);
 
 extern s32 rtw_xmitframe_coalesce_amsdu(_adapter *padapter, struct xmit_frame *pxmitframe, struct xmit_frame *pxmitframe_queue);	
-extern int check_amsdu(struct xmit_frame *pxmitframe);
+extern s32 check_amsdu(struct xmit_frame *pxmitframe);
+extern s32 check_amsdu_tx_support(_adapter *padapter);
 extern struct xmit_frame *rtw_get_xframe(struct xmit_priv *pxmitpriv, int *num_frame);
+#endif
+
+#ifdef DBG_TXBD_DESC_DUMP
+void rtw_tx_desc_backup(_adapter *padapter, struct xmit_frame *pxmitframe, u8 desc_size, u8 hwq);
+void rtw_tx_desc_backup_reset(void);
+u8 rtw_get_tx_desc_backup(_adapter *padapter, u8 hwq, struct rtw_tx_desc_backup **pbak);
 #endif
 
 static void do_queue_select(_adapter *padapter, struct pkt_attrib *pattrib);
@@ -970,6 +1012,21 @@ int rtw_ack_tx_wait(struct xmit_priv *pxmitpriv, u32 timeout_ms);
 void rtw_ack_tx_done(struct xmit_priv *pxmitpriv, int status);
 #endif /* CONFIG_XMIT_ACK */
 
+enum XMIT_BLOCK_REASON {
+	XMIT_BLOCK_NONE = 0,
+	XMIT_BLOCK_REDLMEM = BIT0, /*LPS-PG*/
+	XMIT_BLOCK_SUSPEND = BIT1, /*WOW*/
+	XMIT_BLOCK_MAX = 0xFF,
+};
+void rtw_init_xmit_block(_adapter *padapter);
+void rtw_deinit_xmit_block(_adapter *padapter);
+
+#ifdef DBG_XMIT_BLOCK
+void dump_xmit_block(void *sel, _adapter *padapter);
+#endif
+void rtw_set_xmit_block(_adapter *padapter, enum XMIT_BLOCK_REASON reason);
+void rtw_clr_xmit_block(_adapter *padapter, enum XMIT_BLOCK_REASON reason);
+bool rtw_is_xmit_blocked(_adapter *padapter);
 
 /* include after declaring struct xmit_buf, in order to avoid warning */
 #include <xmit_osdep.h>

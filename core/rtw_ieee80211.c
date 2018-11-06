@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,19 +11,14 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 #define _IEEE80211_C
 
 #ifdef CONFIG_PLATFORM_INTEL_BYT
 	#include <linux/fs.h>
 #endif
 #include <drv_types.h>
-#include <linux/of.h>
+
 
 u8 RTW_WPA_OUI_TYPE[] = { 0x00, 0x50, 0xf2, 1 };
 u16 RTW_WPA_VERSION = 1;
@@ -228,9 +223,9 @@ inline u8 secondary_ch_offset_to_hal_ch_offset(u8 ch_offset)
 	if (ch_offset == SCN)
 		return HAL_PRIME_CHNL_OFFSET_DONT_CARE;
 	else if (ch_offset == SCA)
-		return HAL_PRIME_CHNL_OFFSET_UPPER;
-	else if (ch_offset == SCB)
 		return HAL_PRIME_CHNL_OFFSET_LOWER;
+	else if (ch_offset == SCB)
+		return HAL_PRIME_CHNL_OFFSET_UPPER;
 
 	return HAL_PRIME_CHNL_OFFSET_DONT_CARE;
 }
@@ -240,9 +235,9 @@ inline u8 hal_ch_offset_to_secondary_ch_offset(u8 ch_offset)
 	if (ch_offset == HAL_PRIME_CHNL_OFFSET_DONT_CARE)
 		return SCN;
 	else if (ch_offset == HAL_PRIME_CHNL_OFFSET_LOWER)
-		return SCB;
-	else if (ch_offset == HAL_PRIME_CHNL_OFFSET_UPPER)
 		return SCA;
+	else if (ch_offset == HAL_PRIME_CHNL_OFFSET_UPPER)
+		return SCB;
 
 	return SCN;
 }
@@ -268,10 +263,10 @@ inline u8 *rtw_set_ie_mesh_ch_switch_parm(u8 *buf, u32 *buf_len, u8 ttl,
 /*----------------------------------------------------------------------------
 index: the information element id index, limit is the limit for search
 -----------------------------------------------------------------------------*/
-u8 *rtw_get_ie(u8 *pbuf, sint index, sint *len, sint limit)
+u8 *rtw_get_ie(const u8 *pbuf, sint index, sint *len, sint limit)
 {
 	sint tmp, i;
-	u8 *p;
+	const u8 *p;
 	if (limit < 1) {
 		return NULL;
 	}
@@ -282,7 +277,7 @@ u8 *rtw_get_ie(u8 *pbuf, sint index, sint *len, sint limit)
 	while (1) {
 		if (*p == index) {
 			*len = *(p + 1);
-			return p;
+			return (u8 *)p;
 		} else {
 			tmp = *(p + 1);
 			p += (tmp + 2);
@@ -853,23 +848,26 @@ u8 rtw_is_wps_ie(u8 *ie_ptr, uint *wps_ielen)
 	return match;
 }
 
-u8 *rtw_get_wps_ie_from_scan_queue(u8 *in_ie, uint in_len, u8 *wps_ie, uint *wps_ielen, u8 frame_type)
+u8 *rtw_get_wps_ie_from_scan_queue(u8 *in_ie, uint in_len, u8 *wps_ie, uint *wps_ielen, enum bss_type frame_type)
 {
 	u8	*wps = NULL;
 
 	RTW_INFO("[%s] frame_type = %d\n", __FUNCTION__, frame_type);
 	switch (frame_type) {
-	case 1:
-	case 3: {
+	case BSS_TYPE_BCN:
+	case BSS_TYPE_PROB_RSP: {
 		/*	Beacon or Probe Response */
 		wps = rtw_get_wps_ie(in_ie + _PROBERSP_IE_OFFSET_, in_len - _PROBERSP_IE_OFFSET_, wps_ie, wps_ielen);
 		break;
 	}
-	case 2: {
+	case BSS_TYPE_PROB_REQ: {
 		/*	Probe Request */
 		wps = rtw_get_wps_ie(in_ie + _PROBEREQ_IE_OFFSET_ , in_len - _PROBEREQ_IE_OFFSET_ , wps_ie, wps_ielen);
 		break;
 	}
+	default:
+	case BSS_TYPE_UNDEF:
+		break;
 	}
 	return wps;
 }
@@ -1397,7 +1395,6 @@ void rtw_macaddr_cfg(u8 *out, const u8 *hw_mac_addr)
 		goto err_chk;
 	}
 
-
 	/* platform specified */
 #ifdef CONFIG_PLATFORM_INTEL_BYT
 	if (rtw_get_mac_addr_intel(mac) == 0)
@@ -1434,34 +1431,72 @@ err_chk:
 }
 
 #ifdef CONFIG_80211N_HT
-void dump_ht_cap_ie_content(void *sel, u8 *buf, u32 buf_len)
+void dump_ht_cap_ie_content(void *sel, const u8 *buf, u32 buf_len)
 {
-	if (buf_len != 26) {
-		RTW_PRINT_SEL(sel, "Invalid HT capability IE len:%d != %d\n", buf_len, 26);
+	if (buf_len != HT_CAP_IE_LEN) {
+		RTW_PRINT_SEL(sel, "Invalid HT capability IE len:%d != %d\n", buf_len, HT_CAP_IE_LEN);
 		return;
 	}
 
-	RTW_PRINT_SEL(sel, "HT Capabilities Info:%02x%02x\n", *(buf), *(buf + 1));
+	RTW_PRINT_SEL(sel, "cap_info:%02x%02x:%s\n", *(buf), *(buf + 1)
+		, GET_HT_CAP_ELE_CHL_WIDTH(buf) ? " 40MHz" : " 20MHz");
 	RTW_PRINT_SEL(sel, "A-MPDU Parameters:"HT_AMPDU_PARA_FMT"\n"
 		      , HT_AMPDU_PARA_ARG(HT_CAP_ELE_AMPDU_PARA(buf)));
 	RTW_PRINT_SEL(sel, "Supported MCS Set:"HT_SUP_MCS_SET_FMT"\n"
 		      , HT_SUP_MCS_SET_ARG(HT_CAP_ELE_SUP_MCS_SET(buf)));
 }
 
-void dump_ht_cap_ie(void *sel, u8 *ie, u32 ie_len)
+void dump_ht_cap_ie(void *sel, const u8 *ie, u32 ie_len)
 {
-	u8 *pos = (u8 *)ie;
+	const u8 *pos = ie;
 	u16 id;
 	u16 len;
 
-	u8 *ht_cap_ie;
+	const u8 *ht_cap_ie;
 	sint ht_cap_ielen;
 
-	ht_cap_ie = rtw_get_ie(ie, _HT_CAPABILITY_IE_, &ht_cap_ielen, ie_len);
+	ht_cap_ie = rtw_get_ie(ie, WLAN_EID_HT_CAP, &ht_cap_ielen, ie_len);
 	if (!ie || ht_cap_ie != ie)
 		return;
 
 	dump_ht_cap_ie_content(sel, ht_cap_ie + 2, ht_cap_ielen);
+}
+
+const char *const _ht_sc_offset_str[] = {
+	"SCN",
+	"SCA",
+	"SC-RSVD",
+	"SCB",
+};
+
+void dump_ht_op_ie_content(void *sel, const u8 *buf, u32 buf_len)
+{
+	if (buf_len != HT_OP_IE_LEN) {
+		RTW_PRINT_SEL(sel, "Invalid HT operation IE len:%d != %d\n", buf_len, HT_OP_IE_LEN);
+		return;
+	}
+
+	RTW_PRINT_SEL(sel, "ch:%u%s %s\n"
+		, GET_HT_OP_ELE_PRI_CHL(buf)
+		, GET_HT_OP_ELE_STA_CHL_WIDTH(buf) ? "" : " 20MHz only"
+		, ht_sc_offset_str(GET_HT_OP_ELE_2ND_CHL_OFFSET(buf))
+	);
+}
+
+void dump_ht_op_ie(void *sel, const u8 *ie, u32 ie_len)
+{
+	const u8 *pos = ie;
+	u16 id;
+	u16 len;
+
+	const u8 *ht_op_ie;
+	sint ht_op_ielen;
+
+	ht_op_ie = rtw_get_ie(ie, WLAN_EID_HT_OPERATION, &ht_op_ielen, ie_len);
+	if (!ie || ht_op_ie != ie)
+		return;
+
+	dump_ht_op_ie_content(sel, ht_op_ie + 2, ht_op_ielen);
 }
 #endif /* CONFIG_80211N_HT */
 
@@ -1477,6 +1512,11 @@ void dump_ies(void *sel, u8 *buf, u32 buf_len)
 		RTW_PRINT_SEL(sel, "%s ID:%u, LEN:%u\n", __FUNCTION__, id, len);
 #ifdef CONFIG_80211N_HT
 		dump_ht_cap_ie(sel, pos, len + 2);
+		dump_ht_op_ie(sel, pos, len + 2);
+#endif
+#ifdef CONFIG_80211AC_VHT
+		dump_vht_cap_ie(sel, pos, len + 2);
+		dump_vht_op_ie(sel, pos, len + 2);
 #endif
 		dump_wps_ie(sel, pos, len + 2);
 #ifdef CONFIG_P2P
@@ -1522,8 +1562,10 @@ void dump_wps_ie(void *sel, u8 *ie, u32 ie_len)
  * @ch: pointer of ch, used as output
  * @bw: pointer of bw, used as output
  * @offset: pointer of offset, used as output
+ * @ht: check HT IEs
+ * @vht: check VHT IEs, if true imply ht is true
  */
-void rtw_ies_get_chbw(u8 *ies, int ies_len, u8 *ch, u8 *bw, u8 *offset)
+void rtw_ies_get_chbw(u8 *ies, int ies_len, u8 *ch, u8 *bw, u8 *offset, u8 ht, u8 vht)
 {
 	u8 *p;
 	int	ie_len;
@@ -1537,7 +1579,7 @@ void rtw_ies_get_chbw(u8 *ies, int ies_len, u8 *ch, u8 *bw, u8 *offset)
 		*ch = *(p + 2);
 
 #ifdef CONFIG_80211N_HT
-	{
+	if (ht || vht) {
 		u8 *ht_cap_ie, *ht_op_ie;
 		int ht_cap_ielen, ht_op_ielen;
 
@@ -1570,44 +1612,29 @@ void rtw_ies_get_chbw(u8 *ies, int ies_len, u8 *ch, u8 *bw, u8 *offset)
 				}
 			}
 		}
-	}
-#endif /* CONFIG_80211N_HT */
-#ifdef CONFIG_80211AC_VHT
-	{
-		u8 *vht_op_ie;
-		int vht_op_ielen;
 
-		vht_op_ie = rtw_get_ie(ies, EID_VHTOperation, &vht_op_ielen, ies_len);
-		if (vht_op_ie && vht_op_ielen) {
-			/* enable VHT 80 before check enable HT40 or not */
-			if (GET_VHT_OPERATION_ELE_CHL_WIDTH(vht_op_ie + 2)  >=  1) {
-				/* for HT40, enable VHT80 */
-				if (*bw == CHANNEL_WIDTH_40)
+#ifdef CONFIG_80211AC_VHT
+		if (vht) {
+			u8 *vht_op_ie;
+			int vht_op_ielen;
+
+			vht_op_ie = rtw_get_ie(ies, EID_VHTOperation, &vht_op_ielen, ies_len);
+			if (vht_op_ie && vht_op_ielen) {
+				if (GET_VHT_OPERATION_ELE_CHL_WIDTH(vht_op_ie + 2) >= 1)
 					*bw = CHANNEL_WIDTH_80;
-				/* for HT20, enable VHT20 */
-				else if (*bw == CHANNEL_WIDTH_20) {
-					/* modify VHT OP IE */
-					SET_VHT_OPERATION_ELE_CHL_WIDTH(vht_op_ie + 2, 0);
-					/* reset to 0 for VHT20 */
-					SET_VHT_OPERATION_ELE_CHL_CENTER_FREQ1(vht_op_ie + 2, 0);
-					SET_VHT_OPERATION_ELE_CHL_CENTER_FREQ2(vht_op_ie + 2, 0);
-				}
-			} else {
-				/*
-				  VHT OP WIDTH = 0  under HT20/HT40
-				  if REGSTY_BW_5G(pregistrypriv) < CHANNEL_WIDTH_80 in rtw_build_vht_operation_ie
-				*/
 			}
 		}
+#endif /* CONFIG_80211AC_VHT */
+
 	}
-#endif
+#endif /* CONFIG_80211N_HT */
 }
 
-void rtw_bss_get_chbw(WLAN_BSSID_EX *bss, u8 *ch, u8 *bw, u8 *offset)
+void rtw_bss_get_chbw(WLAN_BSSID_EX *bss, u8 *ch, u8 *bw, u8 *offset, u8 ht, u8 vht)
 {
 	rtw_ies_get_chbw(bss->IEs + sizeof(NDIS_802_11_FIXED_IEs)
 		, bss->IELength - sizeof(NDIS_802_11_FIXED_IEs)
-		, ch, bw, offset);
+		, ch, bw, offset, ht, vht);
 
 	if (*ch == 0)
 		*ch = bss->Configuration.DSConfig;
@@ -1674,7 +1701,7 @@ void rtw_sync_chbw(u8 *req_ch, u8 *req_bw, u8 *req_offset
 		if (*g_bw == CHANNEL_WIDTH_40 || *g_bw == CHANNEL_WIDTH_80)
 			*req_offset = *g_offset;
 		else if (*g_bw == CHANNEL_WIDTH_20)
-			*req_offset = rtw_get_offset_by_ch(*req_ch);
+			rtw_get_offset_by_chbw(*req_ch, *req_bw, req_offset);
 
 		if (*req_offset == HAL_PRIME_CHNL_OFFSET_DONT_CARE) {
 			RTW_ERR("%s req 80MHz BW without offset, down to 20MHz\n", __func__);
@@ -1686,7 +1713,7 @@ void rtw_sync_chbw(u8 *req_ch, u8 *req_bw, u8 *req_offset
 		if (*g_bw == CHANNEL_WIDTH_40 || *g_bw == CHANNEL_WIDTH_80)
 			*req_offset = *g_offset;
 		else if (*g_bw == CHANNEL_WIDTH_20)
-			*req_offset = rtw_get_offset_by_ch(*req_ch);
+			rtw_get_offset_by_chbw(*req_ch, *req_bw, req_offset);
 
 		if (*req_offset == HAL_PRIME_CHNL_OFFSET_DONT_CARE) {
 			RTW_ERR("%s req 40MHz BW without offset, down to 20MHz\n", __func__);
@@ -2586,13 +2613,43 @@ u8	rtw_ht_mcsset_to_nss(u8 *supp_mcs_set)
 	return nss;
 }
 
+u32	rtw_ht_mcs_set_to_bitmap(u8 *mcs_set, u8 nss)
+{
+	u8 i;
+	u32 bitmap = 0;
+
+	for (i = 0; i < nss; i++)
+		bitmap |= mcs_set[i] << (i * 8);
+
+	RTW_INFO("ht_mcs_set=%02x %02x %02x %02x, nss=%u, bitmap=%08x\n"
+		, mcs_set[0], mcs_set[1], mcs_set[2], mcs_set[3], nss, bitmap);
+
+	return bitmap;
+}
+
 /* show MCS rate, unit: 100Kbps */
 u16 rtw_mcs_rate(u8 rf_type, u8 bw_40MHz, u8 short_GI, unsigned char *MCS_rate)
 {
 	u16 max_rate = 0;
 
-	/*MCS_rate[2] = 3T3R , MCS_rate[1] = 2T2R , MCS_rate[0] = 1T1R*/
-	if (MCS_rate[2]) {
+	if (MCS_rate[3]) {
+		if (MCS_rate[3] & BIT(7))
+			max_rate = (bw_40MHz) ? ((short_GI) ? 6000 : 5400) : ((short_GI) ? 2889 : 2600);
+		else if (MCS_rate[3] & BIT(6))
+			max_rate = (bw_40MHz) ? ((short_GI) ? 5400 : 4860) : ((short_GI) ? 2600 : 2340);
+		else if (MCS_rate[3] & BIT(5))
+			max_rate = (bw_40MHz) ? ((short_GI) ? 4800 : 4320) : ((short_GI) ? 2311 : 2080);
+		else if (MCS_rate[3] & BIT(4))
+			max_rate = (bw_40MHz) ? ((short_GI) ? 3600 : 3240) : ((short_GI) ? 1733 : 1560);
+		else if (MCS_rate[3] & BIT(3))
+			max_rate = (bw_40MHz) ? ((short_GI) ? 2400 : 2160) : ((short_GI) ? 1156 : 1040);
+		else if (MCS_rate[3] & BIT(2))
+			max_rate = (bw_40MHz) ? ((short_GI) ? 1800 : 1620) : ((short_GI) ? 867 : 780);
+		else if (MCS_rate[3] & BIT(1))
+			max_rate = (bw_40MHz) ? ((short_GI) ? 1200 : 1080) : ((short_GI) ? 578 : 520);
+		else if (MCS_rate[3] & BIT(0))
+			max_rate = (bw_40MHz) ? ((short_GI) ? 600 : 540) : ((short_GI) ? 289 : 260);
+	} else if (MCS_rate[2]) {
 		if (MCS_rate[2] & BIT(7))
 			max_rate = (bw_40MHz) ? ((short_GI) ? 4500 : 4050) : ((short_GI) ? 2167 : 1950);
 		else if (MCS_rate[2] & BIT(6))

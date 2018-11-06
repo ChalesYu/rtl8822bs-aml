@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,12 +11,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 #ifndef __IEEE80211_H
 #define __IEEE80211_H
 
@@ -206,7 +201,7 @@ enum NETWORK_TYPE {
 	WIRELESS_11A_5N = (WIRELESS_11A | WIRELESS_11_5N), /* tx: ofdm & MCS, rx: ofdm & MCS, hw: ofdm only */
 	WIRELESS_11B_24N = (WIRELESS_11B | WIRELESS_11_24N), /* tx: ofdm & cck & MCS, rx: ofdm & cck & MCS, hw: ofdm & cck */
 	WIRELESS_11BG_24N = (WIRELESS_11B | WIRELESS_11G | WIRELESS_11_24N), /* tx: ofdm & cck & MCS, rx: ofdm & cck & MCS, hw: ofdm & cck */
-	WIRELESS_11_24AC = (WIRELESS_11G | WIRELESS_11AC),
+	WIRELESS_11_24AC = (WIRELESS_11B | WIRELESS_11G | WIRELESS_11AC),
 	WIRELESS_11_5AC = (WIRELESS_11A | WIRELESS_11AC),
 
 
@@ -1350,7 +1345,6 @@ struct ieee80211_txb {
 #define MAX_RATES_LENGTH                  ((u8)12)
 #define MAX_RATES_EX_LENGTH               ((u8)16)
 #define MAX_NETWORK_COUNT                  128
-#define MAX_CHANNEL_NUMBER                 161
 #define IEEE80211_SOFTMAC_SCAN_TIME	  400
 /* (HZ / 2) */
 #define IEEE80211_SOFTMAC_ASSOC_RETRY_TIME (HZ * 2)
@@ -1829,7 +1823,7 @@ u8 *rtw_set_ie_ch_switch(u8 *buf, u32 *buf_len, u8 ch_switch_mode, u8 new_ch, u8
 u8 *rtw_set_ie_secondary_ch_offset(u8 *buf, u32 *buf_len, u8 secondary_ch_offset);
 u8 *rtw_set_ie_mesh_ch_switch_parm(u8 *buf, u32 *buf_len, u8 ttl, u8 flags, u16 reason, u16 precedence);
 
-u8 *rtw_get_ie(u8 *pbuf, sint index, sint *len, sint limit);
+u8 *rtw_get_ie(const u8 *pbuf, sint index, sint *len, sint limit);
 u8 *rtw_get_ie_ex(u8 *in_ie, uint in_len, u8 eid, u8 *oui, u8 oui_len, u8 *ie, uint *ielen);
 int rtw_ies_remove_ie(u8 *ies, uint *ies_len, uint offset, u8 eid, u8 *oui, u8 oui_len);
 
@@ -1846,7 +1840,7 @@ int rtw_parse_wpa2_ie(u8 *wpa_ie, int wpa_ie_len, int *group_cipher, int *pairwi
 int rtw_get_sec_ie(u8 *in_ie, uint in_len, u8 *rsn_ie, u16 *rsn_len, u8 *wpa_ie, u16 *wpa_len);
 
 u8 rtw_is_wps_ie(u8 *ie_ptr, uint *wps_ielen);
-u8 *rtw_get_wps_ie_from_scan_queue(u8 *in_ie, uint in_len, u8 *wps_ie, uint *wps_ielen, u8 frame_type);
+u8 *rtw_get_wps_ie_from_scan_queue(u8 *in_ie, uint in_len, u8 *wps_ie, uint *wps_ielen, enum bss_type frame_type);
 u8 *rtw_get_wps_ie(u8 *in_ie, uint in_len, u8 *wps_ie, uint *wps_ielen);
 u8 *rtw_get_wps_attr(u8 *wps_ie, uint wps_ielen, u16 target_attr_id , u8 *buf_attr, u32 *len_attr);
 u8 *rtw_get_wps_attr_content(u8 *wps_ie, uint wps_ielen, u16 target_attr_id , u8 *buf_content, uint *len_content);
@@ -1863,14 +1857,18 @@ u8 *rtw_get_wps_attr_content(u8 *wps_ie, uint wps_ielen, u16 target_attr_id , u8
 void dump_ies(void *sel, u8 *buf, u32 buf_len);
 
 #ifdef CONFIG_80211N_HT
-void dump_ht_cap_ie_content(void *sel, u8 *buf, u32 buf_len);
+#define HT_SC_OFFSET_MAX 4
+extern const char *const _ht_sc_offset_str[];
+#define ht_sc_offset_str(sc) (((sc) >= HT_SC_OFFSET_MAX) ? _ht_sc_offset_str[2] : _ht_sc_offset_str[(sc)])
+
+void dump_ht_cap_ie_content(void *sel, const u8 *buf, u32 buf_len);
 #endif
 
 void dump_wps_ie(void *sel, u8 *ie, u32 ie_len);
 
-void rtw_ies_get_chbw(u8 *ies, int ies_len, u8 *ch, u8 *bw, u8 *offset);
+void rtw_ies_get_chbw(u8 *ies, int ies_len, u8 *ch, u8 *bw, u8 *offset, u8 ht, u8 vht);
 
-void rtw_bss_get_chbw(WLAN_BSSID_EX *bss, u8 *ch, u8 *bw, u8 *offset);
+void rtw_bss_get_chbw(WLAN_BSSID_EX *bss, u8 *ch, u8 *bw, u8 *offset, u8 ht, u8 vht);
 
 bool rtw_is_chbw_grouped(u8 ch_a, u8 bw_a, u8 offset_a
 	, u8 ch_b, u8 bw_b, u8 offset_b);
@@ -1920,6 +1918,7 @@ void rtw_macaddr_cfg(u8 *out, const u8 *hw_mac_addr);
 
 u16 rtw_mcs_rate(u8 rf_type, u8 bw_40MHz, u8 short_GI, unsigned char *MCS_rate);
 u8	rtw_ht_mcsset_to_nss(u8 *supp_mcs_set);
+u32	rtw_ht_mcs_set_to_bitmap(u8 *mcs_set, u8 nss);
 
 int rtw_action_frame_parse(const u8 *frame, u32 frame_len, u8 *category, u8 *action);
 const char *action_public_str(u8 action);

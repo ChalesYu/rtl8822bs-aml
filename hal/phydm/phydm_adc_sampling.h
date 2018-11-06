@@ -1,7 +1,22 @@
+/******************************************************************************
+ *
+ * Copyright(c) 2007 - 2017 Realtek Corporation.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of version 2 of the GNU General Public License as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+ * more details.
+ *
+ *****************************************************************************/
+
 #ifndef __INC_ADCSMP_H
 #define __INC_ADCSMP_H
 
-#define DYNAMIC_LA_MODE	"1.0"  /*2016.07.15  Dino */
+#define DYNAMIC_LA_MODE	"2.0"  /*2017.02.06  Dino */
 
 #if (PHYDM_LA_MODE_SUPPORT == 1)
 
@@ -44,7 +59,7 @@ struct _RT_ADCSMP {
 	u32					la_trig_sig_sel;
 	u8					la_dma_type;
 	u32					la_trigger_time;
-	u32					la_mac_ref_mask;
+	u32					la_mac_mask_or_hdr_sel; /*1.BB mode: for debug port header sel; 2.MAC mode: for reference mask*/
 	u32					la_dbg_port;
 	u8					la_trigger_edge;
 	u8					la_smp_rate;
@@ -83,6 +98,28 @@ adc_smp_query(
 	void	*information_buffer,
 	PULONG	bytes_written
 );
+#elif (DM_ODM_SUPPORT_TYPE & ODM_CE)
+void
+adc_smp_query(
+	void		*p_dm_void,
+	void		*output,
+	u32		out_len,
+	u32		*pused
+);
+
+s32
+adc_smp_get_sample_counts(
+	void		*p_dm_void
+);
+
+s32
+adc_smp_query_single_data(
+	void		*p_dm_void,
+	void		*output,
+	u32		out_len,
+	u32		index
+);
+
 #endif
 void
 adc_smp_stop(
@@ -94,7 +131,7 @@ adc_smp_init(
 	void	*p_dm_void
 );
 
-#if (DM_ODM_SUPPORT_TYPE & ODM_WIN)
+#if (DM_ODM_SUPPORT_TYPE & (ODM_WIN | ODM_CE))
 void
 adc_smp_de_init(
 	void			*p_dm_void

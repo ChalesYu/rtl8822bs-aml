@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,12 +11,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 
 #ifndef __HAL_PG_H__
 #define __HAL_PG_H__
@@ -429,12 +424,6 @@
  *	EEPROM/Efuse PG Offset for 8822B
  * ====================================================
  */
-#define GET_PG_KFREE_ON_8822B(_pg_m)		LE_BITS_TO_1BYTE(((u8 *)(_pg_m)) + 0xC1, 4, 1)
-#define GET_PG_KFREE_THERMAL_K_ON_8822B(_pg_m)	LE_BITS_TO_1BYTE(((u8 *)(_pg_m)) + 0xC8, 5, 1)
-
-#define PPG_BB_GAIN_2G_TXA_OFFSET_8822B		0xEE
-#define PPG_THERMAL_OFFSET_8822B		0xEF
-
 #define	EEPROM_TX_PWR_INX_8822B			0x10
 
 #define	EEPROM_ChannelPlan_8822B		0xB8
@@ -479,12 +468,6 @@
  *	EEPROM/Efuse PG Offset for 8821C
  * ====================================================
  */
-#define GET_PG_KFREE_ON_8821C(_pg_m)		LE_BITS_TO_1BYTE(((u8 *)(_pg_m)) + 0xC1, 4, 1)
-#define GET_PG_KFREE_THERMAL_K_ON_8821C(_pg_m)	LE_BITS_TO_1BYTE(((u8 *)(_pg_m)) + 0xC8, 5, 1)
-
-#define PPG_BB_GAIN_2G_TXA_OFFSET_8821C		0xEE
-#define PPG_THERMAL_OFFSET_8821C		0xEF
-
 #define	EEPROM_TX_PWR_INX_8821C			0x10
 
 #define	EEPROM_CHANNEL_PLAN_8821C		0xB8

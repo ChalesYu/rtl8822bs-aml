@@ -1,8 +1,27 @@
+/******************************************************************************
+ *
+ * Copyright(c) 2016 - 2017 Realtek Corporation.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of version 2 of the GNU General Public License as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+ * more details.
+ *
+ *****************************************************************************/
 #ifndef __HAL_TXBF_8814A_H__
 #define __HAL_TXBF_8814A_H__
 
 #if (RTL8814A_SUPPORT == 1)
 #if (BEAMFORMING_SUPPORT == 1)
+
+boolean
+phydm_beamforming_set_iqgen_8814A(
+	void			*p_dm_void
+);
 
 void
 hal_txbf_8814a_set_ndpa_rate(
@@ -64,6 +83,7 @@ hal_txbf_8814a_fw_txbf(
 #define hal_txbf_8814a_reset_tx_path(p_dm_void,	idx)
 #define hal_txbf_8814a_get_tx_rate(p_dm_void)
 #define hal_txbf_8814a_fw_txbf(p_dm_void,	idx)
+#define phydm_beamforming_set_iqgen_8814A(p_dm_void)	0
 
 #endif
 
@@ -77,6 +97,7 @@ hal_txbf_8814a_fw_txbf(
 #define hal_txbf_8814a_reset_tx_path(p_dm_void,	idx)
 #define hal_txbf_8814a_get_tx_rate(p_dm_void)
 #define hal_txbf_8814a_fw_txbf(p_dm_void,	idx)
+#define phydm_beamforming_set_iqgen_8814A(p_dm_void)	0
 #endif
 
 #endif

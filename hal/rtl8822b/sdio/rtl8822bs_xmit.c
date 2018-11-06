@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2015 - 2016 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2015 - 2018 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,18 +11,13 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 #define _RTL8822BS_XMIT_C_
 
 #include <drv_types.h>		/* PADAPTER, rtw_xmit.h and etc. */
 #include <hal_data.h>		/* HAL_DATA_TYPE */
-#include "../../hal_halmac.h"	/* rtw_halmac_sdio_tx_allowed(), HALMAC_TX_DESC_SIZE_8822B and etc. */
-#include "../rtl8822b.h"	/* rtl8822b_update_txdesc() */
+#include "../../hal_halmac.h"	/* rtw_halmac_sdio_tx_allowed() and etc. */
+#include "../rtl8822b.h"	/* rtl8822b_update_txdesc() and etc. */
 
 
 static s32 dequeue_writeport(PADAPTER adapter)
@@ -103,7 +98,7 @@ s32 rtl8822bs_xmit_buf_handler(PADAPTER adapter)
 	}
 
 	if (RTW_CANNOT_RUN(adapter)) {
-		RTW_INFO(FUNC_ADPT_FMT ": bDriverStopped(%s) bSurpriseRemoved(%s)!\n",
+		RTW_DBG(FUNC_ADPT_FMT "- bDriverStopped(%s) bSurpriseRemoved(%s)\n",
 			 FUNC_ADPT_ARG(adapter),
 			 rtw_is_drv_stopped(adapter) ? "True" : "False",
 			 rtw_is_surprise_removed(adapter) ? "True" : "False");
@@ -143,6 +138,7 @@ static s32 xmit_xmitframes(PADAPTER adapter, struct xmit_priv *pxmitpriv)
 {
 	s32 err, ret;
 	u32 k = 0;
+	u8 max_agg_num;
 	struct hw_xmit *hwxmits, *phwxmit;
 	u8 no_res, idx, hwentry;
 	_irqL irql;
@@ -151,8 +147,8 @@ static s32 xmit_xmitframes(PADAPTER adapter, struct xmit_priv *pxmitpriv)
 	struct xmit_frame *pxmitframe;
 	_queue *pframe_queue;
 	struct xmit_buf *pxmitbuf;
-	u32 txlen, max_txbuf_len, max_pg_num, txpgsize;
-	u8 txdesc_size;
+	u32 txlen, max_txbuf_len, max_pg_num;
+	u32 page_size, desc_size;
 	int inx[4];
 	u8 pre_qsel = 0xFF, next_qsel = 0xFF;
 	u8 single_sta_in_queue = _FALSE;
@@ -167,8 +163,10 @@ static s32 xmit_xmitframes(PADAPTER adapter, struct xmit_priv *pxmitpriv)
 	pframe_queue = NULL;
 	pxmitbuf = NULL;
 	max_txbuf_len = MAX_XMITBUF_SZ;
-	rtw_hal_get_def_var(adapter, HAL_DEF_TX_PAGE_SIZE, &txpgsize);
-	txdesc_size = HALMAC_TX_DESC_SIZE_8822B;
+	max_agg_num = 0xFF;
+	rtw_halmac_get_oqt_size(adapter_to_dvobj(adapter), &max_agg_num);
+	rtw_hal_get_def_var(adapter, HAL_DEF_TX_PAGE_SIZE, &page_size);
+	desc_size = rtl8822b_get_tx_desc_size(adapter);
 
 	if (adapter->registrypriv.wifi_spec == 1) {
 		for (idx = 0; idx < 4; idx++)
@@ -224,11 +222,12 @@ static s32 xmit_xmitframes(PADAPTER adapter, struct xmit_priv *pxmitpriv)
 				pxmitframe = LIST_CONTAINOR(frame_plist, struct xmit_frame, list);
 
 				/* check xmit_buf size enough or not */
-				txlen = txdesc_size + rtw_wlan_pkt_size(pxmitframe);
+				txlen = desc_size + rtw_wlan_pkt_size(pxmitframe);
 				next_qsel = pxmitframe->attrib.qsel;
 				if ((NULL == pxmitbuf)
 				    || ((_RND(pxmitbuf->len, 8) + txlen) > max_txbuf_len)
-				    || ((pxmitbuf->pg_num + PageNum(txlen, txpgsize)) > max_pg_num)
+				    || ((pxmitbuf->pg_num + PageNum(txlen, page_size)) > max_pg_num)
+				    || (k == max_agg_num)
 				    || ((k != 0) && (_FAIL == rtw_hal_busagg_qsel_check(adapter, pre_qsel, next_qsel)))) {
 					if (pxmitbuf) {
 						if (pxmitbuf->len > 0 && pxmitbuf->priv_data) {
@@ -254,7 +253,9 @@ static s32 xmit_xmitframes(PADAPTER adapter, struct xmit_priv *pxmitpriv)
 
 					pxmitbuf = rtw_alloc_xmitbuf(pxmitpriv);
 					if (pxmitbuf == NULL) {
-						RTW_DBG("%s: xmit_buf is not enough!\n", __FUNCTION__);
+#if 0
+						RTW_ERR("%s: xmit_buf is not enough!\n", __FUNCTION__);
+#endif
 						err = -2;
 #ifdef CONFIG_SDIO_TX_ENABLE_AVAL_INT
 						_rtw_up_sema(&GET_PRIMARY_ADAPTER(adapter)->xmitpriv.xmit_sema);
@@ -266,7 +267,7 @@ static s32 xmit_xmitframes(PADAPTER adapter, struct xmit_priv *pxmitpriv)
 
 				/* ok to send, remove frame from queue */
 #ifdef CONFIG_AP_MODE
-				if (check_fwstate(&adapter->mlmepriv, WIFI_AP_STATE) == _TRUE) {
+				if (MLME_IS_AP(adapter) || MLME_IS_MESH(adapter)) {
 					if ((pxmitframe->attrib.psta->state & WIFI_SLEEP_STATE)
 					    && (pxmitframe->attrib.triggered == 0)) {
 						RTW_INFO("%s: one not triggered pkt in queue when this STA sleep, break and goto next sta\n", __FUNCTION__);
@@ -297,8 +298,8 @@ static s32 xmit_xmitframes(PADAPTER adapter, struct xmit_priv *pxmitpriv)
 						rtl8822b_update_txdesc(pxmitframe, pxmitframe->buf_addr);
 					rtw_count_tx_stats(adapter, pxmitframe, pxmitframe->attrib.last_txcmdsz);
 					pre_qsel = pxmitframe->attrib.qsel;
-					txlen = txdesc_size + pxmitframe->attrib.last_txcmdsz;
-					pxmitframe->pg_num =  PageNum(txlen, txpgsize);
+					txlen = desc_size + pxmitframe->attrib.last_txcmdsz;
+					pxmitframe->pg_num =  PageNum(txlen, page_size);
 					pxmitbuf->pg_num += pxmitframe->pg_num;
 					pxmitbuf->ptail += _RND(txlen, 8); /* round to 8 bytes alignment */
 					pxmitbuf->len = _RND(pxmitbuf->len, 8) + txlen;
@@ -391,7 +392,7 @@ wait:
 
 next:
 	if (RTW_CANNOT_RUN(adapter)) {
-		RTW_INFO(FUNC_ADPT_FMT ": bDriverStopped(%s) bSurpriseRemoved(%s)!\n",
+		RTW_DBG(FUNC_ADPT_FMT "- bDriverStopped(%s) bSurpriseRemoved(%s)\n",
 			 FUNC_ADPT_ARG(adapter),
 			 rtw_is_drv_stopped(adapter) ? "True" : "False",
 			 rtw_is_surprise_removed(adapter) ? "True" : "False");
@@ -433,6 +434,13 @@ thread_return rtl8822bs_xmit_thread(thread_context context)
 	PADAPTER adapter;
 	struct xmit_priv *pxmitpriv;
 	u8 thread_name[20] = "RTWHALXT";
+#ifdef RTW_XMIT_THREAD_HIGH_PRIORITY_AGG
+#ifdef PLATFORM_LINUX
+	struct sched_param param = { .sched_priority = 1 };
+
+	sched_setscheduler(current, SCHED_FIFO, &param);
+#endif /* PLATFORM_LINUX */
+#endif /* RTW_XMIT_THREAD_HIGH_PRIORITY_AGG */
 
 
 	ret = _SUCCESS;
@@ -444,25 +452,16 @@ thread_return rtl8822bs_xmit_thread(thread_context context)
 
 	RTW_INFO("start "FUNC_ADPT_FMT"\n", FUNC_ADPT_ARG(adapter));
 
-#if 0
-	/*
-	 * For now, no one would down sema to check thread is running,
-	 * so mark this temporary, Lucas@20130820
-	 */
-	_rtw_up_sema(&pxmitpriv->SdioXmitTerminateSema);
-#endif
-
 	do {
 		ret = xmit_handler(adapter);
-		if (signal_pending(current))
-			flush_signals(current);
+		flush_signals_thread();
 	} while (_SUCCESS == ret);
 
-	_rtw_up_sema(&pxmitpriv->SdioXmitTerminateSema);
+	RTW_INFO(FUNC_ADPT_FMT " Exit\n", FUNC_ADPT_ARG(adapter));
 
-	RTW_INFO("-%s\n", __FUNCTION__);
+	rtw_thread_wait_stop();
 
-	thread_exit();
+	return 0;
 }
 
 /*
@@ -480,8 +479,7 @@ s32 rtl8822bs_mgnt_xmit(PADAPTER adapter, struct xmit_frame *pmgntframe)
 	struct xmit_priv *pxmitpriv;
 	struct pkt_attrib *pattrib;
 	struct xmit_buf *pxmitbuf;
-	u8 txdesc_size;
-	u32 page_size;
+	u32 page_size, desc_size;
 	u16 subtype;
 	u8 *pframe;
 
@@ -490,16 +488,16 @@ s32 rtl8822bs_mgnt_xmit(PADAPTER adapter, struct xmit_frame *pmgntframe)
 	pxmitpriv = &adapter->xmitpriv;
 	pattrib = &pmgntframe->attrib;
 	pxmitbuf = pmgntframe->pxmitbuf;
-	txdesc_size = HALMAC_TX_DESC_SIZE_8822B;
 	rtw_hal_get_def_var(adapter, HAL_DEF_TX_PAGE_SIZE, &page_size);
+	desc_size = rtl8822b_get_tx_desc_size(adapter);
 
 	rtl8822b_update_txdesc(pmgntframe, pmgntframe->buf_addr);
 
-	pxmitbuf->len = txdesc_size + pattrib->last_txcmdsz;
+	pxmitbuf->len = desc_size + pattrib->last_txcmdsz;
 	pxmitbuf->pg_num = PageNum(pxmitbuf->len, page_size);
 	pxmitbuf->ptail = pmgntframe->buf_addr + pxmitbuf->len;
 
-	pframe = pmgntframe->buf_addr + txdesc_size;
+	pframe = pmgntframe->buf_addr + desc_size;
 	subtype = get_frame_sub_type(pframe);
 
 	rtw_count_tx_stats(adapter, pmgntframe, pattrib->last_txcmdsz);
@@ -605,8 +603,6 @@ s32 rtl8822bs_init_xmit_priv(PADAPTER adapter)
 	xmitpriv = &adapter->xmitpriv;
 
 	_rtw_init_sema(&xmitpriv->SdioXmitSema, 0);
-	_rtw_init_sema(&xmitpriv->SdioXmitTerminateSema, 0);
-
 	return _SUCCESS;
 }
 

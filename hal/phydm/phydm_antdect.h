@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,12 +11,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 
 #ifndef	__PHYDMANTDECT_H__
 #define    __PHYDMANTDECT_H__
@@ -34,7 +29,7 @@
 
 
 struct _ANT_DETECTED_INFO {
-	bool			is_ant_detected;
+	boolean			is_ant_detected;
 	u32			db_for_ant_a;
 	u32			db_for_ant_b;
 	u32			db_for_ant_o;
@@ -58,7 +53,7 @@ odm_single_dual_antenna_default_setting(
 	void		*p_dm_void
 );
 
-bool
+boolean
 odm_single_dual_antenna_detection(
 	void		*p_dm_void,
 	u8			mode
@@ -68,7 +63,7 @@ odm_single_dual_antenna_detection(
 
 #define sw_ant_div_check_before_link	odm_sw_ant_div_check_before_link
 
-bool
+boolean
 odm_sw_ant_div_check_before_link(
 	void		*p_dm_void
 );

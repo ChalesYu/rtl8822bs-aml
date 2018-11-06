@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2015 - 2016 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2015 - 2018 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,12 +11,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 /*
  * Public General Config
  */
@@ -70,12 +65,11 @@
 	#define CONFIG_WFD	/* Wi-Fi display */
 	#define CONFIG_P2P_REMOVE_GROUP_INFO
 	/*#define CONFIG_DBG_P2P*/
-	/* Lucas@20170116, Default disable P2P PS to avoid P2P connect fail */
-	/*#define CONFIG_P2P_PS*/
+	#define CONFIG_P2P_PS
 	/*#define CONFIG_P2P_IPS*/
 	#define CONFIG_P2P_OP_CHK_SOCIAL_CH
 	#define CONFIG_CFG80211_ONECHANNEL_UNDER_CONCURRENT  /* Replace CONFIG_P2P_CHK_INVITE_CH_LIST flag */
-	#define CONFIG_P2P_INVITE_IOT
+	/*#define CONFIG_P2P_INVITE_IOT*/
 #endif /* CONFIG_P2P */
 
 /* Set CONFIG_TDLS from Makefile */
@@ -99,20 +93,17 @@
 /* Set CONFIG_CONCURRENT_MODE from Makefile */
 #ifdef CONFIG_CONCURRENT_MODE
 	/*#define CONFIG_HWPORT_SWAP*/		/* Port0->Sec , Port1->Pri */
-	#define CONFIG_RUNTIME_PORT_SWITCH
+	/*#define CONFIG_RUNTIME_PORT_SWITCH*/
 	#ifndef CONFIG_RUNTIME_PORT_SWITCH
 		/* #define CONFIG_TSF_RESET_OFFLOAD */	/* For 2 PORT TSF SYNC. */
 	#endif
 	/*#define DBG_RUNTIME_PORT_SWITCH*/
-	#define CONFIG_SCAN_BACKOP
 #endif /* CONFIG_CONCURRENT_MODE */
 
 #define CONFIG_LAYER2_ROAMING
 #define CONFIG_LAYER2_ROAMING_RESUME
 
-/*#define CONFIG_80211D*/
-
-/*#define CONFIG_BEAMFORMING*/
+#define CONFIG_BEAMFORMING
 
 
 /*
@@ -121,21 +112,27 @@
 /* Set CONFIG_BT_COEXIST from Makefile */
 /* Set CONFIG_ANTENNA_DIVERSITY from Makefile */
 /*#define SUPPORT_HW_RFOFF_DETECTED*/
-/*#define CONFIG_SW_LED*/
+/*#define CONFIG_RTW_LED*/
+#ifdef CONFIG_RTW_LED
+	/*#define CONFIG_RTW_SW_LED*/
+#endif /* CONFIG_RTW_LED */
+
 #define CONFIG_XMIT_ACK
 #ifdef CONFIG_XMIT_ACK
 	#define CONFIG_ACTIVE_KEEP_ALIVE_CHECK
 #endif
 
-#define CONFIG_RF_POWER_TRIM
 
 #define DISABLE_BB_RF		0
 #define RTW_NOTCH_FILTER	0 /* 0:Disable, 1:Enable */
+#define CONFIG_DYNAMIC_SOML
 
 #define CONFIG_SUPPORT_TRX_SHARED
 #ifdef CONFIG_SUPPORT_TRX_SHARED
 #define DFT_TRX_SHARE_MODE	1
-#endif
+#endif /* CONFIG_SUPPORT_TRX_SHARED */
+
+#define RTW_AMPDU_AGG_RETRY_NEW
 
 /*
  * Software feature Related Config
@@ -149,6 +146,8 @@
  */
 #define CONFIG_TX_AGGREGATION
 #define CONFIG_XMIT_THREAD_MODE	/* necessary for SDIO */
+#define RTW_XMIT_THREAD_HIGH_PRIORITY
+/*#define RTW_XMIT_THREAD_HIGH_PRIORITY_AGG*/
 /*#define CONFIG_SDIO_TX_ENABLE_AVAL_INT*/ /* not implemented yet */
 #define CONFIG_SDIO_RX_COPY
 
@@ -169,19 +168,9 @@
 #define CONFIG_ATTEMPT_TO_FIX_AP_BEACON_ERROR
 
 #ifdef CONFIG_RTW_NAPI
+#define CONFIG_RTW_NAPI_DYNAMIC
 #define CONFIG_RTW_NAPI_V2
 #endif
-
-#define RTW_DYNAMIC_AMPDU_SIZE
-#ifdef RTW_DYNAMIC_AMPDU_SIZE
-#ifdef CONFIG_SUPPORT_TRX_SHARED
-#define CONFIG_RTW_RX_AMPDU_SZ_LIMIT_1SS {0xFF, 0xFF, 0xFF, 0xFF}
-#define CONFIG_RTW_RX_AMPDU_SZ_LIMIT_2SS {0xFF, 0xFF, 0xFF, 0xFF}
-#else /* !CONFIG_SUPPORT_TRX_SHARED */
-#define CONFIG_RTW_RX_AMPDU_SZ_LIMIT_1SS {0xFF, 0xFF, 0xFF, 0xFF}
-#define CONFIG_RTW_RX_AMPDU_SZ_LIMIT_2SS {0xFF, 0xFF, 0xFF, 0xFF}
-#endif /* CONFIG_SUPPORT_TRX_SHARED */
-#endif /* RTW_DYNAMIC_AMPDU_SIZE */
 
 /*
  * Platform
@@ -215,7 +204,7 @@
 #endif /* !CONFIG_MP_INCLUDED */
 
 #ifdef CONFIG_POWER_SAVING
-	/*#define CONFIG_IPS*/
+	#define CONFIG_IPS
 	#define CONFIG_LPS
 
 	#if defined(CONFIG_LPS) && (defined(CONFIG_GSPI_HCI) || defined(CONFIG_SDIO_HCI))
@@ -243,6 +232,10 @@
 	/*#define CONFIG_SWLPS_IN_IPS*/ /* Do SW LPS flow when entering and leaving IPS */
 	/*#define CONFIG_FWLPS_IN_IPS*/ /* issue H2C command to let FW do LPS when entering IPS */
 	#endif
+
+	#ifdef CONFIG_LPS
+		#define CONFIG_WMMPS_STA 1
+	#endif /* CONFIG_LPS */
 #endif /* CONFIG_POWER_SAVING */
 
 #ifdef CONFIG_BT_COEXIST
@@ -281,4 +274,5 @@
 #define DBG_XMIT_BUF
 #define DBG_XMIT_BUF_EXT
 #define CONFIG_FW_C2H_DEBUG
+#define DBG_THREAD_PID
 #endif

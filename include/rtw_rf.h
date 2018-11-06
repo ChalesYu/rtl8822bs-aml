@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2017 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -11,12 +11,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
- *
- *
- ******************************************************************************/
+ *****************************************************************************/
 #ifndef	__RTW_RF_H_
 #define __RTW_RF_H_
 
@@ -84,13 +79,6 @@ enum	_REG_PREAMBLE_MODE {
 	PREAMBLE_SHORT	= 3,
 };
 
-typedef enum _RF_PATH {
-	RF_PATH_A = 0,
-	RF_PATH_B = 1,
-	RF_PATH_C = 2,
-	RF_PATH_D = 3,
-} RF_PATH, *PRF_PATH;
-
 #define rf_path_char(path) (((path) >= RF_PATH_MAX) ? 'X' : 'A' + (path))
 
 /* Bandwidth Offset */
@@ -111,16 +99,6 @@ extern const char *const _band_str[];
 extern const u8 _band_to_band_cap[];
 #define band_to_band_cap(band) (((band) >= BAND_MAX) ? _band_to_band_cap[BAND_MAX] : _band_to_band_cap[(band)])
 
-/* Represent Channel Width in HT Capabilities
- *   */
-typedef enum _CHANNEL_WIDTH {
-	CHANNEL_WIDTH_20 = 0,
-	CHANNEL_WIDTH_40 = 1,
-	CHANNEL_WIDTH_80 = 2,
-	CHANNEL_WIDTH_160 = 3,
-	CHANNEL_WIDTH_80_80 = 4,
-	CHANNEL_WIDTH_MAX = 5,
-} CHANNEL_WIDTH, *PCHANNEL_WIDTH;
 
 extern const char *const _ch_width_str[];
 #define ch_width_str(bw) (((bw) >= CHANNEL_WIDTH_MAX) ? _ch_width_str[CHANNEL_WIDTH_MAX] : _ch_width_str[(bw)])
@@ -159,32 +137,29 @@ typedef enum _PROTECTION_MODE {
 	PROTECTION_MODE_FORCE_DISABLE = 2,
 } PROTECTION_MODE, *PPROTECTION_MODE;
 
-typedef	enum _RT_RF_TYPE_DEFINITION {
-	RF_1T2R = 0,
-	RF_2T4R = 1,
-	RF_2T2R = 2,
-	RF_1T1R = 3,
-	RF_2T2R_GREEN = 4,
-	RF_2T3R = 5,
-	RF_3T3R = 6,
-	RF_3T4R	= 7,
-	RF_4T4R	= 8,
+#define RF_TYPE_VALID(rf_type) (rf_type < RF_TYPE_MAX)
 
-	RF_MAX_TYPE = 0xF, /* u1Byte */
-} RT_RF_TYPE_DEF_E;
+extern const u8 _rf_type_to_rf_tx_cnt[];
+#define rf_type_to_rf_tx_cnt(rf_type) (RF_TYPE_VALID(rf_type) ? _rf_type_to_rf_tx_cnt[rf_type] : 0)
+
+extern const u8 _rf_type_to_rf_rx_cnt[];
+#define rf_type_to_rf_rx_cnt(rf_type) (RF_TYPE_VALID(rf_type) ? _rf_type_to_rf_rx_cnt[rf_type] : 0)
 
 int rtw_ch2freq(int chan);
 int rtw_freq2ch(int freq);
 bool rtw_chbw_to_freq_range(u8 ch, u8 bw, u8 offset, u32 *hi, u32 *lo);
 
-#define RTW_MODULE_RTL8821AE_HMC_M2		BIT0 /* RTL8821AE(HMC + M.2) */
-#define RTW_MODULE_RTL8821AU			BIT1 /* RTL8821AU */
-#define RTW_MODULE_RTL8812AENF_NGFF		BIT2 /* RTL8812AENF(8812AE+8761)_NGFF */
-#define RTW_MODULE_RTL8812AEBT_HMC		BIT3 /* RTL8812AEBT(8812AE+8761)_HMC */
-#define RTW_MODULE_RTL8188EE_HMC_M2		BIT4 /* RTL8188EE(HMC + M.2) */
-#define RTW_MODULE_RTL8723BE_HMC_M2		BIT5 /* RTL8723BE(HMC + M.2) */
-#define RTW_MODULE_RTL8723BS_NGFF1216	BIT6 /* RTL8723BS(NGFF1216) */
-#define RTW_MODULE_RTL8192EEBT_HMC_M2	BIT7 /* RTL8192EEBT(8192EE+8761AU)_(HMC + M.2) */
+#define RTW_MODULE_RTL8821AE_HMC_M2		BIT0	/* RTL8821AE(HMC + M.2) */
+#define RTW_MODULE_RTL8821AU			BIT1	/* RTL8821AU */
+#define RTW_MODULE_RTL8812AENF_NGFF		BIT2	/* RTL8812AENF(8812AE+8761)_NGFF */
+#define RTW_MODULE_RTL8812AEBT_HMC		BIT3	/* RTL8812AEBT(8812AE+8761)_HMC */
+#define RTW_MODULE_RTL8188EE_HMC_M2		BIT4	/* RTL8188EE(HMC + M.2) */
+#define RTW_MODULE_RTL8723BE_HMC_M2		BIT5	/* RTL8723BE(HMC + M.2) */
+#define RTW_MODULE_RTL8723BS_NGFF1216	BIT6	/* RTL8723BS(NGFF1216) */
+#define RTW_MODULE_RTL8192EEBT_HMC_M2	BIT7	/* RTL8192EEBT(8192EE+8761AU)_(HMC + M.2) */
+#define RTW_MODULE_RTL8723DE_NGFF1630	BIT8	/* RTL8723DE(NGFF1630) */
+#define RTW_MODULE_RTL8822BE			BIT9	/* RTL8822BE */
+#define RTW_MODULE_RTL8821CE			BIT10	/* RTL8821CE */
 
 #define IS_ALPHA2_NO_SPECIFIED(_alpha2) ((*((u16 *)(_alpha2))) == 0xFFFF)
 
@@ -195,7 +170,7 @@ struct country_chplan {
 	u8 en_11ac;
 #endif
 #if RTW_DEF_MODULE_REGULATORY_CERT
-	u8 def_module_flags; /* RTW_MODULE_RTLXXX */
+	u16 def_module_flags; /* RTW_MODULE_RTLXXX */
 #endif
 };
 
@@ -212,6 +187,48 @@ struct country_chplan {
 #endif
 
 const struct country_chplan *rtw_get_chplan_from_country(const char *country_code);
+
+struct rf_ctl_t;
+
+typedef enum _REGULATION_TXPWR_LMT {
+	TXPWR_LMT_NONE = 0, /* no limit */
+	TXPWR_LMT_FCC = 1,
+	TXPWR_LMT_MKK = 2,
+	TXPWR_LMT_ETSI = 3,
+	TXPWR_LMT_IC = 4,
+	TXPWR_LMT_KCC = 5,
+	TXPWR_LMT_ACMA = 6,
+	TXPWR_LMT_CHILE = 7,
+	TXPWR_LMT_WW = 8, /* smallest of all available limit, keep last */
+} REGULATION_TXPWR_LMT;
+
+extern const char *const _regd_str[];
+#define regd_str(regd) (((regd) > TXPWR_LMT_WW) ? _regd_str[TXPWR_LMT_WW] : _regd_str[(regd)])
+
+#ifdef CONFIG_TXPWR_LIMIT
+struct regd_exc_ent {
+	_list list;
+	char country[2];
+	u8 domain;
+	char regd_name[0];
+};
+
+void dump_regd_exc_list(void *sel, struct rf_ctl_t *rfctl);
+void rtw_regd_exc_add_with_nlen(struct rf_ctl_t *rfctl, const char *country, u8 domain, const char *regd_name, u32 nlen);
+void rtw_regd_exc_add(struct rf_ctl_t *rfctl, const char *country, u8 domain, const char *regd_name);
+struct regd_exc_ent *_rtw_regd_exc_search(struct rf_ctl_t *rfctl, const char *country, u8 domain);
+struct regd_exc_ent *rtw_regd_exc_search(struct rf_ctl_t *rfctl, const char *country, u8 domain);
+void rtw_regd_exc_list_free(struct rf_ctl_t *rfctl);
+
+void dump_txpwr_lmt(void *sel, _adapter *adapter);
+void rtw_txpwr_lmt_add_with_nlen(struct rf_ctl_t *rfctl, const char *regd_name, u32 nlen
+	, u8 band, u8 bw, u8 tlrs, u8 ntx_idx, u8 ch_idx, s8 lmt);
+void rtw_txpwr_lmt_add(struct rf_ctl_t *rfctl, const char *regd_name
+	, u8 band, u8 bw, u8 tlrs, u8 ntx_idx, u8 ch_idx, s8 lmt);
+struct txpwr_lmt_ent *_rtw_txpwr_lmt_get_by_name(struct rf_ctl_t *rfctl, const char *regd_name);
+struct txpwr_lmt_ent *rtw_txpwr_lmt_get_by_name(struct rf_ctl_t *rfctl, const char *regd_name);
+void rtw_txpwr_lmt_list_free(struct rf_ctl_t *rfctl);
+#endif /* CONFIG_TXPWR_LIMIT */
 
 #define BB_GAIN_2G 0
 #ifdef CONFIG_IEEE80211_BAND_5GHZ
