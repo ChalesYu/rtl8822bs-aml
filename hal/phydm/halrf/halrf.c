@@ -118,7 +118,7 @@ void phydm_get_iqk_cfir(
 	else
 		ch = 0;
 
-		odm_set_bb_reg(p_dm, 0x1b00, MASKDWORD, 0xf8000008 | path << 1);
+	odm_set_bb_reg(p_dm, 0x1b00, MASKDWORD, 0xf8000008 | path << 1);
 		if (idx == 0)
 			odm_set_bb_reg(p_dm, 0x1b0c, BIT(13) | BIT(12), 0x3);
 		else
