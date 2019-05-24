@@ -8800,7 +8800,7 @@ void issue_auth(_adapter *padapter, struct sta_info *psta, unsigned short status
 			val16 = cpu_to_le16(val16);
 			use_shared_key = 1;
 		} else {
-			le_val16 = 0;
+			val16 = 0;
 		}
 
 		pframe = rtw_set_fixed_ie(pframe, _AUTH_ALGM_NUM_, (unsigned char *)&val16, &(pattrib->pktlen));
@@ -16470,20 +16470,23 @@ void csa_timer_hdl(void *FunctionContext)
 		RTW_INFO("wait beacons more than 70 seconds\n");
 		return ;
 	}
-	
+
+#if 0	 //disable DFS
 	if(rfctl->csa_ch == 0) {
 		RTW_INFO("channel switch done\n");
 		return ;
 	}
-	
+#endif
 	/* channel switch */
 	if (rtw_set_csa_cmd(padapter) != _SUCCESS) {
+#if 0	 //disable DFS
 			rfctl->csa_ch = 0;
 			rfctl->csa_switch_cnt = 0;
 			rfctl->csa_ch_offset = 0;
 			rfctl->csa_ch_width = 0;
 			rfctl->csa_ch_freq_seg0 = 0;
 			rfctl->csa_ch_freq_seg1 = 0;
+#endif
 	}
 }
 
