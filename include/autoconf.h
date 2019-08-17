@@ -27,6 +27,9 @@
 #define CONFIG_SDIO_HCI
 #define PLATFORM_LINUX
 
+//DHC
+#define CONFIG_SG
+
 
 /*
  * Wi-Fi Functions Config

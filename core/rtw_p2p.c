@@ -3483,6 +3483,11 @@ static int cancel_ro_ch_handler(_adapter *padapter, u8 *buf)
 	}
 
 
+	if (ATOMIC_READ(&pwdev_priv->switch_ch_to) == 0) {
+		rtw_mi_buddy_issue_nulldata(padapter, NULL, 0, 3, 500);
+		ATOMIC_SET(&pwdev_priv->switch_ch_to, 1);
+	}
+
 	rtw_p2p_set_state(pwdinfo, rtw_p2p_pre_state(pwdinfo));
 #ifdef CONFIG_DEBUG_CFG80211
 	RTW_INFO("%s, role=%d, p2p_state=%d\n", __func__, rtw_p2p_role(pwdinfo), rtw_p2p_state(pwdinfo));

@@ -539,8 +539,6 @@ u8 rtw_set_802_11_infrastructure_mode(_adapter *padapter,
 			}
 		}
 
-		*pold_state = networktype;
-
 		_clr_fwstate_(pmlmepriv, ~WIFI_NULL_STATE);
 
 		switch (networktype) {
@@ -577,6 +575,7 @@ u8 rtw_set_802_11_infrastructure_mode(_adapter *padapter,
 
 		/* SecClearAllKeys(adapter); */
 
+		*pold_state = networktype;
 
 		_exit_critical_bh(&pmlmepriv->lock, &irqL);
 	}
