@@ -1,9 +1,5 @@
 rtl8822bs-aml
 
-Reference : tieba.baidu.com/p/5289928584
-
-Update for kernel 4.20 , tested on mgv2000 (`gxlx_p261_1g` with `6222B-SRB`)
-
 ### How to use
 
 install linux-header deb
