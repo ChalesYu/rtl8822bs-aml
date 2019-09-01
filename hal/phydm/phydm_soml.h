@@ -59,7 +59,11 @@ struct adaptive_soml {
 	RT_WORK_ITEM	phydm_adaptive_soml_workitem;
 #endif
 #endif
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 15, 0))
+	struct legacy_timer_emu		phydm_adaptive_soml_timer;
+#else
 	struct timer_list		phydm_adaptive_soml_timer;
+#endif
 };
 
 void
