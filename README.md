@@ -1,4 +1,15 @@
-rtl8822bs-aml
+
+## rtl8822bs-aml
+
+
+### Known Issues
+
+```
+High CPU load (idle 99%)
+Not fully support iw ioctl command (iw dev del)
+```
+
+NOTE: Other issue are not fully tested, Not for daily use.
 
 ### How to use
 
