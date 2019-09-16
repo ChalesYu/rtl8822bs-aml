@@ -72,8 +72,10 @@ halmac_cfg_txbf_88xx(
 		switch (bw) {
 		case HALMAC_BW_80:
 			temp42C |= BIT_R_TXBF0_80M;
+			__attribute__ ((fallthrough));/* FALL THRU */
 		case HALMAC_BW_40:
 			temp42C |= BIT_R_TXBF0_40M;
+			__attribute__ ((fallthrough));/* FALL THRU */
 		case HALMAC_BW_20:
 			temp42C |= BIT_R_TXBF0_20M;
 			break;
