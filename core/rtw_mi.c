@@ -659,10 +659,11 @@ static void _rtw_mi_stop_drv_threads(_adapter *adapter, bool exclude_self)
 
 	for (i = 0; i < dvobj->iface_nums; i++) {
 		iface = dvobj->padapters[i];
-		if ((iface) && (iface->bup == _TRUE))
+		if ((iface) && (iface->bup == _TRUE)) {
 			if ((exclude_self) && (iface == adapter))
 				continue;
 			rtw_stop_drv_threads(iface);
+		}
 	}
 }
 void rtw_mi_stop_drv_threads(_adapter *adapter)
