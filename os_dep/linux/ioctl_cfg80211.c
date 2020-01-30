@@ -2179,7 +2179,11 @@ static int cfg80211_rtw_change_iface(struct wiphy *wiphy,
 	#if defined(CONFIG_P2P) && ((LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 37)) || defined(COMPAT_KERNEL_RELEASE))
 	case NL80211_IFTYPE_P2P_CLIENT:
 		is_p2p = _TRUE;
-		__attribute__ ((fallthrough));/* FALL THRU */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 4, 0)
+	__attribute__ ((fallthrough));
+#else
+			__attribute__ ((__fallthrough__));
+#endif
 	#endif
 	case NL80211_IFTYPE_STATION:
 		networkType = Ndis802_11Infrastructure;
@@ -2204,7 +2208,11 @@ static int cfg80211_rtw_change_iface(struct wiphy *wiphy,
 	#if defined(CONFIG_P2P) && ((LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 37)) || defined(COMPAT_KERNEL_RELEASE))
 	case NL80211_IFTYPE_P2P_GO:
 		is_p2p = _TRUE;
-		__attribute__ ((fallthrough));/* FALL THRU */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 4, 0)
+	__attribute__ ((fallthrough));
+#else
+			__attribute__ ((__fallthrough__));
+#endif
 	#endif
 	case NL80211_IFTYPE_AP:
 		networkType = Ndis802_11APMode;
