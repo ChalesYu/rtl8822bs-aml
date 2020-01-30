@@ -4626,11 +4626,13 @@ thread_return rtw_recv_thread(thread_context context)
 	_adapter *adapter = (_adapter *)context;
 	struct recv_priv *recvpriv = &adapter->recvpriv;
 	s32 err = _SUCCESS;
+#ifdef RTW_RECV_THREAD_HIGH_PRIORITY
 #ifdef PLATFORM_LINUX
 	struct sched_param param = { .sched_priority = 1 };
 
 	sched_setscheduler(current, SCHED_FIFO, &param);
 #endif /* PLATFORM_LINUX */
+#endif /*RTW_RECV_THREAD_HIGH_PRIORITY*/
 	thread_enter("RTW_RECV_THREAD");
 
 	RTW_INFO(FUNC_ADPT_FMT" enter\n", FUNC_ADPT_ARG(adapter));
