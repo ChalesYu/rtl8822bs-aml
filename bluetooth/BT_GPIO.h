@@ -10,9 +10,20 @@
 
 //#define DBG
 
-#define GPIOX_17 497
+#define meson
+//#define sunxi
 
+//meson
+#define GPIOX_17 497
+//sunxi
+#define PM4 388
+
+#ifdef meson
 #define BT_EN GPIOX_17
+#endif
+#ifdef sunxi
+#define BT_EN PM4
+#endif
 
 int BT_EN_PIN_export(void);
 int BT_EN_PIN_unexport(void);

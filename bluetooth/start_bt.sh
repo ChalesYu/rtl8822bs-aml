@@ -32,6 +32,8 @@ echo "starting BT device now ..."
 sleep 1
 insmod ./8822BS_BT_EN.ko
 echo
+#meson platform use /dev/ttyAML1
+#sunxi platform use /dev/ttyS1
 TTY="/dev/ttyAML1"
 systemctl stop serial-getty@$TTY
 
