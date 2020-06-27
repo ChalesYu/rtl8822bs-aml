@@ -30,7 +30,7 @@ sudo ./start_bt.sh
 
 # For upstream
 
-This is a dirty solution for mainline. only can make bluetooth work , but have the same issue as old way. Should waiting for realtek or vendor provide the final solution.
+This is a dirty solution for mainline. only can make bluetooth work , but have the same issue as old way. Should waiting for realtek,vendor or other people provide the final solution.
 
 patch:
 
@@ -70,7 +70,7 @@ patch:
 +	/* Force set uart settings for rtl8822bs */
 +	*device_baudrate = 0x0252c014;
 +	*controller_baudrate = 115200;
-+	*flow_control = false;
++	*flow_control = 0;
 +	
  	rtl_dev_dbg(hdev, "device baudrate = 0x%08x", *device_baudrate);
  	rtl_dev_dbg(hdev, "controller baudrate = %u", *controller_baudrate);
