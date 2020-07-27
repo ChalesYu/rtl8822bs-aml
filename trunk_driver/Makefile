@@ -54,8 +54,8 @@ PWD  := $(shell pwd)
 KSRC ?= /lib/modules/$(shell uname -r)/build
 #KSRC = /usr/src/linux-headers-5.4.124-0504124-generic/
 SUBARCH := $(shell uname -m | sed -e s/i.86/i386/)
-ARCH := $(SUBARCH)
-#ARCH := arm64
+#ARCH := $(SUBARCH)
+ARCH := arm64
 
 EXTRA_CFLAGS += -DCONFIG_LITTLE_ENDIAN
 

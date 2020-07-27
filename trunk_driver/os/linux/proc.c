@@ -19,7 +19,7 @@
 #include "common.h"
 #include "hif.h"
 
-#define PDE_DATA pde_data
+//#define PDE_DATA pde_data
 
 char WF_PROC_NAME[20]= { 's','c','i','c','s'};
 char demo_var[20] = {'s','s'};
