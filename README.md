@@ -3,7 +3,6 @@
 ### Linux Driver for the RealTek RTL8812BU and RTL8822BU Chipsets.
 
 - Driver Version: 5.8.7.2.36899.20200819
-- Note: Improvements are made on an ongoing basis.
 
 ### Supported Features:
 
@@ -16,18 +15,16 @@
 - Site survey scan and manual connect
 - WPA/WPA2 TLS client
 - Power saving mode
-- Monitor mode (needs testing)
-- Soft AP mode (needs testing)
+- Monitor mode
+- Soft AP mode
 - WiFi-Direct
 
 ### Supported Kernels:
 
 - Kernels: 2.6.24 ~ 5.6
-- Update: Tested on kernel 5.8.
 
 ### Tested Linux Distributions:
 
-- Ubuntu 20.10 (daily - 09-05-20 - kernel 5.8)
 - Ubuntu 20.04
 - Ubuntu 18.04
 - Linux Mint 20
@@ -60,6 +57,52 @@ $ sudo ./dkms-remove.sh
 
 - If your system is in Secure Mode and all is well, DKMS will handle signing the driver. 
 
-### Bugs:
+### Entering Monitor Mode with 'iw' and 'ip':
+Start by making sure the system recognizes the Wi-Fi interface:
+```
+$ sudo iw dev
+```
 
-- None noted at this time.
+The output shows the Wi-Fi interface name and the current mode among other things. The interface name will be something like `wlx00c0cafre8ba` and is required for the below commands. I will use `wlan0` as the interface name but you need to substitute your interface name.
+
+Take the interface down:
+```
+$ sudo ip link set wlan0 down
+```
+
+Set monitor mode:
+```
+$ sudo iw wlan0 set monitor control
+```
+
+Bring the interface up:
+```
+$ sudo ip link set wlan0 up
+```
+
+Verify the mode has changed:
+```
+$ sudo iw dev
+```
+
+### Reverting to Managed Mode with 'iw' and 'ip':
+
+Take the interface down:
+```
+$ sudo ip link set wlan0 down
+```
+
+Set managed mode:
+```
+$ sudo iw wlan0 set type managed
+```
+
+Bring the interface up:
+```
+$ sudo ip link set wlan0 up
+```
+
+Verify the mode has changed:
+```
+$ sudo iw dev
+```
