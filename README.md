@@ -16,7 +16,6 @@
 - WPA/WPA2 TLS client
 - Power saving mode
 - Monitor mode
-- Soft AP mode
 - WiFi-Direct
 
 ### Supported Kernels:
@@ -46,13 +45,17 @@ Open a terminal in the directory with the source code and execute the following 
 ```
 $ sudo ./dkms-install.sh
 ```
-
+```
+$ sudo reboot
+```
 ### Removal of the Driver
 Open a terminal in the directory with the source code and execute the following command:
 ```
 $ sudo ./dkms-remove.sh
 ```
-
+```
+$ sudo reboot
+```
 ### Secure Mode:
 
 - If your system is in Secure Mode and all is well, DKMS will handle signing the driver. 
