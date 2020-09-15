@@ -34,6 +34,20 @@
 - EDUP WiFi Adapter 1300Mbps USB 3.0 High Gain Wireless Adapter:
   https://www.amazon.com/gp/product/B07Q56K68T
 
+## Supported Devices
+
+* ASUS AC1300 USB-AC55 B1
+* ASUS U2
+* Dlink - DWA-181
+* Dlink - DWA-182
+* Edimax EW-7822ULC
+* Edimax EW-7822UTC
+* NetGear A6150
+* TP-Link Archer T3U
+* TP-Link Archer T3U Plus
+* TP-Link Archer T4U V3
+* TRENDnet TEW-808UBM
+
 ### DKMS
 This driver can be installed using DKMS. DKMS is a system utility which will automatically recompile and install a kernel module when a new kernel is installed. To make use of DKMS, install the `dkms` package, which on Debian (based) systems such as Ubuntu and Linux Mint is done like this:
 ```

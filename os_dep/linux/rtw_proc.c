@@ -81,17 +81,27 @@ inline struct proc_dir_entry *rtw_proc_create_dir(const char *name, struct proc_
 }
 
 inline struct proc_dir_entry *rtw_proc_create_entry(const char *name, struct proc_dir_entry *parent,
-	const struct rtw_proc_ops *fops, void * data)
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 6, 0))
+	const struct proc_ops *proc_ops, void * data)
+#else
+	const struct file_operations *fops, void * data)
+#endif
 {
 	struct proc_dir_entry *entry;
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 26))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 6, 0))
+	entry = proc_create_data(name,  S_IFREG | S_IRUGO | S_IWUGO, parent, proc_ops, data);
+#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 26))
 	entry = proc_create_data(name,  S_IFREG | S_IRUGO | S_IWUGO, parent, fops, data);
 #else
 	entry = create_proc_entry(name, S_IFREG | S_IRUGO | S_IWUGO, parent);
 	if (entry) {
 		entry->data = data;
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 6, 0))
+		entry->proc_ops = proc_ops;
+#else
 		entry->proc_fops = fops;
+#endif
 	}
 #endif
 

@@ -8994,7 +8994,7 @@ static u32 rtw_append_assoc_req_owe_ie(_adapter *adapter, u8 *pbuf)
 	if (sec == NULL)
 		goto exit;
 
-	if (sec->owe_ie && sec->owe_ie_len > 0) {
+	if (&(sec->owe_ie) != NULL && sec->owe_ie_len > 0) {
 		len = sec->owe_ie_len;
 		_rtw_memcpy(pbuf, sec->owe_ie, len);
 	}
@@ -10190,6 +10190,9 @@ static int issue_action_ba(_adapter *padapter, unsigned char *raddr, unsigned ch
 				psta->BA_starting_seqctrl[tid & 0x07] = start_seq;
 
 				BA_starting_seqctrl = start_seq << 4;
+			}
+			else {
+				break;
 			}
 
 			BA_starting_seqctrl = cpu_to_le16(BA_starting_seqctrl);
@@ -15030,7 +15033,7 @@ operation_by_state:
 
 #ifdef CONFIG_SCAN_BACKOP
 	case SCAN_BACKING_OP: {
-		u8 back_ch, back_bw, back_ch_offset;
+		u8 back_ch = 0, back_bw = 0, back_ch_offset = 0;
 		u8 need_ch_setting_union = _TRUE;
 
 #ifdef CONFIG_MCC_MODE
