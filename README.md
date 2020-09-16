@@ -37,7 +37,7 @@
 - EDUP WiFi Adapter 1300Mbps USB 3.0 High Gain Wireless Adapter:
   https://www.amazon.com/gp/product/B07Q56K68T
 
-## Supported Devices
+## Supported Devices:
 
 * ASUS AC1300 USB-AC55 B1
 * ASUS U2
@@ -51,23 +51,23 @@
 * TP-Link Archer T3U Plus
 * TP-Link Archer T4U V3
 * TRENDnet TEW-808UBM
-* Numerous additional products
+* Numerous additional products that are based on the supported chipsets
 
-### DKMS
+### DKMS:
 This driver can be installed using DKMS. DKMS is a system utility which will automatically recompile and install a kernel module when a new kernel is installed. To make use of DKMS, install the `dkms` package, which on Debian (based) systems such as Ubuntu and Linux Mint is done like this:
 ```
 $ sudo apt-get install dkms
 ```
 
-### Installation of the Driver
+### Installation of the Driver:
 
-- Download the driver by clicking on the green `Code` button.
+Download the driver by clicking on the green `Code` button.
 
-- Click on `Download ZIP` and save `88x2bu-master.zip` in your `Downloads` folder.
+Click on `Download ZIP` and save `88x2bu-master.zip` in your `Downloads` folder.
 
-- Upzip `88x2bu-master.zip`. A folder called `88x2bu-master` should be created.
+Upzip `88x2bu-master.zip`. A folder called `88x2bu-master` should be created.
 
-- Open a terminal and enter the folder called `88x2bu-master`.
+Open a terminal and enter the folder called `88x2bu-master`:
 
 ```
 $ cd ~/Downloads/88x2bu-master
@@ -80,7 +80,7 @@ $ sudo ./dkms-install.sh
 ```
 $ sudo reboot
 ```
-### Removal of the Driver
+### Removal of the Driver:
 Open a terminal in the directory with the source code and execute the following command:
 ```
 $ sudo ./dkms-remove.sh
@@ -90,7 +90,7 @@ $ sudo reboot
 ```
 ### Secure Mode:
 
-- If your system is in Secure Mode and all is well, DKMS will handle signing the driver. 
+If your system is in Secure Mode, DKMS will handle signing the driver. 
 
 ### Entering Monitor Mode with 'iw' and 'ip':
 Start by making sure the system recognizes the Wi-Fi interface:
