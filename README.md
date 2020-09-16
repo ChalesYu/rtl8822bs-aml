@@ -1,8 +1,9 @@
-### 88x2bu
+### 88x2bu ( 88x2bu.ko )
 
 ### Linux Driver for the RealTek RTL8812BU and RTL8822BU Chipsets.
 
-- Driver Version: 5.8.7.2.36899.20200819
+- Driver Version: 5.8.7.2.36899.20200819 (Realtek)
+- Numerous updates from the Linux community
 
 ### Supported Features:
 
@@ -20,10 +21,12 @@
 
 ### Supported Kernels:
 
-- Kernels: 2.6.24 ~ 5.6
+- Kernels: 2.6.24 ~ 5.6 (Realtek)
+- Updates to support kernel 5.8 have been applied
 
 ### Tested Linux Distributions:
 
+- Ubuntu 20.10 - Daily - 2020-09-15 - kernel 5.8
 - Ubuntu 20.04
 - Ubuntu 18.04
 - Linux Mint 20
@@ -42,11 +45,13 @@
 * Dlink - DWA-182
 * Edimax EW-7822ULC
 * Edimax EW-7822UTC
+* EDUP WiFi Adapter 1300Mbps USB 3.0 High Gain Wireless Adapter
 * NetGear A6150
 * TP-Link Archer T3U
 * TP-Link Archer T3U Plus
 * TP-Link Archer T4U V3
 * TRENDnet TEW-808UBM
+* Numerous additional products
 
 ### DKMS
 This driver can be installed using DKMS. DKMS is a system utility which will automatically recompile and install a kernel module when a new kernel is installed. To make use of DKMS, install the `dkms` package, which on Debian (based) systems such as Ubuntu and Linux Mint is done like this:
