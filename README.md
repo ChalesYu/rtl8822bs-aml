@@ -60,7 +60,20 @@ $ sudo apt-get install dkms
 ```
 
 ### Installation of the Driver
-Open a terminal in the directory with the source code and execute the following command:
+
+- Download the driver by clicking on the green `Code` button.
+
+- Click on `Download ZIP` and save `88x2bu-master.zip` in your `Downloads` folder.
+
+- Upzip `88x2bu-master.zip`. A folder called `88x2bu-master` should be created.
+
+- Open a terminal and enter the folder called `88x2bu-master`.
+
+```
+$ cd ~/Downloads/88x2bu-master
+```
+
+Execute the following command:
 ```
 $ sudo ./dkms-install.sh
 ```
