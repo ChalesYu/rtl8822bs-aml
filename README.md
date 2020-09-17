@@ -9,13 +9,13 @@
 
 - IEEE 802.11 b/g/n/ac WiFi compliant
 - 802.1x, WEP, WPA TKIP and WPA2 AES/Mixed mode for PSK and TLS (Radius)
-- WPA3-SAE Personal
 - WPS - PIN and PBC Methods
 - IEEE 802.11b/g/n/ac Client mode
-- Wireless security for WEP, WPA TKIP and WPA2 AES PSK
+- Wireless security for WEP, WPA TKIP, WPA2 AES PSK and WPA3-SAE Personal
 - Site survey scan and manual connect
 - WPA/WPA2 TLS client
 - Power saving mode
+- AP Mode (WiFi Hotspot)
 - Monitor mode
 - WiFi-Direct
 
@@ -34,7 +34,7 @@
 
 ### Tested Hardware:
 
-- EDUP WiFi Adapter 1300Mbps USB 3.0 High Gain Wireless Adapter:
+- EDUP EP-AC1605GS WiFi Adapter 1300Mbps USB 3.0 High Gain Wireless Adapter:
   https://www.amazon.com/gp/product/B07Q56K68T
 
 ## Supported Devices:
@@ -45,7 +45,7 @@
 * Dlink - DWA-182
 * Edimax EW-7822ULC
 * Edimax EW-7822UTC
-* EDUP WiFi Adapter 1300Mbps USB 3.0 High Gain Wireless Adapter
+* EDUP EP-AC1605GS
 * NetGear A6150
 * TP-Link Archer T3U
 * TP-Link Archer T3U Plus
@@ -60,6 +60,8 @@ $ sudo apt-get install dkms
 ```
 
 ### Installation of the Driver:
+
+Go to `https://github.com/morrownr/88x2bu` for the latest version of the driver.
 
 Download the driver by clicking on the green `Code` button.
 
