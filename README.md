@@ -26,11 +26,12 @@
 
 ### Tested Linux Distributions:
 
+- Kali - Rolling - 2020-09-24 - kernel 5.8
 - Ubuntu 20.10 - Daily - 2020-09-15 - kernel 5.8
 - Ubuntu 20.04
 - Ubuntu 18.04
-- Linux Mint 20
-- Linux Mint 19.3
+- Mint 20
+- Mint 19.3
 
 ### Tested Hardware:
 
