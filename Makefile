@@ -1738,7 +1738,7 @@ EXTRA_CFLAGS += -DCONFIG_RADIO_WORK
 #endif
 
 ifeq ($(CONFIG_PLATFORM_AML_S905_LINUX), y)
-SUBARCH := $(shell uname -m)
+SUBARCH := arm64
 ARCH ?= $(SUBARCH)
 KVER  := $(shell uname -r)
 KSRC := /lib/modules/$(KVER)/build
