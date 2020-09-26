@@ -166,7 +166,7 @@ int rtw_mp_read_reg(struct net_device *dev,
 	char *pextra = extra;
 	int ret = 0;
 
-	if (rtw_do_mp_iwdata_len_chk(__func__, wrqu->length))
+	if (rtw_do_mp_iwdata_len_chk(__func__, wrqu->length + 1))
 		return -EFAULT;
 
 	if (wrqu->length > 128)
@@ -1732,7 +1732,7 @@ int rtw_mp_switch_rf_path(struct net_device *dev,
 	int		bwlg = 1, bwla = 1, btg = 1, bbt=1;
 	int ret = 0;
 
-	if (rtw_do_mp_iwdata_len_chk(__func__, wrqu->length))
+	if (rtw_do_mp_iwdata_len_chk(__func__, wrqu->length + 1))
 		return -EFAULT;
 
 	if (copy_from_user(input, wrqu->pointer, wrqu->length)) {

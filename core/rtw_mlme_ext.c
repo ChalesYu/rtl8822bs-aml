@@ -18,60 +18,60 @@
 #include <hal_data.h>
 
 struct mlme_handler mlme_sta_tbl[] = {
-	{WIFI_ASSOCREQ,		"OnAssocReq",		&OnAssocReq},
-	{WIFI_ASSOCRSP,		"OnAssocRsp",		&OnAssocRsp},
-	{WIFI_REASSOCREQ,	"OnReAssocReq",		&OnAssocReq},
-	{WIFI_REASSOCRSP,	"OnReAssocRsp",		&OnAssocRsp},
-	{WIFI_PROBEREQ,		"OnProbeReq",		&OnProbeReq},
+	{WIFI_ASSOCREQ,		"OnAssocReq",	&OnAssocReq},
+	{WIFI_ASSOCRSP,		"OnAssocRsp",	&OnAssocRsp},
+	{WIFI_REASSOCREQ,	"OnReAssocReq",	&OnAssocReq},
+	{WIFI_REASSOCRSP,	"OnReAssocRsp",	&OnAssocRsp},
+	{WIFI_PROBEREQ,		"OnProbeReq",	&OnProbeReq},
 	{WIFI_PROBERSP,		"OnProbeRsp",		&OnProbeRsp},
 
 	/*----------------------------------------------------------
 					below 2 are reserved
 	-----------------------------------------------------------*/
-	{0,			"DoReserved",		&DoReserved},
-	{0,			"DoReserved",		&DoReserved},
+	{0,					"DoReserved",		&DoReserved},
+	{0,					"DoReserved",		&DoReserved},
 	{WIFI_BEACON,		"OnBeacon",		&OnBeacon},
-	{WIFI_ATIM,		"OnATIM",		&OnAtim},
+	{WIFI_ATIM,			"OnATIM",		&OnAtim},
 	{WIFI_DISASSOC,		"OnDisassoc",		&OnDisassoc},
-	{WIFI_AUTH,		"OnAuth",		&OnAuthClient},
+	{WIFI_AUTH,			"OnAuth",		&OnAuthClient},
 	{WIFI_DEAUTH,		"OnDeAuth",		&OnDeAuth},
 	{WIFI_ACTION,		"OnAction",		&OnAction},
-	{WIFI_ACTION_NOACK, 	"OnActionNoAck",	&OnAction},
+	{WIFI_ACTION_NOACK, "OnActionNoAck",	&OnAction},
 };
 
 #ifdef _CONFIG_NATIVEAP_MLME_
 struct mlme_handler mlme_ap_tbl[] = {
-	{WIFI_ASSOCREQ,		"OnAssocReq",		&OnAssocReq},
-	{WIFI_ASSOCRSP,		"OnAssocRsp",		&OnAssocRsp},
-	{WIFI_REASSOCREQ,	"OnReAssocReq",		&OnAssocReq},
-	{WIFI_REASSOCRSP,	"OnReAssocRsp",		&OnAssocRsp},
-	{WIFI_PROBEREQ,		"OnProbeReq",		&OnProbeReq},
+	{WIFI_ASSOCREQ,		"OnAssocReq",	&OnAssocReq},
+	{WIFI_ASSOCRSP,		"OnAssocRsp",	&OnAssocRsp},
+	{WIFI_REASSOCREQ,	"OnReAssocReq",	&OnAssocReq},
+	{WIFI_REASSOCRSP,	"OnReAssocRsp",	&OnAssocRsp},
+	{WIFI_PROBEREQ,		"OnProbeReq",	&OnProbeReq},
 	{WIFI_PROBERSP,		"OnProbeRsp",		&OnProbeRsp},
 
 	/*----------------------------------------------------------
 					below 2 are reserved
 	-----------------------------------------------------------*/
-	{0,			"DoReserved",		&DoReserved},
-	{0,			"DoReserved",		&DoReserved},
+	{0,					"DoReserved",		&DoReserved},
+	{0,					"DoReserved",		&DoReserved},
 	{WIFI_BEACON,		"OnBeacon",		&OnBeacon},
-	{WIFI_ATIM,		"OnATIM",		&OnAtim},
+	{WIFI_ATIM,			"OnATIM",		&OnAtim},
 	{WIFI_DISASSOC,		"OnDisassoc",		&OnDisassoc},
-	{WIFI_AUTH,		"OnAuth",		&OnAuth},
+	{WIFI_AUTH,			"OnAuth",		&OnAuth},
 	{WIFI_DEAUTH,		"OnDeAuth",		&OnDeAuth},
 	{WIFI_ACTION,		"OnAction",		&OnAction},
-	{WIFI_ACTION_NOACK, 	"OnActionNoAck",	&OnAction},
+	{WIFI_ACTION_NOACK, "OnActionNoAck",	&OnAction},
 };
 #endif
 
 struct action_handler OnAction_tbl[] = {
-	{RTW_WLAN_CATEGORY_SPECTRUM_MGMT,	"ACTION_SPECTRUM_MGMT", on_action_spct},
-	{RTW_WLAN_CATEGORY_QOS,			"ACTION_QOS", &OnAction_qos},
-	{RTW_WLAN_CATEGORY_DLS,			"ACTION_DLS", &OnAction_dls},
-	{RTW_WLAN_CATEGORY_BACK,		"ACTION_BACK", &OnAction_back},
-	{RTW_WLAN_CATEGORY_PUBLIC,		"ACTION_PUBLIC", on_action_public},
-	{RTW_WLAN_CATEGORY_RADIO_MEAS,		"ACTION_RADIO_MEAS", &on_action_rm},
-	{RTW_WLAN_CATEGORY_FT,			"ACTION_FT",	&OnAction_ft},
-	{RTW_WLAN_CATEGORY_HT,			"ACTION_HT",	&OnAction_ht},
+	{RTW_WLAN_CATEGORY_SPECTRUM_MGMT,	 "ACTION_SPECTRUM_MGMT", on_action_spct},
+	{RTW_WLAN_CATEGORY_QOS, "ACTION_QOS", &OnAction_qos},
+	{RTW_WLAN_CATEGORY_DLS, "ACTION_DLS", &OnAction_dls},
+	{RTW_WLAN_CATEGORY_BACK, "ACTION_BACK", &OnAction_back},
+	{RTW_WLAN_CATEGORY_PUBLIC, "ACTION_PUBLIC", on_action_public},
+	{RTW_WLAN_CATEGORY_RADIO_MEAS, "ACTION_RADIO_MEAS", &on_action_rm},
+	{RTW_WLAN_CATEGORY_FT, "ACTION_FT",	&OnAction_ft},
+	{RTW_WLAN_CATEGORY_HT,	"ACTION_HT",	&OnAction_ht},
 #ifdef CONFIG_IEEE80211W
 	{RTW_WLAN_CATEGORY_SA_QUERY, "ACTION_SA_QUERY", &OnAction_sa_query},
 #else
@@ -97,7 +97,7 @@ u8	null_addr[ETH_ALEN] = {0, 0, 0, 0, 0, 0};
 OUI definitions for the vendor specific IE
 ***************************************************/
 unsigned char	RTW_WPA_OUI[] = {0x00, 0x50, 0xf2, 0x01};
-unsigned char	WMM_OUI[] = {0x00, 0x50, 0xf2, 0x02};
+unsigned char WMM_OUI[] = {0x00, 0x50, 0xf2, 0x02};
 unsigned char	WPS_OUI[] = {0x00, 0x50, 0xf2, 0x04};
 unsigned char	P2P_OUI[] = {0x50, 0x6F, 0x9A, 0x09};
 unsigned char	WFD_OUI[] = {0x50, 0x6F, 0x9A, 0x0A};
@@ -754,7 +754,7 @@ bool rtw_choose_shortest_waiting_ch(struct rf_ctl_t *rfctl, u8 sel_ch, u8 max_bw
 					, __func__, ch, bw, offset, waiting_ms, non_ocp_ms, cac_ms, int_factor);
 
 			if (ch_c == 0
-				/* first: smaller waiting time */
+				/* first: smaller wating time */
 				|| min_waiting_ms > waiting_ms
 				/* then: less interference */
 				|| (min_waiting_ms == waiting_ms && int_factor_c > int_factor)
