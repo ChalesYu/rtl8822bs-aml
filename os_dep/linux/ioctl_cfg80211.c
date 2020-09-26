@@ -234,11 +234,6 @@ static u8 rtw_chbw_to_cfg80211_chan_def(struct wiphy *wiphy, struct cfg80211_cha
 	chdef->center_freq1 = cfreq;
 	chdef->center_freq2 = 0;
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0))
-	chdef->edmg.bw_config = 0;
-	chdef->edmg.channels = 0;
-#endif
-
 	ret = _SUCCESS;
 
 exit:
@@ -10228,6 +10223,7 @@ static struct cfg80211_ops rtw_cfg80211_ops = {
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 37)) || defined(COMPAT_KERNEL_RELEASE)
 	.mgmt_tx = cfg80211_rtw_mgmt_tx,
+	.mgmt_frame_register = cfg80211_rtw_mgmt_frame_register,
 #elif (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 34) && LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 35))
 	.action = cfg80211_rtw_mgmt_tx,
 #endif
