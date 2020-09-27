@@ -55,12 +55,14 @@
 * Numerous additional products that are based on the supported chipsets
 
 ### DKMS:
-This driver can be installed using DKMS. DKMS is a system utility which will automatically recompile and install a kernel module when a new kernel is installed. To make use of DKMS, install the `dkms` package, which on Debian (based) systems such as Ubuntu and Linux Mint is done like this:
+This driver can be installed using DKMS. DKMS is a system utility which will automatically recompile and install a kernel module when a new kernel is installed. To make use of DKMS, install the `dkms` package. On Debian (based) systems, such as Ubuntu and Mint, installation is accomplished like this:
 ```
 $ sudo apt-get install dkms
 ```
 
 ### Installation of the Driver:
+
+Note: The installation instructions I am providing are for the novice user. Experienced users are welcome to alter the installation to meet their needs.
 
 Go to `https://github.com/morrownr/88x2bu` for the latest version of the driver.
 
