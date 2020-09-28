@@ -166,7 +166,7 @@ int rtw_mp_read_reg(struct net_device *dev,
 	char *pextra = extra;
 	int ret = 0;
 
-	if (rtw_do_mp_iwdata_len_chk(__func__, wrqu->length + 1))
+	if (rtw_do_mp_iwdata_len_chk(__func__, (wrqu->length + 1)))
 		return -EFAULT;
 
 	if (wrqu->length > 128)
@@ -758,6 +758,8 @@ int rtw_mp_txpower(struct net_device *dev,
 	if (rtw_do_mp_iwdata_len_chk(__func__, wrqu->length))
 		return -EFAULT;
 
+	_rtw_memset(input, 0, sizeof(input));
+
 	if (copy_from_user(input, wrqu->pointer, wrqu->length)) {
 		ret = -EFAULT;
 		goto exit;
@@ -1160,6 +1162,8 @@ int rtw_mp_arx(struct net_device *dev,
 	if (rtw_do_mp_iwdata_len_chk(__func__, wrqu->length))
 		return -EFAULT;
 
+	_rtw_memset(input, 0, sizeof(input));
+
 	if (copy_from_user(input, wrqu->pointer, wrqu->length)) {
 		ret = -EFAULT;
 		goto exit;
@@ -1358,6 +1362,8 @@ int rtw_mp_pwrtrk(struct net_device *dev,
 
 	if (rtw_do_mp_iwdata_len_chk(__func__, wrqu->length))
 		return -EFAULT;
+
+	_rtw_memset(input, 0, sizeof(input));
 
 	if (copy_from_user(input, wrqu->pointer, wrqu->length)) {
 		ret = -EFAULT;
@@ -1578,6 +1584,8 @@ int rtw_mp_dump(struct net_device *dev,
 	if (rtw_do_mp_iwdata_len_chk(__func__, wrqu->length))
 		return -EFAULT;
 
+	_rtw_memset(input, 0, sizeof(input));
+
 	pmp_priv = &padapter->mppriv;
 
 	if (copy_from_user(input, wrqu->pointer, wrqu->length)) {
@@ -1612,6 +1620,8 @@ int rtw_mp_phypara(struct net_device *dev,
 
 	if (rtw_do_mp_iwdata_len_chk(__func__, wrqu->length))
 		return -EFAULT;
+
+	_rtw_memset(input, 0, sizeof(input));
 
 	if (copy_from_user(input, wrqu->pointer, wrqu->length)) {
 		ret = -EFAULT;
@@ -1679,6 +1689,8 @@ int rtw_mp_SetRFPath(struct net_device *dev,
 	if (rtw_do_mp_iwdata_len_chk(__func__, wrqu->length))
 		return -EFAULT;
 
+	_rtw_memset(input, 0, sizeof(input));
+
 	if (copy_from_user(input, wrqu->pointer, wrqu->length)) {
 		ret = -EFAULT;
 		goto exit;
@@ -1734,6 +1746,8 @@ int rtw_mp_switch_rf_path(struct net_device *dev,
 
 	if (rtw_do_mp_iwdata_len_chk(__func__, wrqu->length + 1))
 		return -EFAULT;
+
+	_rtw_memset(input, 0, sizeof(input));
 
 	if (copy_from_user(input, wrqu->pointer, wrqu->length)) {
 		ret = -EFAULT;
@@ -1793,6 +1807,8 @@ int rtw_mp_QueryDrv(struct net_device *dev,
 	if (rtw_do_mp_iwdata_len_chk(__func__, wrqu->data.length))
 		return -EFAULT;
 
+	_rtw_memset(input, 0, sizeof(input));
+
 	if (copy_from_user(input, wrqu->data.pointer, wrqu->data.length)) {
 		ret = -EFAULT;
 		goto exit;
@@ -1831,6 +1847,8 @@ int rtw_mp_PwrCtlDM(struct net_device *dev,
 
 	if (rtw_do_mp_iwdata_len_chk(__func__, wrqu->length))
 		return -EFAULT;
+
+	_rtw_memset(input, 0, sizeof(input));
 
 	if (copy_from_user(input, wrqu->pointer, wrqu->length)) {
 		ret = -EFAULT;
@@ -2958,6 +2976,8 @@ int rtw_mp_link(struct net_device *dev,
 
 	if (rtw_do_mp_iwdata_len_chk(__func__, wrqu->length))
 		return -EFAULT;
+
+	_rtw_memset(input, 0, sizeof(input));
 
 	if (copy_from_user(input, wrqu->pointer, wrqu->length)) {
 		ret = -EFAULT;
