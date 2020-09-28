@@ -6,6 +6,15 @@ if [[ $EUID -ne 0 ]]; then
   exit 1
 fi
 
+if [ -d "/usr/lib/dkms" ] 
+then
+    echo "dkms appears to be installed.." 
+else
+	echo "dkms not appear to be installed."
+	echo "Try \"sudo apt install dkms\""
+	exit 1
+fi
+
 DRV_NAME=88x2bu
 DRV_VERSION=5.8.7.2
 
