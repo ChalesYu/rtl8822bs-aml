@@ -1,3 +1,17 @@
+### reference driver source
+
+https://github.com/morrownr/88x2bu
+
+https://github.com/coreelec/rtl8822cs-aml
+
+### 88x2bs ( 88x2bs.ko )
+
+```
+make CONFIG_SDIO_HCI=y CONFIG_USB_HCI=n
+```
+
+It should have the same fucture(and bug) with 88x2bu
+
 ### 88x2bu ( 88x2bu.ko )
 
 ### Linux Driver for the RealTek RTL8812BU and RTL8822BU Chipsets.
