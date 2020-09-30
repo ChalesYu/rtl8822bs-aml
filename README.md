@@ -1,6 +1,19 @@
-##### [Click for USB WiFi Adapter Information for Linux](https://github.com/morrownr/USB-WiFi)
+### reference driver source
 
------
+https://github.com/morrownr/88x2bu
+
+https://github.com/coreelec/rtl8822cs-aml
+
+### 88x2bs ( 88x2bs.ko ) :rocket: :rocket:
+
+```
+make CONFIG_SDIO_HCI=y CONFIG_USB_HCI=n
+```
+
+It should have the same fucture(and bug) with 88x2bu
+
+
+##### [Click for USB WiFi Adapter Information for Linux](https://github.com/morrownr/USB-WiFi)
 
 ### 88x2bu ( 88x2bu.ko ) :rocket:
 
