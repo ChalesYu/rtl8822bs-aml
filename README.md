@@ -1,6 +1,9 @@
 
 ## rtl8822bs-aml
 
+a modified driver version `5.8.7.2.36899.20200819` is available at [test branch](https://github.com/chalesyu/rtl8822bs-aml/tree/test)
+
+a seems useful commit for rtw88 can be found at [here](https://github.com/xdarklight/linux/commit/dd44e08220266eea579bd08c6bb54c92943920fd)
 
 ### Possible exist Issues
 
