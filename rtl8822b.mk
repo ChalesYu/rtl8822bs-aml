@@ -10,8 +10,7 @@ _HAL_INTFS_FILES +=	hal/rtl8822b/rtl8822b_halinit.o \
 			hal/rtl8822b/rtl8822b_mac.o \
 			hal/rtl8822b/rtl8822b_cmd.o \
 			hal/rtl8822b/rtl8822b_phy.o \
-			hal/rtl8822b/rtl8822b_ops.o \
-			hal/rtl8822b/hal8822b_fw.o
+			hal/rtl8822b/rtl8822b_ops.o
 
 ifeq ($(CONFIG_USB_HCI), y)
 _HAL_INTFS_FILES +=	hal/rtl8822b/$(HCI_NAME)/rtl8822bu_halinit.o \
