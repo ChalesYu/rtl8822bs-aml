@@ -1,0 +1,19 @@
+
+Magic Number 2个字节： 0xFA  0xAF
+InterfaceType   2个字节： 0x9188-----》USB    0x9189-----》 SDIO
+ROMType：     1个字节： 0：旧ROM   1：新ROM
+FirmwareNum  1个字节： 固件数量
+Type                 1个字节： 0--------》M0          1--------》51
+SubType           1个字节： 0--------》Normal    1--------》wowlan
+Version             4个字节
+Length              4个字节：固件长度
+Offset               4个字节：固件内容偏移地址
+Type                 1个字节： 0--------》M0          1--------》51
+SubType           1个字节： 0--------》Normal    1--------》wowlan
+Version             4个字节
+Length              4个字节：固件长度
+Offset               4个字节：固件内容偏移地址
+...........
+固件内容1
+固件内容2
+...........

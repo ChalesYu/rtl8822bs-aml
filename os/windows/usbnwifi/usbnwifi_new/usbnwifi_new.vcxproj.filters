@@ -1,0 +1,449 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="mp\mp_cntl.c">
+      <Filter>Source Files\mp</Filter>
+    </ClCompile>
+    <ClCompile Include="mp\mp_elem.c">
+      <Filter>Source Files\mp</Filter>
+    </ClCompile>
+    <ClCompile Include="mp\mp_evnts.c">
+      <Filter>Source Files\mp</Filter>
+    </ClCompile>
+    <ClCompile Include="mp\mp_dbg.c">
+      <Filter>Source Files\mp</Filter>
+    </ClCompile>
+    <ClCompile Include="mp\mp_main.c">
+      <Filter>Source Files\mp</Filter>
+    </ClCompile>
+    <ClCompile Include="mp\mp_oids.c">
+      <Filter>Source Files\mp</Filter>
+    </ClCompile>
+    <ClCompile Include="mp\mp_power.c">
+      <Filter>Source Files\mp</Filter>
+    </ClCompile>
+    <ClCompile Include="mp\mp_recv.c">
+      <Filter>Source Files\mp</Filter>
+    </ClCompile>
+    <ClCompile Include="mp\mp_send.c">
+      <Filter>Source Files\mp</Filter>
+    </ClCompile>
+    <ClCompile Include="mp\mp_util.c">
+      <Filter>Source Files\mp</Filter>
+    </ClCompile>
+    <ClCompile Include="hw\usb_reg.c">
+      <Filter>Source Files\hw</Filter>
+    </ClCompile>
+    <ClCompile Include="hw\usb_main.c">
+      <Filter>Source Files\hw</Filter>
+    </ClCompile>
+    <ClCompile Include="hw\usb_recv.c">
+      <Filter>Source Files\hw</Filter>
+    </ClCompile>
+    <ClCompile Include="hw\usb_xmit.c">
+      <Filter>Source Files\hw</Filter>
+    </ClCompile>
+    <ClCompile Include="hw\bus_intf.c">
+      <Filter>Source Files\hw</Filter>
+    </ClCompile>
+    <ClCompile Include="hw\power_rich100.c">
+      <Filter>Source Files\hw</Filter>
+    </ClCompile>
+    <ClCompile Include="hw\usb_io.c">
+      <Filter>Source Files\hw</Filter>
+    </ClCompile>
+    <ClCompile Include="os_porting\wf_os_api_file.c">
+      <Filter>Source Files\os_porting</Filter>
+    </ClCompile>
+    <ClCompile Include="os_porting\wf_os_api_lock.c">
+      <Filter>Source Files\os_porting</Filter>
+    </ClCompile>
+    <ClCompile Include="os_porting\wf_os_api_mix.c">
+      <Filter>Source Files\os_porting</Filter>
+    </ClCompile>
+    <ClCompile Include="os_porting\wf_os_api_sema.c">
+      <Filter>Source Files\os_porting</Filter>
+    </ClCompile>
+    <ClCompile Include="os_porting\wf_os_api_thread.c">
+      <Filter>Source Files\os_porting</Filter>
+    </ClCompile>
+    <ClCompile Include="os_porting\wf_os_api_timer.c">
+      <Filter>Source Files\os_porting</Filter>
+    </ClCompile>
+    <ClCompile Include="os_porting\wf_os_api_workqueue.c">
+      <Filter>Source Files\os_porting</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\nic\action.c">
+      <Filter>Source Files\nic</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\nic\ap.c">
+      <Filter>Source Files\nic</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\nic\assoc.c">
+      <Filter>Source Files\nic</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\nic\auth.c">
+      <Filter>Source Files\nic</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\nic\efuse.c">
+      <Filter>Source Files\nic</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\nic\fw_download.c">
+      <Filter>Source Files\nic</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\nic\hw_ctrl.c">
+      <Filter>Source Files\nic</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\nic\hw_info.c">
+      <Filter>Source Files\nic</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\nic\ie.c">
+      <Filter>Source Files\nic</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\nic\local_config.c">
+      <Filter>Source Files\nic</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\nic\lps.c">
+      <Filter>Source Files\nic</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\nic\mcu_cmd.c">
+      <Filter>Source Files\nic</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\nic\mlme.c">
+      <Filter>Source Files\nic</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\nic\nic.c">
+      <Filter>Source Files\nic</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\nic\nic_io.c">
+      <Filter>Source Files\nic</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\nic\odm.c">
+      <Filter>Source Files\nic</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\nic\rx.c">
+      <Filter>Source Files\nic</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\nic\scan.c">
+      <Filter>Source Files\nic</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\nic\sec.c">
+      <Filter>Source Files\nic</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\nic\sec_arc4.c">
+      <Filter>Source Files\nic</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\nic\sec_tkip.c">
+      <Filter>Source Files\nic</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\nic\sec_wep.c">
+      <Filter>Source Files\nic</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\nic\trx.c">
+      <Filter>Source Files\nic</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\nic\tx.c">
+      <Filter>Source Files\nic</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\nic\wdn.c">
+      <Filter>Source Files\nic</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\nic\wf_80211.c">
+      <Filter>Source Files\nic</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\nic\wlan_mgmt.c">
+      <Filter>Source Files\nic</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\nic\utility\wf_que.c">
+      <Filter>Source Files\nic</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\nic\utility\wf_timer.c">
+      <Filter>Source Files\nic</Filter>
+    </ClCompile>
+    <ClCompile Include="dataflow\tx_windows.c">
+      <Filter>Source Files\dataflow</Filter>
+    </ClCompile>
+    <ClCompile Include="hw\hw_oids.c">
+      <Filter>Source Files\hw</Filter>
+    </ClCompile>
+    <ClCompile Include="dataflow\rx_windows.c">
+      <Filter>Source Files\dataflow</Filter>
+    </ClCompile>
+    <ClCompile Include="hw\wf_oids_adapt.c">
+      <Filter>Source Files\hw</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\nic\p2p\p2p.c">
+      <Filter>Source Files\nic</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\nic\p2p\p2p_frame_mgt.c">
+      <Filter>Source Files\nic</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\nic\p2p\p2p_proto_mgt.c">
+      <Filter>Source Files\nic</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\nic\p2p\p2p_timer.c">
+      <Filter>Source Files\nic</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\nic\p2p\p2p_wfd.c">
+      <Filter>Source Files\nic</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\nic\p2p\p2p_wowlan.c">
+      <Filter>Source Files\nic</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\nic\utility\wf_msg.c">
+      <Filter>Source Files\nic</Filter>
+    </ClCompile>
+    <ClCompile Include="hw\power_richv200.c">
+      <Filter>Source Files\hw</Filter>
+    </ClCompile>
+    <ClCompile Include="hw\hw_sec.c">
+      <Filter>Source Files\hw</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="mp\mp_cntl.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="mp\mp_ioctl.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="hw\hw_def.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="mp\mp_dbg.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="mp\mp_def.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="mp\mp_dot11.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="mp\mp_elem.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="mp\mp_evnts.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="mp\mp_intf.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="mp\mp_main.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="mp\mp_oids.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="mp\mp_pktq.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="mp\mp_recv.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="mp\mp_send.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="mp\mp_util.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\pcomp.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="hw\usb_reg.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="hw\usb_main.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="hw\usb_recv.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="hw\usb_xmit.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="hw\bus_intf.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="hw\usb_io.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\wf_config.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\wf_debug.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\wf_os_api.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\wf_typedef.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="dataflow\tx_windows.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\nic\action.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\nic\ap.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\nic\assoc.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\nic\auth.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\nic\common.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\nic\efuse.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\nic\fw_download.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\nic\hw_ctrl.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\nic\hw_info.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\nic\ie.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\nic\local_config.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\nic\lps.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\nic\mcu_cmd.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\nic\mlme.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\nic\nic.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\nic\nic_io.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\nic\odm.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\nic\queue.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\nic\rx.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\nic\scan.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\nic\sec.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\nic\trx.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\nic\tx.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\nic\wdn.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\nic\wf_80211.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\nic\wlan_mgmt.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\nic\utility\wf_list.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\nic\utility\wf_mix.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\nic\utility\wf_pt.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\nic\utility\wf_pt_lc_switch.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\nic\utility\wf_que.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\nic\utility\wf_timer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="hw\hw_oids.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\nic_attr.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="hw\wf_oids_adapt.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\wf_os_api_file.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\wf_os_api_lock.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\wf_os_api_mix.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\wf_os_api_sema.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\wf_os_api_thread.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\wf_os_api_timer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\wf_os_api_workqueue.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\nic\utility\wf_msg.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="hw\hw_sec.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Driver Files">
+      <UniqueIdentifier>{eebd444b-3444-4cac-a39b-a6ae36317fe9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{df43fbd0-cf3f-42c4-90e7-32b205712c50}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{c2c121aa-04cf-498a-8a05-b75c41a62bce}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\hw">
+      <UniqueIdentifier>{8da11839-0957-4d28-a822-f5daaf0aca6f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\mp">
+      <UniqueIdentifier>{13ede8cb-9329-47b8-9e4f-5d5122403dec}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\os_porting">
+      <UniqueIdentifier>{6afed69f-7f57-4db9-aef0-e008912ab512}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\nic">
+      <UniqueIdentifier>{75a7250a-fea7-46f9-9f73-75bbd297e473}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\dataflow">
+      <UniqueIdentifier>{9d0dcf12-3ee3-447d-85b1-764a8d3bc510}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <Inf Include="usbnwifi_new.inf">
+      <Filter>Driver Files</Filter>
+    </Inf>
+  </ItemGroup>
+</Project>

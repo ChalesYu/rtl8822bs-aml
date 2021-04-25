@@ -1,0 +1,21 @@
+udhcpd配置及使用
+
+1.
+
+修改/etc/udhcpd.conf
+
+修改 interface ra0 #default: eth0 为对应网卡
+
+解决error, Unable to open /var/lib/misc/udhcpd.leases for reading，
+
+在板子上执行以下命令：
+
+# mkdir -p /var/lib/misc/
+# touch /var/lib/misc/udhcpd.leases
+1
+2
+2.再次启动udhcpd进程
+
+# udhcpd /etc/udhcpd.conf &
+1
+然后手机重连板子的wifi，手机获取到ip地址后，wifi无线连接成功。
