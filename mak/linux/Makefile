@@ -244,21 +244,24 @@ EXTRA_CFLAGS += -DCONFIG_RICHV200
 endif
 
 ifeq ($(CONFIG_ARS_SUPPORT), y)
-$(MODULE_NAME)-y += nic/ars/ars_entry.o
 $(MODULE_NAME)-y += nic/ars/ars_acs.o
+$(MODULE_NAME)-y += nic/ars/ars_adaptivity.o
 $(MODULE_NAME)-y += nic/ars/ars_antdect.o
 $(MODULE_NAME)-y += nic/ars/ars_antdiv.o
 $(MODULE_NAME)-y += nic/ars/ars_bbps.o
 $(MODULE_NAME)-y += nic/ars/ars_beamforming.o
 $(MODULE_NAME)-y += nic/ars/ars_cfo.o
+$(MODULE_NAME)-y += nic/ars/ars_debug.o
 $(MODULE_NAME)-y += nic/ars/ars_dig.o
 $(MODULE_NAME)-y += nic/ars/ars_edcaturbocheck.o
+$(MODULE_NAME)-y += nic/ars/ars_entry.o
+$(MODULE_NAME)-y += nic/ars/ars_hwconfig.o
 $(MODULE_NAME)-y += nic/ars/ars_noisemonitor.o
 $(MODULE_NAME)-y += nic/ars/ars_pathdiv.o
+$(MODULE_NAME)-y += nic/ars/ars_powertracking.o
 $(MODULE_NAME)-y += nic/ars/ars_rainfo.o
 $(MODULE_NAME)-y += nic/ars/ars_timer.o
 $(MODULE_NAME)-y += nic/ars/ars_txpower.o
-$(MODULE_NAME)-y += nic/ars/ars_hwconfig.o
 endif
 
 ifeq ($(CONFIG_CMD_METHOD), mailbox)

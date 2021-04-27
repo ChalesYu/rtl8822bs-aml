@@ -24,6 +24,8 @@ Notes:
 #include "rx_windows.h"
 #include "wf_oids_adapt.h"
 
+#define ENC_MIC_LEN 8
+
 //extern wf_u8 calc_rx_rate(wf_u8 rx_rate);
 extern void print_buffer(PUCHAR title, LONG idx, PUCHAR src, LONG length);
 
@@ -341,19 +343,8 @@ NDIS_STATUS wf_recv_data_submit(PADAPTER         padapter, wf_recv_pkt_t *pkt)
 		return NDIS_STATUS_FAILURE;
 	}
 
-	
-	// Set protected bit in frame control flags;
-	wf_u8 *pframe_ctrl = nic_pkt->pdata + 1;
-	if(((*pframe_ctrl) & 0x40) == 0x40)
-	{
-		*pframe_ctrl -= 0x40;
-		nic_pkt->len -=12; // TODO: Figure out WHY???
-	}
-
-	//TEST_RX_PRINT(nic_pkt->pdata, nic_pkt->len);
-
 	//LOG_D("len=%d", nic_pkt->len);
-	MmInitializeMdl(pkt->mdl, nic_pkt->pdata, nic_pkt->len);
+	MmInitializeMdl(pkt->mdl, pkt->tmp_data, nic_pkt->len);
     MmBuildMdlForNonPagedPool(pkt->mdl);
 	KeFlushIoBuffers(pkt->mdl, TRUE, TRUE);
 	NDIS_MDL_LINKAGE(pkt->mdl) = NULL;
@@ -480,6 +471,65 @@ void wf_recv_data_reorder(rx_pkt_t *pkt, PADAPTER padapter)
 
 }
 
+void wf_recv_data_decproc(PADAPTER          padapter, wf_recv_pkt_t *pkt)
+{
+	prx_pkt_info_t prx_info = &pkt->nic_pkt.pkt_info;
+	wf_u8 protected = GetPrivacy(pkt->nic_pkt.pdata);
+	wf_u8 *dst_ptr, *src_ptr;
+	wf_u16 *fctrl;
+	wf_u32 length = 0;
+	wf_u8 mic_len;
+	
+	src_ptr = pkt->nic_pkt.pdata;
+	dst_ptr = pkt->tmp_data;
+
+	if(protected) {
+		switch (prx_info->encrypt_algo) {
+        case _TKIP_:
+        case _AES_:
+			mic_len = ENC_MIC_LEN;
+            break;
+		case _WEP40_:
+        case _WEP104_:
+        default:
+        	mic_len = 0;
+            break;
+	    }
+		
+		length = prx_info->wlan_hdr_len;
+		wf_memcpy(dst_ptr, src_ptr, length);
+
+		dst_ptr += length;
+		src_ptr += length;
+		src_ptr += prx_info->iv_len;//skip iv info
+
+		pkt->nic_pkt.len -= (prx_info->iv_len+prx_info->icv_len+mic_len);
+
+		length = pkt->nic_pkt.len - prx_info->wlan_hdr_len;
+		wf_memcpy(dst_ptr, src_ptr, length);
+	} else {
+		length = pkt->nic_pkt.len;
+		wf_memcpy(dst_ptr, src_ptr, length);
+	}
+	
+	pkt->nic_pkt.pdata = pkt->tmp_data;
+	fctrl = pkt->nic_pkt.pdata;
+	ClearPrivacy(fctrl);
+
+#if 0
+	wdn_net_info_st *wdn_info;
+	wdn_info = wf_wdn_find_info(padapter->nic_info, get_ta(pkt->nic_pkt.pdata));
+	if(GET_HDR_Type(pkt->nic_pkt.pdata) == MAC_FRAME_TYPE_DATA && 
+		wdn_info->ieee8021x_blocked == wf_false) {
+		LOG_D("hif_hdr_len=%d wlan_hdr=%d iv=%d", 
+			pkt->nic_pkt.pkt_info.hif_hdr_len, 
+			pkt->nic_pkt.pkt_info.wlan_hdr_len,
+			pkt->nic_pkt.pkt_info.iv_len);
+		print_buffer("rx", 0, pkt->nic_pkt.pdata, pkt->nic_pkt.len);
+	}
+#endif
+}
+
 void wf_recv_complete_callback(void *adapter, WDFMEMORY BufferHdl, ULONG data_len, UCHAR offset)
 {
 	PADAPTER padapter = adapter;
@@ -490,8 +540,8 @@ void wf_recv_complete_callback(void *adapter, WDFMEMORY BufferHdl, ULONG data_le
 	LONG remain_len;
 	UCHAR *curr_buffer, *temp_buffer;
 	NDIS_STATUS ret = NDIS_STATUS_SUCCESS;
-	static ULONG i = 0;
-	wf_u8 print_flag = 0;
+	//static ULONG i = 0;
+	//wf_u8 print_flag = 0;
 
 	temp_buffer = WdfMemoryGetBuffer(BufferHdl, NULL);
 	curr_buffer = temp_buffer + offset;
@@ -567,15 +617,10 @@ ERROR_DEAL:
 
 VOID wf_recv_data_thread(PADAPTER padapter)
 {
-	//PADAPTER                    padapter;
-	PADAPTER_WORKITEM_CONTEXT   WorkItemContext;
 	wf_recv_info_t *recv_info ;
-	struct xmit_buf *pxmitbuf   = NULL;
 	PLIST_ENTRY plist = NULL;
 	wf_recv_pkt_t *pkt = NULL;
 	NDIS_STATUS ret = NDIS_STATUS_SUCCESS;
-	rx_pkt_info_t *pkt_info;
-	rx_pkt_t *nic_pkt;
 	nic_info_st *nic_info = padapter->nic_info;
 	
 	recv_info = padapter->recv_info;
@@ -602,6 +647,8 @@ VOID wf_recv_data_thread(PADAPTER padapter)
 				LOG_E("recv data dispatch failed!\n");
 				goto ERROR_DEAL;
 			}
+
+			wf_recv_data_decproc(padapter, pkt);
 
 			if(pkt->nic_pkt.pkt_info.pkt_type == WF_PKT_TYPE_FRAME &&
 				pkt->nic_pkt.pkt_info.frame_type == MAC_FRAME_TYPE_DATA) {

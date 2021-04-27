@@ -3,5 +3,5 @@
 
 typedef struct acs_info_st_
 {
-}acs_info_st;
+}ars_acs_info_st;
 #endif

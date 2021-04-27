@@ -37,7 +37,13 @@ static const struct cfg_parse_t __gl_cfg_parse_st[] =
    {"bw", bw_parse_handle},
    {"work_mode", work_mode_parse_handle},
    {"channelplan", channelplan_parse_handle},
-   {"ba_func", ba_func_parse_handle}
+   {"ba_func", ba_func_parse_handle},
+   #ifdef CONFIG_ARS_SUPPORT
+   //{"adaptivity_en", NULL},
+   //{"antenna_diversity", NULL},
+   //{"beamforming_support",NULL},
+   //{"force_igi",NULL},
+   #endif
 };
 
 static int ssid_parse_handle(nic_info_st *nic_info, const char *value)

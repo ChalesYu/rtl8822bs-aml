@@ -160,18 +160,25 @@ static void odm_queue_handle(nic_info_st *nic_info)
     odm_mgnt_st *odm            = nic_info->odm;
     wf_s32 ret = 0;
     mlme_state_e status;
-
+	wf_u8 exit_flag = 0;
 	//wf_os_api_thread_affinity(DEFAULT_CPU_ID);
 
-    while((nic_info->is_driver_stopped == wf_false) && (nic_info->is_surprise_removed == wf_false))
+    while(1)
     {
+
+
         ret = odm_queue_remove(odm,&cmd_node);
         if(ret)
         {
+        	LOG_D("exit_flag:%d",exit_flag);
+			if((nic_info->is_driver_stopped == wf_true) || (nic_info->is_surprise_removed == wf_true))
+        	{
+				break;
+			}
             //LOG_I("[%s,%d] exe",__func__,__LINE__);
             continue;
         }
-            
+
         wf_mlme_get_state(nic_info, &status);
         if (status == MLME_STATE_IDLE)
         { 

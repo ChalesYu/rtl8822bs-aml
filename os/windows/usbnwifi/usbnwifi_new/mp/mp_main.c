@@ -32,12 +32,12 @@ Notes:
 #include "tx_windows.h"
 #include "rx_windows.h"
 #include "wf_oids_adapt.h"
+#include "hw_init.h"
 #if DOT11_TRACE_ENABLED
 #include "Mp_Main.tmh"
 #endif
 
-extern int power_on(PADAPTER pAdapter);
-extern int power_on_v200(PADAPTER pAdapter);
+
 //
 // Functions that are not tagged PAGEABLE by the pragma as shown below are
 // by default resident (NONPAGEABLE) in memory. Make sure you don't acquire
@@ -408,87 +408,7 @@ out:
     return    ndisStatus;
 }
 
-static char *fw_path = WF_FW_FILE;
-//static char *fw_path = WF_FW_9188new;
-//static char *fw_path = WF_FW_9188old;
-static int read_fw_file(PADAPTER                pAdapter)
-{
-    wf_file *file = NULL;
-    fw_file_header_t fw_file_head;
-    fw_header_t fw_head;
-    loff_t pos;
-    int i;
-#ifndef CONFIG_RICHV200_FPGA
-    DbgPrint("parse richv100 firmware!\n");
-#else
-	DbgPrint("parse richv200 firmware!\n");
-#endif
-    //file = wf_os_api_file_open(WF_FW_FILE);
-    file = wf_os_api_file_open(fw_path);
-    
-    if (file == NULL)
-    {
-        DbgPrint("usb firmware open failed\n");
-        return -1;
-    }
-    pos = 0;
-    wf_os_api_file_read(file, pos, (unsigned char *)&fw_file_head, sizeof(fw_file_head));
-#ifndef CONFIG_RICHV200_FPGA
-	if ((fw_file_head.magic_number != 0xaffa) || (fw_file_head.interface_type != 0x9083))
-	{
-	    DbgPrint("usb firmware format error, magic:0x%x, type:0x%x\n",
-	        fw_file_head.magic_number, fw_file_head.interface_type);
-	    wf_os_api_file_close(file);
-	    return -1;
-	}
-#else
-#endif
-    pAdapter->AdapterFwInfo.fw_usb_rom_type = fw_file_head.rom_type;
-    pos += sizeof(fw_file_head);
-    for (i = 0; i<fw_file_head.firmware_num; i++)
-    {
-        wf_memset(&fw_head, 0, sizeof(fw_head));
-        wf_os_api_file_read(file, pos, (unsigned char *)&fw_head, sizeof(fw_head));
-        if (fw_head.type == 0)
-        {
-            LOG_D("USB FW0 Ver: %d.%d.%d.%d, size:%dBytes\n",
-                fw_head.version & 0xFF, (fw_head.version >> 8) & 0xFF,
-                (fw_head.version >> 16) & 0xFF, (fw_head.version >> 24) & 0xFF,
-                fw_head.length);
-            pAdapter->AdapterFwInfo.fw0_usb_size = fw_head.length;
-            // TODO: Free this memory when unloading.
-            pAdapter->AdapterFwInfo.fw0_usb = wf_kzalloc(fw_head.length);
-			
-            if (NULL == pAdapter->AdapterFwInfo.fw0_usb)
-            {
-                DbgPrint("firmware0 usb kzalloc failed\n");
-                wf_os_api_file_close(file);
-                return -1;
-            }
-            wf_os_api_file_read(file, fw_head.offset, (unsigned char *)pAdapter->AdapterFwInfo.fw0_usb, fw_head.length);
-        }
-		else
-		{
-			LOG_D("USB FW1 Ver: %d.%d.%d.%d, size:%dBytes",
-				fw_head.version & 0xFF, (fw_head.version >> 8) & 0xFF,
-				(fw_head.version >> 16) & 0xFF, (fw_head.version >> 24) & 0xFF,
-				fw_head.length);
-			fw_head.length -= 32;
-			pAdapter->AdapterFwInfo.fw1_usb_size = fw_head.length;
-			pAdapter->AdapterFwInfo.fw1_usb = wf_kzalloc(fw_head.length);
-			if (NULL == pAdapter->AdapterFwInfo.fw1_usb)
-			{
-				LOG_E("firmware1 usb kzalloc failed");
-				wf_os_api_file_close(file);
-				return -1;
-			}
-			wf_os_api_file_read(file, fw_head.offset + 32, (unsigned char *)pAdapter->AdapterFwInfo.fw1_usb, fw_head.length);
-		}
-        pos += sizeof(fw_head);
-    }
-	LOG_D("Read FW Finish\n");
-    wf_os_api_file_close(file);
-}
+
 /**
  * This routine allocates and initializes an Adapter data structure.
  * This DS represents a Physical Network Adapter present on the
@@ -640,9 +560,9 @@ Return Value:
     
 	// After initializing bus successfully, initialize hardware.
 
-	ndisStatus = InitializeHw(pAdapter);
+	//ndisStatus = InitializeHw(pAdapter);
 	
-
+	ndisStatus = hw_init(pAdapter);
     if (ndisStatus != NDIS_STATUS_SUCCESS)
     {
         if (pAdapter)
@@ -2736,72 +2656,6 @@ Mp11IndicateStatusIndication(
         );
 }
 
-
-NDIS_STATUS
-InitializeHw(PADAPTER pAdapter)
-{
-	UINT status = 0;
-#ifndef CONFIG_RICHV200_FPGA
-	power_on(pAdapter);
-#else	
-	power_on_v200(pAdapter);
-#endif
-	nic_info_st *nic_info = wf_kzalloc(sizeof(nic_info_st));
-	if (nic_info == NULL) {
-		LOG_E("malloc nic info failed!\n");
-		return NDIS_STATUS_FAILURE;
-	}
-	memset(nic_info, 0, sizeof(nic_info_st));
-
-	pAdapter->nic_info = nic_info;
-
-	read_fw_file(pAdapter);
-
-	nic_info->hif_node = pAdapter;
-	nic_info->ndev = pAdapter;
-
-	nic_info->hif_node_id = 0;
-
-	nic_info->ndev_id = 0;
-	nic_info->is_up = 0;
-	nic_info->virNic = FALSE;
-
-	nic_info->nic_type = NIC_USB;
-	nic_info->dev = NULL;
-
-	nic_info->fwdl_info.fw_usb_rom_type = pAdapter->AdapterFwInfo.fw_usb_rom_type;
-	nic_info->fwdl_info.fw0_usb = pAdapter->AdapterFwInfo.fw0_usb;
-	nic_info->fwdl_info.fw0_usb_size = pAdapter->AdapterFwInfo.fw0_usb_size;
-	nic_info->fwdl_info.fw1_usb = pAdapter->AdapterFwInfo.fw1_usb;
-	nic_info->fwdl_info.fw1_usb_size = pAdapter->AdapterFwInfo.fw1_usb_size;
-
-
-	nic_info->func_check_flag = 0xAA55BB66;
-	nic_info->nic_read = wf_usb_io_read;
-	nic_info->nic_write = wf_usb_io_write;
-	nic_info->nic_tx_queue_insert = wf_xmit_list_insert;//hif_info->ops->hif_tx_queue_insert;
-	nic_info->nic_tx_queue_empty = wf_xmit_list_empty;//hif_info->ops->hif_tx_queue_empty;
-
-
-
-#ifdef CONFIG_RICHV200_FPGA
-		nic_info->nic_write_fw = hif_write_firmware;
-		//nic_info->nic_write_cmd = hif_write_cmd;
-#endif
-
-	if(HwBusStartDevice(pAdapter) != NDIS_STATUS_SUCCESS) {
-		LOG_E("hw bus start failed!");
-		return NDIS_STATUS_FAILURE;
-	}
-
-	status = nic_init(nic_info);
-	
-	if (status == 0) {
-		nic_enable(nic_info);
-		return NDIS_STATUS_SUCCESS;
-	}
-	return NDIS_STATUS_FAILURE;
-}
 
 #define HW_REG_DOMAIN_MKK1          0x00000041
 #define HW_REG_DOMAIN_ISRAEL        0x00000042

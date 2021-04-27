@@ -116,15 +116,12 @@ void set_iv_icv_len(prx_pkt_t ppkt)
     prx_pkt_info_t prx_info = &ppkt->pkt_info;
     wf_u8 pricacy_flag = GET_HDR_Protected(pbuf);
 
-    if (0 == prx_info->encrypt_algo)
-    {
-        prx_info->iv_len    = 0;
-        prx_info->icv_len   = 0;
-        return ;
-    }
-
     switch (prx_info->encrypt_algo)
     {
+        case _NO_PRIVACY_:
+             prx_info->iv_len    = 0;
+             prx_info->icv_len   = 0;
+             break;
         case _WEP40_:
         case _WEP104_:
             prx_info->iv_len = 4;
@@ -967,10 +964,10 @@ static void rx_reorder_thread_handle(nic_info_st *nic_info)
     rx_reorder_node_t *rx_reorder_node  = NULL;
     rx_info_t *rx_info                  = NULL;
     wf_s32 ret = 0;
-
+	wf_u32 exit_flag = 0;
     //wf_os_api_thread_affinity(DEFAULT_CPU_ID);
 
-    while((nic_info->is_driver_stopped == wf_false) && (nic_info->is_surprise_removed == wf_false))
+    while(1)
     {
         rx_info = nic_info->rx_info;
         if(NULL == rx_info)
@@ -981,9 +978,17 @@ static void rx_reorder_thread_handle(nic_info_st *nic_info)
         ret = wf_rx_reorder_queue_remove(rx_info,&rx_reorder_node);
         if(ret)
         {
+        	if(exit_flag == 1)
+        	{
+				break;
+			}
             //LOG_I("[%s,%d] exe",__func__,__LINE__);
             continue;
         }
+		if(nic_info->is_driver_stopped == wf_true) || (nic_info->is_surprise_removed == wf_true)
+		{
+			exit_flag = 1;
+		}
         if(rx_reorder_node)
         {
             wf_rx_data_reorder_core(&rx_reorder_node->pkt);

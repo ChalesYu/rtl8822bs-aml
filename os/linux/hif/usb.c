@@ -400,6 +400,8 @@ static inline void usb_read_port_complete(struct urb * purb)
     }
     else//usb work bad
     {
+		skb_queue_tail(&hnode->trx_pipe.free_rx_queue_skb, skb);
+        wf_data_queue_insert(&hnode->trx_pipe.free_rx_queue, qnode);
         //LOG_I("[%s]:usb read work bad, urb->status:%d  node_id:%d",__func__,purb->status,qnode->node_id);
         switch(purb->status)
         {
@@ -418,7 +420,6 @@ static inline void usb_read_port_complete(struct urb * purb)
             case -ESHUTDOWN:
             {
                 USB_WARN("[%s] ESHUTDOWN",__func__);
-				skb_queue_tail(&hnode->trx_pipe.free_rx_queue_skb, skb);
             }
             case -ENOENT:
             {

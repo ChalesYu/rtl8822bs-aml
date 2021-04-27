@@ -502,7 +502,7 @@ int wf_io_write_cmd_special(nic_info_st *nic_info, wf_u32 func_code, wf_u32 *rec
     ret = wf_mcu_cmd_get_status(nic_info);
     if(WF_RETURN_FAIL == ret)
     {
-        LOG_E("[%s,%d] wf_io_write32 failed",__func__,__LINE__);
+        LOG_E("[%s,%d] wf_mcu_cmd_get_status failed",__func__,__LINE__);
         return ret;
     }
 
@@ -592,7 +592,7 @@ int wf_io_write_cmd_by_mailbox(nic_info_st *nic_info, wf_u32 cmd, wf_u32 *send_b
     ret = wf_mcu_cmd_get_status(nic_info);
     if (WF_RETURN_FAIL == ret)
     {
-        LOG_E("mcu_cmd_get_status timeout, check mcu feedback");
+        LOG_E("mcu_cmd_get_status failed, check mcu feedback");
 		goto exit;
     }
 

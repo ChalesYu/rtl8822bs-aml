@@ -16,22 +16,22 @@ void wf_lock_spin_free(wf_lock_spin *plock)
 
 wf_inline void wf_lock_spin_lock(wf_lock_spin *plock)
 {
-	NdisDprAcquireSpinLock(plock);
+	NdisAcquireSpinLock(plock);
 }
 
 wf_inline void wf_lock_spin_unlock(wf_lock_spin *plock)
 {
-	NdisDprReleaseSpinLock(plock);
+	NdisReleaseSpinLock(plock);
 }
 
 wf_inline void wf_lock_bh_lock(wf_lock_spin *plock)
 {
-	NdisDprAcquireSpinLock(plock);
+	NdisAcquireSpinLock(plock);
 }
 
 wf_inline void wf_lock_bh_unlock(wf_lock_spin *plock)
 {
-	NdisDprReleaseSpinLock(plock);
+	NdisReleaseSpinLock(plock);
 }
 
 wf_inline void wf_lock_irq_lock(wf_lock_spin *plock, wf_irq *pirqL)

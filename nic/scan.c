@@ -258,7 +258,7 @@ int check_bssid (wf_scan_info_t *pscan_info, wf_80211_mgmt_t *pmgmt)
         if (wf_memcmp(pscan_info->preq->bssid,
                       pmgmt->bssid, sizeof(pscan_info->preq->bssid)))
         {
-            return -1;
+            return 1;
         }
     }
 
@@ -288,7 +288,7 @@ int check_ssid (wf_scan_info_t *pscan_info, wf_u8 *pies, wf_u16 ies_len)
         }
         if (i == pscan_info->preq->ssid_num)
         {
-            return -2;
+            return 1;
         }
     }
 
@@ -319,7 +319,7 @@ int check_channel (wf_scan_info_t *pscan_info, wf_u8 *pies, wf_u16 ies_len)
         }
         if (i == pscan_info->preq->ch_num)
         {
-            return -2;
+            return 1;
         }
     }
 
@@ -363,19 +363,19 @@ int wf_scan_filter (nic_info_st *pnic_info,
         rst = check_bssid(pscan_info, pmgmt);
         if (rst)
         {
-            rst = -3;
+            rst = rst < 0 ? -3 : 0;
             goto exit;
         }
         rst = check_ssid(pscan_info, pies, ies_len);
         if (rst)
         {
-            rst = -4;
+            rst = rst < 0 ? -4 : 0;
             goto exit;
         }
         rst = check_channel(pscan_info, pies, ies_len);
         if (rst)
         {
-            rst = -5;
+            rst = rst < 0 ? -5 : 0;
             goto exit;
         }
     }
@@ -646,7 +646,7 @@ int wf_scan_start (nic_info_st *pnic_info, scan_type_e type,
         for (i = 0; i < ch_num; i++)
         {
             char tmp[5];
-            sprintf(tmp, "%d ", chs[i]);
+            sprintf(tmp, "%d", chs[i]);
             strncat(ch_str, tmp, 3);
         }
         if (i == 0)

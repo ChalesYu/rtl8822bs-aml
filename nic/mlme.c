@@ -958,6 +958,11 @@ static wf_pt_rst_t mlme_core_thrd (nic_info_st *pnic_info)
 
     PT_BEGIN(pt);
 
+    if (!(get_sys_work_mode(pnic_info) == WF_INFRA_MODE && pnic_info->is_up))
+    {
+        goto exit;
+    }
+
     PT_WAIT_UNTIL(pt, !wf_msg_pop(pmsg_que, &pmsg));
 
     if (pmsg->tag == WF_MLME_TAG_SCAN)
@@ -1078,13 +1083,6 @@ static int mlme_core (nic_info_st *pnic_info)
                 MLME_DBG("thread destory...");
                 return 0;
             }
-            wf_yield();
-            continue;
-        }
-
-        if ((get_sys_work_mode(pnic_info) != WF_INFRA_MODE &&
-              get_sys_work_mode(pnic_info) != WF_ADHOC_MODE) || !pnic_info->is_up)
-        {
             wf_yield();
             continue;
         }

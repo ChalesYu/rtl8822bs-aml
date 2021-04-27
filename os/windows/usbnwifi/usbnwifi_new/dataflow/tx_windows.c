@@ -870,7 +870,7 @@ void wf_xmit_data_thread(PADAPTER         padapter)
 			if(WF_CANNOT_RUN(nic_info)) {
 		        break;
 		    }
-			DbgPrint("----ZY_TEST----Start to send a DATA frame.\n");
+			
 			wf_mlme_get_state(nic_info, &state);
 	        if (state == MLME_STATE_SCAN){
 	            break;

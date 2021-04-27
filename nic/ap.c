@@ -283,10 +283,16 @@ static int ap_msg_deinit (nic_info_st *pnic_info)
                 pap_msg = WF_CONTAINER_OF(pnode, wf_ap_msg_t, list);
                 wf_kfree(pap_msg);
             }
+            if(!MacAddr_isBcst(pwdn_info->mac))
+            {
+                wf_deauth_xmit_frame(pnic_info, pwdn_info->mac,
+                              WF_80211_REASON_QSTA_TIMEOUT);
+            }
             /* free the wdn */
             wf_wdn_remove(pnic_info, pwdn_info->mac);
         }
     }
+    wf_mcu_set_media_status(pnic_info, WIFI_FW_STATION_STATE);
 
     return 0;
 }
@@ -533,21 +539,6 @@ static void ap_poll (nic_info_st *pnic_info)
             wf_yield();
             continue;
         }
-
-        if (!pnic_info->is_up)
-        {
-            wf_list_for_each_safe(pos, pos_next, &pwdn->head)
-            {
-                pwdn_node = wf_list_entry(pos, wdn_node_st, list);
-                pwdn_info = &pwdn_node->info;
-                pwdn_info->state = E_WDN_AP_STATE_8021X_BLOCK;
-                wf_deauth_xmit_frame(pnic_info, pwdn_info->mac,
-                                     WF_80211_REASON_DEAUTH_LEAVING);
-                clearup(pnic_info, pwdn_info);
-            }
-            wf_yield();
-            continue;
-        }
         
         if(get_sys_work_mode(pnic_info) == WF_MASTER_MODE)
         {
@@ -579,7 +570,6 @@ static void ap_poll (nic_info_st *pnic_info)
         wf_yield();
     }
 
-
 	wf_os_api_thread_exit(pcur_network->ap_tid);
 }
 
@@ -610,21 +600,25 @@ int wf_ap_probe (nic_info_st *pnic_info,
     wf_wlan_network_t *pcur_network = &pwlan_info->cur_network;
     wf_80211_mgmt_t *pmgmt;
 
-    if (wf_ap_status_get(pnic_info) == WF_AP_STATUS_UNINITILIZED)
+    if (!pnic_info->is_up)
     {
         return -1;
+    }
+    if (wf_ap_status_get(pnic_info) == WF_AP_STATUS_UNINITILIZED)
+    {
+        return -2;
     }
 
     if (wf_80211_get_frame_type(pframe->frame_control) != WF_80211_FRM_PROBE_REQ)
     {
-        return -2;
+        return -3;
     }
 
     if (!(mac_addr_equal(pframe->da, pwlan_info->cur_network.mac_addr) ||
           is_bcast_addr(pframe->da)))
     {
         AP_WARN("probe request target address invalid");
-        return -3;
+        return -4;
     }
 
     AP_DBG("receive probe request");
@@ -1272,6 +1266,7 @@ int wf_ap_work_stop (nic_info_st *pnic_info)
 {
     wf_wlan_info_t *pwlan_info = pnic_info->wlan_info;
     wf_wlan_network_t *pcur_network = &pwlan_info->cur_network;
+    sec_info_st *psec_info = pnic_info->sec_info;
 
     AP_DBG();
 
@@ -1283,6 +1278,7 @@ int wf_ap_work_stop (nic_info_st *pnic_info)
     }
 
     ap_msg_deinit(pnic_info);
+    memset(psec_info, 0, sizeof(sec_info_st));
     /* update ap status */
     wf_ap_status_set(pnic_info, WF_AP_STATUS_UNINITILIZED);
 

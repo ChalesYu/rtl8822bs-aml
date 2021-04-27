@@ -1836,7 +1836,7 @@ static int _call_scan_cb (struct wiphy *wiphy
                 on_check = wf_true;
                 wf_timer_set(&timer, 12 * 1000);
             }
-            else if (wf_timer_expired(&timer))
+            if (wf_timer_expired(&timer))
             {
                 wf_timer_restart(&timer);
             }

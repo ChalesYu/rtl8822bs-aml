@@ -5263,11 +5263,11 @@ MpSetCipherDefaultKey(
         *BytesRead = *BytesNeeded;
     } while(FALSE);
 
-	// Allow NOT-EAPOL data frmaes to be sent to hardware.
 	nic_info_st *pnic_info = pAdapter->nic_info;
-	wdn_net_info_st *pwdn_info = wf_wdn_find_info(pnic_info, wf_wlan_get_cur_bssid(pnic_info));
+	wdn_net_info_st *pwdn_info = wf_wdn_find_info(pnic_info,
+                                         wf_wlan_get_cur_bssid(pnic_info));
 	pwdn_info->ieee8021x_blocked = wf_false;
-	
+
     return ndisStatus;
 }
 

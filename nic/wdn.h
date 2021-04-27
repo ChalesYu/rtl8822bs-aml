@@ -275,6 +275,7 @@ int wf_wdn_data_update(nic_info_st *nic_info, wdn_net_info_st *wdn_info);
 wf_u8 wf_wdn_is_alive(wdn_net_info_st *wdn_net_info, wf_u8 update_tag);
 void wf_wdn_update_traffic_stat(nic_info_st *nic_info,wf_u8 update_odm_flag);
 void get_bratecfg_by_support_dates(wf_u8 *pdataRate, wf_u8 dataRate_len, wf_u16 *pBrateCfg);
+wf_u8 wf_wdn_get_cnt(nic_info_st *pnic_info);
 
 #endif
 

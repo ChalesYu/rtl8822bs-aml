@@ -46,9 +46,6 @@
     <ClCompile Include="hw\bus_intf.c">
       <Filter>Source Files\hw</Filter>
     </ClCompile>
-    <ClCompile Include="hw\power_rich100.c">
-      <Filter>Source Files\hw</Filter>
-    </ClCompile>
     <ClCompile Include="hw\usb_io.c">
       <Filter>Source Files\hw</Filter>
     </ClCompile>
@@ -193,10 +190,10 @@
     <ClCompile Include="..\..\..\..\nic\utility\wf_msg.c">
       <Filter>Source Files\nic</Filter>
     </ClCompile>
-    <ClCompile Include="hw\power_richv200.c">
+    <ClCompile Include="hw\hw_sec.c">
       <Filter>Source Files\hw</Filter>
     </ClCompile>
-    <ClCompile Include="hw\hw_sec.c">
+    <ClCompile Include="hw\hw_init.c">
       <Filter>Source Files\hw</Filter>
     </ClCompile>
   </ItemGroup>

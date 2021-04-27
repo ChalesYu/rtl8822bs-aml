@@ -56,6 +56,7 @@ typedef struct wf_recv_pkt_s{
 	UCHAR *buffer;
 	UCHAR rpt_sel;
 	rx_pkt_t nic_pkt;
+	UCHAR tmp_data[2500];
 	WDFMEMORY buf_hdl;
 
 	void *net_if;

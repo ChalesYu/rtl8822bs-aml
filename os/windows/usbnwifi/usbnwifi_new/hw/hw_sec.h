@@ -72,4 +72,13 @@ Hw11SetDefaultKey(
 static int sta_hw_set_group_key(nic_info_st *pnic_info, wdn_net_info_st *pwdn_info);
 
 static int sta_hw_set_unicast_key(nic_info_st *pnic_info, wdn_net_info_st *pwdn_info);
+
+VOID HwRemoveKeyEntry(PADAPTER pAdapter, wf_u8 keyIndex);
+
+NDIS_STATUS
+Sta11SetEnabledMulticastCipherAlgorithm(
+	__in  PADAPTER       pAdapter,
+	__in  PDOT11_CIPHER_ALGORITHM_LIST  pCipherAlgoList,
+	__out PULONG          pBytesRead
+);
 #endif

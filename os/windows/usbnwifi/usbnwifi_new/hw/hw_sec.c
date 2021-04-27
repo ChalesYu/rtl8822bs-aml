@@ -272,9 +272,9 @@ HwSetKey(
 		// If the current encryption algorithm is WEP, change it to more specific WEP40 or WEP104.
 		//
 
-		if (pAdapter->MibInfo.HwUnicastCipher == DOT11_CIPHER_ALGO_WEP &&
+		if (pAdapter->MibInfo.UnicastCipherAlgorithm == DOT11_CIPHER_ALGO_WEP &&
 			(algoId == DOT11_CIPHER_ALGO_WEP40 || algoId == DOT11_CIPHER_ALGO_WEP104)) {
-			pAdapter->MibInfo.HwUnicastCipher = algoId;
+			pAdapter->MibInfo.UnicastCipherAlgorithm = algoId;
 
 			//
 			// For RTL8180, also program the hardware
@@ -282,20 +282,20 @@ HwSetKey(
 
 		}
 
-		if (pAdapter->MibInfo.HwMulticastCipher == DOT11_CIPHER_ALGO_WEP &&
+		if (pAdapter->MibInfo.MulticastCipherAlgorithm == DOT11_CIPHER_ALGO_WEP &&
 			(algoId == DOT11_CIPHER_ALGO_WEP40 || algoId == DOT11_CIPHER_ALGO_WEP104)) {
-			pAdapter->MibInfo.HwMulticastCipher = algoId;
+			pAdapter->MibInfo.MulticastCipherAlgorithm = algoId;
 		}
 
 		//
 		// We should never have unicast and multicast cipher with different length of WEP.
 		// See comment in function Hw11SetEncryption().
 		//
-		ASSERT(!(pAdapter->MibInfo.HwUnicastCipher == DOT11_CIPHER_ALGO_WEP40 &&
-			pAdapter->MibInfo.HwMulticastCipher == DOT11_CIPHER_ALGO_WEP104));
+		ASSERT(!(pAdapter->MibInfo.UnicastCipherAlgorithm == DOT11_CIPHER_ALGO_WEP40 &&
+			pAdapter->MibInfo.MulticastCipherAlgorithm == DOT11_CIPHER_ALGO_WEP104));
 
-		ASSERT(!(pAdapter->MibInfo.HwUnicastCipher == DOT11_CIPHER_ALGO_WEP104 &&
-			pAdapter->MibInfo.HwMulticastCipher == DOT11_CIPHER_ALGO_WEP40));
+		ASSERT(!(pAdapter->MibInfo.UnicastCipherAlgorithm == DOT11_CIPHER_ALGO_WEP104 &&
+			pAdapter->MibInfo.MulticastCipherAlgorithm == DOT11_CIPHER_ALGO_WEP40));
 
 		//
 		// For key mapping key, its algorithm must match current unicast cipher (unless 
@@ -307,14 +307,14 @@ HwSetKey(
 		// For default key, its algorithm must match either the current unicast cipher
 		// or the current multicast cipher. 
 		//
-		if (pAdapter->MibInfo.HwUnicastCipher != algoId &&
+		if (pAdapter->MibInfo.UnicastCipherAlgorithm != algoId &&
 			keyIndex >= DOT11_MAX_NUM_DEFAULT_KEY &&
 			ETH_IS_UNICAST(pNicKey->MacAddr)) {
 			return NDIS_STATUS_INVALID_DATA;
 		}
 
-		if (pAdapter->MibInfo.HwUnicastCipher != algoId &&
-			pAdapter->MibInfo.HwMulticastCipher != algoId) {
+		if (pAdapter->MibInfo.UnicastCipherAlgorithm != algoId &&
+			pAdapter->MibInfo.MulticastCipherAlgorithm != algoId) {
 			return NDIS_STATUS_INVALID_DATA;
 		}
 
@@ -375,6 +375,7 @@ HwSetKey(
 			NdisMoveMemory(pNicKey->TxMICKey, Add2Ptr(keyValue, keyLength + 8), 8);
 			break;
 		}
+		
 
 		//
 		// Program the hardware.
@@ -387,7 +388,7 @@ HwSetKey(
 		//
 		NdisZeroMemory(pNicKey, sizeof(NICKEY));
 		if (!perStaKey) {
-			//HwRemoveKeyEntry(Nic, keyIndex, pNicKey->AlgoId);
+			HwRemoveKeyEntry(pAdapter, keyIndex);
 		}
 
 	}
@@ -444,11 +445,6 @@ VOID HwAddKeyEntry(PADAPTER pAdapter, PNICKEY pNicKey, UCHAR keyIndex)
 			{
 				LOG_E("pwdn_info NULL! ");
 				return;
-			}
-
-			if (pNicKey->AlgoId == DOT11_CIPHER_ALGO_NONE)
-			{
-				pwdn_info->ieee8021x_blocked = wf_false;
 			}
 
 			if (psec_info->ndisencryptstatus == wf_ndis802_11Encryption2Enabled ||
@@ -578,8 +574,9 @@ Sta11SetCipherDefaultKey(
 	//
 
 	if (defaultKey->uKeyIndex >= DOT11_MAX_NUM_DEFAULT_KEY)
+		{
 		return NDIS_STATUS_INVALID_DATA;
-
+		}
 	//
 	// Check cipher algorithm
 	//
@@ -607,6 +604,7 @@ Sta11SetCipherDefaultKey(
 	//
 	// Set HW default key
 	//
+
 
 	return Hw11SetDefaultKey(pAdapter,
 		defaultKey->MacAddr,
@@ -647,7 +645,7 @@ Hw11SetDefaultKey(
 		//
 		// Save the new default key in the key table. 
 		//
-		return HwSetKey(pAdapter,
+	return HwSetKey(pAdapter,
 			pAdapter->MibInfo.KeyTable + keyID,
 			(UCHAR)keyID,
 			FALSE,
@@ -691,4 +689,67 @@ static int sta_hw_set_group_key(nic_info_st *pnic_info, wdn_net_info_st *pwdn_in
 	wf_mcu_set_on_rcr_am(pnic_info, wf_true);
 
 	return ret;
+}
+
+VOID HwRemoveKeyEntry(PADAPTER pAdapter, wf_u8 keyIndex)
+{
+	pAdapter->MibInfo.KeyTable[keyIndex].Valid = wf_false;
+	return;
+}
+
+NDIS_STATUS
+Sta11SetEnabledMulticastCipherAlgorithm(
+	__in  PADAPTER       pAdapter,
+	__in  PDOT11_CIPHER_ALGORITHM_LIST  pCipherAlgoList,
+	__out PULONG          pBytesRead
+)
+{
+	NDIS_STATUS ndisStatus = NDIS_STATUS_SUCCESS;
+	ULONG       index;
+
+	__try
+	{
+
+		// Only support no more than STA_MULTICAST_CIPHER_MAX_COUNT cipher algorithms
+		if (pCipherAlgoList->uNumOfEntries > STA_MULTICAST_CIPHER_MAX_COUNT)
+		{
+			*pBytesRead = FIELD_OFFSET(DOT11_CIPHER_ALGORITHM_LIST, AlgorithmIds);
+			ndisStatus = NDIS_STATUS_INVALID_LENGTH;
+			__leave;
+		}
+
+		*pBytesRead = FIELD_OFFSET(DOT11_CIPHER_ALGORITHM_LIST, AlgorithmIds) +
+			pCipherAlgoList->uNumOfEntries * sizeof(DOT11_CIPHER_ALGORITHM);
+
+
+		//
+		// If there is only one enabled multicast cipher, we known exactly what the 
+		// multicast cipher will be. Program the hardware. Otherwise, we have to wait
+		// until we know which multicast cipher will be used among those enabled.
+		//
+		if (pCipherAlgoList->uNumOfEntries == 1)
+		{
+			pAdapter->MibInfo.MulticastCipherAlgorithm = pCipherAlgoList->AlgorithmIds[0];
+			Hw11SetEncryption(pAdapter, FALSE, pCipherAlgoList->AlgorithmIds[0]);
+		}
+		else
+		{
+			pAdapter->MibInfo.MulticastCipherAlgorithm = DOT11_CIPHER_ALGO_NONE;
+			Hw11SetEncryption(pAdapter, FALSE, DOT11_CIPHER_ALGO_NONE);
+		}
+
+		// Copy the data locally
+		pAdapter->MibInfo.MulticastCipherAlgorithmCount = pCipherAlgoList->uNumOfEntries;
+		for (index = 0; index < pCipherAlgoList->uNumOfEntries; index++)
+		{
+			pAdapter->MibInfo.MulticastCipherAlgorithmList[index] = pCipherAlgoList->AlgorithmIds[index];
+		}
+
+		ndisStatus = NDIS_STATUS_SUCCESS;
+	}
+	__finally
+	{
+	}
+
+	return ndisStatus;
 }

@@ -633,3 +633,21 @@ void wf_wdn_update_traffic_stat(nic_info_st *nic_info,wf_u8 update_odm_flag)
         odm->odm_msg.traffic_stat_cur_rx_tp = wdn_info->wdn_stats.cur_rx_tp;
     }
 }
+
+wf_u8 wf_wdn_get_cnt(nic_info_st *pnic_info)
+{
+    wdn_list *pwdn = NULL;
+
+    if(NULL == pnic_info)
+    {
+        return 0;
+    }
+
+    pwdn = pnic_info->wdn;
+    if(NULL == pwdn)
+    {
+        return 0;
+    }
+    
+    return pwdn->cnt;
+}

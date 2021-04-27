@@ -88,7 +88,7 @@ int wf_mcu_cmd_get_status(nic_info_st *nic_info)
     while (timeout--)
     {
         int err = 0;
-        if (nic_info->is_driver_stopped || nic_info->is_surprise_removed)
+        if ( nic_info->is_surprise_removed)
             return WF_RETURN_FAIL;
 
         tryCnt++;

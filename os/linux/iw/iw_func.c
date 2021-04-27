@@ -4,7 +4,7 @@
 #include "mp.h"
 #include "wf_os_api.h"
 
-#if 0
+#if 1
 #define IW_FUNC_DBG(fmt, ...)       LOG_D("[%s]"fmt, __func__, ##__VA_ARGS__)
 #define IW_FUNC_ARRAY(data, len)    log_array(data, len)
 #else
@@ -1255,12 +1255,6 @@ int wf_iw_getScan(struct net_device *ndev, struct iw_request_info *info, union i
     wf_u32 res = 0;
     int scanned_ret;
     wf_u16 apCount = 0;
-    mlme_state_e state;
-    wf_mlme_get_state(pnic_info, &state);
-    if (state == MLME_STATE_SCAN)
-    {
-        return -EAGAIN;
-    }
 
     /* Check if there is space for one more entry */
     wf_wlan_scanned_each_begin(pscanned_info, pnic_info)

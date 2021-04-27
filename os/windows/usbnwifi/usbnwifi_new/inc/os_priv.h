@@ -148,30 +148,9 @@ typedef struct
     PDRIVER_OBJECT  DriverObject;
 }wf_workqueue_func_param_st;
 
-
-typedef struct
-{
-	volatile unsigned int lock;
-} arch_spinlock_t;
-
-typedef struct raw_spinlock
-{
-	arch_spinlock_t raw_lock;
-} raw_spinlock_t;
-
 typedef unsigned long           wf_irq;
 
-typedef struct spinlock
-{
-	union
-	{
-		struct raw_spinlock rlock;
-		arch_spinlock_t SpinLock;
-	};
-	wf_irq OldIrql;
-} spinlock_t;
-
-
+typedef NDIS_SPIN_LOCK spinlock_t;
 
 typedef wf_u32 wf_lock_mutex;
 

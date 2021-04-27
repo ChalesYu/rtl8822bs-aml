@@ -24,6 +24,12 @@ typedef struct
     wf_u8               ssid[32];
     wf_u8               channel_plan;
     wf_u8               ba_enable;
+#ifdef CONFIG_ARS_SUPPORT
+    wf_u8               adaptivity_en;
+    wf_u8               antenna_diversity;
+    wf_u8               beamforming_support;
+    wf_u8               force_igi;
+#endif
 }local_info_st;
 
 #define NIC_INFO_2_WORK_MODE(nic) ((local_info_st *)nic->local_info)->work_mode

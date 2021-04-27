@@ -887,7 +887,7 @@ int wf_wlan_mgmt_rx_frame (void *pin)
 #ifdef CFG_ENABLE_ADHOC_MODE
             if(get_sys_work_mode(pnic_info) == WF_ADHOC_MODE)
             {
-                if((get_adhoc_master(pnic_info) == wf_true) && 
+                if((get_adhoc_master(pnic_info) == wf_true) &&
                      WF_80211_CAPAB_IS_IBSS(pmgmt->beacon.capab))
                 {
                     adhoc_work(pnic_info, (void *)pmgmt, mgmt_len);

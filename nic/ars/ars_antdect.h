@@ -2,5 +2,5 @@
 #define __ARS_ANTDECT_H__
 typedef struct antdect_info_st_
 {
-}antdect_info_st;
+}ars_antdect_info_st;
 #endif

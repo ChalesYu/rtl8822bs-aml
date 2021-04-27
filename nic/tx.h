@@ -494,7 +494,7 @@ extern wf_u32 wf_nic_get_tx_max_len(nic_info_st *nic_info, struct xmit_frame *px
 extern int wf_nic_tx_qsel_check(wf_u8 pre_qsel, wf_u8 next_qsel);
 #endif
 #ifdef CONFIG_RICHV200_FPGA
-void wf_txdesc_chksum(wf_u8 *ptx_desc)
+void wf_txdesc_chksum(wf_u8 *ptx_desc);
 #else
 void wf_txdesc_chksum(struct tx_desc *ptxdesc);
 #endif

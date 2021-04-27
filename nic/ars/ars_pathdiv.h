@@ -2,5 +2,8 @@
 #define _ARS_PATHDIV_H__
 typedef struct pathdiv_info_st_
 {
-}pathdiv_info_st;
+}ars_pathdiv_info_st;
+
+void odm_PathDiversity(void *ars);
+
 #endif

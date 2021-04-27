@@ -433,13 +433,20 @@ int wlan_to_eth (prx_pkt_t ppkt)
         pkt_trim(ppkt, prx_info->icv_len);
     }
 
+    /* if this is a null packet, maybe lps should handle it */
+    if(ppkt->len == prx_info->wlan_hdr_len) {
+        LOG_I("recv a null packet!");
+        return -1;
+    }
+
     snap_hdr_offset = prx_info->wlan_hdr_len + prx_info->iv_len;
     bsnap = is_snap_hdr(pbuf + snap_hdr_offset);
     rmv_len = snap_hdr_offset + (bsnap ? SNAP_HDR_SIZE : 0);
 
     if (rmv_len > ppkt->len)
     {
-        LOG_E("[wlan_to_eth] data_len error (pktlen:%d  rmv_len:%d)",ppkt->len,rmv_len);
+        LOG_E("[wlan_to_eth] data_len error (pktlen:%d  rmv_len:%d)",
+                ppkt->len,rmv_len);
         return -1;
     }
 
@@ -534,7 +541,6 @@ static void rx_data_reorder_process(rx_pkt_t *pkt,struct net_device *ndev)
         {
             wf_free_skb(pkt->pskb);
         }
-        LOG_E("hdr_tansfer error");
         return;
     }
 

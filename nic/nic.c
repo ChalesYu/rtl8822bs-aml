@@ -246,13 +246,6 @@ int nic_term(nic_info_st *nic_info)
     }
 #endif
 
-    /* wlan term */
-    if (wf_wlan_term(nic_info) < 0)
-    {
-        LOG_E("===>wf_wlan_term error");
-        return WF_RETURN_FAIL;
-    }
-
     /* mlme term */
     if (wf_mlme_term(nic_info) < 0)
     {
@@ -298,6 +291,13 @@ int nic_term(nic_info_st *nic_info)
     if (wf_local_cfg_term(nic_info) < 0)
     {
         LOG_E("===>wf_local_cfg_term error");
+        return WF_RETURN_FAIL;
+    }
+
+	/* wlan term */
+    if (wf_wlan_term(nic_info) < 0)
+    {
+        LOG_E("===>wf_wlan_term error");
         return WF_RETURN_FAIL;
     }
 
@@ -370,7 +370,16 @@ int nic_disable(nic_info_st *nic_info)
 
     if(nic_info->is_up)
     {
-        wf_mlme_deauth(nic_info);
+        if(wf_local_cfg_get_work_mode(nic_info) == WF_MASTER_MODE)
+        {
+#ifdef CFG_ENABLE_AP_MODE
+            wf_ap_work_stop(nic_info);
+#endif
+        }
+        else
+        {
+            wf_mlme_deauth(nic_info);
+        }
         nic_info->is_up = 0;
 
         ret = WF_RETURN_OK;

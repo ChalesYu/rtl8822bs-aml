@@ -1,6 +1,15 @@
 #ifndef __ARS_ANTDIV_H__
 #define __ARS_ANTDIV_H__
 
+typedef enum _ANT_DIV_TYPE
+{
+    CG_TRX_HW_ANTDIV        = 0x01,
+    CGCS_RX_HW_ANTDIV       = 0x02,
+    CG_TRX_SMART_ANTDIV     = 0x03,
+    S0S1_SW_ANTDIV          = 0x04, /*8723B intrnal switch S0 S1*/
+    HL_SW_SMART_ANT_TYPE1   = 0x10 /*Hong-Lin Smart antenna use for 8821AE which is a 2 Ant. entitys, and each Ant. is equipped with 4 antenna patterns*/
+}ANT_DIV_TYPE_E, *PANT_DIV_TYPE_E;
+
 typedef struct _SW_Antenna_Switch_
 {
     wf_u8       Double_chk_flag;    /*If current antenna RSSI > "RSSI_CHECK_THRESHOLD", than check this antenna again*/
@@ -36,5 +45,7 @@ typedef struct _SW_Antenna_Switch_
 
 typedef struct antdiv_info_st_
 {
-}antdiv_info_st;
+}ars_antdiv_info_st;
+
+void odm_AntennaDiversity(void *ars);
 #endif

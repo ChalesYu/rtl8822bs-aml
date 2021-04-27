@@ -2,6 +2,9 @@
 #define __ARS_TXPOWER_H__
 typedef struct txpower_info_st_
 {
-}txpower_info_st;
+}ars_txpower_info_st;
+
+void odm_DynamicTxPower(void *ars);
+void odm_TXPowerTrackingCheckCE(void *ars);
 
 #endif

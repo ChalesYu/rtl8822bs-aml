@@ -1817,7 +1817,7 @@ int wf_nic_mgmt_frame_xmit (nic_info_st *nic_info, wdn_net_info_st *wdn,
         if (wdn == NULL)
         {
             LOG_E("No wdn only can use 20MHz BW!!!");
-            xmit_extbuf_delete(tx_info, pxmitbuf);
+            wf_xmit_extbuf_delete(tx_info, pxmitbuf);
             return -1;
         }
         else
