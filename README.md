@@ -3,6 +3,14 @@
 
 a modified driver version `5.8.7.4_37264.20200922` is available at [test branch](https://github.com/ChalesYu/rtl8822bs-aml/tree/test-5.8.7.4)
 
+a way to add support to [88x2bu driver](https://github.com/ChalesYu/88x2bu/tree/sdio-support) , useage : 
+
+```
+make CONFIG_USB_HCI=n CONFIG_SDIO_HCI=y
+modprobe cfg80211
+insmod 88x2bs.ko rtw_drv_log_level=4
+```
+
 a seems useful commit for rtw88 can be found at [here](https://github.com/xdarklight/linux/commit/dd44e08220266eea579bd08c6bb54c92943920fd)
 
 ### Possible exist Issues
