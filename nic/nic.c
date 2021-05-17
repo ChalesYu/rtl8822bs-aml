@@ -199,13 +199,13 @@ int nic_init(nic_info_st *nic_info)
         return WF_RETURN_FAIL;
     }
 
-#ifdef CONFIG_ARS_SUPPORT
+#if  defined (CONFIG_ARS_DRIVER_SUPPORT)
     if(ars_init(nic_info) < 0)
     {
         LOG_E("===>ars_init error");
         return WF_RETURN_FAIL;
     }
-#else
+#elif defined (CONFIG_ARS_FIRMWARE_SUPPORT)
 
     /*odm mangment init*/
     if (wf_odm_mgnt_init(nic_info) < 0)
@@ -317,13 +317,13 @@ int nic_term(nic_info_st *nic_info)
 
     
 
-#ifdef CONFIG_ARS_SUPPORT
+#if defined CONFIG_ARS_DRIVER_SUPPORT
     if (ars_term(nic_info) < 0)
     {
         LOG_E("===>ars_term error");
         return WF_RETURN_FAIL;
     }
-#else
+#elif defined CONFIG_ARS_FIRMWARE_SUPPORT
     /* odm term */
     if (wf_odm_mgnt_term(nic_info) < 0)
     {
@@ -386,9 +386,9 @@ int nic_enable(nic_info_st *nic_info)
         wf_mcu_enable_xmit(nic_info);
         nic_info->is_up = 1;
     }
-#ifdef CONFIG_ARS_SUPPORT
+#if defined CONFIG_ARS_DRIVER_SUPPORT
     //ars to do
-#else
+#elif defined CONFIG_ARS_FIRMWARE_SUPPORT
 {
     odm_mgnt_st *odm = nic_info->odm;
     wf_os_api_timer_set(&odm->odm_wdg_timer, 5000);

@@ -166,7 +166,7 @@
       <AdditionalDependencies>$(DDK_LIB_PATH)ndis.lib;$(DDK_LIB_PATH)ntstrsafe.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <ClCompile>
-      <PreprocessorDefinitions>%(PreprocessorDefinitions);NDIS_MINIPORT_DRIVER=1;NDIS620_MINIPORT=1;NDIS_WDM=1;MCU_CMD_MAILBOX=1;CONFIG_LITTLE_ENDIAN=1;CONFIG_CHIP_RICH100=1;CONFIG_SOFT_RX_AGGREGATION=1;WF_FW_FILE=L"\\??\\C:\\ram-fw-908x-old-r1548.bin";WF_FW_9188old=L"\\??\\C:\\ram-fw-9188U-old-r1485-enc.bin";WF_FW_9188new=L"\\??\\C:\\ram-fw-9188U-new-r1485-enc.bin"</PreprocessorDefinitions>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);NDIS_MINIPORT_DRIVER=1;NDIS620_MINIPORT=1;NDIS_WDM=1;MCU_CMD_MAILBOX=1;CONFIG_LITTLE_ENDIAN=1;CONFIG_CHIP_RICH100=1;CONFIG_SOFT_RX_AGGREGATION=1;WF_FW_FILE=L"\\??\\C:\\ram-fw-908x-old-r1549.bin";WF_FW_9188old=L"\\??\\C:\\ram-fw-9188U-old-r1485-enc.bin";WF_FW_9188new=L"\\??\\C:\\ram-fw-9188U-new-r1485-enc.bin"</PreprocessorDefinitions>
       <TreatWarningAsError>false</TreatWarningAsError>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <DisableSpecificWarnings>4200;4201;4214;%(DisableSpecificWarnings)</DisableSpecificWarnings>

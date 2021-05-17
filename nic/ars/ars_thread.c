@@ -1,6 +1,6 @@
 #include "common.h"
 #include "wf_debug.h"
-#ifdef CONFIG_ARS_SUPPORT
+#ifdef CONFIG_ARS_DRIVER_SUPPORT
 #if 0
 #define ARS_THD_DBG(fmt, ...)      LOG_D("ARS_THD[%s,%d]"fmt, __func__, __LINE__,##__VA_ARGS__)
 #define ARS_THD_PRT(fmt, ...)      LOG_D("ARS_THD-"fmt,##__VA_ARGS__)
@@ -550,6 +550,7 @@ static wf_s32 ars_thread_core(nic_info_st *nic_info)
     pars->bsta_state = wf_true;
     pars->SupportAbility =  ODM_BB_DIG
                             |ODM_BB_RA_MASK
+                            //|ODM_BB_DYNAMIC_TXPWR
                             |ODM_BB_FA_CNT
                             |ODM_BB_RSSI_MONITOR
                             |ODM_BB_CFO_TRACKING
@@ -567,7 +568,7 @@ static wf_s32 ars_thread_core(nic_info_st *nic_info)
     }
 }
 #endif
-    ARS_THD_PRT("SupportAbility:0x%x",pars->SupportAbility);
+    ARS_THD_INFO("SupportAbility:0x%x",pars->SupportAbility);
     ret = odm_CommonInfoSelfUpdate(pars);
     if(ret)
     {
@@ -773,7 +774,7 @@ void ars_thread_handle(nic_info_st *nic_info)
             continue;
         }
 
-        ARS_THD_INFO("[%s,%d]",__func__,__LINE__);
+        
         if((nic_info->is_driver_stopped == wf_true) || (nic_info->is_surprise_removed == wf_true))
         {
             break;

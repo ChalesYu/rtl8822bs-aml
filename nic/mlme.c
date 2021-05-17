@@ -525,7 +525,7 @@ int core_conn_preconnect (nic_info_st *pnic_info)
         wf_os_api_ind_connect(pnic_info, pconn_req->framework);
     }
 
-#ifdef CONFIG_ARS_SUPPORT
+#ifdef CONFIG_ARS_DRIVER_SUPPORT
     {
         ars_st *pars = pnic_info->ars;
         wf_ars_info_update(pnic_info);

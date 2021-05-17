@@ -185,14 +185,14 @@ int wf_ie_supported_rates_update(nic_info_st *nic_info, wdn_net_info_st *wdn_inf
     wf_u8 i,j;
     hw_info_st *hw_info = nic_info->hw_info;
 
-    if (len == 0)
+    if (len == 0 || len > 8)
     {
         return WF_RETURN_FAIL;
     }
 
     /* set supported rates */
     wdn_info->datarate_len = 0;
-    for (i = 0; i < 8; i++)
+    for (i = 0; i < len; i++)
     {
         if (pie_data[i] == 0)
             continue;

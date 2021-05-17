@@ -25,7 +25,7 @@
 ## o CONFIG_WIFI_FRAMEWORK         = wext, nl80211, mp
 ## o CONFIG_HIF_PORT               = usb, sdio, both
 ## o CONFIG_CHIP                   = s9083,s9188
-## o CONFIG_ARS_SUPPORT            = Adaptive rate system(y)
+## o CONFIG_ARS_SUPPORT            = Adaptive rate system(firmware):firmware,driver,none
 ################################################################################
   export WDRV_DIR ?= $(shell pwd)
   SUBDIR = mak
@@ -48,7 +48,7 @@
   CONFIG_HIF_PORT           = both
   CONFIG_CHIP               = s9083
   CONFIG_POWER_SAVING       = n
-  CONFIG_ARS_SUPPORT        = n
+  CONFIG_ARS_SUPPORT        = firmware
 
 include $(WDRV_DIR)/$(PLATDIR)/platform.mak
 

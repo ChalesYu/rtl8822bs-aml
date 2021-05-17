@@ -112,8 +112,10 @@ ifeq ($(CONFIG_OS_ANDROID), y)
 EXTRA_CFLAGS += -DCONFIG_OS_ANDROID
 endif
 
-ifeq ($(CONFIG_ARS_SUPPORT), y)
-EXTRA_CFLAGS += -DCONFIG_ARS_SUPPORT
+ifeq ($(CONFIG_ARS_SUPPORT), firmware)
+EXTRA_CFLAGS += -DCONFIG_ARS_FIRMWARE_SUPPORT
+else ifeq ($(CONFIG_ARS_SUPPORT), driver)
+EXTRA_CFLAGS += -DCONFIG_ARS_DRIVER_SUPPORT
 endif
 
 EXTRA_CFLAGS += -DCONFIG_IEEE80211W
@@ -227,7 +229,7 @@ EXTRA_CFLAGS += -DCONFIG_RICHV200
 EXTRA_CFLAGS += -DCONFIG_FW_ENCRYPT
 endif
 
-ifeq ($(CONFIG_ARS_SUPPORT), y)
+ifeq ($(CONFIG_ARS_SUPPORT), driver)
 $(MODULE_NAME)-y += nic/ars/ars_acs.o
 $(MODULE_NAME)-y += nic/ars/ars_adaptivity.o
 $(MODULE_NAME)-y += nic/ars/ars_antdect.o
@@ -246,7 +248,7 @@ $(MODULE_NAME)-y += nic/ars/ars_powertracking.o
 $(MODULE_NAME)-y += nic/ars/ars_rainfo.o
 $(MODULE_NAME)-y += nic/ars/ars_thread.o
 $(MODULE_NAME)-y += nic/ars/ars_txpower.o
-else
+else ifeq ($(CONFIG_ARS_SUPPORT), firmware)
 $(MODULE_NAME)-y += nic/ars/odm.o
 endif
 

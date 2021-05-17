@@ -1,6 +1,6 @@
 #include "common.h"
 #include "wf_debug.h"
-#ifdef CONFIG_ARS_SUPPORT
+#ifdef CONFIG_ARS_DRIVER_SUPPORT
 
 #if 1
 #define ARS_TP_DBG(fmt, ...)      LOG_D("ARS_TP[%s,%d]"fmt, __func__, __LINE__,##__VA_ARGS__)
@@ -64,7 +64,9 @@ wf_s32 odm_DynamicTxPower(void *ars)
 {
     ars_st *pars = (ars_st*)ars;
     if (!(pars->SupportAbility & ODM_BB_DYNAMIC_TXPWR))
-        return WF_RETURN_FAIL;
+    {
+        return WF_RETURN_OK;
+    }
 
     odm_DynamicTxPowerNIC(pars);
 

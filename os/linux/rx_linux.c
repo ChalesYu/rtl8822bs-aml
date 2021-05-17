@@ -651,10 +651,10 @@ void mpdu_process(struct net_device *ndev, wf_u32 tot_len, wf_u32 remain_len, wf
 
         if(hw_info && hw_info->use_drv_odm)
         {
-#ifdef CONFIG_ARS_SUPPORT
+#if defined CONFIG_ARS_DRIVER_SUPPORT
             //ars to do
             wf_ars_query_phystatus(nic_info, &phyStatus, pkt.pdata, &pkt);
-#else
+#elif defined CONFIG_ARS_FIRMWARE_SUPPORT
             wf_odm_handle_phystatus(nic_info, &phyStatus, pkt.pdata, &pkt);
 #endif
         }

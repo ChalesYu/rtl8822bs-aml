@@ -38,7 +38,7 @@ static const struct cfg_parse_t __gl_cfg_parse_st[] =
    {"work_mode", work_mode_parse_handle},
    {"channelplan", channelplan_parse_handle},
    {"ba_func", ba_func_parse_handle},
-   #ifdef CONFIG_ARS_SUPPORT
+   #ifdef CONFIG_ARS_DRIVER_SUPPORT
    //{"adaptivity_en", NULL},
    //{"antenna_diversity", NULL},
    //{"beamforming_support",NULL},

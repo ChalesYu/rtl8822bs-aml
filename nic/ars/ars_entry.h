@@ -1,7 +1,7 @@
 #ifndef __ARS_ENTRY_H__
 #define __ARS_ENTRY_H__
 
-#ifdef CONFIG_ARS_SUPPORT
+#ifdef CONFIG_ARS_DRIVER_SUPPORT
 
 
 #define  ARS_INIT_WRITE_REG_EN  0

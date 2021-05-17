@@ -1,6 +1,6 @@
 #include "common.h"
 #include "wf_debug.h"
-#ifdef CONFIG_ARS_SUPPORT
+#ifdef CONFIG_ARS_DRIVER_SUPPORT
 #if 0
 #define ARS_ACS_DBG(fmt, ...)      LOG_D("ARS_ACS[%s,%d]"fmt, __func__, __LINE__,##__VA_ARGS__)
 #define ARS_ACS_PRT(fmt, ...)      LOG_D("ARS_ACS-"fmt,##__VA_ARGS__)

@@ -67,10 +67,12 @@ wf_u64 wf_get_speed_by_raid(wf_u8 raid)
 
 	link_speed *= 1000*1000;//Mbps
 
+	LOG_D("raid=%d", raid);
+
 	return link_speed;
 }
 
-static wf_u32 _get_phyid_by_rate(nic_info_st *nic_info, wf_u8 *pie_data, wf_u8 len, wf_u8 max_rate_len)
+static wf_u32 _get_phyid_by_rate(nic_info_st *nic_info, wf_u8 *pie_data, wf_u8 len)
 {
     wf_u8 i,j;
 	wf_u8 data_rate[8] = {0};
@@ -79,11 +81,12 @@ static wf_u32 _get_phyid_by_rate(nic_info_st *nic_info, wf_u8 *pie_data, wf_u8 l
 	wf_u8 phyid = WF_PHY_ID_B;
 
     if (len == 0) {
+		LOG_E("ies length error");
         return phyid;
     }
 
     /* set supported rates */
-    for (i = 0; i < max_rate_len; i++) {
+    for (i = 0; i < len; i++) {
         if (pie_data[i] == 0)
             continue;
 
@@ -102,7 +105,7 @@ static wf_u32 _get_phyid_by_rate(nic_info_st *nic_info, wf_u8 *pie_data, wf_u8 l
 		phyid = WF_PHY_ID_G;
 	}
 
-    return WF_RETURN_OK;
+    return phyid;
 }
 
 
@@ -113,13 +116,13 @@ int wf_get_phyid_by_ies(nic_info_st *nic_info, wf_u8 *pie_start, wf_u32 ie_len)
 	wf_u8 phyid = WF_PHY_ID_B;
 
     if (wf_80211_mgmt_ies_search(pie_start, ie_len, WF_80211_MGMT_EID_SUPP_RATES, &pie) == WF_RETURN_OK) {
-        phyid = _get_phyid_by_rate(nic_info, pie->data, pie->len, 8);
+        phyid = _get_phyid_by_rate(nic_info, pie->data, pie->len);
     } else {
         return WF_RETURN_FAIL;
     }
 
     if (wf_80211_mgmt_ies_search(pie_start, ie_len, WF_80211_MGMT_EID_EXT_SUPP_RATES, &pie) == WF_RETURN_OK) {
-        phyid = _get_phyid_by_rate(nic_info, pie->data, pie->len, 4);
+		phyid = _get_phyid_by_rate(nic_info, pie->data, pie->len);
     }
 
     if ((wf_80211_mgmt_ies_search(pie_start, ie_len, WF_80211_MGMT_EID_HT_CAPABILITY, &pie) == WF_RETURN_OK)
@@ -127,7 +130,7 @@ int wf_get_phyid_by_ies(nic_info_st *nic_info, wf_u8 *pie_start, wf_u32 ie_len)
 		phyid = WF_PHY_ID_N;
     }
 
-    return WF_RETURN_OK;
+    return phyid;
 }
 
 
@@ -463,7 +466,7 @@ NDIS_STATUS wf_submit_assoc_complete(PADAPTER padapter, ULONG status)
 		mib_info->OperatingPhyId = wf_get_phyid_by_ies(padapter->nic_info, ie_start, ie_len);	
 		mib_info->OperatingPhyMIB = &mib_info->PhyMIB[mib_info->OperatingPhyId];
 
-		//LOG_D("link_phyid=%d", mib_info->OperatingPhyId);
+		LOG_D("link_phyid=%d", mib_info->OperatingPhyId);
     }
 
 	parameter->uActivePhyListOffset = CurrentOffset;

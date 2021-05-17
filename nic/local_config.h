@@ -24,7 +24,7 @@ typedef struct
     wf_u8               ssid[32];
     wf_u8               channel_plan;
     wf_u8               ba_enable;
-#ifdef CONFIG_ARS_SUPPORT
+#ifdef CONFIG_ARS_DRIVER_SUPPORT
     wf_u8               adaptivity_en;
     wf_u8               antenna_diversity;
     wf_u8               beamforming_support;
