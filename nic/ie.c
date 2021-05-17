@@ -2,24 +2,24 @@
 #include "wf_debug.h"
 
 wf_u8 *set_ie (wf_u8 * pbuf, wf_u8 index, wf_u8 len, wf_u8 * source, wf_u32 * frlen)
- {
-	 *pbuf = index;
-	 *(pbuf + 1) = len;
-	 if (len > 0)
-	 {
-         wf_memcpy((void *)(pbuf + 2), (void *)source, len);
-	 }
+{
+    *pbuf = index;
+    *(pbuf + 1) = len;
+    if (len > 0)
+    {
+        wf_memcpy((void *)(pbuf + 2), (void *)source, len);
+    }
 
-	 *frlen = *frlen + (len + 2);
-	 return (pbuf + len + 2);
- }
+    *frlen = *frlen + (len + 2);
+    return (pbuf + len + 2);
+}
 
- wf_u8 * set_fixed_ie(wf_u8 *pbuf, wf_u32 len, wf_u8 *source, wf_u32 *frlen)
- {
-	 wf_memcpy((void *)pbuf, (void *)source, len);
-	 *frlen = *frlen + len;
-	 return (pbuf + len);
- }
+wf_u8 * set_fixed_ie(wf_u8 *pbuf, wf_u32 len, wf_u8 *source, wf_u16 *frlen)
+{
+    wf_memcpy((void *)pbuf, (void *)source, len);
+    *frlen = *frlen + len;
+    return (pbuf + len);
+}
 
 
 
@@ -27,42 +27,44 @@ wf_u8 *set_ie (wf_u8 * pbuf, wf_u8 index, wf_u8 len, wf_u8 * source, wf_u32 * fr
 
 int have_cckrates(unsigned char *rate, int ratelen)
 {
-	int i;
+    int i;
 
-	for (i = 0; i < ratelen; i++) {
-		if ((((rate[i]) & 0x7f) == 2) || (((rate[i]) & 0x7f) == 4) ||
-			(((rate[i]) & 0x7f) == 11) || (((rate[i]) & 0x7f) == 22))
-			return 1;
-	}
+    for (i = 0; i < ratelen; i++)
+    {
+        if ((((rate[i]) & 0x7f) == 2) || (((rate[i]) & 0x7f) == 4) ||
+            (((rate[i]) & 0x7f) == 11) || (((rate[i]) & 0x7f) == 22))
+            return 1;
+    }
 
-	return -1;
+    return -1;
 
 }
 
 int only_cckrates(unsigned char *rate, int ratelen)
 {
-	int i;
+    int i;
 
-	for (i = 0; i < ratelen; i++) {
-		if ((((rate[i]) & 0x7f) != 2) && (((rate[i]) & 0x7f) != 4) &&
-			(((rate[i]) & 0x7f) != 11) && (((rate[i]) & 0x7f) != 22))
-			return -1;
-	}
+    for (i = 0; i < ratelen; i++)
+    {
+        if ((((rate[i]) & 0x7f) != 2) && (((rate[i]) & 0x7f) != 4) &&
+            (((rate[i]) & 0x7f) != 11) && (((rate[i]) & 0x7f) != 22))
+            return -1;
+    }
 
-	return 1;
+    return 1;
 }
 
 void do_set_mcs_by_flag(wf_u8 * mcs_set, wf_u32 mask)
 {
-	wf_u8 mcs_rate_1r = (wf_u8) (mask & 0xff);
-	wf_u8 mcs_rate_2r = (wf_u8) ((mask >> 8) & 0xff);
-	wf_u8 mcs_rate_3r = (wf_u8) ((mask >> 16) & 0xff);
-	wf_u8 mcs_rate_4r = (wf_u8) ((mask >> 24) & 0xff);
+    wf_u8 mcs_rate_1r = (wf_u8) (mask & 0xff);
+    wf_u8 mcs_rate_2r = (wf_u8) ((mask >> 8) & 0xff);
+    wf_u8 mcs_rate_3r = (wf_u8) ((mask >> 16) & 0xff);
+    wf_u8 mcs_rate_4r = (wf_u8) ((mask >> 24) & 0xff);
 
-	mcs_set[0] &= mcs_rate_1r;
-	mcs_set[1] &= mcs_rate_2r;
-	mcs_set[2] &= mcs_rate_3r;
-	mcs_set[3] &= mcs_rate_4r;
+    mcs_set[0] &= mcs_rate_1r;
+    mcs_set[1] &= mcs_rate_2r;
+    mcs_set[2] &= mcs_rate_3r;
+    mcs_set[3] &= mcs_rate_4r;
 }
 
 
@@ -77,7 +79,7 @@ int wf_ie_cap_info_update(nic_info_st *nic_info, wdn_net_info_st *wdn_info, wf_u
         wdn_info->ess_net = wf_false;
     }
 
-     if (cap_info & WF_80211_MGMT_CAPAB_IBSS)
+    if (cap_info & WF_80211_MGMT_CAPAB_IBSS)
     {
         wdn_info->ibss_net = wf_true;
     }
@@ -115,11 +117,11 @@ int wf_ie_cap_info_update(nic_info_st *nic_info, wdn_net_info_st *wdn_info, wf_u
 
     if (cap_info & WF_80211_MGMT_CAPAB_RADIO_MEASURE)
     {
-       wdn_info->radio_measure = wf_true;
+        wdn_info->radio_measure = wf_true;
     }
     else
     {
-       wdn_info->radio_measure = wf_false;
+        wdn_info->radio_measure = wf_false;
     }
 
     /* update cap_info ,  can't support radio_measure*/
@@ -183,29 +185,29 @@ int wf_ie_supported_rates_update(nic_info_st *nic_info, wdn_net_info_st *wdn_inf
     wf_u8 i,j;
     hw_info_st *hw_info = nic_info->hw_info;
 
-   if (len == 0)
-   {
-       return WF_RETURN_FAIL;
-   }
+    if (len == 0)
+    {
+        return WF_RETURN_FAIL;
+    }
 
     /* set supported rates */
     wdn_info->datarate_len = 0;
     for (i = 0; i < 8; i++)
     {
-       if (pie_data[i] == 0)
-           continue;
+        if (pie_data[i] == 0)
+            continue;
 
-       for (j = 0; j < WF_RATES_NUM; j++)
-       {
-           if (pie_data[i] == hw_info->datarate[j])
-           {
-               wdn_info->datarate[wdn_info->datarate_len++] = hw_info->datarate[j];
-               break;
-           }
-       }
+        for (j = 0; j < WF_RATES_NUM; j++)
+        {
+            if (pie_data[i] == hw_info->datarate[j])
+            {
+                wdn_info->datarate[wdn_info->datarate_len++] = hw_info->datarate[j];
+                break;
+            }
+        }
     }
 
-     /* get network type */
+    /* get network type */
     if ((only_cckrates(wdn_info->datarate, wdn_info->datarate_len)) == 1)
     {
         wdn_info->network_type |= WIRELESS_11B;
@@ -228,29 +230,29 @@ int wf_ie_extend_supported_rates_update(nic_info_st *nic_info, wdn_net_info_st *
     wf_u8 i,j;
     hw_info_st *hw_info = nic_info->hw_info;
 
-   if (len == 0)
-   {
-       return WF_RETURN_FAIL;
-   }
+    if (len == 0)
+    {
+        return WF_RETURN_FAIL;
+    }
 
     /* set supported rates */
     wdn_info->ext_datarate_len = 0;
     for (i = 0; i < 4; i++)
     {
-       if (pie_data[i] == 0)
-           continue;
+        if (pie_data[i] == 0)
+            continue;
 
-       for (j = 0; j < WF_RATES_NUM; j++)
-       {
-           if (pie_data[i] == hw_info->datarate[j])
-           {
-               wdn_info->ext_datarate[wdn_info->ext_datarate_len++] = hw_info->datarate[j];
-               break;
-           }
-       }
+        for (j = 0; j < WF_RATES_NUM; j++)
+        {
+            if (pie_data[i] == hw_info->datarate[j])
+            {
+                wdn_info->ext_datarate[wdn_info->ext_datarate_len++] = hw_info->datarate[j];
+                break;
+            }
+        }
     }
 
-     /* get network type */
+    /* get network type */
     if ((only_cckrates(wdn_info->datarate, wdn_info->datarate_len)) == 1)
     {
         wdn_info->network_type |= WIRELESS_11B;
@@ -272,7 +274,7 @@ int wf_ie_wmm_update(nic_info_st *nic_info, wdn_net_info_st *wdn_info, wf_u8 *pi
 {
     if (len == 0)
     {
-       return WF_RETURN_FAIL;
+        return WF_RETURN_FAIL;
     }
 
     wdn_info->wmm_enable = wf_true;
@@ -283,14 +285,13 @@ int wf_ie_wmm_update(nic_info_st *nic_info, wdn_net_info_st *wdn_info, wf_u8 *pi
 
 int wf_ie_wpa_update(nic_info_st *nic_info, wdn_net_info_st *wdn_info, wf_u8 *pie_data, wf_u8 len)
 {
-	sec_info_st *sec_info = nic_info->sec_info;
     if (len == 0)
     {
-       return WF_RETURN_FAIL;
+        return WF_RETURN_FAIL;
     }
 
     wdn_info->wpa_enable = wf_true;
-	wdn_info->auth_algo = dot11AuthAlgrthm_Open;
+    wdn_info->auth_algo = dot11AuthAlgrthm_Open;
 
     return WF_RETURN_OK;
 }
@@ -298,14 +299,13 @@ int wf_ie_wpa_update(nic_info_st *nic_info, wdn_net_info_st *wdn_info, wf_u8 *pi
 
 int wf_ie_rsn_update(nic_info_st *nic_info, wdn_net_info_st *wdn_info, wf_u8 *pie_data, wf_u8 len)
 {
-	sec_info_st *sec_info = nic_info->sec_info;
     if (len == 0)
     {
-       return WF_RETURN_FAIL;
+        return WF_RETURN_FAIL;
     }
 
     wdn_info->rsn_enable = wf_true;
-	wdn_info->auth_algo = dot11AuthAlgrthm_Open;
+    wdn_info->auth_algo = dot11AuthAlgrthm_Open;
 
     return WF_RETURN_OK;
 }
@@ -313,14 +313,13 @@ int wf_ie_rsn_update(nic_info_st *nic_info, wdn_net_info_st *wdn_info, wf_u8 *pi
 
 int wf_ie_ht_capability_update(nic_info_st *nic_info, wdn_net_info_st *wdn_info, wf_u8 *pie_data, wf_u8 len)
 {
-    wf_u8 i,j;
     wf_u32 max_ampdu_sz=0;
     wf_80211_mgmt_ht_cap_t ht_cap_temp;
     hw_info_st *hw_info = nic_info->hw_info;
 
     if (len == 0)
     {
-       return WF_RETURN_FAIL;
+        return WF_RETURN_FAIL;
     }
 
     wf_memcpy(&ht_cap_temp, pie_data, len);
@@ -406,12 +405,12 @@ int wf_ie_ht_capability_update(nic_info_st *nic_info, wdn_net_info_st *wdn_info,
 
     /* parse AMPDU Parameters */
     wdn_info->htpriv.ampdu_enable = wf_true;
-   	max_ampdu_sz = (ht_cap_temp.ampdu_params_info & WF_80211_MGMT_HT_AMPDU_PARM_FACTOR);
-	max_ampdu_sz = 1 << (max_ampdu_sz + 3);
-	wdn_info->htpriv.rx_ampdu_maxlen = max_ampdu_sz;
-	wdn_info->htpriv.rx_ampdu_min_spacing = (ht_cap_temp.ampdu_params_info & WF_80211_MGMT_HT_AMPDU_PARM_DENSITY) >> 2;
+    max_ampdu_sz = (ht_cap_temp.ampdu_params_info & WF_80211_MGMT_HT_AMPDU_PARM_FACTOR);
+    max_ampdu_sz = 1 << (max_ampdu_sz + 3);
+    wdn_info->htpriv.rx_ampdu_maxlen = max_ampdu_sz;
+    wdn_info->htpriv.rx_ampdu_min_spacing = (ht_cap_temp.ampdu_params_info & WF_80211_MGMT_HT_AMPDU_PARM_DENSITY) >> 2;
 
-	wdn_info->qos_option = wf_true;
+    wdn_info->qos_option = wf_true;
 
     /* update ht cap_info*/
     if (wdn_info->htpriv.sgi_20m == wf_true)
@@ -487,7 +486,7 @@ int wf_ie_ht_capability_update(nic_info_st *nic_info, wdn_net_info_st *wdn_info,
         }
     }
 
-     /* update ht ampdu info*/
+    /* update ht ampdu info*/
     wdn_info->ht_cap.ampdu_params_info = hw_info->max_rx_ampdu_factor & 0x03;
 
     if (wdn_info->wpa_enable)
@@ -515,10 +514,10 @@ int wf_ie_ht_operation_info_update(nic_info_st *nic_info, wdn_net_info_st *wdn_i
 
     if (len == 0)
     {
-       return WF_RETURN_FAIL;
+        return WF_RETURN_FAIL;
     }
 
-	wdn_info->htpriv.ht_option = wf_true;
+    wdn_info->htpriv.ht_option = wf_true;
 
     wf_memcpy(&ht_oper_temp, pie_data, len);
 
@@ -560,12 +559,9 @@ int wf_ie_ht_operation_info_update(nic_info_st *nic_info, wdn_net_info_st *wdn_i
 
 int wf_ie_erp_update(nic_info_st *nic_info, wdn_net_info_st *wdn_info, wf_u8 *pie_data, wf_u8 len)
 {
-    wf_u8 i,j;
-    hw_info_st *hw_info = nic_info->hw_info;
-
     if (len == 0)
     {
-       return WF_RETURN_FAIL;
+        return WF_RETURN_FAIL;
     }
 
     wdn_info->erp_enable = wf_true;

@@ -17,11 +17,11 @@ Notes:
 
 --*/
 
-#if USE_SAMPLE_PACKET_BUFFERING_IMPLEMENTATION
-#include "Nwf_Mp_PSPacketsManager.h"
-#endif  // USE_SAMPLE_PACKET_BUFFERING_IMPLEMENTATION
-   
-#include "mp_oids.h"
+#ifndef __MP_DOT11_H__
+#define __MP_DOT11_H__
+
+//#include "pcomp.h"   
+//#include "mp_oids.h"
 
 #define MP_MAJOR_NDIS_VERSION       6
 #define MP_MINOR_NDIS_VERSION       0
@@ -150,15 +150,15 @@ typedef enum _MP_DOT11_RUNNING_MODE {
 } MP_DOT11_RUNNING_MODE, *PMP_DOT11_RUNNING_MODE;
 
 
-/**
- * Appropriate receive handler for indicating packets in safe mode
- */
-typedef VOID
-(*MP_RECEIVE_HANDLER_FUNCTION)(
-	__in PADAPTER         pAdapter,
-	PNIC_RX_FRAGMENT    NicFragment,
-	size_t              NumBytesRead
-	);
+///**
+// * Appropriate receive handler for indicating packets in safe mode
+// */
+//typedef VOID
+//(*MP_RECEIVE_HANDLER_FUNCTION)(
+//	__in PADAPTER         pAdapter,
+//	PNIC_RX_FRAGMENT    NicFragment,
+//	size_t              NumBytesRead
+//	);
 
 /**
  * This is list of all the OIDS (NDIS and DOT11) supported by this driver
@@ -281,15 +281,11 @@ typedef enum _NIC_STATE
     (MP_ADAPTER_UNRESTRICTED_SCAN_RECEIVED | MP_ADAPTER_RESTRICTED_SCAN_RECEIVED | \
      MP_ADAPTER_HW_IS_SCANNING )
 
-typedef struct _ADAPTER_WORKITEM_CONTEXT {
-
-    PADAPTER        Adapter;
-}   ADAPTER_WORKITEM_CONTEXT, *PADAPTER_WORKITEM_CONTEXT;
 
 //
 // Specify an accessor method for the WMI_SAMPLE_DEVICE_DATA structure.
 //
-WDF_DECLARE_CONTEXT_TYPE_WITH_NAME(ADAPTER_WORKITEM_CONTEXT, GetAdapterWorkItemContext)
+
 
 typedef struct _FW_INFO
 {
@@ -320,6 +316,10 @@ typedef struct _NICDUPLICATEINFO {
 } NICDUPLICATEINFO, *PNICDUPLICATE;
 
 #if 1
+
+#define WF_WIN_80211_IES_SIZE_MAX               768
+
+
 typedef struct _LOCAL_BSS_LIST
 {
 	UCHAR PhyId;
@@ -336,6 +336,14 @@ typedef struct _LOCAL_BSS_LIST
 	ULONGLONG ullHostTimestamp;
 } LOCAL_BSS_LIST, *PLOCAL_BSS_LIST;
 #endif
+
+typedef enum wf_dev_state_e{
+	WF_DEV_STATE_NONE,
+	WF_DEV_STATE_INIT,
+	WF_DEV_STATE_RUN,
+	WF_DEV_STATE_STOP
+}wf_dev_state_e;
+
 /**
  * This structure describes an Adapter that the miniport driver is working with
  *  Note: this data structure shouldn't have any thing which points to the underlying hardware.
@@ -361,10 +369,16 @@ typedef struct _ADAPTER
 
 	void					*nic_info;
     void                    *odm;
+    void                    *ars;
 
 	void					*ap_info;
 
-	wf_mib_info_t           MibInfo; // To store MIB management infomation.
+	void					*mib_info;
+
+	void					*usb_info; 
+
+	ULONG 					dev_state;
+	//wf_mib_info_t           MibInfo; // To store MIB management infomation.
     /**
       * Keep track of various device objects.
       */ 
@@ -450,22 +464,22 @@ typedef struct _ADAPTER
     ULONG                               NumAvailableTxMSDU;
 
     /** The list of TX_MSDU preallocated for this adapter */
-    PMP_TX_MSDU                         TxMSDUList;
+    //PMP_TX_MSDU                         TxMSDUList;
 
     /** Pointer to a free TX_MSDU that is free and can be used for a send */
-    PMP_TX_MSDU                         FreeTxMSDU;
+    //PMP_TX_MSDU                         FreeTxMSDU;
 
     /** Pointer to the next TX_MSDU to be sent to the hardware. Needed to maintain Tx order */
-    PMP_TX_MSDU                         NextTxMSDUToSend;
+    //PMP_TX_MSDU                         NextTxMSDUToSend;
 
     /** Pointer to the next TX_MSDU we expect to be SendCompleted. It is protected by the SendLock */
-    PMP_TX_MSDU                         NextTxMSDUToComplete;
+    //PMP_TX_MSDU                         NextTxMSDUToComplete;
 
     /*
      * Data structure to queue NBL to be transmitted in. We will queue NBL
      * when we are running low on TX_MSDUs 
      */
-    struct _MP_NBL_QUEUE               TxQueue;
+    //struct _MP_NBL_QUEUE               TxQueue;
 
     /** Number of thread currently active in the send path */
     ULONG                               NumActiveSenders;
@@ -509,7 +523,7 @@ typedef struct _ADAPTER
     ULONG                               MinRxMSDU;    
 
     /** The correct function to handle receives at this time */
-    MP_RECEIVE_HANDLER_FUNCTION         ReceiveHandlerFunction;
+    //MP_RECEIVE_HANDLER_FUNCTION         ReceiveHandlerFunction;
 
     /**
      * The count of Rx MSDUs that have actually been allocated by the miniport.
@@ -538,10 +552,10 @@ typedef struct _ADAPTER
     ULONG                               TotalRxMSDUInReassembly;
 
     /** An array to hold Rx MSDUs that are currently in Reassembly */
-    PMP_RX_MSDU                         ReassemblyLine[MP_MAX_REASSEMBLY_LINE_SIZE];
+    //PMP_RX_MSDU                         ReassemblyLine[MP_MAX_REASSEMBLY_LINE_SIZE];
 
     /** This is the Reassembly Rx MSDU for which we most recently received a fragment */
-    PMP_RX_MSDU                         MRUReassemblyRxMSDU;
+    //PMP_RX_MSDU                         MRUReassemblyRxMSDU;
     
     /*
      * Count down to when we will run through the ReassemblyLine and clear
@@ -634,6 +648,14 @@ typedef struct _ADAPTER
 	BOOLEAN		bRequestedScan;
 	PVOID  CurrentRequestID_Scan;
 } ADAPTER, *PADAPTER;
+
+//typedef struct _ADAPTER         ADAPTER, *PADAPTER;
+typedef struct _ADAPTER_WORKITEM_CONTEXT {
+
+    PADAPTER        Adapter;
+}   ADAPTER_WORKITEM_CONTEXT, *PADAPTER_WORKITEM_CONTEXT;
+
+WDF_DECLARE_CONTEXT_TYPE_WITH_NAME(ADAPTER_WORKITEM_CONTEXT, GetAdapterWorkItemContext)
 
 typedef struct _WDF_DEVICE_INFO{
 
@@ -843,4 +865,6 @@ MpInterlockedSetClearBits (
 #define MP_NDIS_PAUSE_IN_PROGRESS(_Adapter) (MP_TEST_STATUS_FLAG(_Adapter, MP_ADAPTER_NDIS_PAUSE_IN_PROGRESS))
 #define MP_DOT11_CONNECT_IN_PROGRESS(_Adapter) (MP_TEST_STATUS_FLAG(_Adapter, MP_ADAPTER_CONNECT_IN_PROGRESS))
 
+
+#endif
 

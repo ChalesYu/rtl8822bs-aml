@@ -98,7 +98,7 @@ void wf_Usleep(wf_u32 MilliSecond);
 #define WF_HZ                      wf_win_hz()
 
 #define wf_os_api_do_div(n,base)             (n%base)
-#define wf_yield()                   wf_Msleep(1)
+#define wf_yield()                 wf_Msleep(1) //YieldProcessor()
 #define wf_inline                  __inline
 
 #define wf_memcpy                  memcpy
@@ -127,9 +127,10 @@ typedef struct wf_thread_s
 
 
 typedef struct wf_workqueue_s {
-    PIO_WORKITEM *work_item;
+    PIO_WORKITEM work_item;
     void *driver_obj;
-    void(*function)(void *);
+	PIO_WORKITEM_ROUTINE function;
+    //void(*function)(void *);
     WORK_QUEUE_TYPE que_type;
     void *param;
 }wf_workqueue_t;
@@ -152,7 +153,7 @@ typedef unsigned long           wf_irq;
 
 typedef NDIS_SPIN_LOCK spinlock_t;
 
-typedef wf_u32 wf_lock_mutex;
+typedef KMUTEX wf_lock_mutex;
 
 #define WF_SEMA_LIMIT_MAX   (1<<30)
 

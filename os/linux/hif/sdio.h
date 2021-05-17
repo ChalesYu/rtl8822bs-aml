@@ -8,7 +8,7 @@
 #include <linux/mmc/sdio_ids.h>
 
 
-#ifdef CONFIG_RICHV200_FPGA
+#ifdef CONFIG_RICHV200
 #define MIN_RXD_SIZE      16
 #else
 #define MIN_RXD_SIZE      24

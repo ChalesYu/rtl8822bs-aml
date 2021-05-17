@@ -20,6 +20,9 @@
 void wf_os_api_ind_scan_done (void *arg, wf_bool arg1, wf_u8 arg2);
 void wf_os_api_ind_connect(void *arg, wf_u8 arg1);
 void wf_os_api_ind_disconnect(void *arg, wf_u8 arg1);
+#ifdef CFG_ENABLE_ADHOC_MODE
+void wf_os_api_cfg80211_unlink_ibss(void *arg);
+#endif
 #ifdef CFG_ENABLE_AP_MODE
 void wf_os_api_ap_ind_assoc(void *arg, void *arg1, void *arg2, wf_u8 arg3);
 void wf_os_api_ap_ind_disassoc(void *arg, void *arg1, wf_u8 arg2);
@@ -28,8 +31,14 @@ void wf_os_api_enable_all_data_queue(void *arg);
 void wf_os_api_disable_all_data_queue(void *arg);
 wf_u32 wf_os_api_rand32 (void);
 
+
+void *wf_os_api_get_ars(void *nic_info);
+void  wf_os_api_set_ars(void *nic_info,void *ars);
+
 void *wf_os_api_get_odm(void *nic_info);
 void  wf_os_api_set_odm(void *nic_info,void *odm);
+
+
 
 wf_s32 wf_os_api_get_cpu_id(void);
 #endif

@@ -223,6 +223,7 @@ typedef struct beamform_info_st_
 {
 }ars_beamform_info_st;
 
-void phydm_Beamforming_Watchdog(void *ars);
+wf_s32 phydm_Beamforming_Watchdog(void *ars);
+wf_s32 phydm_Beamforming_Init(void *ars);
 
 #endif

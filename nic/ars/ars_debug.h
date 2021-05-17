@@ -142,6 +142,6 @@ typedef struct ars_dbg_info_st_
     wf_u8           pre_c2h_seq;
 }ars_dbg_info_st;
 
-void ars_debug_init(void *ars);
+wf_s32 ars_debug_init(void *ars);
 
 #endif

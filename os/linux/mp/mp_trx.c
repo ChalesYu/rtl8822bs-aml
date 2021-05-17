@@ -5,15 +5,16 @@
 #ifdef CONFIG_MP_MODE
 #if defined(CONFIG_WEXT_PRIV)
 
-#if 1
-#define MP_DBG(fmt, ...)        LOG_D("[%s]"fmt, __func__, ##__VA_ARGS__)
-#define MP_WARN(fmt, ...)       LOG_E("[%s]"fmt, __func__, ##__VA_ARGS__)
+#if 0
+#define MP_DBG(fmt, ...)        LOG_D("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
 #define MP_ARRAY(data, len)     log_array(data, len)
 #else
 #define MP_DBG(fmt, ...)
-#define MP_WARN(fmt, ...)
 #define MP_ARRAY(data, len)
 #endif
+#define MP_INFO(fmt, ...)       LOG_I("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
+#define MP_WARN(fmt, ...)       LOG_W("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
+#define MP_ERROR(fmt, ...)      LOG_E("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
 
 #define RCR_APPFCS				BIT(31)
 #define RCR_APP_MIC				BIT(30)
@@ -22,7 +23,7 @@
 #define RCR_HTC_LOC_CTRL		BIT(14)
 #define RCR_AMF					BIT(13)
 #define RCR_ADF					BIT(11)
-#define RCR_ACF                 BIT(12) 
+#define RCR_ACF                 BIT(12)
 #define RCR_ACRC32				BIT(8)
 #define RCR_CBSSID_BCN			BIT(7)
 #define RCR_CBSSID_DATA		    BIT(6)
@@ -141,7 +142,6 @@ static wf_u8 mp_trx_key_of_2char2num_func(wf_u8 hch, wf_u8 lch)
 
 static wf_u32 mp_tx_destaddr(nic_info_st *pnic_info,wf_u8 *extra)
 {
-    wf_mp_info_st *pmp_info = pnic_info->mp_info;
     //struct pkt_attrib *pattrib;
 	wf_u32 jj, kk = 0;
 
@@ -156,34 +156,30 @@ static wf_u32 mp_tx_destaddr(nic_info_st *pnic_info,wf_u8 *extra)
 
 static void mp_tx_desc_fill(struct xmit_frame *pxmitframe, wf_u8 *pbuf, wf_bool bSendAck)
 {
-     wf_bool bmcst;
      nic_info_st *nic_info = pxmitframe->nic_info;
-     hw_info_st *hw_info = nic_info->hw_info;
      wf_mp_info_st *mp_info = nic_info->mp_info;
- 
-#ifdef CONFIG_RICHV200_FPGA
+
+#ifdef CONFIG_RICHV200
+     wf_memcpy(pbuf, mp_info->tx.desc, TXDESC_SIZE);
+
      /* set for data type */
      SET_BITS_TO_LE_4BYTE(pbuf, 0, 2, TYPE_DATA);
-     
-     wf_memcpy(pbuf, mp_info->tx.desc, TXDESC_SIZE);
- 
+
      /* set PKT_LEN */
      SET_BITS_TO_LE_4BYTE(pbuf + 8, 0, 16, pxmitframe->last_txcmdsz);
- 
-     /* set BMC */
-     if (bmcst)
-         SET_BITS_TO_LE_4BYTE(pbuf + 12, 14, 1, 1);
- 
+
      /* set HWSEQ_EN */
-         SET_BITS_TO_LE_4BYTE(pbuf, 18, 1, 1);
- 
+     SET_BITS_TO_LE_4BYTE(pbuf, 18, 1, 1);
+	 /*set bmc*/
+	 SET_BITS_TO_LE_4BYTE(pbuf + 12, 14, 1, 1);
+
 #else
      wf_memcpy(pbuf, mp_info->tx.desc, TXDESC_SIZE);
- 
+
      WF_TX_DESC_PKT_SIZE_9086X(pbuf, pxmitframe->last_txcmdsz);
- 
+
      WF_TX_DESC_BMC_9086X(pbuf, 1);
- 
+
      WF_TX_DESC_HWSEQ_EN_9086X(pbuf, 1);
 #endif
 
@@ -192,12 +188,10 @@ static void mp_tx_desc_fill(struct xmit_frame *pxmitframe, wf_u8 *pbuf, wf_bool 
 
 static wf_bool mp_tx_desc_update(struct xmit_frame *pxmitframe, wf_u8 *pbuf)
 {
-     nic_info_st *nic_info = pxmitframe->nic_info;
-     hw_info_st *hw_info = nic_info->hw_info;
 
      mp_tx_desc_fill(pxmitframe, pbuf, wf_false);
 
-#ifdef CONFIG_RICHV200_FPGA
+#ifdef CONFIG_RICHV200
      wf_txdesc_chksum(pbuf);
 #else
      wf_txdesc_chksum((struct tx_desc *)pbuf);
@@ -217,12 +211,10 @@ static wf_bool mp_tx_send_complete_cb(nic_info_st *nic_info, struct xmit_buf *px
 }
 
 
- 
+
 
 static wf_bool mp_tx_sending_queue(nic_info_st *nic_info, struct xmit_frame *pxmitframe, wf_bool ack)
 {
-    wf_u8 val;
-    wf_u32 curTime,endTime,timeout;
     wf_u8 *mem_addr;
     wf_u32 ff_hwaddr;
     wf_bool bRet = wf_true;
@@ -232,11 +224,8 @@ static wf_bool mp_tx_sending_queue(nic_info_st *nic_info, struct xmit_frame *pxm
     int t, sz, w_sz, pull = 0;
     struct xmit_buf *pxmitbuf = pxmitframe->pxmitbuf;
     hw_info_st *hw_info = nic_info->hw_info;
-    tx_info_st *tx_info = nic_info->tx_info;
-    sec_info_st *sec_info = nic_info->sec_info;
-    mlme_state_e state;
     wf_u32  txlen = 0;
-	int i=0;
+
     mem_addr = pxmitframe->buf_addr;
 
     for (t = 0; t < pxmitframe->nr_frags; t++)
@@ -278,7 +267,6 @@ static wf_bool mp_tx_sending_queue(nic_info_st *nic_info, struct xmit_frame *pxm
          txlen = TXDESC_SIZE + pxmitframe->last_txcmdsz;
          pxmitbuf->pg_num   += (txlen+127)/128;
          wf_timer_set(&pxmitbuf->time, 0);
-
          if(blast)
          {
              ret = wf_io_write_data(nic_info, 1, mem_addr, w_sz,
@@ -315,33 +303,28 @@ static int mp_xmit_packet_thread(void *nic_info)
 	wf_list_t list;
 	wf_mp_info_st *pmp_priv;
 	tx_info_st *pxmitpriv;
-    wf_u8 *pframe;
-    wf_u8 * phead;
-    wf_pkt *pkt;
     int ret;
-    wf_u32 inbuff;
     wf_bool bufAlocFailed = wf_false;
-    struct wl_ieee80211_hdr * pwlanhdr;
     pmp_priv = pnic_info->mp_info;
 	pxmitpriv = (tx_info_st *)pnic_info->tx_info;
 
-	while (1) 
+	while (1)
     {
         if ((pnic_info->is_driver_stopped == wf_true) || (pnic_info->is_surprise_removed == wf_true))
         {
 		    pmp_priv->tx.stop = 1;
         }
-        
+
 		if ((pmp_priv->tx.count != 0) && (pmp_priv->tx.count == pmp_priv->tx.sended))
-        {     
+        {
             pmp_priv->tx.stop = 1;
         }
 
 		if (pmp_priv->tx.stop == 1)
-        {      
+        {
 			break;
         }
-        
+
         xmitBuf = wf_xmit_buf_new(pxmitpriv);
         if (xmitBuf != NULL)
         {
@@ -371,16 +354,16 @@ static int mp_xmit_packet_thread(void *nic_info)
 			continue;
         }
 		list = xmitframe->list;
-        wf_memcpy((xmitframe), &(pmp_priv->tx.attrib), sizeof(struct xmit_frame));  
+        wf_memcpy((xmitframe), &(pmp_priv->tx.attrib), sizeof(struct xmit_frame));
 		xmitframe->list = list;
         xmitframe->frame_tag = MP_FRAMETAG;
         xmitframe->pxmitbuf = xmitBuf;
         xmitframe->buf_addr = xmitBuf->pbuf;
         xmitBuf->priv_data = xmitframe;
 
-		wf_memcpy((wf_u8 *) (xmitBuf->pbuf + TXDESC_OFFSET), pmp_priv->tx.buf, pmp_priv->tx.write_size);        
-        xmitBuf->pkt_len = pmp_priv->tx.write_size;   
-        //wf_memcpy(&(xmitframe->attrib), &(pmp_priv->tx.attrib), sizeof(struct pkt_attrib));        
+		wf_memcpy((wf_u8 *) (xmitBuf->pbuf + TXDESC_OFFSET), pmp_priv->tx.buf, pmp_priv->tx.write_size);
+        xmitBuf->pkt_len = pmp_priv->tx.write_size;
+        //wf_memcpy(&(xmitframe->attrib), &(pmp_priv->tx.attrib), sizeof(struct pkt_attrib));
         ret = mp_tx_sending_queue(pnic_info, xmitframe, wf_false);
         if (ret == wf_false)
         {
@@ -393,10 +376,10 @@ static int mp_xmit_packet_thread(void *nic_info)
             pmp_priv->tx_pktcount++;
             //LOG_D("mp_tx_sending_queue...OK");
         }
-        
-		wf_msleep(pmp_priv->pktInterval);		
+
+		wf_msleep(pmp_priv->pktInterval);
 	}
-        
+
 
 	wf_kfree(pmp_priv->tx.pallocated_buf);
 	pmp_priv->tx.pallocated_buf = NULL;
@@ -409,7 +392,10 @@ static void mp_test_fill_tx_desc(nic_info_st *pnic_info)
      wf_mp_info_st *pmp_priv = pnic_info->mp_info;
      struct xmit_frame *pattrib = &(pmp_priv->tx.attrib);
      u8 *ptxdesc = pmp_priv->tx.desc;
- 
+
+	 
+#ifndef CONFIG_RICHV200
+
      WF_TX_DESC_AGG_BREAK_9086X(ptxdesc, 1);
      WF_TX_DESC_MACID_9086X(ptxdesc, 0);
      WF_TX_DESC_QUEUE_SEL_9086X(ptxdesc, pattrib->qsel);
@@ -418,35 +404,81 @@ static void mp_test_fill_tx_desc(nic_info_st *pnic_info)
         WF_TX_DESC_RATE_ID_9086X(ptxdesc, RATEID_IDX_BGN_20M_1SS_BN);
      else
         WF_TX_DESC_RATE_ID_9086X(ptxdesc, RATEID_IDX_BGN_40M_1SS);
-     
+
      WF_TX_DESC_SEQ_9086X(ptxdesc, pattrib->seqnum);
      WF_TX_DESC_HWSEQ_EN_9086X(ptxdesc, 1);
      WF_TX_DESC_USE_RATE_9086X(ptxdesc, 1);
- 
+
      if (pmp_priv->preamble)
      {
          if (pmp_priv->rateidx <= DESC_RATE54M)
              WF_TX_DESC_DATA_SHORT_9086X(ptxdesc, 1);
      }
-     
+
      if (pmp_priv->bandwidth == CHANNEL_WIDTH_40)
          WF_TX_DESC_DATA_BW_9086X(ptxdesc, 1);
- 
+
      WF_TX_DESC_TX_RATE_9086X(ptxdesc, pmp_priv->rateidx);
- 
+#else
+	/*set mac id*/
+	 SET_BITS_TO_LE_4BYTE(ptxdesc + 16, 0, 5, 0);
+
+	 /* set TX RATE */
+	 SET_BITS_TO_LE_4BYTE(ptxdesc + 8, 18, 7, pmp_priv->rateidx);
+	 LOG_D("pmp_priv->rateidx:0x%x",pmp_priv->rateidx);
+	/* set USE_RATE */
+	SET_BITS_TO_LE_4BYTE(ptxdesc + 8, 16, 1, 1);
+	/* set SEQ */
+	SET_BITS_TO_LE_4BYTE(ptxdesc, 19, 12, pattrib->seqnum);
+	if (pmp_priv->bandwidth == CHANNEL_WIDTH_40)
+	{
+    	/* set DBW */
+		SET_BITS_TO_LE_4BYTE(ptxdesc + 16, 12, 1, CHANNEL_WIDTH_40);
+		/* set RATE ID, mgmt frame use 802.11 B, the number is 0 */
+		SET_BITS_TO_LE_4BYTE(ptxdesc + 16, 6, 3, RATEID_IDX_BGN_20M_1SS_BN);
+	}
+	else
+	{
+		/* set DBW */
+		SET_BITS_TO_LE_4BYTE(ptxdesc + 16, 12, 1, CHANNEL_WIDTH_20);
+		/* set RATE ID, mgmt frame use 802.11 B, the number is 0 */
+		SET_BITS_TO_LE_4BYTE(ptxdesc + 16, 6, 3, RATEID_IDX_BGN_40M_1SS);
+	}
+
+	 if (pmp_priv->preamble)
+     {
+         if (pmp_priv->rateidx <= DESC_RATE54M)
+			 SET_BITS_TO_LE_4BYTE(ptxdesc + 8, 17, 1, 1);
+     }
+	 SET_BITS_TO_LE_4BYTE(ptxdesc + 12, 19, 1, 1);
+	 
+	 /* set QOS QUEUE  */
+	 SET_BITS_TO_LE_4BYTE(ptxdesc + 12, 6, 5, pattrib->seqnum);
+#endif
+	 
+	 // #if 1
+	 // 	LOG_D("Mgmt frame length is %d,  txd:", len);
+	 // 	for(raid=0; raid<len; raid++)
+	 // 	{
+	 // 		if((raid !=0 ) && (raid % 4) == 0)
+	 // 		{
+	 // 			printk("\n");
+	 // 		}
+	 // 		printk("%02x  ", pbuf[raid]);
+	 // 	}
+	 // 	printk("\n");
+	 // #endif
+
 }
 
 
 
 static void mp_tx_packet(nic_info_st *pnic_info)
 {
-	wf_u8 *ptr, *pkt_start, *pkt_end, *fctrl;
-	wf_u32 pkt_size, offset, startPlace, i;
+	wf_u8 *ptr, *pkt_start, *pkt_end;
+	wf_u32 pkt_size, i;
 	struct wl_ieee80211_hdr *hdr;
 	wf_u8 payload;
-	wf_s32 bmcast;
-	wf_u32 data;
-	wf_u32 loopback;
 	struct xmit_frame *pattrib;
 	wf_mp_info_st *pmp_priv;
     hw_info_st *hw_info =(hw_info_st *) pnic_info->hw_info;
@@ -467,7 +499,7 @@ static void mp_tx_packet(nic_info_st *pnic_info)
 		LOG_D("------------data :%x ",data);
 		Func_Chip_Bb_Rfserial_Write_Process(pnic_info,0,0x18,data);
 	}
-#endif	
+#endif
 	pattrib = &pmp_priv->tx.attrib;
 	//wf_memcpy(pattrib->src, hw_info->macAddr, WF_ETH_ALEN);
 	//wf_memcpy(pattrib->ta, pattrib->src, WF_ETH_ALEN);
@@ -555,7 +587,7 @@ static void mp_tx_packet(nic_info_st *pnic_info)
 
 static void mp_set_lck(nic_info_st *pnic_info)
 {
-    odm_msg_st msg_rw_val;
+    mcu_msg_body_st msg_rw_val;
     wf_u32 ret;
     wf_u32 timeout = 2000, timecount = 0;
     if (NIC_USB == pnic_info->nic_type)
@@ -609,66 +641,21 @@ static void mp_set_lck(nic_info_st *pnic_info)
     }
 }
 
-static wf_u32 mp_query_phy_tx_ok(nic_info_st *pnic_info)
-{
-    wf_mp_info_st *pmp_priv = pnic_info->mp_info;
-    wf_u16 count = 0;
-	wf_u32 inbuff, outbuff = 0;
-    wf_u32 ret;
-
-	if (NIC_USB == pnic_info->nic_type)
-    {
-        ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_MP_PHYTXOK, &inbuff, 1, &outbuff, 1);
-    }
-    else
-    {
-//          ret = mcu_cmd_communicate(pnic_info, WLAN_OPS_DXX0_READ_VERSION, &efuse_code, 0, version, 1);
-    }
-    if(ret == WF_RETURN_FAIL)
-    {
-        MP_WARN("set reg fail");
-        return -1;
-    }
-
-	if (outbuff > 50000)
-    {
-	    pmp_priv->tx.sended += outbuff;
-	    outbuff = 0;
-	}
-	return pmp_priv->tx.sended + outbuff;
-}
-
-
 static int mp_tx_test_stop_process(nic_info_st *pnic_info)
 {
     wf_u32 inbuff;
     int ret;
-    
+
     inbuff = 0x26;
-    
-    if (NIC_USB == pnic_info->nic_type)
-    {
-        ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_MSG_WRITE_DIG, &inbuff, 1, NULL, 0);
-    }
-    else
-    {
-        ret = mcu_cmd_communicate(pnic_info, WLAN_OPS_DXX0_MP_SET_WRITE_DIG, &inbuff, 1, NULL, 0);
-    }
+    ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_MSG_WRITE_DIG, &inbuff, 1, NULL, 0);
     if(ret == WF_RETURN_FAIL)
     {
         MP_WARN("set reg fail");
         return -1;
     }
-    
+
     inbuff = 1;
-    if (NIC_USB == pnic_info->nic_type)
-    {
-        ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_MP_CTXRATE, &inbuff, 1, NULL, 0);
-    }
-    else
-    {
-        ret = mcu_cmd_communicate(pnic_info, WLAN_OPS_DXX0_MP_CTXRATE, &inbuff, 1, NULL, 0);
-    }
+    ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_MP_CTXRATE, &inbuff, 1, NULL, 0);
     if(ret == WF_RETURN_FAIL)
     {
         MP_WARN("set reg fail");
@@ -685,14 +672,7 @@ static int mp_tx_test_start_process(nic_info_st *pnic_info)
     int ret;
 
     inbuff = 0x7f;
-    if (NIC_USB == pnic_info->nic_type)
-    {
-        ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_MSG_WRITE_DIG, &inbuff, 1, NULL, 0);
-    }
-    else
-    {
-        ret = mcu_cmd_communicate(pnic_info, WLAN_OPS_DXX0_MP_SET_WRITE_DIG, &inbuff, 1, NULL, 0);
-    }
+    ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_MSG_WRITE_DIG, &inbuff, 1, NULL, 0);
     if(ret == WF_RETURN_FAIL)
     {
         MP_WARN("set reg fail");
@@ -707,9 +687,8 @@ static void mp_set_rx_filter(nic_info_st *pnic_info, wf_u8 bStartRx, wf_u8 bAB)
 	wf_u32 inbuff[2] = { 0 };
     wf_u32 ReceiveConfig;
     wf_u32 ret;
-    wf_mp_info_st *pmp_priv = pnic_info->mp_info;
 
-    if (bStartRx) 
+    if (bStartRx)
     {
 		ReceiveConfig = RCR_APM | RCR_AM | RCR_AB | RCR_APP_ICV | RCR_AMF | RCR_HTC_LOC_CTRL | RCR_APP_MIC | RCR_APP_PHYST_RXFF;
         #ifdef BSSID_SET
@@ -720,8 +699,8 @@ static void mp_set_rx_filter(nic_info_st *pnic_info, wf_u8 bStartRx, wf_u8 bAB)
 
         inbuff[0] = 1;
         inbuff[1] = ReceiveConfig;
-	} 
-    else 
+	}
+    else
 	{
         inbuff[0] = 0;
         inbuff[1] = 0;
@@ -731,7 +710,7 @@ static void mp_set_rx_filter(nic_info_st *pnic_info, wf_u8 bStartRx, wf_u8 bAB)
     {
         ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_MP_SET_PRX, inbuff, 2, NULL, 0);
     }
-    
+
     if(ret == WF_RETURN_FAIL)
     {
         MP_WARN("set reg fail");
@@ -748,13 +727,17 @@ static int mp_trx_test_pretx_proc(nic_info_st *pnic_info, wf_u8 bStartTest, char
     wf_u32 inbuff1[2] = {0};
     wf_u32 ret;
     wf_u32 loopback;
+    if ((pnic_info->is_surprise_removed) || (pnic_info->is_driver_stopped))
+    {
+		return -1;
+	}
 
-    switch (pmp_info->mode) 
+    switch (pmp_info->mode)
     {
     	case MP_PHY_LOOPBACK:
     	{
-			if (bStartTest == 0) 
-			{		 
+			if (bStartTest == 0)
+			{
 				pmp_info->tx.stop = 1;
 				pmp_info->rx_start = 0;
 				mp_set_rx_filter(pnic_info, 0, wf_false);
@@ -762,12 +745,12 @@ static int mp_trx_test_pretx_proc(nic_info_st *pnic_info, wf_u8 bStartTest, char
 				LOG_D("loopback:%x",loopback);
 				loopback &= ~(0x1000000);
 				LOG_D("loopback:%x",loopback);
-				wf_io_write32(pnic_info, 0xd00, loopback);				  
-				
+				wf_io_write32(pnic_info, 0xd00, loopback);
+
 				mp_tx_test_stop_process(pnic_info);
 
-			} 
-			else if (pmp_info->tx.stop == 1) 
+			}
+			else if (pmp_info->tx.stop == 1)
 			{
 
 				pmp_info->tx.stop = 0;
@@ -776,16 +759,16 @@ static int mp_trx_test_pretx_proc(nic_info_st *pnic_info, wf_u8 bStartTest, char
 				LOG_D("bStartTest loopback:%x",loopback);
 				loopback |= 0x1000000;
 				LOG_D("bStartTest loopback:%x",loopback);
-				wf_io_write32(pnic_info, 0xd00, loopback);	                
+				wf_io_write32(pnic_info, 0xd00, loopback);
 
                 pmp_info->rx_start = 1;
 
                 mp_set_rx_filter(pnic_info, 1, wf_false);
-                
+
                 mp_tx_test_start_process(pnic_info);
                 mp_tx_packet(pnic_info);
-			} 
-			else 
+			}
+			else
 			{
 				return WF_RETURN_FAIL;
 			}
@@ -794,41 +777,41 @@ static int mp_trx_test_pretx_proc(nic_info_st *pnic_info, wf_u8 bStartTest, char
 		break;
         case MP_MAC_LOOPBACK:
         {
-            if (bStartTest == 0) 
-            {        
+            if (bStartTest == 0)
+            {
                 pmp_info->tx.stop = 1;
                 pmp_info->rx_start = 0;
-                
+
 	            mp_set_rx_filter(pnic_info, 0, wf_false);
 
                 loopback = wf_io_read32(pnic_info, 0x100,NULL);
                 LOG_D("loopback:%x",loopback);
                 loopback &= ~(BIT(24) | BIT(25) | BIT(27));
                 LOG_D("loopback:%x",loopback);
-                wf_io_write32(pnic_info, 0x100, loopback);                
+                wf_io_write32(pnic_info, 0x100, loopback);
 
                 mp_tx_test_stop_process(pnic_info);
-            } 
-            else if (pmp_info->tx.stop == 1) 
+            }
+            else if (pmp_info->tx.stop == 1)
             {
-                
+
                 pmp_info->tx.stop = 0;
 
                 loopback = wf_io_read32(pnic_info, 0x100,NULL);
 	            LOG_D("loopback:%x",loopback);
 	            loopback |= (BIT(24) | BIT(25) | BIT(27));
 	            LOG_D("loopback:%x",loopback);
-	            wf_io_write32(pnic_info, 0x100, loopback);                
+	            wf_io_write32(pnic_info, 0x100, loopback);
 
                 pmp_info->rx_start = 1;
 
                 mp_set_rx_filter(pnic_info, 1, wf_false);
-                
+
                 mp_tx_test_start_process(pnic_info);
                 mp_tx_packet(pnic_info);
 
-            } 
-            else 
+            }
+            else
             {
                 return WF_RETURN_FAIL;
             }
@@ -836,25 +819,25 @@ static int mp_trx_test_pretx_proc(nic_info_st *pnic_info, wf_u8 bStartTest, char
             return 0;
         }
         break;
-        
+
 	    case MP_PACKET_TX:
         {
-            if (bStartTest == 0) 
-            {        
+            if (bStartTest == 0)
+            {
                 pmp_info->tx.stop = 1;
 
                 mp_tx_test_stop_process(pnic_info);
-            } 
-            else if (pmp_info->tx.stop == 1) 
+            }
+            else if (pmp_info->tx.stop == 1)
             {
-                
+
                 pmp_info->tx.stop = 0;
-                
+
                 mp_tx_test_start_process(pnic_info);
                 mp_tx_packet(pnic_info);
 
-            } 
-            else 
+            }
+            else
             {
                 return WF_RETURN_FAIL;
             }
@@ -862,113 +845,67 @@ static int mp_trx_test_pretx_proc(nic_info_st *pnic_info, wf_u8 bStartTest, char
             return 0;
          }
          break;
-        
+
 	case MP_SINGLE_TONE_TX:
         {
-            wf_u32 txPower;
-            
     		if (bStartTest == 1)
-            {      
+            {
     			sprintf(extra,
     					"%s\nStart continuous DA=ffffffffffff len=%d\n infinite=yes.",
     					extra, pmp_info->tx.attrib.pktlen);
 
                 //mp_tx_test_start_process(pnic_info);
-            
+
                 inbuff = 1;
-                if (NIC_USB == pnic_info->nic_type)
-                {
-                    ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_MP_SET_SINGLETONETX, &inbuff, 1, NULL, 0);
-                }
-                else
-                {
-                    ret = mcu_cmd_communicate(pnic_info, WLAN_OPS_DXX0_MP_SINGLETONE_TX, &inbuff, 1, NULL, 0);
-                }
+                ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_MP_SET_SINGLETONETX, &inbuff, 1, NULL, 0);
             }
             else
             {
                 inbuff = 0;
-                if (NIC_USB == pnic_info->nic_type)
-                {
-                    ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_MP_SET_SINGLETONETX, &inbuff, 1, NULL, 0);
-                }
-                else
-                {
-                    ret = mcu_cmd_communicate(pnic_info, WLAN_OPS_DXX0_MP_SINGLETONE_TX, &inbuff, 1, NULL, 0);
-                }
-                
+                ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_MP_SET_SINGLETONETX, &inbuff, 1, NULL, 0);
                 //mp_tx_test_stop_process(pnic_info);
             }
         }
 		break;
-        
+
     case MP_SINGLE_CARRIER_TX:
         {
-            wf_u32 txPower;
-            
+
     		if (bStartTest == 1)
-            {      
+            {
     			sprintf(extra,
     					"%s\nStart continuous DA=ffffffffffff len=%d\n infinite=yes.",
     					extra, pmp_info->tx.attrib.pktlen);
 
                 inbuff = 1;
-                if (NIC_USB == pnic_info->nic_type)
-                {
-                    ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_MP_SET_SINGLECARRTX, &inbuff, 1, NULL, 0);
-                } 
-                else
-                {
-                    ret = mcu_cmd_communicate(pnic_info, WLAN_OPS_DXX0_MP_SIGNG_CARRIER_TX, &inbuff, 1, NULL, 0);
-                }
+                ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_MP_SET_SINGLECARRTX, &inbuff, 1, NULL, 0);
             }
             else
             {
                 inbuff = 0;
-                if (NIC_USB == pnic_info->nic_type)
-                {
-                    ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_MP_SET_SINGLECARRTX, &inbuff, 1, NULL, 0);
-                }
-                else
-                {
-                    ret = mcu_cmd_communicate(pnic_info, WLAN_OPS_DXX0_MP_SIGNG_CARRIER_TX, &inbuff, 1, NULL, 0);
-                }
+                ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_MP_SET_SINGLECARRTX, &inbuff, 1, NULL, 0);
             }
         }
 		break;
-        
+
 	case MP_CONTINUOUS_TX:
         {
     		if (bStartTest == 1)
-            {      
+            {
     			sprintf(extra,
     					"%s\nStart continuous DA=ffffffffffff len=%d\n infinite=yes.",
     					extra, pmp_info->tx.attrib.pktlen);
-                
+
         		if(pmp_info->rateidx <= DESC_RATE11M)
                 {
                     inbuff1[0] = 1;
                     inbuff1[1] = pmp_info->rateidx;
-                    if (NIC_USB == pnic_info->nic_type)
-                    {
-                        ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_MP_SET_CCKCTX, inbuff1, 2, NULL, 0);
-                    }
-                    else
-                    {
-                        ret = mcu_cmd_communicate(pnic_info, WLAN_OPS_DXX0_MP_CCK_CONTINUOUTX, inbuff1, 2, NULL, 0);
-                    }
+                    ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_MP_SET_CCKCTX, inbuff1, 2, NULL, 0);
                 }
                 else if(pmp_info->rateidx >= DESC_RATE6M)
                 {
                     inbuff = 1;
-                    if (NIC_USB == pnic_info->nic_type)
-                    {
-                        ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_MP_SET_OFDMCTX, &inbuff, 1, NULL, 0);
-                    }
-                    else
-                    {
-                        ret = mcu_cmd_communicate(pnic_info, WLAN_OPS_DXX0_MP_SET_OFDMCTX, &inbuff, 1, NULL, 0);
-                    }
+                    ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_MP_SET_OFDMCTX, &inbuff, 1, NULL, 0);
                 }
             }
             else
@@ -977,26 +914,12 @@ static int mp_trx_test_pretx_proc(nic_info_st *pnic_info, wf_u8 bStartTest, char
                 {
                     inbuff1[0] = 0;
                     inbuff1[1] = pmp_info->rateidx;
-                    if (NIC_USB == pnic_info->nic_type)
-                    {
-                        ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_MP_SET_CCKCTX, inbuff1, 2, NULL, 0);
-                    }
-                    else
-                    {
-                         ret = mcu_cmd_communicate(pnic_info, WLAN_OPS_DXX0_MP_CCK_CONTINUOUTX, inbuff1, 2, NULL, 0);
-                    }
+                    ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_MP_SET_CCKCTX, inbuff1, 2, NULL, 0);
                 }
                 else if(pmp_info->rateidx >= DESC_RATE6M)
                 {
                     inbuff = 0;
-                    if (NIC_USB == pnic_info->nic_type)
-                    {
-                        ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_MP_SET_OFDMCTX, &inbuff, 1, NULL, 0);
-                    }
-                    else
-                    {
-                        ret = mcu_cmd_communicate(pnic_info, WLAN_OPS_DXX0_MP_SET_OFDMCTX, &inbuff, 1, NULL, 0);
-                    }
+                    ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_MP_SET_OFDMCTX, &inbuff, 1, NULL, 0);
                 }
             }
         }
@@ -1004,7 +927,7 @@ static int mp_trx_test_pretx_proc(nic_info_st *pnic_info, wf_u8 bStartTest, char
 
 	case MP_CARRIER_SUPPRISSION_TX:
         {
-    		if (bStartTest == 1) 
+    		if (bStartTest == 1)
             {
     			if (pmp_info->rateidx <= DESC_RATE11M)
     				sprintf(extra,
@@ -1017,31 +940,17 @@ static int mp_trx_test_pretx_proc(nic_info_st *pnic_info, wf_u8 bStartTest, char
 
                 inbuff1[0] = 1;
                 inbuff1[1] = pmp_info->rateidx;
-                if (NIC_USB == pnic_info->nic_type)
-                {
-                    ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_MP_SET_CARRSUPPTX, inbuff1, 2, NULL, 0);
-                }
-                else
-                {
-                    ret = mcu_cmd_communicate(pnic_info, WLAN_OPS_DXX0_MP_CARRIERSUPPERSS_TX, inbuff1, 2, NULL, 0);
-                }
+                ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_MP_SET_CARRSUPPTX, inbuff1, 2, NULL, 0);
     		}
             else
             {
         	    inbuff1[0] = 0;
                 inbuff1[1] = pmp_info->rateidx;
-                if (NIC_USB == pnic_info->nic_type)
-                {
-                    ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_MP_SET_CARRSUPPTX, inbuff1, 2, NULL, 0);
-                }
-                else
-                {
-                    ret = mcu_cmd_communicate(pnic_info, WLAN_OPS_DXX0_MP_CARRIERSUPPERSS_TX, inbuff1, 2, NULL, 0);
-                }
+                ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_MP_SET_CARRSUPPTX, inbuff1, 2, NULL, 0);
             }
         }
 		break;
-        
+
 	case MP_TX_LCK:
         {
 		    mp_set_lck(pnic_info);
@@ -1054,9 +963,9 @@ static int mp_trx_test_pretx_proc(nic_info_st *pnic_info, wf_u8 bStartTest, char
 	}
 
     #if 0
-	if (bStartTest == 1 && pmp_info->mode != MP_ON) 
+	if (bStartTest == 1 && pmp_info->mode != MP_ON)
     {
-		if (pmp_info->tx.stop == 0) 
+		if (pmp_info->tx.stop == 0)
         {
 			pmp_info->tx.stop = 1;
 			wf_msleep(5);
@@ -1067,13 +976,13 @@ static int mp_trx_test_pretx_proc(nic_info_st *pnic_info, wf_u8 bStartTest, char
 		pmp_info->tx.stop = 0;
 		pmp_info->tx.count = 1;
 		mp_tx_packet(pnic_info);
-	} 
+	}
     else
     {
 		pmp_info->mode = MP_ON;
     }
     #endif
-    
+
 	return 0;
 }
 
@@ -1093,7 +1002,7 @@ static void mp_sdio_set_rx_filter(nic_info_st *pnic_info, wf_u8 bStartRx, wf_u8 
     {
         send_msg[i+1] = mp_info->network_macaddr[i];
     }
-    ret = mcu_cmd_communicate(pnic_info, WLAN_OPS_DXX0_HAL_FW_INIT, send_msg, 7, mail_box, 9);
+    ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_HAL_FW_INIT, send_msg, 7, mail_box, 9);
     if(mail_box[0] == wf_true)
     {
         mp_info->sdio_ReceiveConfig = mail_box[1];
@@ -1111,14 +1020,14 @@ static void mp_sdio_set_rx_filter(nic_info_st *pnic_info, wf_u8 bStartRx, wf_u8 
     inbuf[1] = mp_info->bSetRxBssid;
     inbuf[2] = ReceiveConfig;
     inbuf[3] = bAB;
-    ret = mcu_cmd_communicate(pnic_info, WLAN_OPS_DXX0_MP_SET_PACKET_RX, inbuf,4, &outbuf, 1);
+    ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_MP_SET_PRX, inbuf,4, &outbuf, 1);
     if(ret == WF_RETURN_FAIL)
     {
         MP_WARN("set reg fail");
         return ;
     }
     mp_info->sdio_ReceiveConfig = outbuf;
-    
+
 }
 
 
@@ -1131,14 +1040,7 @@ static void mp_dump_mac_rx_counters(nic_info_st *pnic_info,struct dbg_rx_counter
 		return;
 	}
 
-    if (NIC_USB == pnic_info->nic_type)
-    {
-        ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_MP_MACRXCOUNT, NULL, 0, outbuff, 6);
-    }
-    else
-    {
-        ret = mcu_cmd_communicate(pnic_info, WLAN_OPS_DXX0_MP_MAC_RX_COUNTERS, NULL, 0, outbuff, 6);
-    }
+    ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_MP_MACRXCOUNT, NULL, 0, outbuff, 6);
     if(ret == WF_RETURN_FAIL)
     {
         MP_WARN("set reg fail");
@@ -1161,14 +1063,7 @@ static void mp_dump_phy_rx_counters(nic_info_st *pnic_info,struct dbg_rx_counter
 		return;
 	}
 
-    if (NIC_USB == pnic_info->nic_type)
-    {
-        ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_MP_PHYRXCOUNT, NULL, 0, outbuff, 4);
-    }
-    else
-    {
-        ret = mcu_cmd_communicate(pnic_info, WLAN_OPS_DXX0_MP_PHY_RX_COUNTERS, NULL, 0, outbuff, 4);
-    }
+    ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_MP_PHYRXCOUNT, NULL, 0, outbuff, 4);
     if(ret == WF_RETURN_FAIL)
     {
         MP_WARN("set reg fail");
@@ -1185,18 +1080,12 @@ static void mp_dump_phy_rx_counters(nic_info_st *pnic_info,struct dbg_rx_counter
 int wf_mp_rx_common_process( nic_info_st *pnic_info, wf_u8 *pktBuf, wf_u32 pktLen)
 {
     int ret = 0;
-    wf_u32 frame_type;
-    wdn_net_info_st *pwdn_info;
     wf_mp_info_st *pmp_priv = pnic_info->mp_info;
-    wf_u8 *pbuf;
-    wf_u8 *da ;
-    wf_u8 bmc[6]={0xff,0xff,0xff,0xff,0xff,0xff};
     recv_phy_status_st phyStatus;
     rx_pkt_t pkt;
     wf_u8 *mac_frame;
 	wf_u8 *data;
-	int i=0;
-	
+
     if (pmp_priv == NULL)
         return -1;
 
@@ -1212,14 +1101,14 @@ int wf_mp_rx_common_process( nic_info_st *pnic_info, wf_u8 *pktBuf, wf_u32 pktLe
     {
         /* copy phystatus*/
         wf_memcpy((wf_u8 *)&phyStatus, (wf_u8 *)pktBuf + RXD_SIZE, sizeof(recv_phy_status_st));
-        
+
         /* process phystatus */
         mac_frame = pktBuf + pkt.pkt_info.hif_hdr_len;
-        wf_odm_calc_str_and_qual(pnic_info, (wf_u8 *)&phyStatus, mac_frame, &pkt);
-        
+        wf_rx_calc_str_and_qual(pnic_info, (wf_u8 *)&phyStatus, mac_frame, &pkt);
+
         wf_odm_handle_phystatus(pnic_info, &phyStatus, mac_frame, &pkt);
     }
-#ifdef CONFIG_RICHV200_FPGA
+#ifdef CONFIG_RICHV200
 
 	if(pkt.pkt_info.phy_status == 1)
 	{
@@ -1262,13 +1151,12 @@ int wf_mp_test_rx(struct net_device *dev, struct iw_request_info *info, union iw
 	struct iw_point *wrqu = (struct iw_point *)wdata;
     wf_mp_info_st *pmp_priv = pnic_info->mp_info;
     int bStartRx = 0, bStopRx = 0, bQueryRx = 0, bQueryPhy = 0, bQueryMac = 0, bSetBssid = 0;
-    int bmac_filter = 0, bfilter_init = 0, bmon = 0, bSmpCfg = 0, bloopbk = 0;
+    int bmac_filter = 0, bmon = 0, bSmpCfg = 0;
     wf_u8 input[wrqu->length];
-    char *pch, *ptmp, *token, *tmp[2] = { 0x00, 0x00 };
-    wf_u32 i = 0, ii = 0, jj = 0, kk = 0, cnts = 0, ret;
+    char *pch, *token, *tmp[2] = { 0x00, 0x00 };
+    wf_u32 i = 0, jj = 0, kk = 0, cnts = 0, ret;
     struct dbg_rx_counter rx_counter;
     wf_u32 txok, txfail, rxok, rxfail, rxfilterout;
-    rx_info_t *rx_info = pnic_info->rx_info;
     wf_u8 *str;
     char *ptr = NULL;
     wf_mp_tx *pmptx;
@@ -1346,7 +1234,7 @@ int wf_mp_test_rx(struct net_device *dev, struct iw_request_info *info, union iw
 
     }
 
-    if (bStartRx) 
+    if (bStartRx)
     {
         sprintf(extra, "start ok");
 
@@ -1367,8 +1255,8 @@ int wf_mp_test_rx(struct net_device *dev, struct iw_request_info *info, union iw
 
         pmp_priv->rx_start = 1;
 
-    } 
-    else if (bStopRx) 
+    }
+    else if (bStopRx)
     {
 
         pmp_priv->rx_start = 0;
@@ -1386,23 +1274,23 @@ int wf_mp_test_rx(struct net_device *dev, struct iw_request_info *info, union iw
                 pmp_priv->rx_crcerrpktcount,
                 pmp_priv->rx_pktcount_filter_out);
 
-    } 
-    else if (bQueryRx) 
+    }
+    else if (bQueryRx)
     {
         txok = pmptx->sended;
         txfail = 0;
             rxok = pmp_priv->rx_pktcount;
         rxfail = pmp_priv->rx_crcerrpktcount;
         rxfilterout = pmp_priv->rx_pktcount_filter_out;
-    
+
         wf_memset(extra, '\0', 128);
-    
+
         sprintf(extra,
                 "Tx OK:%d, Tx Fail:%d, Rx OK:%d, CRC error:%d ,Rx Filter out:%d\n",
                 txok, txfail, rxok, rxfail, rxfilterout);
 
 
-    } 
+    }
     else if (bQueryPhy)
     {
         wf_memset(&rx_counter, 0, sizeof(struct dbg_rx_counter));
@@ -1415,7 +1303,7 @@ int wf_mp_test_rx(struct net_device *dev, struct iw_request_info *info, union iw
                 rx_counter.rx_cck_fa + rx_counter.rx_ofdm_fa);
 
     }
-    else if (bQueryMac) 
+    else if (bQueryMac)
     {
         wf_memset(&rx_counter, 0, sizeof(struct dbg_rx_counter));
         mp_dump_mac_rx_counters(pnic_info, &rx_counter);
@@ -1426,15 +1314,15 @@ int wf_mp_test_rx(struct net_device *dev, struct iw_request_info *info, union iw
 
     }
 
-    if (bmon == 1) 
+    if (bmon == 1)
     {
         ret = sscanf(input, "mon=%d", &bmon);
         pmp_priv->rx_bindicatePkt = wf_true;
         sprintf(extra, "Indicating Receive Packet to network start\n");
 
     }
-    
-    if (bSmpCfg == 1) 
+
+    if (bSmpCfg == 1)
     {
         ret = sscanf(input, "smpcfg=%d", &bSmpCfg);
 
@@ -1486,14 +1374,16 @@ int wf_mp_test_tx(struct net_device *dev, struct iw_request_info *info, union iw
 	wf_u32 bStartTest = 1;
 	wf_u32 count = 0, pktinterval = 0, len = 0;
 	wf_u8 status;
-	wf_u32 inbuff;
 	wf_u32 lck = 1;
     wf_u8 maclpk = 1;
 	wf_u8 phylpk = 1;
 	wf_u8 *str;
 
     char *pch;
-    wf_u32 ret;
+    if ((pnic_info->is_surprise_removed) || (pnic_info->is_driver_stopped))
+    {
+		return -1;
+	}
 
     if (copy_from_user(input, wrqu->pointer, wrqu->length))
         return WF_RETURN_FAIL;
@@ -1514,31 +1404,31 @@ int wf_mp_test_tx(struct net_device *dev, struct iw_request_info *info, union iw
 	phylpk = strncmp(pch, "phy_loopback", 12);
 
     if (sscanf(pch, "mac_loopback,count=%d", &count) > 0)
-    {   
+    {
 		printk("count=%d\n", count);
     }
     if (sscanf(pch, "phy_loopback,count=%d", &count) > 0)
-    {   
+    {
 		printk("count=%d\n", count);
     }
 	if (sscanf(pch, "frame,count=%d", &count) > 0)
-    {   
+    {
 		printk("count=%d\n", count);
     }
 	if (sscanf(pch, "pkt,pktinterval=%d", &pktinterval) > 0)
-    {   
+    {
 		printk("pktinterval=%d\n", pktinterval);
     }
 	if (sscanf(pch, "frame,len=%d", &len) > 0)
-    {   
+    {
 		printk("len=%d\n", len);
-    }      
+    }
 	if (sscanf(pch, "frame,len=%d,count=%d", &len, &count) > 0)
-    {   
+    {
 		printk("len=%d,count=%d\n", len, count);
     }
-    
-	if (wf_memcmp(pch, "destmac=", 8)) 
+
+	if (wf_memcmp(pch, "destmac=", 8))
     {
 		wrqu->length -= 8;
 		mp_tx_destaddr(pnic_info,&pch[8]);
@@ -1547,27 +1437,27 @@ int wf_mp_test_tx(struct net_device *dev, struct iw_request_info *info, union iw
 
 	//wf_memset(extra, '\0', strlen(extra));
 
-	if (pktinterval != 0) 
+	if (pktinterval != 0)
     {
 		sprintf(extra, "Pkt Interval = %d", pktinterval);
 		pmp_info->pktInterval = pktinterval;
-		
+
 	}
 
-	if (len != 0) 
+	if (len != 0)
     {
 		sprintf(extra, "Pkt len = %d", len);
 		pattrib->pktlen = len;
-		
+
 	}
 
     pmp_info->tx.count = count;
-    
+
     if (pkTx == 0 || countPkTx == 0)
-    {   
+    {
         pmp_info->mode = MP_PACKET_TX;
     }
-    
+
     if (sgleTx == 0)
     {
         pmp_info->mode = MP_SINGLE_TONE_TX;
@@ -1577,12 +1467,12 @@ int wf_mp_test_tx(struct net_device *dev, struct iw_request_info *info, union iw
     {
         pmp_info->mode = MP_SINGLE_CARRIER_TX;
     }
-    
+
     if (cotuTx == 0)
     {
         pmp_info->mode = MP_CONTINUOUS_TX;
     }
-    
+
     if (CarrSprTx == 0)
     {
         pmp_info->mode = MP_CARRIER_SUPPRISSION_TX;
@@ -1602,13 +1492,13 @@ int wf_mp_test_tx(struct net_device *dev, struct iw_request_info *info, union iw
         pmp_info->mode = MP_TX_LCK;
     }
 
-    if (stop == 0) 
-    {    
+    if (stop == 0)
+    {
 		bStartTest = 0;
 
 		sprintf(extra, "Stop Tx");
 	}
-    else 
+    else
     {
 		bStartTest = 1;
 
@@ -1635,19 +1525,16 @@ int wf_mp_stats(struct net_device *dev, struct iw_request_info *info, union iwre
     int ret = 0;
 	bool bReset = 0, bQuery = 0;
 	wf_mp_info_st *pmp_priv;
-	struct pkt_attrib *pattrib;
 	wf_u8 input[wrqu->length];
 	wf_u32 txok, txfail, rxok, rxfail, rxfilterout;
 	wf_u32 flag = 0x03;
 	wf_u8 *str;
 	char *ptr = NULL;
     wf_mp_tx *pmptx;
-    
-    rx_info_t *rx_info = pnic_info->rx_info;
     pmp_priv = pnic_info->mp_info;
     pmptx = &pmp_priv->tx;
 
-    
+
 	if (copy_from_user(input, wrqu->pointer, wrqu->length))
 		ret = WF_RETURN_FAIL;
 	ptr = input;
@@ -1655,7 +1542,7 @@ int wf_mp_stats(struct net_device *dev, struct iw_request_info *info, union iwre
 	bReset = (strncmp(ptr, "reset", 5) == 0) ? 1 : 0;
 	bQuery = (strncmp(ptr, "query", 5) == 0) ? 1 : 0;
 
-    if (bReset == 1) 
+    if (bReset == 1)
     {
 		pmp_priv->tx.sended = 0;
 		pmp_priv->tx_pktcount = 0;
@@ -1670,9 +1557,9 @@ int wf_mp_stats(struct net_device *dev, struct iw_request_info *info, union iwre
         else
         {
             /* reset phy count */
-            ret = mcu_cmd_communicate(pnic_info, WLAN_OPS_DXX0_MP_RESET_PHY_RX_COUNTERS, NULL, 0, NULL, 0);
+            ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_MP_RESET_PHY_RX_COUNTERS, NULL, 0, NULL, 0);
             /* reset mac count */
-            ret = mcu_cmd_communicate(pnic_info, WLAN_OPS_DXX0_MP_RESET_MAC_RX_COUNTERS, NULL, 0, NULL, 0);
+            ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_MP_RESET_MAC_RX_COUNTERS, NULL, 0, NULL, 0);
         }
         if(ret == WF_RETURN_FAIL)
         {
@@ -1733,7 +1620,7 @@ int wf_mp_cmd_download(struct net_device *dev, struct iw_request_info *info, uni
 	}
 	sscanf(ptr,"%d",&count);
 
-	for(count;count>0;count--)
+	for(count = 0;count>0;count--)
 	{
 		ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_CMD_TEST, (wf_u32 *)data, 10, (wf_u32 *)out_buf, 10);
 		if (WF_RETURN_FAIL == ret)
@@ -1760,7 +1647,7 @@ int wf_mp_fw_download(struct net_device *dev, struct iw_request_info *info, unio
 	ndev_priv_st *pndev_priv = netdev_priv(dev);
     nic_info_st *pnic_info = pndev_priv->nic;
 	struct iw_point *wrqu = (struct iw_point *)wdata;
-	wf_u32 count;
+	wf_u32 count = 0;
 	wf_u32 ret;
 	wf_u8 *str;
 	char *ptr = NULL;
@@ -1777,7 +1664,7 @@ int wf_mp_fw_download(struct net_device *dev, struct iw_request_info *info, unio
 		return 0;
 	}
 	sscanf(ptr,"%d",&count);
-	for(count;count>0;count--)
+	for(count = 0;count>0;count--)
 	{
 		ret = wf_fw_download(pnic_info);
 		if(ret != 0)

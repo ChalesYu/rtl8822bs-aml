@@ -39,8 +39,9 @@ typedef wf_u8  wf_msg_tag_id_t;
 
 typedef struct
 {
-    wf_que_list list;
+    wf_que_list_t list;
     wf_que_t *pque;
+    wf_u32 alloc_value_size;
     wf_msg_tag_t tag;
     wf_u32 len;
     wf_u8 value[0];

@@ -5,14 +5,14 @@
 
 /* macro */
 #if 0
-#define MSG_DBG(fmt, ...)       LOG_D("[%s]"fmt, __func__, ##__VA_ARGS__)
+#define MSG_DBG(fmt, ...)       LOG_D("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
 #define MSG_ARRAY(data, len)    log_array(data, len)
 #else
 #define MSG_DBG(fmt, ...)
 #define MSG_ARRAY(data, len)
 #endif
-#define MSG_WARN(fmt, ...)      LOG_E("[%s]"fmt, __func__, ##__VA_ARGS__)
-#define MSG_INFO(fmt, ...)      LOG_I("[%s]"fmt, __func__, ##__VA_ARGS__)
+#define MSG_WARN(fmt, ...)      LOG_E("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
+#define MSG_INFO(fmt, ...)      LOG_I("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
 
 /* type */
 
@@ -33,7 +33,7 @@ int _msg_pop (wf_msg_t *pmsg)
     return 0;
 }
 
-int _msg_push (wf_que_t *pque, wf_que_list *pos, wf_msg_t *pmsg)
+int _msg_push (wf_que_t *pque, wf_que_list_t *pos, wf_msg_t *pmsg)
 {
     _msg_pop(pmsg); /* todo: check and leave from orignal queue(free or pend) */
     pmsg->pque = pque;
@@ -44,7 +44,7 @@ int _msg_push (wf_que_t *pque, wf_que_list *pos, wf_msg_t *pmsg)
 
 int wf_msg_new (wf_msg_que_t *pmsg_que, wf_msg_tag_t tag, wf_msg_t **pnew_msg)
 {
-    wf_que_list *plist;
+    wf_que_list_t *plist;
     int rst;
 
     if (pmsg_que == NULL || pnew_msg == NULL)
@@ -81,7 +81,7 @@ exit:
 
 int wf_msg_push (wf_msg_que_t *pmsg_que, wf_msg_t *pmsg)
 {
-    wf_que_list *pos;
+    wf_que_list_t *pos;
     int rst;
 
     if (pmsg_que == NULL || pmsg == NULL)
@@ -109,7 +109,7 @@ int wf_msg_push (wf_msg_que_t *pmsg_que, wf_msg_t *pmsg)
 
 int wf_msg_push_head (wf_msg_que_t *pmsg_que, wf_msg_t *pmsg)
 {
-    wf_que_list *pos;
+    wf_que_list_t *pos;
     int rst;
 
     if (pmsg_que == NULL || pmsg == NULL)
@@ -135,7 +135,7 @@ int wf_msg_push_head (wf_msg_que_t *pmsg_que, wf_msg_t *pmsg)
 int msg_get (wf_msg_que_t *pmsg_que, wf_msg_t **pmsg,
              wf_bool bpop, wf_bool btail)
 {
-    wf_que_list *plist;
+    wf_que_list_t *plist;
     int rst = 0;
 
     if (pmsg_que == NULL || pmsg == NULL)
@@ -170,7 +170,7 @@ exit:
 int msg_get_dom (wf_msg_que_t *pmsg_que, wf_msg_tag_dom_t dom, wf_msg_t **pmsg,
                  wf_bool bpop, wf_bool btail)
 {
-    wf_que_list *pos;
+    wf_que_list_t *pos;
     int rst;
 
     wf_lock_lock(&pmsg_que->lock);
@@ -213,7 +213,7 @@ exit :
 
 int wf_msg_del (wf_msg_que_t *pmsg_que, wf_msg_t *pmsg)
 {
-    wf_que_list *pos;
+    wf_que_list_t *pos;
     int rst;
 
     if (pmsg_que == NULL || pmsg == NULL)
@@ -240,6 +240,7 @@ int wf_msg_alloc (wf_msg_que_t *pmsg_que,
             return -1;
         }
         pmsg->pque = NULL;
+        pmsg->alloc_value_size = size;
         pmsg->tag = tag;
         pmsg->len = 0;
         wf_msg_del(pmsg_que, pmsg);

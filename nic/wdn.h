@@ -236,8 +236,6 @@ typedef struct wdn_net_info_
     wf_u8   ldpc;
     wf_u8   stbc;
     wf_u32  aid;
-    wf_st_ctl_st st_ctl;
-
     struct wdn_xmit_priv wdn_xmitpriv;
     struct wdninfo_stats wdn_stats;
 
@@ -245,7 +243,7 @@ typedef struct wdn_net_info_
     wf_u8            ba_enable_flag[TID_NUM];
     wf_u8            ba_started_flag[TID_NUM];
     wf_u16           ba_starting_seqctrl[TID_NUM];
-    recv_ba_ctrl_st  ba_ctl[TID_NUM];
+    recv_ba_ctrl_st  *ba_ctl;
 
 	wf_u16 seq_ctrl_recorder[16];
 } wdn_net_info_st;
@@ -273,7 +271,6 @@ int wf_wdn_init(nic_info_st *nic_info);
 int wf_wdn_term(nic_info_st *nic_info);
 int wf_wdn_data_update(nic_info_st *nic_info, wdn_net_info_st *wdn_info);
 wf_u8 wf_wdn_is_alive(wdn_net_info_st *wdn_net_info, wf_u8 update_tag);
-void wf_wdn_update_traffic_stat(nic_info_st *nic_info,wf_u8 update_odm_flag);
 void get_bratecfg_by_support_dates(wf_u8 *pdataRate, wf_u8 dataRate_len, wf_u16 *pBrateCfg);
 wf_u8 wf_wdn_get_cnt(nic_info_st *pnic_info);
 

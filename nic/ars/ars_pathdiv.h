@@ -4,6 +4,7 @@ typedef struct pathdiv_info_st_
 {
 }ars_pathdiv_info_st;
 
-void odm_PathDiversity(void *ars);
+wf_s32 odm_PathDiversity(void *ars);
+wf_s32 odm_PathDiversityInit(void *ars);
 
 #endif

@@ -24,10 +24,20 @@ typedef enum _HT_IOT_PEER
     HT_IOT_PEER_MAX                     = 18
 }HT_IOT_PEER_E, *PHTIOT_PEER_E;
 
+typedef struct _EDCA_TURBO_
+{
+    wf_bool bCurrentTurboEDCA;
+    wf_bool bIsCurRDLState;
+    wf_u32  prv_traffic_idx; // edca turbo
+
+}EDCA_T,*pEDCA_T;
 
 typedef struct edcaturbo_info_st_
 {
+    wf_u32  bIsAnyNonBEPkts;
+    EDCA_T  DM_EDCA_Table;
 }ars_edcaturbo_info_st;
 
-void odm_EdcaTurboCheck(void *ars);
+wf_s32 odm_EdcaTurboCheck(void *ars);
+wf_s32 ODM_EdcaTurboInit(void *ars);
 #endif

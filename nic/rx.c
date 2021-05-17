@@ -5,6 +5,7 @@
 #include "mp.h"
 #endif
 
+#define BA_REORDER_QUEUE_NUM (64)
 //#define C2H_ADPT_SPEED_DEBUG
 //#define C2H_ADPT_TXACK_DEBUG
 
@@ -17,8 +18,6 @@
 #define QOS_CONTRL_LEN          2   /* if qos field present in subtype field */
 #define HT_CONTRL_LEN           4
 
-static rx_info_t rx_mgmt;
-//wf_u16 seq_ctrl_recorder[16];
 
 static wf_u8 a[8] = {0xe6,0xb4,0x04,0x0b,0x13,0x08,0xdf,0x3e};
 #define GET_C2H_TX_RPT_LIFE_TIME_OVER(_Header)  LE_BITS_TO_1BYTE((_Header + 0), 6, 1)
@@ -112,9 +111,7 @@ void set_encrypt_algo_num(prx_pkt_t ppkt, wdn_net_info_st *wdn_net_info)
 
 void set_iv_icv_len(prx_pkt_t ppkt)
 {
-    wf_u8 *pbuf = ppkt->pdata;
     prx_pkt_info_t prx_info = &ppkt->pkt_info;
-    wf_u8 pricacy_flag = GET_HDR_Protected(pbuf);
 
     switch (prx_info->encrypt_algo)
     {
@@ -171,7 +168,7 @@ wf_u8 calc_rx_rate(wf_u8 rx_rate)
 }
 
 
-
+#ifdef C2H_ADPT_TXACK_DEBUG
 static int rx_txDataRpt_parse(wf_u8 *pdata, wf_u8 len, wf_u16 *seqNum)
 {
     int ret;
@@ -190,6 +187,7 @@ static int rx_txDataRpt_parse(wf_u8 *pdata, wf_u8 len, wf_u16 *seqNum)
 
     return ret;
 }
+#endif
 
 static int rx_c2h_pkt_hdr_parse(wf_u8 *buf, wf_u16 len, wf_u8 *id, wf_u8 *seq, wf_u8 *plen, wf_u8 **payload)
 {
@@ -209,10 +207,8 @@ static int rx_c2h_pkt_hdr_parse(wf_u8 *buf, wf_u16 len, wf_u8 *id, wf_u8 *seq, w
 static prx_pkt_t rx_recombination(p_que_t p_defrag_que)
 {
     wf_u8 order_num = 0;
-    wf_u8 *pdata;
     wf_u8 *pbuff;
     wf_u8 wlan_hdr_offset;
-    wf_u16 copy_size;
     p_que_entry_t p_entry;
     p_que_t pdefrag_que = p_defrag_que;
     prx_pkt_t ppkt_first;
@@ -285,9 +281,7 @@ static prx_pkt_t rx_defrag(prx_pkt_t ppkt)
     prx_pkt_info_t prx_pkt_info = &ppkt->pkt_info;
     p_que_t pdefrag_q = NULL;
     wf_u8 mfrag;
-    wf_u8 type;
     wf_u8 frag_num;
-    wf_u8 *sa;
     prx_pkt_t p_return_pkt = NULL;
     wdn_net_info_st *pwdn;
     p_que_entry_t p_entry;
@@ -647,7 +641,6 @@ int rx_check_mngt_frame_valid(prx_pkt_t prx_pkt)
     wf_bool bmcast;
     wf_u8 *pbuf = prx_pkt->pdata;
     wf_u8 *pra = GET_ADDR1(pbuf);
-    int ret;
 
     if(NULL == nic_info)
     {
@@ -735,7 +728,7 @@ static int rx_process_data_frame(prx_pkt_t ppkt)
     else
     {
         LOG_I("rx_defrag process [frag_num:%d]",prx_pkt_info->frag_num);
-        //ppkt = rx_defrag(ppkt);
+        ppkt = rx_defrag(ppkt);
         ret = -1; // no process , so dropped
     }
 
@@ -882,9 +875,7 @@ static int rx_set_radiotap_hdr(prx_pkt_t ppkt)
 int rx_process_monitor_frame(prx_pkt_t ppkt)
 {
     int ret = 0;
-    struct sk_buff * pskb = NULL;
     nic_info_st *pnic_info = NULL;
-    prx_pkt_info_t  prx_pkt_info = &ppkt->pkt_info;
 
     if(NULL == ppkt)
     {
@@ -909,39 +900,39 @@ int rx_process_monitor_frame(prx_pkt_t ppkt)
 #if RX_REORDER_THREAD_EN
 wf_s32 wf_rx_reorder_queue_insert(rx_pkt_t *pkt)
 {
-    rx_info_t *rx_info = NULL; 
+    rx_info_t *rx_info = NULL;
     rx_reorder_node_t *node = NULL;
-    
+
     if(NULL == pkt)
     {
         LOG_E("pkt is null");
         return WF_RETURN_FAIL;
     }
-    
-    rx_info = pkt->prx_info; 
+
+    rx_info = pkt->prx_info;
     if(NULL == rx_info)
     {
         LOG_E("rx_info is null");
         return WF_RETURN_FAIL;
     }
-    
+
     node = wf_kzalloc(sizeof(rx_reorder_node_t));
     if(NULL == node)
     {
         LOG_E("wf_kzalloc for reorder nod failed");
         return WF_RETURN_FAIL;
     }
-    
+
     wf_memcpy(&node->pkt,pkt,sizeof(rx_pkt_t));
     wf_enque_tail(&node->list, &rx_info->rx_reorder_queue);
-    
-    wf_os_api_sema_post(&rx_info->rx_reorder_sema); 
+
+    wf_os_api_sema_post(&rx_info->rx_reorder_sema);
     return WF_RETURN_OK;
 }
 
 wf_s32 wf_rx_reorder_queue_remove(rx_info_t *rx_info, rx_reorder_node_t **rx_reorder_node)
 {
-    wf_que_list *node           = NULL;
+    wf_que_list_t *node            = NULL;
     rx_reorder_node_t *tmp_node    = NULL;
 
     if (wf_os_api_sema_wait(&rx_info->rx_reorder_sema))
@@ -964,7 +955,7 @@ static void rx_reorder_thread_handle(nic_info_st *nic_info)
     rx_reorder_node_t *rx_reorder_node  = NULL;
     rx_info_t *rx_info                  = NULL;
     wf_s32 ret = 0;
-	wf_u32 exit_flag = 0;
+
     //wf_os_api_thread_affinity(DEFAULT_CPU_ID);
 
     while(1)
@@ -978,17 +969,14 @@ static void rx_reorder_thread_handle(nic_info_st *nic_info)
         ret = wf_rx_reorder_queue_remove(rx_info,&rx_reorder_node);
         if(ret)
         {
-        	if(exit_flag == 1)
+			if(nic_info->is_driver_stopped == wf_true) || (nic_info->is_surprise_removed == wf_true)
         	{
 				break;
 			}
             //LOG_I("[%s,%d] exe",__func__,__LINE__);
             continue;
         }
-		if(nic_info->is_driver_stopped == wf_true) || (nic_info->is_surprise_removed == wf_true)
-		{
-			exit_flag = 1;
-		}
+
         if(rx_reorder_node)
         {
             wf_rx_data_reorder_core(&rx_reorder_node->pkt);
@@ -1048,7 +1036,7 @@ int wf_rx_init(nic_info_st *nic_info)
     {
         queue_insert_tail(pfree_que, &ppkt[i].entry);
     }
-    
+    wf_rx_action_ba_ctl_init(nic_info);
 #if RX_REORDER_THREAD_EN
     wf_que_init(&prx_info->rx_reorder_queue,WF_LOCK_TYPE_IRQ);
     wf_lock_init(&prx_info->op_lock,WF_LOCK_TYPE_NONE);
@@ -1082,18 +1070,19 @@ int wf_rx_term(nic_info_st *nic_info)
         {
             wf_lock_term(&rx_info->op_lock);
             wf_os_api_sema_post(&rx_info->rx_reorder_sema);
-            
+
             wf_os_api_thread_destory(rx_info->rx_reorder_tid);
             rx_info->rx_reorder_tid = NULL;
         }
 #endif
+        wf_rx_action_ba_ctl_deinit(nic_info);
         if (rx_info->prx_pkt_buf_alloc)
             wf_kfree(rx_info->prx_pkt_buf_alloc);
 
         wf_kfree(rx_info);
         nic_info->rx_info = NULL;
     }
-    
+
     LOG_D("[wf_rx_term] end");
 
     return 0;
@@ -1121,6 +1110,13 @@ int wf_rx_common_process(prx_pkt_t ppkt)
         /* rx packet statistics used for connection alive check */
         pwdn_info->rx_pkt_stat++;
     }
+
+#ifdef CONFIG_LPS
+    if(!MacAddr_isBcst(get_da(ppkt->pdata)) && (!IS_MCAST(get_da(ppkt->pdata))))
+    {
+        mlme_info->link_info.num_rx_unicast_ok_in_period++;
+    }
+#endif
 
 #ifdef CFG_ENABLE_MONITOR_MODE
     if(wf_local_cfg_get_work_mode(pnic_info) == WF_MONITOR_MODE)
@@ -1185,8 +1181,6 @@ void phydm_print_rate(wf_u8 rate)
 {
     wf_u8       legacy_table[12] = {1, 2, 5, 11, 6, 9, 12, 18, 24, 36, 48, 54};
     wf_u8       rate_idx = rate & 0x7f; /*remove bit7 SGI*/
-    wf_u8       vht_en = (rate_idx >= ODM_RATEVHTSS1MCS0) ? 1 : 0;
-    wf_u8       b_sgi = (rate & 0x80) >> 7;
 
     if (rate_idx >= ODM_RATEMCS8)
     {
@@ -1216,8 +1210,6 @@ void rx_c2h_ra_report_handler(wf_u8 *cmd_buf, wf_u8 cmd_len)
     wf_u8   rate = cmd_buf[0];
     wf_u8   curr_ra_ratio = 0xff;
     wf_u8   curr_bw = 0xff;
-    wf_u8   rate_idx = rate & 0x7f; /*remove bit7 SGI*/
-    wf_u8   rate_order;
 
     if (cmd_len >= 7)
     {
@@ -1263,8 +1255,11 @@ void rx_c2h_ra_report_handler(wf_u8 *cmd_buf, wf_u8 cmd_len)
 
 int wf_rx_notice_process(wf_u8 *pbuf, wf_u16 skb_len)
 {
-    int ret,i,c2h_len, tx_ret;
+    int ret,i,c2h_len;
+    #ifdef C2H_ADPT_TXACK_DEBUG
     wf_u16 seqNum;
+    int tx_ret;
+    #endif
     wf_u8 id;
     wf_u8 seq;
     wf_u8 plen;
@@ -1322,10 +1317,9 @@ int wf_rx_notice_process(wf_u8 *pbuf, wf_u16 skb_len)
     return 0;
 }
 
-#ifdef CONFIG_RICHV200_FPGA
+#ifdef CONFIG_RICHV200
 inline int wf_rx_cmd_check(wf_u8 *pbuf, wf_u16 skb_len)
 {
-    int ret;
     wf_u16 pkt_len;
     struct rxd_detail_new *prxd = NULL;
     prxd = (struct rxd_detail_new *)pbuf;
@@ -1345,14 +1339,11 @@ inline int wf_rx_data_len_check(nic_info_st *pnic_info,wf_u8 *pbuf, wf_u16 skb_l
 {
     int ret;
     wf_u16 pkt_len;
-    rx_info_t *rx_info = pnic_info->rx_info;
-    hw_info_st *phw_info = pnic_info->hw_info;
+    rx_info_t *rx_info = NULL;
 #ifdef CONFIG_MP_MODE
     wf_mp_info_st *mp_info = pnic_info->mp_info;
 #endif
-    wf_u8 *test;
-    int i=0;
-#ifdef CONFIG_RICHV200_FPGA
+#ifdef CONFIG_RICHV200
     struct rxd_detail_new *prxd = NULL;
     prxd = (struct rxd_detail_new *)pbuf;
 #else
@@ -1360,12 +1351,28 @@ inline int wf_rx_data_len_check(nic_info_st *pnic_info,wf_u8 *pbuf, wf_u16 skb_l
     prxd = (struct rxd_detail_org *)pbuf;
 #endif
 //    LOG_D("pkt_len:%x",prxd->pkt_len);
-    test = (void *)prxd;
 
+
+    if ((pnic_info == NULL) || (pbuf == NULL))
+    {
+        return -1;
+    }
+    else
+    {
+        rx_info = pnic_info->rx_info;
+    }
+
+    if (rx_info == NULL)
+    {
+        return -1;
+    }
+
+   // test = (void *)prxd;
     //for(i=0;i<sizeof(struct rxd_detail_org);i++)
     //{
     //      LOG_D("0x%x",*(test+i));
     //}
+
     if (prxd->crc32 == 1)
     {
         rx_info->rx_crcerr_pkt++;
@@ -1384,7 +1391,7 @@ inline int wf_rx_data_len_check(nic_info_st *pnic_info,wf_u8 *pbuf, wf_u16 skb_l
         return -1;
     }
 
-#ifdef CONFIG_RICHV200_FPGA
+#ifdef CONFIG_RICHV200
     if(prxd->notice == 1)
 #else
     if(prxd->rpt_sel == 1)
@@ -1404,7 +1411,7 @@ inline int wf_rx_data_len_check(nic_info_st *pnic_info,wf_u8 *pbuf, wf_u16 skb_l
     }
     else
     {
-        #ifdef CONFIG_RICHV200_FPGA
+        #ifdef CONFIG_RICHV200
             pkt_len = RXDESC_SIZE + prxd->drvinfo_size * 8 + prxd->pkt_len;
             if (wf_rx_data_type(pbuf) != WF_PKT_TYPE_FRAME) {
                pkt_len -= 8;
@@ -1429,13 +1436,13 @@ inline wf_u16 wf_rx_get_pkt_len_and_check_valid(wf_u8 *buf, wf_u16 remain, wf_bo
 {
     wf_u16 pkt_len;
 
-#ifdef CONFIG_RICHV200_FPGA
+#ifdef CONFIG_RICHV200
     struct rxd_detail_new *prxd = (struct rxd_detail_new *)buf;
 #else
     struct rxd_detail_org *prxd = (struct rxd_detail_org *)buf;
 #endif
 
-#ifdef CONFIG_RICHV200_FPGA
+#ifdef CONFIG_RICHV200
     pkt_len = RXDESC_SIZE + prxd->drvinfo_size*8 + prxd->pkt_len;
     if ((prxd->pkt_len == 0) || (prxd->drvinfo_size != 4) ||
         (prxd->cmd_index != 0) || (prxd->crc32 == 1) || (pkt_len > remain))
@@ -1448,7 +1455,7 @@ inline wf_u16 wf_rx_get_pkt_len_and_check_valid(wf_u8 *buf, wf_u16 remain, wf_bo
     }
     else
     {
-#ifdef CONFIG_RICHV200_FPGA
+#ifdef CONFIG_RICHV200
         if(prxd->notice == 1)
 #else
         if(prxd->rpt_sel == 1)
@@ -1473,7 +1480,7 @@ inline wf_u16 wf_rx_get_pkt_len_and_check_valid(wf_u8 *buf, wf_u16 remain, wf_bo
 
 inline PKT_TYPE_T wf_rx_data_type(wf_u8 *pbuf)
 {
-#ifdef CONFIG_RICHV200_FPGA
+#ifdef CONFIG_RICHV200
     wf_u8 u8Value;
 
     u8Value = ReadLE1Byte(pbuf);
@@ -1486,9 +1493,7 @@ inline PKT_TYPE_T wf_rx_data_type(wf_u8 *pbuf)
 
 void wf_rx_rxd_prase(wf_u8 *pbuf, struct rx_pkt *prx_pkt)
 {
-    nic_info_st *nic_info = prx_pkt->p_nic_info;
-
-#ifdef CONFIG_RICHV200_FPGA
+#ifdef CONFIG_RICHV200
     {
         struct rx_pkt_info *pinfo = &prx_pkt->pkt_info;
         struct rxd_detail_new *prxd = (struct rxd_detail_new *)pbuf;
@@ -1510,6 +1515,8 @@ void wf_rx_rxd_prase(wf_u8 *pbuf, struct rx_pkt *prx_pkt)
         //LOG_I("seq_num:%d",pinfo->seq_num);
     }
 #else
+    nic_info_st *nic_info = prx_pkt->p_nic_info;
+
     if(NIC_USB == nic_info->nic_type)
     {
         struct rx_pkt_info *pinfo = &prx_pkt->pkt_info;
@@ -1559,22 +1566,23 @@ void wf_rx_rxd_prase(wf_u8 *pbuf, struct rx_pkt *prx_pkt)
 
 }
 
-int wf_rx_action_ba_ctl_init(nic_info_st *nic_info,wdn_net_info_st *wdn_net_info)
+int wf_rx_action_ba_ctl_init(nic_info_st *nic_info)
 {
     wf_u8 tid = 0;
     recv_ba_ctrl_st *ba_ctl = NULL;
     rx_reorder_queue_st *order_node = NULL;
+    rx_info_t *rx_info = NULL;
     int i = 0;
 
-    if(NULL == wdn_net_info || NULL == nic_info)
+    if(NULL == nic_info)
     {
-        return -1;
+        return WF_RETURN_FAIL;
     }
 
-    LOG_I("[%s] handle",__func__);
+    rx_info = nic_info->rx_info;
     for (tid  = 0; tid  < TID_NUM; tid++)
     {
-        ba_ctl                  = &wdn_net_info->ba_ctl[tid];
+        ba_ctl                  = &rx_info->ba_ctl[tid];
         ba_ctl->enable          = wf_false;
         ba_ctl->indicate_seq    = 0xffff;
         ba_ctl->wend_b          = 0xffff;
@@ -1591,7 +1599,7 @@ int wf_rx_action_ba_ctl_init(nic_info_st *nic_info,wdn_net_info_st *wdn_net_info
         //wf_os_api_timer_reg(&ba_ctl->reordering_ctrl_timer, (void *)rx_reorder_timeout_handle, ba_ctl);
         wf_os_api_timer_reg(&ba_ctl->reordering_ctrl_timer, (void *)rx_reorder_timeout_handle, &ba_ctl->reordering_ctrl_timer);
 
-        for(i=0;i<64;i++)
+        for(i=0;i<BA_REORDER_QUEUE_NUM;i++)
         {
             order_node = wf_kzalloc(sizeof(rx_reorder_queue_st));
             if(NULL == order_node)
@@ -1720,7 +1728,6 @@ wf_s32 rx_pending_reorder_enqueue(wf_u16 current_seq, void *pskb, recv_ba_ctrl_s
     rx_reorder_queue_st *pprev_pkt = NULL;
     rx_reorder_queue_st *new_pkt   = NULL;
 
-    wf_u8 prio = 0;
     wf_u16 seq_num = 0;
     wf_s32 find_flag = 0;
     wf_que_t *queue_head  = NULL;
@@ -1745,6 +1752,7 @@ wf_s32 rx_pending_reorder_enqueue(wf_u16 current_seq, void *pskb, recv_ba_ctrl_s
             if (SN_EQUAL(seq_num,current_seq))//dup
             {
                 ba_order->drop_pkts++;
+                LOG_W("[%s]: dup the packet, seq:%d", __func__, current_seq);
                 wf_lock_unlock(&queue_head->lock);
                 return -1;
             }
@@ -1872,7 +1880,6 @@ int rx_pending_reorder_get_cnt(recv_ba_ctrl_st   *ba_order)
 
 int rx_do_chk_expect_seq(wf_u16 seq_num, recv_ba_ctrl_st   *ba_order)
 {
-    int ret  = 0;
     if(NULL == ba_order)
     {
         return REORDER_DROP;
@@ -1886,6 +1893,7 @@ int rx_do_chk_expect_seq(wf_u16 seq_num, recv_ba_ctrl_st   *ba_order)
 
     ba_order->wend_b = (ba_order->indicate_seq + ba_order->wsize_b - 1) & 0xFFF;
 
+    //LOG_I("[%s]: current seq is %d", __func__, seq_num);
     if (SN_EQUAL(seq_num,ba_order->indicate_seq))
     {
         ba_order->indicate_seq = (ba_order->indicate_seq + 1) & 0xFFF;
@@ -1915,26 +1923,28 @@ int rx_do_chk_expect_seq(wf_u16 seq_num, recv_ba_ctrl_st   *ba_order)
     return REORDER_ENQUE;
 }
 
-int wf_rx_action_ba_ctl_deinit(wdn_net_info_st *wdn_net_info)
+int wf_rx_action_ba_ctl_deinit(nic_info_st *nic_info)
 {
-    wf_u8 tid = 0;
-    wf_list_t *pos = NULL;
-    wf_list_t *next = NULL;
-    wf_list_t *phead = NULL;
-    recv_ba_ctrl_st *ba_ctl = NULL;
+    wf_u8 tid                       = 0;
+    wf_list_t *pos                  = NULL;
+    wf_list_t *next                 = NULL;
+    wf_list_t *phead                = NULL;
+    recv_ba_ctrl_st *ba_ctl         = NULL;
+    rx_info_t       *rx_info        = NULL;
     rx_reorder_queue_st *order_node = NULL;
     wf_que_t   *queue_head          = NULL;
-    int i = 0;
 
-    if(NULL == wdn_net_info)
+    if(NULL == nic_info)
     {
         return -1;
     }
 
+    rx_info = nic_info->rx_info;
+
     LOG_I("[%s] handle",__func__);
     for (tid  = 0; tid  < TID_NUM; tid++)
     {
-        ba_ctl                  = &wdn_net_info->ba_ctl[tid];
+        ba_ctl                  = &rx_info->ba_ctl[tid];
         if(NULL == ba_ctl)
         {
             continue;
@@ -1988,11 +1998,78 @@ int wf_rx_action_ba_ctl_deinit(wdn_net_info_st *wdn_net_info)
     return WF_RETURN_OK;
 }
 
+wf_s32 wf_rx_ba_reinit(nic_info_st *nic_info, wf_u8 tid)
+{
+    recv_ba_ctrl_st *ba_ctl         = NULL;
+    rx_info_t       *rx_info        = NULL;
+    rx_reorder_queue_st *order_node = NULL;
+
+    if(NULL == nic_info)
+    {
+        return -1;
+    }
+
+    if(tid>=TID_NUM)
+    {
+        return -2;
+    }
+
+    rx_info = nic_info->rx_info;
+    if(NULL == rx_info)
+    {
+        return -3;
+    }
+
+    ba_ctl  = &rx_info->ba_ctl[tid];
+    if(NULL == ba_ctl)
+    {
+        return -4;
+    }
+
+    wf_lock_lock(&ba_ctl->pending_get_de_queue_lock);
+    // LOG_I("[%s]: reinit ba_ctl tid:%d", __func__, tid);
+    ba_ctl->enable          = wf_false;
+    ba_ctl->indicate_seq    = 0xffff;
+    ba_ctl->wend_b          = 0xffff;
+    if(wf_false == rx_pending_reorder_is_empty(ba_ctl))
+    {
+        LOG_I("start free pending_reorder_queue");
+        while(1)
+        {
+            order_node = rx_pending_reorder_dequeue(ba_ctl);
+            if(NULL == order_node)
+            {
+                break;
+            }
+            if(NULL == order_node->pskb)
+            {
+                ba_ctl->free_skb(&order_node->pskb);
+            }
+            wf_kfree(order_node);
+            order_node = NULL;
+        }
+    }
+
+    wf_lock_unlock(&ba_ctl->pending_get_de_queue_lock);
+
+    return 0;
+}
+
+void wf_rx_ba_all_reinit(nic_info_st *nic_info)
+{
+    wf_u8 tid;
+
+    for (tid  = 0; tid  < TID_NUM; tid++)
+    {
+        wf_rx_ba_reinit(nic_info,tid);
+    }
+}
+
 int rx_reorder_upload(recv_ba_ctrl_st   *ba_order)
 {
     int tmp_ret = 0;
     nic_info_st *nic_info = ba_order->nic_node;
-    int timeout = 0;
+
     //LOG_I("[%s,%d]",__func__,__LINE__);
     if(NULL == nic_info)
     {
@@ -2002,7 +2079,7 @@ int rx_reorder_upload(recv_ba_ctrl_st   *ba_order)
     while(1)
     {
         rx_reorder_queue_st *get_reorder = NULL;
-        
+
         get_reorder = rx_pending_reorder_getqueue(ba_order);
         if(NULL == get_reorder)
         {
@@ -2020,7 +2097,7 @@ int rx_reorder_upload(recv_ba_ctrl_st   *ba_order)
                 break;
             }
 
-            
+
             if (SN_EQUAL(ba_order->indicate_seq, de_reorder->seq_num))
             {
                 ba_order->indicate_seq = (ba_order->indicate_seq + 1) & 0xFFF;
@@ -2034,7 +2111,7 @@ int rx_reorder_upload(recv_ba_ctrl_st   *ba_order)
             }
             //LOG_I("out order <p:%d> seq:%d",de_reorder->qos_pri,de_reorder->seq_num);
             rx_free_reorder_enqueue(ba_order,de_reorder);
-            
+
             tmp_ret = 0;
         }
         else
@@ -2044,14 +2121,13 @@ int rx_reorder_upload(recv_ba_ctrl_st   *ba_order)
         }
 
     }
-    
+
     return tmp_ret;
 }
 
 void rx_reorder_timeout_handle(wf_os_api_timer_t * timer)
 {
     recv_ba_ctrl_st   *ba_order = WF_CONTAINER_OF((wf_os_api_timer_t *)timer, recv_ba_ctrl_st, reordering_ctrl_timer);
-    wf_u8  wsize = 0;
     wf_u8 pktCnt_inQueue = 0;
     rx_reorder_queue_st *get_reorder = NULL;
     if(NULL == ba_order)
@@ -2089,18 +2165,19 @@ void wf_rx_data_reorder_core(rx_pkt_t *pkt)
 
     if(NULL == pkt || NULL == pkt->pskb)
     {
+        LOG_E("[%s]: skb is null, drop it", __func__);
         return;
     }
-   
-    
+
+
     pwdn_info = pkt->wdn_info;
     if( NULL == pwdn_info)
     {
         LOG_E("[%s] pwdn_info is null",__func__);
         return;
     }
-    
-    prio    = pkt->pkt_info.qos_pri;
+
+    prio   = pkt->pkt_info.qos_pri;
     ba = &pwdn_info->ba_ctl[prio];
     if(NULL == ba )
     {
@@ -2115,14 +2192,15 @@ void wf_rx_data_reorder_core(rx_pkt_t *pkt)
     {
         //LOG_I("pri:%d enqueue seq:%d  indicate:%d",prio, seq_num, ba->indicate_seq);
         ret = rx_pending_reorder_enqueue(seq_num,pkt->pskb,ba);
-        
+        // if(ret < 0) {
+        //     LOG_E("[%s]: pending packet error", __func__);
+        // }
     }
     else
     {
         ;//LOG_E("drop packet");
     }
-    
-    
+
     if (ret < 0)
     {
         if (pkt->pskb)
@@ -2132,7 +2210,7 @@ void wf_rx_data_reorder_core(rx_pkt_t *pkt)
         wf_lock_unlock(&ba->pending_get_de_queue_lock);
         return;
     }
-    
+
     pktCnt_inQueue = rx_reorder_upload(ba);
     if (pktCnt_inQueue != 0 )
     {
@@ -2141,5 +2219,164 @@ void wf_rx_data_reorder_core(rx_pkt_t *pkt)
     }
     wf_lock_unlock(&ba->pending_get_de_queue_lock);
 }
+
+
+
+static wf_s8 cal_ant_cck_rssi_pwr(wf_u8 lna_idx, wf_u8 vga_idx)
+{
+    wf_s8 rx_pwr_all = 0x00;
+
+    switch (lna_idx)
+    {
+        case 7:
+            if (vga_idx <= 27)
+                rx_pwr_all = -100 + 2 * (27 - vga_idx);
+            else
+                rx_pwr_all = -100;
+            break;
+        case 5:
+            rx_pwr_all = -74 + 2 * (21 - vga_idx);
+            break;
+        case 3:
+            rx_pwr_all = -60 + 2 * (20 - vga_idx);
+            break;
+        case 1:
+            rx_pwr_all = -44 + 2 * (19 - vga_idx);
+            break;
+        default:
+            //LOG_W("[%s] lna_idx:%d, vga_index:%d",__func__,lna_idx,vga_idx);
+            break;
+    }
+
+    return rx_pwr_all;
+}
+static wf_u8 query_rxpwr_percentage(wf_s8 AntPower)
+{
+    wf_u8 percent = 0;
+
+    if ((AntPower <= -100) || (AntPower >= 20))
+    {
+        percent =  0;
+    }
+    else if (AntPower >= 0)
+    {
+        percent =  100;
+    }
+    else
+    {
+        percent =  100 + AntPower;
+    }
+
+    return percent;
+}
+static wf_u8 cal_evm2percentage(char Value)
+{
+    char ret_val;
+
+    ret_val = Value;
+    ret_val /= 2;
+
+#ifdef MSG_EVM_ENHANCE_ANTDIV
+    if (ret_val >= 0)
+        ret_val = 0;
+
+    if (ret_val <= -40)
+        ret_val = -40;
+
+    ret_val = 0 - ret_val;
+    ret_val *= 3;
+#else
+    if (ret_val >= 0)
+        ret_val = 0;
+
+    if (ret_val <= -33)
+        ret_val = -33;
+
+    ret_val = 0 - ret_val;
+    ret_val *= 3;
+
+    if (ret_val == 99)
+        ret_val = 100;
+#endif
+
+    return ret_val;
+}
+
+wf_s32 wf_rx_calc_str_and_qual(nic_info_st *nic_info, wf_u8 *rx_phystatus, wf_u8 *mac_frame, void *prx_pkt)
+{
+    prx_pkt_t ppt = (prx_pkt_t)prx_pkt;
+    wf_bool is_cck_rate = wf_false;
+    wf_u8 rate_cacl = 0;
+    wf_u8 lna_index = 0;
+    wf_u8 vga_index = 0;
+    wf_s8 rx_pwr     = 0;
+    wf_u8 pwdb_all      = 0;
+    recv_phy_status_st *rps = (recv_phy_status_st *)rx_phystatus;
+
+    rate_cacl = ppt->pkt_info.rx_rate;
+
+    is_cck_rate = (rate_cacl <= DESC_RATE11M) ? wf_true : wf_false;
+    if(is_cck_rate)
+    {
+        lna_index   = ((rps->cck_agc_rpt_ofdm_cfosho_a & 0xE0)>>5);
+        vga_index   = rps->cck_agc_rpt_ofdm_cfosho_a & 0x1F;
+        rx_pwr      = cal_ant_cck_rssi_pwr(lna_index, vga_index);
+        pwdb_all    = query_rxpwr_percentage(rx_pwr);
+
+        if(pwdb_all >40)
+        {
+            ppt->phy_status.signal_qual = 100;
+        }
+        else
+        {
+            if( rps->cck_sig_qual_ofdm_pwdb_all > 64)
+            {
+                ppt->phy_status.signal_qual = 0;
+            }
+            else if( rps->cck_sig_qual_ofdm_pwdb_all < 20)
+            {
+                ppt->phy_status.signal_qual = 100;
+            }
+            else
+            {
+                ppt->phy_status.signal_qual = (64-rps->cck_sig_qual_ofdm_pwdb_all)*100/44;
+            }
+        }
+
+#ifdef CONFIG_SIGNAL_SCALE_MAPPING
+        ppt->phy_status.signal_strength = signal_scale_mapping(pwdb_all);
+#else
+        ppt->phy_status.signal_strength = pwdb_all;
+#endif
+    }
+    else
+    {
+        wf_u8 evm          = 0;
+        wf_u8 rssi         = 0;
+        char tmp_rx_pwr   = (rps->path_agc[0].gain & 0x3F)*2  - 110;
+        rssi            = query_rxpwr_percentage(tmp_rx_pwr);
+        rx_pwr          = ((rps->cck_sig_qual_ofdm_pwdb_all >> 1) & 0x7F) - 110;
+        pwdb_all        = query_rxpwr_percentage(rx_pwr);
+        evm             = cal_evm2percentage(rps->stream_rxevm[0]);
+
+        ppt->phy_status.signal_qual = evm & 0xFF;
+
+#ifdef CONFIG_SIGNAL_SCALE_MAPPING
+        ppt->phy_status.signal_strength = signal_scale_mapping(rssi);
+#else
+        ppt->phy_status.signal_strength = rssi;
+#endif
+
+    }
+
+    #if 0
+    ppt->phy_status.signal_strength = signal_scale_mapping(ppt->phy_status.signal_strength);
+    ppt->phy_status.rssi            = translate_percentage_to_dbm(ppt->phy_status.signal_strength);
+    #endif
+
+    return WF_RETURN_OK;
+}
+
+
 
 

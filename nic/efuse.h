@@ -29,13 +29,5 @@ typedef enum WLAN__EEPORM_CODE
 } EUSE_CODE;
 
 
-char * wf_get_efuse_type(nic_info_st *nic_info);
-wf_u32 wf_get_efuse_len(nic_info_st *nic_info);
-int wf_get_efuse_data(nic_info_st *nic_info, wf_u8 *outdata, wf_u32 efuse_len);
-int wf_efuse_select(nic_info_st *nic_info);
-int wf_get_efuse_load_mode(nic_info_st *nic_info, wf_u32 *bautoload_flag, wf_u32 len);
-int wf_mcu_mp_efuse_get(nic_info_st *nic_info, EUSE_CODE efuse_code, wf_u32 *outdata, wf_u32 outdata_len);
-int wf_mcu_mp_efuse_set(nic_info_st *nic_info, EUSE_CODE efuse_code, wf_u32 *indata, wf_u32 indata_len, wf_u32 *out, wf_u32 out_len);
-int  wf_get_phy_efuse_data(nic_info_st *nic_info, wf_u8 *outdata, wf_u32 efuse_len );
-wf_u32 wf_get_phy_efuse_len(nic_info_st *nic_info);
+int wf_mcu_efuse_get(nic_info_st *nic_info, EUSE_CODE efuse_code, wf_u32 *outdata, wf_u32 outdata_len);
 #endif

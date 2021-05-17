@@ -29,6 +29,11 @@ typedef struct
     wf_u8               antenna_diversity;
     wf_u8               beamforming_support;
     wf_u8               force_igi;
+    wf_u8               adaptivity_mode;
+    wf_u8               adaptivity_dc_backoff;
+    wf_u8               adaptivity_dml;
+    wf_s8               adaptivity_th_l2h_ini;
+    wf_s8               adaptivity_th_edcca_hl_diff;
 #endif
 }local_info_st;
 

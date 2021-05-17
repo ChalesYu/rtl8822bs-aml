@@ -2,13 +2,13 @@
 #include "wf_debug.h"
 
 #if 0
-#define HWINFO_DBG(fmt, ...)      LOG_D("[%s]"fmt, __func__, ##__VA_ARGS__)
-#define HWINFO_INFO(fmt, ...)     LOG_I("[%s]"fmt, __func__, ##__VA_ARGS__)
+#define HWINFO_DBG(fmt, ...)      LOG_D("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
+#define HWINFO_INFO(fmt, ...)     LOG_I("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
 #else
 #define HWINFO_DBG(fmt, ...)
 #define HWINFO_INFO(fmt, ...)
 #endif
-#define HWINFO_WARN(fmt, ...)     LOG_E("[%s]"fmt, __func__, ##__VA_ARGS__)
+#define HWINFO_WARN(fmt, ...)     LOG_E("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
 
 #define WF_CCK_RATES_NUM              (4)
 #define WF_OFDM_RATES_NUM             (8)
@@ -174,73 +174,6 @@ static unsigned char supported_mcs_set[WF_MCS_NUM] =
 {
     0xff, 0xff, 0xff, 0x00, 0x00, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0
 };
-
-
-static int get_efuse_id(hw_info_st *hw_info,wf_u16 *id)
-{
-    *id = le16_to_cpu(*((wf_u16 *) hw_info->efuse_data_map));
-
-    if((0x9082 != *id) && (0x9188 != *id))
-    {
-        LOG_E("EEPROM ID(%#x) is invalid!!\n", *id);
-        hw_info->efuse_read_flag = 1;
-    }
-    else
-    {
-        hw_info->efuse_read_flag = 0;
-    }
-
-    LOG_I("EEPROM ID=0x%04x\n", *id);
-
-    return WF_RETURN_OK;
-}
-
-static int get_efuse_vid_pid(hw_info_st *hw_info,wf_u16 *vid, wf_u16*pid)
-{
-    if(hw_info->efuse_read_flag)
-    {
-        *vid    = 0;
-        *pid    = 0;
-    }
-    else
-    {
-        *vid = le16_to_cpu(*(wf_u16 *) & hw_info->efuse_data_map[EEPROM_VID_9086XU]);
-        *pid = le16_to_cpu(*(wf_u16 *) & hw_info->efuse_data_map[EEPROM_PID_9086XU]);
-    }
-
-    LOG_I("EEPROM VID = 0x%4x\n", *vid);
-    LOG_I("EEPROM PID = 0x%4x\n", *pid);
-
-    return WF_RETURN_OK;
-}
-
-static int get_efuse_mac(nic_info_st *nic_info, wf_u8 *mac)
-{
-    hw_info_st *hwinfo = (hw_info_st *)nic_info->hw_info;
-    wf_u8 *hw_addr = NULL;
-
-    if(NIC_USB == nic_info->nic_type)
-    {
-        hw_addr = &hwinfo->efuse_data_map[EEPROM_MAC_ADDR_9086XU];
-    }
-    else
-    {
-#define DATA_MAC_INDEX              0x11A
-        hw_addr = &hwinfo->efuse_data_map[DATA_MAC_INDEX];
-        if(hwinfo->efuse_read_flag)//create default mac when efuse not work.
-        {
-            hw_addr[0] = 0x08;
-            hw_addr[1] = 0;
-            hw_addr[2] = 0x27;
-            hw_addr[3] = 0xb3;
-            hw_addr[4] = 0x4b;
-            hw_addr[5] = 0xa0;
-        }
-    }
-    wf_memcpy(mac,hw_addr,WF_ETH_ALEN);
-
-    return WF_RETURN_OK;
-}
 
 #define CHPLAN_MAP(_alpha2, _chplan) \
     { .alpha2 = (_alpha2), .chplan = (_chplan) }
@@ -481,8 +414,7 @@ struct country_chplan
     CHPLAN_MAP("ZW", 0x26),
 };
 
-
-
+#ifdef CONFIG_OS_ANDROID
 static char char_to_up (char c)
 {
     if (c >= 'a' && c <= 'z')
@@ -535,6 +467,8 @@ int country_code_to_ch_plan (char *pcountry_code, wf_u8 *pch_plan)
 
     return 0;
 }
+#endif
+
 
 static wf_bool is_channel_plan_empty (wf_u8 id)
 {
@@ -557,205 +491,6 @@ static wf_bool is_channel_plan_valid (wf_u8 ch_plan)
     return wf_false;
 }
 
-static int get_efuse_channel_plan (nic_info_st *pnic_info)
-{
-    hw_info_st *phw_info = (hw_info_st *)pnic_info->hw_info;
-    wf_u8 *pefuse_data = &phw_info->efuse_data_map[0];
-    wf_u8 ch_plan;
-
-    HWINFO_DBG();
-
-    ch_plan = pefuse_data[EEPROM_ChannelPlan_9086X];
-    if (ch_plan != 0xFF)
-    {
-        ch_plan &= ~EEPROM_CHANNEL_PLAN_BY_HW_MASK;
-        if (is_channel_plan_valid(ch_plan))
-        {
-            phw_info->channel_plan = ch_plan;
-        }
-    }
-
-    else if (country_code_to_ch_plan(&pefuse_data[EEPROM_COUNTRY_CODE_9086X],
-                                     &ch_plan))
-    {
-        ch_plan = WF_CHPLAN_WORLD_NULL;
-    }
-
-    phw_info->channel_plan = ch_plan;
-    LOG_D("get channel plan from efuse: 0x%x",ch_plan);
-
-    return 0;
-}
-
-
-
-static void hw_read_txpower_value_from_efuse(nic_info_st *pnic_info, wf_txpower_info_t *pwrInfo24G, wf_u8 *PROMContent, wf_bool AutoLoadFail)
-{
-	wf_u32 eeAddr = EEPROM_TX_PWR_INX_9086X, group, TxCount = 0;
-    hw_info_st *phw_info = (hw_info_st *)pnic_info->hw_info;
-
-	wf_memset(pwrInfo24G, 0, sizeof(wf_txpower_info_t));
-    
-	if (0xFF == PROMContent[eeAddr + 1])
-    {   
-		AutoLoadFail = wf_true;
-
-        for (group = 0; group < MAX_CHNL_GROUP_24G; group++) 
-        {
-			pwrInfo24G->IndexCCK_Base[0][group] = EEPROM_DEFAULT_24G_CCK_INDEX;
-			pwrInfo24G->IndexBW40_Base[0][group] = EEPROM_DEFAULT_24G_OFDM_INDEX;
-		}
-        
-		for (TxCount = 0; TxCount < MAX_TX_COUNT; TxCount++) 
-        {
-			if (TxCount == 0) 
-            {
-				pwrInfo24G->BW20_Diff[0][0] = EEPROM_DEFAULT_24G_HT20_DIFF;
-				pwrInfo24G->OFDM_Diff[0][0] = EEPROM_DEFAULT_24G_OFDM_DIFF;
-			} 
-            else 
-            {
-				pwrInfo24G->BW20_Diff[0][TxCount] = EEPROM_DEFAULT_DIFF;
-				pwrInfo24G->BW40_Diff[0][TxCount] = EEPROM_DEFAULT_DIFF;
-				pwrInfo24G->CCK_Diff[0][TxCount] = EEPROM_DEFAULT_DIFF;
-				pwrInfo24G->OFDM_Diff[0][TxCount] = EEPROM_DEFAULT_DIFF;
-			}
-		}
-    }
-    else
-    {
-    	phw_info->bTXPowerDataReadFromEEPORM = wf_true;
-
-    	for (group = 0; group < MAX_CHNL_GROUP_24G; group++) 
-        {
-    		pwrInfo24G->IndexCCK_Base[0][group] = PROMContent[eeAddr++];
-    		if (pwrInfo24G->IndexCCK_Base[0][group] == 0xFF)
-    			pwrInfo24G->IndexCCK_Base[0][group] = EEPROM_DEFAULT_24G_CCK_INDEX;
-    	}
-    	for (group = 0; group < MAX_CHNL_GROUP_24G - 1; group++) 
-        {
-    		pwrInfo24G->IndexBW40_Base[0][group] = PROMContent[eeAddr++];
-    		if (pwrInfo24G->IndexBW40_Base[0][group] == 0xFF)
-    			pwrInfo24G->IndexBW40_Base[0][group] = EEPROM_DEFAULT_24G_OFDM_INDEX;
-    	}
-    	for (TxCount = 0; TxCount < MAX_TX_COUNT; TxCount++) 
-        {
-    		if (TxCount == 0) {
-    			pwrInfo24G->BW40_Diff[0][TxCount] = 0;
-    			pwrInfo24G->BW20_Diff[0][TxCount] =
-    				(PROMContent[eeAddr] & 0xf0) >> 4;
-    			if (pwrInfo24G->BW20_Diff[0][TxCount] & 0x00000008)
-    				pwrInfo24G->BW20_Diff[0][TxCount] |= 0xF0;
-
-    			pwrInfo24G->OFDM_Diff[0][TxCount] = (PROMContent[eeAddr] & 0x0f);
-    			if (pwrInfo24G->OFDM_Diff[0][TxCount] & 0x00000008)
-    				pwrInfo24G->OFDM_Diff[0][TxCount] |= 0xF0;
-
-    			pwrInfo24G->CCK_Diff[0][TxCount] = 0;
-    			eeAddr++;
-    		} else {
-    			pwrInfo24G->BW40_Diff[0][TxCount] =
-    				(PROMContent[eeAddr] & 0xf0) >> 4;
-    			if (pwrInfo24G->BW40_Diff[0][TxCount] & 0x00000008)
-    				pwrInfo24G->BW40_Diff[0][TxCount] |= 0xF0;
-
-    			pwrInfo24G->BW20_Diff[0][TxCount] = (PROMContent[eeAddr] & 0x0f);
-    			if (pwrInfo24G->BW20_Diff[0][TxCount] & 0x00000008)
-    				pwrInfo24G->BW20_Diff[0][TxCount] |= 0xF0;
-
-    			eeAddr++;
-
-    			pwrInfo24G->OFDM_Diff[0][TxCount] =
-    				(PROMContent[eeAddr] & 0xf0) >> 4;
-    			if (pwrInfo24G->OFDM_Diff[0][TxCount] & 0x00000008)
-    				pwrInfo24G->OFDM_Diff[0][TxCount] |= 0xF0;
-
-    			pwrInfo24G->CCK_Diff[0][TxCount] = (PROMContent[eeAddr] & 0x0f);
-    			if (pwrInfo24G->CCK_Diff[0][TxCount] & 0x00000008)
-    				pwrInfo24G->CCK_Diff[0][TxCount] |= 0xF0;
-
-    			eeAddr++;
-    		}
-    	}
-
-    	eeAddr += (14 + 10);
-    }
-}
-
-
-static wf_bool hw_get_channel_group(wf_u8 Channel, wf_u8 *pGroup)
-{
-	wf_bool bIn24G = wf_false;
-
-	if (Channel <= 14) 
-    {
-		bIn24G = wf_true;
-
-		if (1 <= Channel && Channel <= 2)
-			*pGroup = 0;
-		else if (3 <= Channel && Channel <= 5)
-			*pGroup = 1;
-		else if (6 <= Channel && Channel <= 8)
-			*pGroup = 2;
-		else if (9 <= Channel && Channel <= 11)
-			*pGroup = 3;
-		else if (12 <= Channel && Channel <= 14)
-			*pGroup = 4;
-		else
-			LOG_E("==>hw_get_channel_group in 2.4 G, but Channel %d in Group not found\n", Channel);
-	}
-
-	return bIn24G;
-}
-
-
-static void get_efuse_txpower_info(nic_info_st *pnic_info, wf_bool AutoLoadFail)
-{
-    hw_info_st *phw_info = (hw_info_st *)pnic_info->hw_info;
-    wf_u8 *pefuse_data = &phw_info->efuse_data_map[0];
-    wf_txpower_info_t pwrInfo24G;
-	wf_u8 rfPath, ch, group, TxCount = 1;
-
-	hw_read_txpower_value_from_efuse(pnic_info, &pwrInfo24G, pefuse_data, AutoLoadFail);
-    
-	for (ch = 0; ch < CENTER_CH_2G_NUM; ch++) 
-    {
-		hw_get_channel_group(ch + 1, &group);
-
-		if (ch == 14 - 1) 
-        {
-			phw_info->Index24G_CCK_Base[0][ch] = pwrInfo24G.IndexCCK_Base[0][5];
-			phw_info->Index24G_BW40_Base[0][ch] = pwrInfo24G.IndexBW40_Base[0][group];
-		} 
-        else 
-        {
-			phw_info->Index24G_CCK_Base[0][ch] = pwrInfo24G.IndexCCK_Base[0][group];
-			phw_info->Index24G_BW40_Base[0][ch] = pwrInfo24G.IndexBW40_Base[0][group];
-		}
-	}
-
-	for (TxCount = 0; TxCount < MAX_TX_COUNT; TxCount++) 
-    {
-		phw_info->CCK_24G_Diff[0][TxCount] = pwrInfo24G.CCK_Diff[0][TxCount];
-		phw_info->OFDM_24G_Diff[0][TxCount] = pwrInfo24G.OFDM_Diff[0][TxCount];
-		phw_info->BW20_24G_Diff[0][TxCount] = pwrInfo24G.BW20_Diff[0][TxCount];
-		phw_info->BW40_24G_Diff[0][TxCount] = pwrInfo24G.BW40_Diff[0][TxCount];
-	}
-
-	if (!AutoLoadFail) 
-    {
-		phw_info->EEPROMRegulatory = (pefuse_data[EEPROM_RF_BOARD_OPTION_9086X] & 0x7);
-        
-		if (pefuse_data[EEPROM_RF_BOARD_OPTION_9086X] == 0xFF)
-        {      
-			phw_info->EEPROMRegulatory = (EEPROM_DEFAULT_BOARD_OPTION & 0x7);
-        }
-	} 
-    else
-    {
-		phw_info->EEPROMRegulatory = 0;
-    }
-}
 
 int channel_init (nic_info_st *pnic_info)
 {
@@ -887,7 +622,6 @@ int wf_hw_info_set_channnel_bw(nic_info_st *nic_info, wf_u8 channel, CHANNEL_WID
     int ret = 0;
     wf_u8 center_ch;
     wf_u32 uarg[7]= {0};
-    hw_info_st *hw_info = (hw_info_st *)nic_info->hw_info;
 
     center_ch = do_query_center_ch(cw, channel, offset);
 
@@ -918,10 +652,8 @@ int wf_hw_info_get_default_cfg(nic_info_st *pnic_info)
 {
     int ret;
     wf_u32 version = 0;
-    wf_u32 efuse_len = 0;
     hw_info_st *phw_info = pnic_info->hw_info;
-    local_info_st *plocal = (local_info_st *)pnic_info->local_info;
-    wf_u32 bflag[4];
+    //wf_u32 bflag[4];
     wf_u8 macAddr[WF_ETH_ALEN] = {0xb4, 0x04, 0x18, 0xc6, 0x75, 0xf7};
     wf_u8 bmc_macAddr[WF_ETH_ALEN] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 
@@ -930,56 +662,31 @@ int wf_hw_info_get_default_cfg(nic_info_st *pnic_info)
 
     /* get version */
     ret = wf_mcu_get_chip_version(pnic_info, &version);
-    LOG_I("[%s] chip version: 0x%x",__func__,version );
+    LOG_D("chip version: 0x%x",version );
 
-    /*get efuse type*/
-    LOG_I("[%s] efuse type: %s",__func__, wf_get_efuse_type(pnic_info));
 
-    /* set efuse select */
-    LOG_D("set efuse select");
-    ret = wf_efuse_select(pnic_info);
-    
-    LOG_D("EFUSE Autoload:%d",phw_info->bautoload_flag);
-
-    /*get efuse len*/
-    efuse_len = wf_get_efuse_len(pnic_info);
-    LOG_I("[%s] efuse len: %d",__func__, efuse_len);
-
-    /* get efuse map */
-    ret = wf_get_efuse_data(pnic_info, phw_info->efuse_data_map, efuse_len);
-    if (WF_RETURN_FAIL == ret)
-    {
-        LOG_E("[%s] wf_get_efuse_data failed, check!!!", __func__);
-        return WF_RETURN_FAIL;
-    }
     /*get efuse id*/
-    ret = get_efuse_id(phw_info, &phw_info->efuse.id);
-    /*get vid in efuse_data_map*/
-    ret = get_efuse_vid_pid(phw_info, &phw_info->efuse.vid, &phw_info->efuse.pid);
+    ret = wf_mcu_efuse_get(pnic_info, EFUSE_VID, (wf_u32 *)&phw_info->efuse.vid, 2);
+    LOG_D("vid:0x%x ", phw_info->efuse.vid);
+    
+    ret = wf_mcu_efuse_get(pnic_info, EFUSE_PID, (wf_u32 *)&phw_info->efuse.pid, 2);
+    LOG_D("pid:0x%x ", phw_info->efuse.pid);
+
     /*get mac in efuse*/
-    ret = get_efuse_mac(pnic_info, phw_info->macAddr);
+    ret = wf_mcu_efuse_get(pnic_info, WLAN_EEPORM_MAC, (wf_u32 *)phw_info->macAddr, 6);
     if(wf_memcmp(bmc_macAddr, phw_info->macAddr, WF_ETH_ALEN) == 0)
     {
-        LOG_E("efuse read mac fail,use default addr");
-        wf_memcpy(phw_info->macAddr, macAddr, WF_ETH_ALEN);
+       LOG_E("efuse read mac fail,use default addr");
+       wf_memcpy(phw_info->macAddr, macAddr, WF_ETH_ALEN);
     }
-    LOG_I("[wf_hw_info_get_default_cfg]:efuse_macaddr:"WF_MAC_FMT, WF_MAC_ARG(phw_info->macAddr));
+
+    LOG_D("macaddr :"WF_MAC_FMT, WF_MAC_ARG(phw_info->macAddr));
+
     /*get channel plan in efuse*/
-    ret = get_efuse_channel_plan(pnic_info);
-
-    /* set efuse load mode */
-    LOG_D("set efuse load mode");
-    ret = wf_get_efuse_load_mode(pnic_info,bflag,4);
-
-    LOG_D("set efuse load mode <PackageType=%d wl_func=%d bw_cap=%d nss_num=%d",
-          bflag[0],
-          bflag[1],
-          bflag[2],
-          bflag[3]);
-
-    /*get tx power info in efuse*/
-    get_efuse_txpower_info(pnic_info, phw_info->bautoload_flag);
-
+    ret = wf_mcu_efuse_get(pnic_info, EFUSE_CHANNELPLAN, (wf_u32 *)&phw_info->channel_plan, 1);
+    LOG_D("get channel plan:0x%x ", phw_info->channel_plan);  
+    
+    
     LOG_D("\n--Get HW Defualt Setting Info--");
     phw_info->vcs_type = RTS_CTS;
 #ifdef CONFIG_MP_MODE
@@ -989,7 +696,7 @@ int wf_hw_info_get_default_cfg(nic_info_st *pnic_info)
 #endif
     phw_info->tx_data_rpt = wf_false;
     phw_info->ba_enable   = wf_true;
-#ifdef CONFIG_RICHV200_FPGA
+#ifdef CONFIG_RICHV200
     phw_info->use_drv_odm = wf_false;
 #else
 #ifdef CONFIG_CONCURRENT_MODE
@@ -1030,11 +737,10 @@ int wf_hw_info_set_default_cfg(nic_info_st *nic_info)
 	local_info_st *local_info = nic_info->local_info;
 	hw_param_st hw_param;
     phy_config_t phy_cfg;
-	wf_u8 mbox1_cmd = 0;
-	odm_msg_st msg_val;
+	mcu_msg_body_st msg_val;
 
-    LOG_D("[HW_CFG] channel_plan: 0x%x",hw_info->channel_plan); 
-    LOG_D("[HW_CFG] ba_func: %d",hw_info->ba_enable); 
+    LOG_D("[HW_CFG] channel_plan: 0x%x",hw_info->channel_plan);
+    LOG_D("[HW_CFG] ba_func: %d",hw_info->ba_enable);
 
     /* set channel plan */
     channel_init(nic_info);
@@ -1053,7 +759,7 @@ int wf_hw_info_set_default_cfg(nic_info_st *nic_info)
 		return WF_RETURN_FAIL;
 	}
 
-	// bcn configue 
+	// bcn configue
 	ret = wf_mcu_cca_config(nic_info);
 	if (ret != WF_RETURN_OK)
 	{
@@ -1072,15 +778,15 @@ int wf_hw_info_set_default_cfg(nic_info_st *nic_info)
 	{
 		return WF_RETURN_FAIL;
 	}
-    
-	// phy configue 
+
+	// phy configue
     ret = wf_mcu_ant_sel_init(nic_info);
     if (ret != WF_RETURN_OK)
     {
         return WF_RETURN_FAIL;
     }
 
-    ret = wf_set_odm_default(nic_info);
+    ret = wf_mcu_msg_init_default(nic_info);
 	if (ret != WF_RETURN_OK)
 	{
 	    return WF_RETURN_FAIL;
@@ -1099,7 +805,7 @@ int wf_hw_info_set_default_cfg(nic_info_st *nic_info)
     phy_cfg.PackageType    = 15;
     phy_cfg.boardConfig    = 0;
     ret = wf_mcu_set_phy_config(nic_info, &phy_cfg);
-        
+
 
     msg_val.tx_bytes = 0;
     msg_val.rx_bytes = 0;
@@ -1122,13 +828,13 @@ int wf_hw_info_set_default_cfg(nic_info_st *nic_info)
     msg_val.dbg_level = 0;
     msg_val.msgWdgStateVal = 0;
     msg_val.Rssi_Min = 0;
-    ret = wf_mcu_odm_init_msg(nic_info, &msg_val);
+    ret = wf_mcu_msg_body_init(nic_info, &msg_val);
 	if (ret != WF_RETURN_OK)
 	{
 	   return WF_RETURN_FAIL;
 	}
 
-    ret = wf_set_odm_init(nic_info);
+    ret = wf_mcu_msg_init(nic_info);
     if (ret != WF_RETURN_OK)
     {
         return WF_RETURN_FAIL;
@@ -1141,7 +847,7 @@ int wf_hw_info_set_default_cfg(nic_info_st *nic_info)
     mbox1_cmd = 0;
     wf_mcu_mbox1_cmd(nic_info,&mbox1_cmd,1, WLAN_WL_H2M_SYS_CALIBRATION);
 	#endif
-    
+
 	if (local_info->work_mode == WF_INFRA_MODE)
 	{
 		hw_param.send_msg[0] = WIFI_STATION_STATE;
@@ -1164,22 +870,22 @@ int wf_hw_info_set_default_cfg(nic_info_st *nic_info)
 
     // rx configue
     if (nic_info->nic_type == NIC_USB)
-    {   
+    {
         wf_u32 data;
 
-    #ifdef CONFIG_SOFT_RX_AGGREGATION		
+    #ifdef CONFIG_SOFT_RX_AGGREGATION
         data = wf_io_read32(nic_info,0x10c,NULL);
         LOG_I("<RXDMA_CTL>0x10c:0x%02x",data);
-                
+
         data = wf_io_read32(nic_info,0x280,NULL);
         data = 0xA000A008;   // AGG TH: 8KB + 5ms
         wf_io_write32(nic_info,0x280,data);
         LOG_I("<RXDMA_AGG_PG_TH>0x280:0x%02x",data);
-        
+
         data = wf_io_read32(nic_info,0x290,NULL);
          data = 0xE;   // Bulk_size : 1024  Burst_limit: 4
         LOG_I("<RXDMA_CONFIG>0x290:0x%02x",data);
-    #else		 
+    #else
         LOG_I("0x10c:0x%02x",wf_io_read32(nic_info,0x10c,NULL));
         data = wf_io_read32(nic_info,0x10c,NULL);
         data = data & (~BIT(2));
@@ -1187,6 +893,35 @@ int wf_hw_info_set_default_cfg(nic_info_st *nic_info)
         LOG_I("0x10c:0x%02x",wf_io_read32(nic_info,0x10c,NULL));
     #endif
     }
+	else if(nic_info->nic_type == NIC_SDIO)
+	{
+		wf_u32 data;
+#ifdef CONFIG_SOFT_RX_AGGREGATION
+        data = wf_io_read32(nic_info,0x10c,NULL);
+        LOG_I("<RXDMA_CTL>0x10c:0x%02x",data);
+
+        data = wf_io_read32(nic_info,0x280,NULL);
+        data = 0xA000A008;   // AGG TH: 8KB + 5ms
+        wf_io_write32(nic_info,0x280,data);
+        LOG_I("<RXDMA_AGG_PG_TH>0x280:0x%02x",data);
+
+        data = wf_io_read32(nic_info,0x290,NULL);
+         data = 0xE;   // Bulk_size : 1024  Burst_limit: 4
+        LOG_I("<RXDMA_CONFIG>0x290:0x%02x",data);
+#else
+        LOG_I("0x10c:0x%02x",wf_io_read32(nic_info,0x10c,NULL));
+        data = wf_io_read32(nic_info,0x10c,NULL);
+        data = data & (~BIT(2));
+        wf_io_write32(nic_info,0x10c,data);
+        LOG_I("0x10c:0x%02x",wf_io_read32(nic_info,0x10c,NULL));
+
+		LOG_I("0x290:0x%02x",wf_io_read32(nic_info,0x290,NULL));
+		data = wf_io_read32(nic_info,0x290,NULL);
+        data = data & (~BIT(1));
+        wf_io_write32(nic_info,0x290,data);
+		LOG_I("0x290:0x%02x",wf_io_read32(nic_info,0x290,NULL));
+#endif
+	}
 
     // tx configue
 	ret = wf_mcu_set_config_xmit(nic_info,WF_XMIT_AGG_MAXNUMS, 0x1F);
@@ -1195,7 +930,7 @@ int wf_hw_info_set_default_cfg(nic_info_st *nic_info)
 		return WF_RETURN_FAIL;
 	}
 
-#ifdef CONFIG_RICHV200_FPGA
+#ifdef CONFIG_RICHV200
 	ret = wf_mcu_set_config_xmit(nic_info, WF_XMIT_OFFSET, 40);
 #else
 #ifdef CONFIG_SOFT_TX_AGGREGATION
@@ -1221,7 +956,7 @@ int wf_hw_info_set_default_cfg(nic_info_st *nic_info)
 	{
 		return WF_RETURN_FAIL;
 	}
-    
+
 	ret = wf_mcu_update_tx_fifo(nic_info);
 	if (ret != WF_RETURN_OK)
 	{
@@ -1229,22 +964,6 @@ int wf_hw_info_set_default_cfg(nic_info_st *nic_info)
 	}
 
     return WF_RETURN_OK;
-}
-
-
-int wf_hw_info_get_macAddr(nic_info_st *nic_info, wf_u8 *macAddr)
-{
-    hw_info_st *hw_info =(hw_info_st *) nic_info->hw_info;
-    /* get mac_addr from efuse */
-    wf_memcpy(macAddr,hw_info->macAddr,WF_ETH_ALEN);
-
-    return 0;
-}
-
-
-int wf_hw_info_get_wireless_info(nic_info_st *nic_info, wireless_info_st *wlInfo)
-{
-    return -1;
 }
 
 

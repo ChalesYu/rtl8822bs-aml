@@ -130,7 +130,7 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
-    <IncludePath>$(SolutionPath)\..\..\..\..\os\windows\usbnwifi\usbnwifi_new\os_porting;$(SolutionPath)\..\..\..\..\nic\ars;$(SolutionPath)\..\..\..\..\nic\p2p;$(SolutionPath)\..\..\..\..\nic\;$(SolutionPath)\..\..\..\..\nic\utility;.\dataflow;.\mp;.\inc;.\hw;$(SolutionPath)\..\..\..\..\os;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionPath)\..\..\..\..\os\windows\usbnwifi\usbnwifi_new\os_porting;$(SolutionPath)\..\..\..\..\nic\ars;$(SolutionPath)\..\..\..\..\nic\p2p;$(SolutionPath)\..\..\..\..\nic\;$(SolutionPath)\..\..\..\..\nic\utility;.\trx;.\mp;.\inc;.\intf;.\pwr;.\usb;$(SolutionPath)\..\..\..\..\os;$(IncludePath)</IncludePath>
     <LibraryPath>$(LibraryPath)</LibraryPath>
     <LinkIncremental>false</LinkIncremental>
     <EnableInf2cat>false</EnableInf2cat>
@@ -166,9 +166,10 @@
       <AdditionalDependencies>$(DDK_LIB_PATH)ndis.lib;$(DDK_LIB_PATH)ntstrsafe.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <ClCompile>
-      <PreprocessorDefinitions>%(PreprocessorDefinitions);NDIS_MINIPORT_DRIVER=1;NDIS620_MINIPORT=1;NDIS_WDM=1;MCU_CMD_MAILBOX=1;CONFIG_LITTLE_ENDIAN=1;CONFIG_CHIP_RICH100=1;CONFIG_SOFT_RX_AGGREGATION=1;WF_FW_FILE=L"\\??\\C:\\ram-fw-9083-old-r0000.bin";WF_FW_9188old=L"\\??\\C:\\ram-fw-9188U-old-r1485-enc.bin";WF_FW_9188new=L"\\??\\C:\\ram-fw-9188U-new-r1485-enc.bin"</PreprocessorDefinitions>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);NDIS_MINIPORT_DRIVER=1;NDIS620_MINIPORT=1;NDIS_WDM=1;MCU_CMD_MAILBOX=1;CONFIG_LITTLE_ENDIAN=1;CONFIG_CHIP_RICH100=1;CONFIG_SOFT_RX_AGGREGATION=1;WF_FW_FILE=L"\\??\\C:\\ram-fw-908x-old-r1548.bin";WF_FW_9188old=L"\\??\\C:\\ram-fw-9188U-old-r1485-enc.bin";WF_FW_9188new=L"\\??\\C:\\ram-fw-9188U-new-r1485-enc.bin"</PreprocessorDefinitions>
       <TreatWarningAsError>false</TreatWarningAsError>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <DisableSpecificWarnings>4200;4201;4214;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -214,30 +215,12 @@
     <ClCompile Include="..\..\..\..\nic\wdn.c" />
     <ClCompile Include="..\..\..\..\nic\wf_80211.c" />
     <ClCompile Include="..\..\..\..\nic\wlan_mgmt.c" />
-    <ClCompile Include="dataflow\rx_windows.c" />
-    <ClCompile Include="dataflow\tx_windows.c">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
-    </ClCompile>
-    <ClCompile Include="hw\bus_intf.c" />
-    <ClCompile Include="hw\hw_init.c" />
-    <ClCompile Include="hw\hw_sec.c" />
-    <ClCompile Include="hw\hw_oids.c" />
-    <ClCompile Include="hw\usb_io.c" />
-    <ClCompile Include="hw\usb_main.c" />
-    <ClCompile Include="hw\usb_recv.c" />
-    <ClCompile Include="hw\usb_reg.c" />
-    <ClCompile Include="hw\usb_xmit.c" />
-    <ClCompile Include="hw\wf_oids_adapt.c" />
-    <ClCompile Include="mp\mp_cntl.c" />
-    <ClCompile Include="mp\mp_dbg.c" />
-    <ClCompile Include="mp\mp_elem.c" />
-    <ClCompile Include="mp\mp_evnts.c" />
-    <ClCompile Include="mp\mp_main.c" />
-    <ClCompile Include="mp\mp_oids.c" />
+    <ClCompile Include="intf\wf_ioctrl.c" />
+    <ClCompile Include="intf\wf_oids.c" />
+    <ClCompile Include="intf\wf_oids_adapt.c" />
+    <ClCompile Include="intf\wf_oids_sec.c" />
+    <ClCompile Include="mp\mp_dev.c" />
     <ClCompile Include="mp\mp_power.c" />
-    <ClCompile Include="mp\mp_recv.c" />
-    <ClCompile Include="mp\mp_send.c" />
-    <ClCompile Include="mp\mp_util.c" />
     <ClCompile Include="os_porting\wf_os_api_file.c" />
     <ClCompile Include="os_porting\wf_os_api_lock.c" />
     <ClCompile Include="os_porting\wf_os_api_mix.c" />
@@ -245,6 +228,11 @@
     <ClCompile Include="os_porting\wf_os_api_thread.c" />
     <ClCompile Include="os_porting\wf_os_api_timer.c" />
     <ClCompile Include="os_porting\wf_os_api_workqueue.c" />
+    <ClCompile Include="pwr\power_on.c" />
+    <ClCompile Include="trx\rx_windows.c" />
+    <ClCompile Include="trx\tx_windows.c" />
+    <ClCompile Include="usb\usb_dev.c" />
+    <ClCompile Include="usb\usb_reg.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\..\nic\action.h" />

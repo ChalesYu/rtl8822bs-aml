@@ -2,14 +2,16 @@
 #define __ARS_ENTRY_H__
 
 #ifdef CONFIG_ARS_SUPPORT
-#if 1
-#define ARS_DBG(fmt, ...)      LOG_D("ARS[%s,%d]"fmt, __func__, __LINE__,##__VA_ARGS__)
-#else
-#define ARS_DBG(fmt, ...)
-#endif
+
+
+#define  ARS_INIT_WRITE_REG_EN  0
+
+#define     DM_Type_ByFW            0
+#define     DM_Type_ByDriver        1
 
 #define ODM_ASSOCIATE_ENTRY_NUM (32)
 
+#include "ars_define.h"
 #include "ars_reg.h"
 #include "ars_acs.h"
 #include "ars_noisemonitor.h"
@@ -24,10 +26,24 @@
 #include "ars_txpower.h"
 #include "ars_dig.h"
 #include "ars_hwconfig.h"
-#include "ars_timer.h"
 #include "ars_debug.h"
 #include "ars_adaptivity.h"
 #include "ars_powertracking.h"
+#include "ars_thread.h"
+
+typedef enum _PHYDM_H2C_CMD 
+{
+    ODM_H2C_RSSI_REPORT = 0,
+    ODM_H2C_PSD_RESULT = 1,
+    ODM_H2C_PathDiv = 2,
+    ODM_H2C_WIFI_CALIBRATION = 3,
+    ODM_H2C_IQ_CALIBRATION = 4,
+    ODM_H2C_RA_PARA_ADJUST = 5,
+    PHYDM_H2C_DYNAMIC_TX_PATH = 6,
+    PHYDM_H2C_FW_TRACE_EN = 7,
+    PHYDM_H2C_TXBF = 8,
+    ODM_MAX_H2CCMD
+} PHYDM_H2C_CMD;
 
 typedef enum _RT_RF_TYPE_DEFINITION
 {
@@ -234,16 +250,36 @@ typedef struct temporarily_save_info_st_
     wf_u8   ExternalLNA_2G;
 
     wf_u16  CustomerID;
-}tmp_save_info_st;
 
+    /* Upper and Lower Signal threshold for Rate Adaptive*/	
+    wf_s32 EntryMinUndecoratedSmoothedPWDB;
+    wf_s32 EntryMaxUndecoratedSmoothedPWDB;
+    wf_s32 MinUndecoratedPWDBForDM;
+}com_save_info_st;
 
+typedef struct
+{
+    wf_u8 EEPROMThermalMeter;
+}EERPOM_DATA_ST;
+
+typedef struct _RSSI_STA
+{
+    wf_s32  UndecoratedSmoothedPWDB;
+    wf_s32  UndecoratedSmoothedCCK;
+    wf_s32  UndecoratedSmoothedOFDM;
+    wf_u32  OFDM_pkt;
+    wf_u64  PacketMap;
+    wf_u8   ValidBit;
+
+    wf_u8 rssi_level;
+}RSSI_STA, *PRSSI_STA;
 
 typedef  struct adaptive_rate_system_st
 {
     void *nic_info;
     wdn_net_info_st *wdn_net;
     ars_acs_info_st acs;
-    tmp_save_info_st tmp_save; //
+    com_save_info_st com_save; //
     ars_nm_info_st nm;
     ars_pathdiv_info_st pathdiv;
     ars_ra_info_st ra;
@@ -256,10 +292,9 @@ typedef  struct adaptive_rate_system_st
     ars_dig_info_st dig;
     ars_edcaturbo_info_st edcaturbo;
     ars_hwconfig_info_st  hwconfig;
-    ars_timer_ctl_info_st timectl;
+    RSSI_STA  rssi_sta[ODM_ASSOCIATE_ENTRY_NUM];
     ars_dbg_info_st dbg;
-    
-    wf_os_api_timer_t ars_timer;
+   
     FALSE_ALARM_STATISTICS  FalseAlmCnt;
     // from here copy from onkey version
     //will rewrite after function is ok
@@ -283,31 +318,31 @@ typedef  struct adaptive_rate_system_st
 
     wf_u32          SupportAbility;
     //For Adaptivtiy
-    wf_u16			NHM_cnt_0;
-	wf_u16			NHM_cnt_1;
-	wf_s8			TH_L2H_default;
-	wf_s8			TH_EDCCA_HL_diff_default;
-	wf_s8			TH_L2H_ini;
-	wf_s8			TH_EDCCA_HL_diff;
-	wf_s8			TH_L2H_ini_mode2;
-	wf_s8			TH_EDCCA_HL_diff_mode2;
-	wf_bool			Carrier_Sense_enable;
-	wf_u8			Adaptivity_IGI_upper;
-	wf_bool			adaptivity_flag;
-	wf_u8			DCbackoff;
-	wf_bool			Adaptivity_enable;
-	wf_u8			APTotalNum;
-	wf_bool			EDCCA_enable;
-    ADAPTIVITY_STATISTICS	Adaptivity;
-	//For Adaptivtiy
-	wf_u8			LastUSBHub;
-	wf_u8			TxBfDataRate;
-	
-	wf_u8			c2h_cmd_start;
-	wf_u8			fw_debug_trace[60]; 
-	wf_u8			pre_c2h_seq;
-	wf_bool			fw_buff_is_enpty;
-	wf_u32			data_frame_num;
+    wf_u16          NHM_cnt_0;
+    wf_u16          NHM_cnt_1;
+    wf_s8           TH_L2H_default;
+    wf_s8           TH_EDCCA_HL_diff_default;
+    wf_s8           TH_L2H_ini;
+    wf_s8           TH_EDCCA_HL_diff;
+    wf_s8           TH_L2H_ini_mode2;
+    wf_s8           TH_EDCCA_HL_diff_mode2;
+    wf_bool         Carrier_Sense_enable;
+    wf_u8           Adaptivity_IGI_upper;
+    wf_bool         adaptivity_flag;
+    wf_u8           DCbackoff;
+    wf_bool         Adaptivity_enable;
+    wf_u8           APTotalNum;
+    wf_bool         EDCCA_enable;
+    ADAPTIVITY_STATISTICS   Adaptivity;
+    //For Adaptivtiy
+    wf_u8           LastUSBHub;
+    wf_u8           TxBfDataRate;
+    
+    wf_u8           c2h_cmd_start;
+    wf_u8           fw_debug_trace[60]; 
+    wf_u8           pre_c2h_seq;
+    wf_bool         fw_buff_is_enpty;
+    wf_u32          data_frame_num;
     
     SWAT_T          DM_SWAT_Table;
 
@@ -415,6 +450,7 @@ typedef  struct adaptive_rate_system_st
     // 0:S1, 1:S0
     
 //--------- POINTER REFERENCE-----------//
+    wf_bool         is_hook_pointer;
     wf_u16*         pForcedDataRate;
     wf_bool         *pbFwDwRsvdPageInProgress;
     wf_u32          *pCurrentTxTP;
@@ -435,26 +471,41 @@ typedef  struct adaptive_rate_system_st
     wf_u32          NoisyDecision_Smooth;
     ODM_NOISE_MONITOR noise_level;//[ODM_MAX_CHANNEL_NUM];
 
-    ODM_RF_CAL_T	RFCalibrateInfo;
+    ODM_RF_CAL_T    RFCalibrateInfo;
     RT_BEAMFORMING_INFO BeamformingInfo;
 
 
-	//
-	// Power Training
-	//
-	wf_u8			ForcePowerTrainingState;
-	wf_bool			bChangeState;
-	wf_u32			PT_score;
-	wf_u64			OFDM_RX_Cnt;
-	wf_u64			CCK_RX_Cnt;
-	wf_bool			bDisablePowerTraining;
+    //
+    // Power Training
+    //
+    wf_u8           ForcePowerTrainingState;
+    wf_bool         bChangeState;
+    wf_u32          PT_score;
+    wf_u64          OFDM_RX_Cnt;
+    wf_u64          CCK_RX_Cnt;
+    wf_bool         bDisablePowerTraining;
 
+    // eeprom data
+    EERPOM_DATA_ST eeprom_data;
+
+    ars_thread_info_st ars_thread;
+
+    wf_bool fw_ractrl;
+
+    wf_u8 LastHMEBoxNum;
 }ars_st;
 
 wf_s32 ars_init(nic_info_st *pnic_info);
 wf_s32 ars_term(nic_info_st *pnic_info);
 
-void ODM_CmnInfoUpdate(ars_st *pars,wf_u32 CmnInfo,wf_u64 Value );
+wf_s32 ODM_CmnInfoUpdate(ars_st *pars,wf_u32 CmnInfo,wf_u64 Value );
+wf_s32 ODM_CmnInfoHook(ars_st *pars,ODM_CMNINFO_E CmnInfo,void *pValue);
+wf_s32 ODM_CmnInfoPtrArrayHook(ars_st *pars,ODM_CMNINFO_E    CmnInfo,wf_u16 Index,void *pValue);
+wf_s32 wf_ars_info_update(nic_info_st *pnic_info);
+wf_s32 wf_ars_process_once(nic_info_st *nic_info);
+
+wf_s32 ars_io_lock_try(ars_st *ars);
+wf_s32 ars_io_unlock_try(ars_st *ars);
 
 #endif
 #endif

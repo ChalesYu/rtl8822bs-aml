@@ -119,9 +119,11 @@ struct dbg_rx_counter {
 
 #define DRV_NAME "9188"
 #define DRIVERVERSION "v1.1"
+int wf_io_write_cmd_special(nic_info_st *nic_info, wf_u32 func_code, wf_u32 *recv,  int len, int offs);
 
 int wf_mp(struct net_device *dev, struct iw_request_info *info, union iwreq_data *wdata, char *extra);
 
+#define mcu_cmd_communicate_special wf_io_write_cmd_special
 
 #endif
 #endif

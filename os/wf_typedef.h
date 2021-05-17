@@ -29,14 +29,15 @@ typedef enum
 #define WF_RETURN_OK        0
 #endif
 #ifndef WF_RETURN_FAIL
-#define WF_RETURN_FAIL     -1
-#endif
-#ifndef WF_RETURN_EMPTY
-#define WF_RETURN_EMPTY     1
+#define WF_RETURN_FAIL     (-1)
 #endif
 
-#ifndef WF_RETURN_FULL
-#define WF_RETURN_FULL     2
+#ifndef WF_RETURN_REMOVED_FAIL
+#define WF_RETURN_REMOVED_FAIL     (-2)
+#endif
+
+#ifndef WF_RETURN_CMD_BUSY
+#define WF_RETURN_CMD_BUSY     (-3)
 #endif
 
 

@@ -173,7 +173,6 @@ static void xmit_frame_vcs_init(nic_info_st *nic_info, struct xmit_frame *pxmitf
 {
     wf_u32 sz;
     hw_info_st *hw_info = nic_info->hw_info;
-    sec_info_st *sec_info = nic_info->sec_info;
     wdn_net_info_st *pwdn = pxmitframe->pwdn;
 
     if (pxmitframe->nr_frags != 1)
@@ -251,8 +250,6 @@ static void xmit_frame_vcs_init(nic_info_st *nic_info, struct xmit_frame *pxmitf
 
 wf_bool wf_xmit_frame_init(nic_info_st *nic_info, struct xmit_frame *pxmitframe, wf_u8 *msdu_buf, int msdu_len)
 {
-    wf_u32 i;
-    wf_bool res = wf_true;
     wf_u8 *ra_addr;
     struct wf_ethhdr *pethhdr;
     ip_header iphdr;
@@ -260,13 +257,6 @@ wf_bool wf_xmit_frame_init(nic_info_st *nic_info, struct xmit_frame *pxmitframe,
     wf_u8 bc_addr[WF_ETH_ALEN] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
 
     hw_info_st *hw_info = nic_info->hw_info;
-    tx_info_st *tx_info = nic_info->tx_info;
-    sec_info_st *sec_info = nic_info->sec_info;
-    mlme_info_t *mlme_info = nic_info->mlme_info;
-#ifdef CONFIG_LPS
-    pwr_info_st *pwr_info = nic_info->pwr_info;
-#endif
-    int m=0;
     int pkt_offset = 0;
 
     pethhdr = (struct wf_ethhdr *)msdu_buf;
@@ -311,6 +301,8 @@ wf_bool wf_xmit_frame_init(nic_info_st *nic_info, struct xmit_frame *pxmitframe,
 
     pxmitframe->pktlen = msdu_len - WF_ETH_HLEN;
     pxmitframe->dhcp_pkt = 0;
+
+    iphdr.tos = 0;
 
     switch (pxmitframe->ether_type)
     {
@@ -372,7 +364,6 @@ wf_bool wf_xmit_frame_init(nic_info_st *nic_info, struct xmit_frame *pxmitframe,
             case 0x06:
                {
                     /* TCP */
-                    wf_u8 tcp[20];
 
                     //wf_memcpy(tcp,msdu_buf+pkt_offset, 20);
                     pkt_offset += 20;
@@ -465,11 +456,8 @@ wf_bool frame_txp_addmic(nic_info_st *nic_info, struct xmit_frame *pxmitframe)
     wf_u8 *pframe, *payload, mic[8];
     wf_s32 curfragnum, length;
     struct mic_data micdata;
-    mlme_info_t *mlme_info = nic_info->mlme_info;
-    tx_info_st *tx_info = nic_info->tx_info;
     hw_info_st *hw_info = nic_info->hw_info;
     sec_info_st *sec_info = nic_info->sec_info;
-    wf_80211_data_t *pwlanhdr;
 
     /* make none(all zone) key */
     wf_memset(null_key, 0x0, sizeof(null_key));
@@ -836,10 +824,9 @@ static wf_u8 txdesc_bwmapping_get(nic_info_st *nic_info, struct xmit_frame *pxmi
 
 static void txdesc_vcs_fill(nic_info_st *nic_info, struct xmit_frame *pxmitframe, wf_u8 * ptxdesc)
 {
-    mlme_info_t *mlme_info = nic_info->mlme_info;
     wdn_net_info_st *pwdn = pxmitframe->pwdn;
 
-#ifdef CONFIG_RICHV200_FPGA
+#ifdef CONFIG_RICHV200
     /* set VCS MODE */
     SET_BITS_TO_LE_4BYTE(ptxdesc + 8, 27, 2, 0);
 
@@ -915,7 +902,7 @@ static void txdesc_phy_fill(nic_info_st *nic_info, struct xmit_frame *pxmitframe
 
     if (pxmitframe->ht_en)
     {
-#ifdef CONFIG_RICHV200_FPGA
+#ifdef CONFIG_RICHV200
         /* set DBW */
         SET_BITS_TO_LE_4BYTE(ptxdesc + 16, 12, 1, txdesc_bwmapping_get(nic_info, pxmitframe));
         /* set DSC */
@@ -937,7 +924,7 @@ static void txdesc_fill(struct xmit_frame *pxmitframe, wf_u8 * pbuf, wf_bool bSe
         return;
     }
 
-#ifdef CONFIG_RICHV200_FPGA
+#ifdef CONFIG_RICHV200
     /* set for data type */
     SET_BITS_TO_LE_4BYTE(pbuf, 0, 2, TYPE_DATA);
     /* set mac id or sta index */
@@ -1091,7 +1078,7 @@ static void txdesc_fill(struct xmit_frame *pxmitframe, wf_u8 * pbuf, wf_bool bSe
 }
 
 
-#ifdef CONFIG_RICHV200_FPGA
+#ifdef CONFIG_RICHV200
 void wf_txdesc_chksum(wf_u8 *ptx_desc)
 {
     wf_u16 *usPtr = (wf_u16 *) ptx_desc;
@@ -1129,7 +1116,7 @@ static void txdesc_update(struct xmit_frame *pxmitframe, wf_u8 * pbuf)
 
     txdesc_fill(pxmitframe, pbuf, hw_info->tx_data_rpt);
 
-#ifdef CONFIG_RICHV200_FPGA
+#ifdef CONFIG_RICHV200
     wf_txdesc_chksum(pbuf);
 #else
     wf_txdesc_chksum((struct tx_desc *)pbuf);
@@ -1141,7 +1128,6 @@ wf_bool wf_tx_txdesc_init(struct xmit_frame *pxmitframe, wf_u8 * pmem, wf_s32 sz
 {
     wf_bool ret = wf_false;
 
-    nic_info_st *nic_info = pxmitframe->nic_info;
     struct tx_desc *ptxdesc = (struct tx_desc *)pmem;
 
     if ((PACKET_OFFSET_SZ != 0)
@@ -1421,6 +1407,10 @@ struct xmit_buf *wf_xmit_extbuf_new(tx_info_st *tx_info)
     {
         tx_info->free_xmit_extbuf_cnt--;
         pxmitbuf->priv_data = NULL;
+        pxmitbuf->pkt_len = 0;
+        pxmitbuf->pg_num = 0;
+        pxmitbuf->agg_num = 0;
+        pxmitbuf->send_flag = 0;
     }
 
     wf_lock_unlock(&pfree_xmitbuf_queue->lock);
@@ -1508,7 +1498,6 @@ wf_bool wf_xmit_frame_delete(tx_info_st *tx_info, struct xmit_frame * pxmitframe
 {
     wf_que_t *free_queue = NULL;
     wf_que_t *queue = NULL;
-    nic_info_st *nic_info = tx_info->nic_info;
 
     if (pxmitframe == NULL)
     {
@@ -1533,7 +1522,6 @@ wf_bool wf_xmit_frame_delete(tx_info_st *tx_info, struct xmit_frame * pxmitframe
 wf_bool wf_xmit_frame_enqueue(tx_info_st *tx_info, struct xmit_frame * pxmitframe)
 {
     wf_que_t *queue = NULL;
-    nic_info_st *nic_info = tx_info->nic_info;
 
     if (pxmitframe == NULL)
     {
@@ -1555,7 +1543,7 @@ wf_bool wf_xmit_frame_enqueue(tx_info_st *tx_info, struct xmit_frame * pxmitfram
 
 void wf_tx_data_enqueue_tail(tx_info_st *tx_info, struct xmit_frame *pxmitframe)
 {
-    wf_list_t *plist, *phead;
+    wf_list_t *phead;
 
     wf_lock_lock(&tx_info->pending_lock);
     phead = wf_que_head(&tx_info->pending_frame_queue);
@@ -1566,7 +1554,7 @@ void wf_tx_data_enqueue_tail(tx_info_st *tx_info, struct xmit_frame *pxmitframe)
 
 void wf_tx_data_enqueue_head(tx_info_st *tx_info, struct xmit_frame *pxmitframe)
 {
-    wf_list_t *plist, *phead;
+    wf_list_t *phead;
 
     wf_lock_lock(&tx_info->pending_lock);
     phead = wf_que_head(&tx_info->pending_frame_queue);
@@ -1597,7 +1585,6 @@ struct xmit_frame *wf_tx_data_dequeue(tx_info_st *tx_info)
 {
     wf_list_t *plist, *phead;
     struct xmit_frame *pxframe;
-    wf_irq tirq;
 
     if (wf_que_is_empty(&tx_info->pending_frame_queue) == wf_true)
         return NULL;
@@ -1616,7 +1603,7 @@ struct xmit_frame *wf_tx_data_dequeue(tx_info_st *tx_info)
 
 void wf_tx_agg_enqueue_head(tx_info_st *tx_info, struct xmit_frame *pxmitframe)
 {
-    wf_list_t *plist, *phead;
+    wf_list_t  *phead;
 
     wf_lock_lock(&tx_info->agg_frame_queue.lock);
     phead = wf_que_head(&tx_info->agg_frame_queue);
@@ -1721,7 +1708,7 @@ int wf_nic_beacon_xmit(nic_info_st *nic_info, struct xmit_buf *pxmitbuf, wf_u16 
 
     WF_TX_DESC_HWSEQ_EN_9086X(pbuf, 1);
 
-#ifdef CONFIG_RICHV200_FPGA
+#ifdef CONFIG_RICHV200
     wf_txdesc_chksum((wf_u8 *)ptxdesc);
 #else
     wf_txdesc_chksum(ptxdesc);
@@ -1752,14 +1739,12 @@ int wf_nic_beacon_xmit(nic_info_st *nic_info, struct xmit_buf *pxmitbuf, wf_u16 
 int wf_nic_mgmt_frame_xmit (nic_info_st *nic_info, wdn_net_info_st *wdn,
                          struct xmit_buf *pxmitbuf, wf_u16 len)
 {
-    wf_u8 bc_addr[WF_ETH_ALEN] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
-    wf_u16 raid;
     wf_u8 *pbuf;
     wf_u8 *pwlanhdr;
+#ifndef CONFIG_RICHV200
     struct tx_desc *ptxdesc;
-    struct sta_unit *psta;
+#endif
     tx_info_st *tx_info = nic_info->tx_info;
-    mlme_info_t *mlme_info = nic_info->mlme_info;
 
     if(pxmitbuf == NULL)
     {
@@ -1773,7 +1758,7 @@ int wf_nic_mgmt_frame_xmit (nic_info_st *nic_info, wdn_net_info_st *wdn,
         return -1;
     }
 
-#ifdef CONFIG_RICHV200_FPGA
+#ifdef CONFIG_RICHV200
     // add txd
     pbuf = pxmitbuf->pbuf;
     pwlanhdr = pbuf + TXDESC_OFFSET_NEW;
@@ -1986,16 +1971,14 @@ int wf_nic_mgmt_frame_xmit_with_ack(nic_info_st *nic_info, wdn_net_info_st *wdn,
 {
     int ret;
     wf_u8 val;
-    wf_u8 bc_addr[WF_ETH_ALEN] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
-    wf_u16 raid;
     wf_u8 *pbuf;
     wf_u8 *pwlanhdr;
+#ifndef CONFIG_RICHV200
     struct tx_desc *ptxdesc;
-    struct sta_unit *psta;
+#endif
     wf_u32 timeout = 0;
 
     tx_info_st *tx_info = nic_info->tx_info;
-    mlme_info_t *mlme_info = nic_info->mlme_info;
 
     if(pxmitbuf == NULL)
     {
@@ -2009,7 +1992,7 @@ int wf_nic_mgmt_frame_xmit_with_ack(nic_info_st *nic_info, wdn_net_info_st *wdn,
         return -1;
     }
 
-#ifdef CONFIG_RICHV200_FPGA
+#ifdef CONFIG_RICHV200
     // add txd
     pbuf = pxmitbuf->pbuf;
     pwlanhdr = pbuf + TXDESC_OFFSET_NEW;
@@ -2263,7 +2246,6 @@ int wf_tx_info_init(nic_info_st *nic_info)
     tx_info_st *tx_info;
     struct xmit_frame *pxmit_frame;
     struct xmit_buf *pxmit_buf;
-    char threadName[32];
 
 
     LOG_I("tx_info init");
@@ -2646,9 +2628,7 @@ wf_bool wf_tx_msdu_to_mpdu(nic_info_st *nic_info, struct xmit_frame *pxmitframe,
     wf_u8 *pbuf_start;
     wf_u8 *pframe, *mem_start;
     wf_s32 frg_inx, frg_len, mpdu_len, llc_sz, mem_sz;
-    tx_info_st *tx_info = nic_info->tx_info;
     hw_info_st *hw_info = nic_info->hw_info;
-    sec_info_st *sec_info = nic_info->sec_info;
     int msduOffset = 0;
     int msduRemainLen = 0;
 
@@ -2803,7 +2783,6 @@ int wf_tx_msdu(nic_info_st *nic_info, wf_u8 *msdu_buf, int msdu_len, void *pkt)
     wf_s32 res;
     tx_info_st *ptx_info = nic_info->tx_info;
     struct xmit_frame *pxmitframe = NULL;
-    int i=0;
     pxmitframe = wf_xmit_frame_new(ptx_info);
     if (pxmitframe == NULL)
     {
@@ -2832,10 +2811,7 @@ wf_bool wf_tx_data_check(nic_info_st *nic_info)
     hw_info_st *phw_info = nic_info->hw_info;
     mlme_info_t *mlme_info = nic_info->mlme_info;
     local_info_st * plocal = (local_info_st *)nic_info->local_info;
-#ifdef CFG_ENABLE_AP_MODE
-    wf_wlan_info_t *wlan_info = nic_info->wlan_info;
-    wf_wlan_network_t *cur_network = &wlan_info->cur_network;
-#endif
+
     if(nic_info->is_up == 0)
     {
         goto tx_drop;
@@ -2882,7 +2858,7 @@ tx_drop:
 
 void wf_tx_agg_num_fill(wf_u16 agg_num, wf_u8 * pbuf)
 {
-#ifdef CONFIG_RICHV200_FPGA
+#ifdef CONFIG_RICHV200
     SET_BITS_TO_LE_4BYTE(pbuf + 12, 24, 8, agg_num);
     // recalc txd checksum
     wf_txdesc_chksum(pbuf);

@@ -2,11 +2,21 @@
 #include "wf_debug.h"
 #ifdef CONFIG_ARS_SUPPORT
 
+#if 0
+#define ARS_BBPS_DBG(fmt, ...)      LOG_D("ARS_BBPS[%s,%d]"fmt, __func__, __LINE__,##__VA_ARGS__)
+#define ARS_BBPS_PRT(fmt, ...)      LOG_D("ARS_BBPS-"fmt,##__VA_ARGS__)
 
+#else
+#define ARS_BBPS_DBG(fmt, ...)
+#define ARS_BBPS_PRT(fmt, ...) 
+#endif
 
-void odm_DynamicBBPowerSaving(void *ars)
+#define ARS_BBPS_INFO(fmt, ...)      LOG_I("ARS_BBPS-"fmt,##__VA_ARGS__)
+#define ARS_BBPS_ERR(fmt, ...)      LOG_E("ARS_BBPS-"fmt,##__VA_ARGS__)
+
+wf_s32 odm_DynamicBBPowerSaving(void *ars)
 {   
-    ars_st*     pars = ars;
+    ars_st*     pars = NULL;
 
     #if 0
     if (pars->SupportICType != ODM_RTL8723A)
@@ -32,8 +42,34 @@ void odm_DynamicBBPowerSaving(void *ars)
     #else
     //to do
     #endif
+    pars = ars;
+    
+    return 0;
 }
 
+wf_s32 odm_DynamicBBPowerSavingInit(void *ars)
+{
+    ars_st *pars = NULL;
+    ars_bbps_info_st *bbps = NULL;
+    if(NULL == ars)
+    {
+        ARS_BBPS_ERR("input param is null");
+        return WF_RETURN_FAIL;
+    }
+
+    ARS_BBPS_INFO("start");
+    pars = ars;
+    bbps = &pars->bbps;
+    
+    bbps->PreCCAState = CCA_MAX;
+    bbps->CurCCAState = CCA_MAX;
+    bbps->PreRFState = RF_MAX;
+    bbps->CurRFState = RF_MAX;
+    bbps->Rssi_val_min = 0;
+    bbps->initialize = 0;
+
+    return WF_RETURN_OK;
+}
 
 #endif
 

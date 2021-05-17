@@ -24,7 +24,7 @@ typedef enum
 
 typedef struct
 {
-    wf_que_list list;
+    wf_que_list_t list;
     wf_ap_msg_tag_e tag;
     wf_u16 len;
     union

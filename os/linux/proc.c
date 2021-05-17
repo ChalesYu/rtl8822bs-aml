@@ -46,16 +46,24 @@ static ssize_t wf_set_demo(struct file *file, const char __user *buffer, size_t 
 }
 
 
+static int wf_get_version_info(struct seq_file *m, void *v)
+{
+#ifdef COMPILE_TIME
+    wf_print_seq(m, "Driver Ver:%s, Compile time:%s\n", WF_VERSION, COMPILE_TIME);
+#else
+    wf_print_seq(m,"Driver Ver:%s\n", WF_VERSION);
+#endif
+	return 0;
+}
+
+
 static int wf_get_rx_info(struct seq_file *m, void *v)
 {
     hif_node_st *hif_info           = m->private;
     nic_info_st *pnic_info          = NULL;
     wdn_net_info_st *wdn_net_info   = NULL;
-    mlme_info_t  *mlme_info        = NULL;
     rx_info_t *rx_info              = NULL;
-    tx_info_st *tx_info             = NULL;
-    wf_list_t *pos           = NULL;
-    data_queue_node_st *data_node   = NULL;
+	data_queue_node_st *data_node   = NULL;
     int i                           = 0;
     if(NULL == hif_info)
     {
@@ -175,11 +183,8 @@ static int wf_get_tx_info(struct seq_file *m, void *v)
 {
     hif_node_st *hif_info           = m->private;
     nic_info_st *pnic_info           = NULL;
-    wdn_net_info_st *wdn_net_info   = NULL;
-    rx_info_t *rx_info              = NULL;
     tx_info_st *tx_info             = NULL;
-    wf_list_t *pos           = NULL;
-    data_queue_node_st *data_node   = NULL;
+	data_queue_node_st *data_node   = NULL;
     int i                           = 0;
     if(NULL == hif_info)
     {
@@ -206,7 +211,6 @@ static int wf_get_tx_info(struct seq_file *m, void *v)
 
     if(HIF_SDIO == hif_info->hif_type)
     {
-        wf_u32 reg_val;
         hif_sdio_st *sd = &hif_info->u.sdio;
 
         wf_print_seq(m,"tx_fifo_ppg_num    :%d\n",sd->tx_fifo_ppg_num);
@@ -338,7 +342,6 @@ static int wf_get_sta_info(struct seq_file *m, void *v)
 {
     nic_info_st *pnic_info = NULL;
     hif_node_st *hif_info  = m->private;
-    wf_wlan_info_t *pwlan_info;
     wdn_list *pwdn;
     wdn_net_info_st *pwdn_info;
     wf_list_t *pos, *pos_next;
@@ -357,7 +360,7 @@ static int wf_get_sta_info(struct seq_file *m, void *v)
         return -1;
     }
 
-    pnic_info->sec_info;
+    psec_info = pnic_info->sec_info;
     /* ap message free queue */
     if (psec_info)
     {
@@ -410,7 +413,6 @@ static int wf_get_rtx_info(struct seq_file *m, void *v)
 {
     nic_info_st *pnic_info          = NULL;
     hif_node_st *hif_info           = m->private;
-    wdn_net_info_st *wdn_net_info   = NULL;
     rx_info_t *rx_info              = NULL;
     tx_info_st *tx_info             = NULL;
     if(NULL == hif_info)
@@ -473,6 +475,7 @@ const struct wf_proc_handle proc_hdls[] =
     wf_register_proc_interface("ap_info", wf_get_sta_info, wf_set_sta_info),
 #endif
     wf_register_proc_interface("rtx_info", wf_get_rtx_info, wf_set_rtx_info),
+    wf_register_proc_interface("version", wf_get_version_info, NULL),
 };
 const int wf_proc_hdls_num = sizeof(proc_hdls) / sizeof(struct wf_proc_handle);
 

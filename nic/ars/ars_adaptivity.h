@@ -1,6 +1,16 @@
 #ifndef __ARS_ADAPTIVITY_H__
 #define __ARS_ADAPTIVITY_H__
 
+#define PwdBUpperBound	7
+#define DFIRloss	5
+
+typedef enum tag_PhyDM_MACEDCCA_Type
+{
+    PhyDM_IGNORE_EDCCA      = 0,
+    PhyDM_DONT_IGNORE_EDCCA = 1
+}PhyDM_MACEDCCA_Type;
+
+
 typedef struct _ADAPTIVITY_STATISTICS 
 {
     wf_s8           TH_L2H_ini_backup;
@@ -22,9 +32,9 @@ typedef struct adaptivity_statistics_info_st_
     
 }adaptivity_statistics_info_st;
 
-void Phydm_Adaptivity(void *ars,wf_u8 IGI);
-void Phydm_CheckAdaptivity(void *ars);
-void Phydm_NHMCounterStatisticsInit(void *ars);
-
+wf_s32 Phydm_Adaptivity(void *ars,wf_u8 IGI);
+wf_s32 Phydm_CheckAdaptivity(void *ars);
+wf_s32 Phydm_NHMCounterStatisticsInit(void *ars);
+wf_s32 Phydm_AdaptivityInit(void *ars);
 
 #endif

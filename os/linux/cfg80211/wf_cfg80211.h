@@ -41,14 +41,19 @@ int wf_cfg80211_reg (struct wiphy *pwiphy);
 void wf_cfg80211_widev_unreg (nic_info_st *pnic_info);
 int wf_cfg80211_mgmt_tx(nic_info_st *pnic_info, wf_u8 tx_ch, wf_u8 no_cck, const wf_u8 *buf, size_t len, int wait_ack);
 void wf_cfg80211_indicate_connect (nic_info_st *pnic_info);
+#ifdef CFG_ENABLE_ADHOC_MODE
 void wf_cfg80211_ibss_indicate_connect (nic_info_st *pnic_info);
-void wf_cfg80211_indicate_disconnect(nic_info_st *pnic_info);
+void wf_cfg80211_ibss_indicate_disconnect(nic_info_st *pnic_info);
+void wf_cfg80211_unlink_ibss(nic_info_st *pnic_info);
+#endif
 void wf_cfg80211_indicate_disconnect(nic_info_st *pnic_info);
 void wf_ap_cfg80211_assoc_event_up(nic_info_st *pnic_info, 	wf_u8 *passoc_req, wf_u32 assoc_req_len);
 void wf_ap_cfg80211_disassoc_event_up(nic_info_st *pnic_info, wdn_net_info_st *pwdn_info );
 void wf_cfg80211_scan_done_event_up(nic_info_st *pnic_info, wf_bool aborted);
 struct cfg80211_bss *inform_bss (nic_info_st *pnic_info, wf_wlan_scanned_info_t *pscaned_info);
 void wf_cfg80211_vir_nic_scan_finish(nic_info_st *pnic_info, wf_bool babort);
+int wf_cfg80211_set_wps_p2pie(nic_info_st *nic_info, char *buf, int len, int type);
+
 
 #define ndev_to_wdev(n) ((n)->ieee80211_ptr)
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(3,6,0))

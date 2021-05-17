@@ -176,4 +176,7 @@ typedef struct ODM_RF_Calibration_Structure
     wf_s8 Modify_TxAGC_Value_CCK;
 }ODM_RF_CAL_T,*PODM_RF_CAL_T;
 
+wf_s32 phydm_rf_init(void *ars);
+wf_s32 odm_TXPowerTrackingInit(void *ars);
+
 #endif

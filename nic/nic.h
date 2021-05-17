@@ -10,17 +10,11 @@ typedef enum
 
 typedef struct
 {
-    wf_u8  fw_usb_rom_type;
-    wf_u32 fw0_usb_size;
-    wf_u32 fw1_usb_size;
-    char  *fw0_usb;
-    char  *fw1_usb;
-
-    wf_u8  fw_sdio_rom_type;
-    wf_u32 fw0_sdio_size;
-    wf_u32 fw1_sdio_size;
-    char  *fw0_sdio;
-    char  *fw1_sdio;
+    wf_u8  fw_rom_type;
+    wf_u32 fw0_size;
+    wf_u32 fw1_size;
+    char  *fw0;
+    char  *fw1;
 } fwdl_info_t;
 
 
@@ -139,7 +133,6 @@ typedef struct nic_info
 	wf_bool is_driver_stopped;
 	wf_bool is_up;
     wf_os_api_sema_t cmd_sema;
-    wf_bool cmd_lock_use;
     wf_u32  nic_state;
     fwdl_info_t fwdl_info;
     wf_u32 setband;
@@ -197,6 +190,9 @@ typedef struct nic_info
 
     /*AdaptiveRateSystem*/
     void *ars;
+
+    /*adhoc info*/
+    void *adhoc_info;
     
     /* check flag */
     int func_check_flag; //0xAA55BB66

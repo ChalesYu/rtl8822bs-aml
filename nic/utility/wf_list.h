@@ -24,14 +24,14 @@ typedef struct WF_LIST
 } wf_list_t;
 
 /* function declaration */
-wf_inline static wf_list_t *wf_list_next (wf_list_t *plist)
+wf_inline static wf_list_t *wf_list_next (wf_list_t *pos)
 {
-    return plist->pnext;
+    return pos->pnext;
 }
 
-wf_inline static wf_list_t *wf_list_prev (wf_list_t *plist)
+wf_inline static wf_list_t *wf_list_prev (wf_list_t *pos)
 {
-    return plist->prev;
+    return pos->prev;
 }
 
 wf_inline static wf_bool wf_list_is_empty (wf_list_t *phead)
@@ -47,14 +47,24 @@ wf_inline static void wf_list_insert (wf_list_t *pnew, wf_list_t *prev, wf_list_
     prev->pnext = pnew;
 }
 
-wf_inline static void wf_list_insert_head (wf_list_t *plist, wf_list_t *phead)
+wf_inline static void wf_list_insert_next (wf_list_t *pnew, wf_list_t *pos)
 {
-    wf_list_insert(plist, phead, wf_list_next(phead));
+    wf_list_insert(pnew, pos, wf_list_next(pos));
 }
 
-wf_inline static void wf_list_insert_tail (wf_list_t *plist, wf_list_t *phead)
+wf_inline static void wf_list_insert_prev (wf_list_t *pnew, wf_list_t *pos)
 {
-    wf_list_insert(plist, wf_list_prev(phead), phead);
+    wf_list_insert(pnew, wf_list_prev(pos), pos);
+}
+
+wf_inline static void wf_list_insert_head (wf_list_t *pnew, wf_list_t *phead)
+{
+    wf_list_insert_next(pnew, phead);
+}
+
+wf_inline static void wf_list_insert_tail (wf_list_t *pnew, wf_list_t *phead)
+{
+    wf_list_insert_prev(pnew, phead);
 }
 
 wf_inline static void wf_list_del (wf_list_t *prev, wf_list_t *pnext)
@@ -68,10 +78,10 @@ wf_inline static void wf_list_init (wf_list_t *plist)
     plist->pnext = plist->prev = plist;
 }
 
-wf_inline static void wf_list_delete (wf_list_t *plist)
+wf_inline static void wf_list_delete (wf_list_t *pos)
 {
-    wf_list_del(wf_list_prev(plist), wf_list_next(plist));
-    wf_list_init(plist);
+    wf_list_del(wf_list_prev(pos), wf_list_next(pos));
+    wf_list_init(pos);
 }
 
 #endif /* END OF __WF_LIST_H__ */

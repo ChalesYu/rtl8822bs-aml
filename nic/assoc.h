@@ -16,7 +16,6 @@ enum
 typedef wf_u8 assoc_rsp_t[WF_80211_MGMT_ASSOC_SIZE_MAX];
 typedef struct
 {
-    wdn_net_info_st *wdn_info;
     wf_os_api_sema_t sema;
     wf_msg_que_t msg_que;
     wf_u8 retry_cnt;

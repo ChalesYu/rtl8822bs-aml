@@ -78,14 +78,8 @@ int wf_local_cfg_set_default(nic_info_st *nic_info)
     LOG_D("[LOCAL_CFG] work_mode: %d",local_info->work_mode);
     LOG_D("[LOCAL_CFG] channel: %d",local_info->channel);
     LOG_D("[LOCAL_CFG] bw: %d",local_info->bw);
-    LOG_D("[LOCAL_CFG] adhoc_master: %d",local_info->adhoc_master);
     LOG_D("[LOCAL_CFG] ssid: %s",local_info->ssid);
-    
 
-#ifdef CFG_ENABLE_ADHOC_MODE
-	set_adhoc_master(nic_info, wf_false);
-#endif
-    
 	ret = wf_hw_info_set_channnel_bw(nic_info,local_info->channel,local_info->bw, HAL_PRIME_CHNL_OFFSET_DONT_CARE);
     if (ret != WF_RETURN_OK)
     {

@@ -27,10 +27,10 @@ int wf_io_write16(const nic_info_st *nic_info, wf_u32 addr, wf_u16 value);
 int wf_io_write32(const nic_info_st *nic_info, wf_u32 addr, wf_u32 value);
 
 /* send special cmd */
-int wf_io_write_cmd_special(nic_info_st *nic_info, wf_u32 func_code, wf_u32 *recv,  int len, int offs);
 
 /* send cmd */
 int wf_io_write_cmd_by_mailbox(nic_info_st *nic_info, wf_u32 cmd, wf_u32 *send_buf, wf_u32 send_len, wf_u32 *recv_buf, wf_u32 recv_len);
+int wf_io_write_cmd_by_mailbox_try(nic_info_st *nic_info, wf_u32 cmd, wf_u32 *send_buf, wf_u32 send_len, wf_u32 *recv_buf, wf_u32 recv_len);
 int wf_io_write_cmd_by_txd(nic_info_st *nic_info, wf_u32 cmd, wf_u32 *send_buf, wf_u32 send_len, wf_u32 *recv_buf, wf_u32 recv_len);
 
 /* send data */

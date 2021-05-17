@@ -2,13 +2,18 @@
 #include "wf_debug.h"
 #ifdef CONFIG_ARS_SUPPORT
 
-typedef struct _EDCA_TURBO_
-{
-    wf_bool bCurrentTurboEDCA;
-    wf_bool bIsCurRDLState;
-    wf_u32  prv_traffic_idx; // edca turbo
+#if 0
+#define ARS_EDCA_DBG(fmt, ...)      LOG_D("ARS_EDCA[%s,%d]"fmt, __func__, __LINE__,##__VA_ARGS__)
+#define ARS_EDCA_PRT(fmt, ...)      LOG_D("ARS_EDCA-"fmt,##__VA_ARGS__)
 
-}EDCA_T,*pEDCA_T;
+#else
+#define ARS_EDCA_DBG(fmt, ...)
+#define ARS_EDCA_PRT(fmt, ...) 
+#endif
+#define ARS_EDCA_INFO(fmt, ...)      LOG_I("ARS_EDCA-"fmt,##__VA_ARGS__)
+#define ARS_EDCA_ERR(fmt, ...)      LOG_E("ARS_EDCA-"fmt,##__VA_ARGS__)
+
+#if 0
 static wf_u32 edca_setting_UL[HT_IOT_PEER_MAX] = 
 // UNKNOWN   REALTEK_90  REALTEK_92SE   BROADCOM    RALINK      ATHEROS     CISCO       MERU        MARVELL     92U_AP      SELF_AP(DownLink/Tx)
 {  0x5e4322, 0xa44f,     0x5e4322,      0x5ea32b,   0x5ea422,   0x5ea322,   0x3ea430,   0x5ea42b,   0x5ea44f,   0x5e4322,   0x5e4322};
@@ -22,9 +27,9 @@ static wf_u32 edca_setting_DL_GMode[HT_IOT_PEER_MAX] =
 // UNKNOWN      REALTEK_90  REALTEK_92SE    BROADCOM    RALINK      ATHEROS     CISCO   MERU,       MARVELL     92U_AP      SELF_AP
 { 0x4322,       0xa44f,     0x5e4322,       0xa42b,     0x5e4322,   0x4322,     0xa42b, 0x5ea42b,   0xa44f,     0x5e4322,   0x5ea42b};
 
+#endif
 
-
-void odm_EdcaTurboCheckCE(void *ars)
+wf_s32 odm_EdcaTurboCheckCE(void *ars)
 {
     #if 0
     ars_st *        pars = ars;
@@ -158,9 +163,11 @@ void odm_EdcaTurboCheckCE(void *ars)
     //to do
     #endif
 
+    return WF_RETURN_OK;
+
 }
 
-void odm_EdcaTurboCheck(void *ars)
+wf_s32 odm_EdcaTurboCheck(void *ars)
 {
     // 
     // For AP/ADSL use prtl8192cd_priv
@@ -176,7 +183,76 @@ void odm_EdcaTurboCheck(void *ars)
    
     odm_EdcaTurboCheckCE(pars);
 
+    return WF_RETURN_OK;
 }   // odm_CheckEdcaTurbo
+
+
+
+wf_s32 ODM_EdcaTurboInit(void *ars)
+{
+    ars_st *pars    = NULL;
+    wf_s32 err      = 0;
+    wf_u32 value_vo = 0;
+    wf_u32 value_vi = 0;
+    wf_u32 value_be = 0;
+    wf_u32 value_bk = 0;
+    nic_info_st *nic_info = NULL;
+    
+    if(NULL == ars)
+    {
+        ARS_EDCA_ERR("input param is null");
+        return WF_RETURN_FAIL;
+    }
+
+    ARS_EDCA_INFO("start");
+    
+    pars = ars;
+    nic_info = pars->nic_info;
+    
+    pars->edcaturbo.DM_EDCA_Table.bCurrentTurboEDCA = wf_false;
+    pars->edcaturbo.DM_EDCA_Table.bIsCurRDLState = wf_false;
+    pars->edcaturbo.bIsAnyNonBEPkts =wf_false;
+
+    ars_io_lock_try(pars);
+    value_vo = wf_io_read32(pars->nic_info,ODM_EDCA_VO_PARAM,&err);
+    if(err)
+    {
+        ARS_EDCA_ERR("[%s] ODM_EDCA_VO_PARAM failed",__func__);
+        ars_io_unlock_try(pars);
+        return err;
+    }
+
+    value_vi = wf_io_read32(pars->nic_info,ODM_EDCA_VI_PARAM,&err);
+    if(err)
+    {
+        ARS_EDCA_ERR("[%s] ODM_EDCA_VO_PARAM failed",__func__);
+        ars_io_unlock_try(pars);
+        return err;
+    }
+    value_be = wf_io_read32(pars->nic_info,ODM_EDCA_BE_PARAM,&err);
+    if(err)
+    {
+        ARS_EDCA_ERR("[%s] ODM_EDCA_VO_PARAM failed",__func__);
+        ars_io_unlock_try(pars);
+        return err;
+    }
+    value_bk = wf_io_read32(pars->nic_info,ODM_EDCA_BK_PARAM,&err);
+    if(err)
+    {
+        ARS_EDCA_ERR("[%s] ODM_EDCA_VO_PARAM failed",__func__);
+        ars_io_unlock_try(pars);
+        return err;
+    }
+    ars_io_unlock_try(pars);
+    
+    LOG_I("Orginial VO PARAM: 0x%x\n",value_vo);
+    LOG_I("Orginial VI PARAM: 0x%x\n",value_vi);
+    LOG_I("Orginial BE PARAM: 0x%x\n",value_be);
+    LOG_I("Orginial BK PARAM: 0x%x\n",value_bk);
+
+    return WF_RETURN_OK;
+}
+
 
 #endif
 

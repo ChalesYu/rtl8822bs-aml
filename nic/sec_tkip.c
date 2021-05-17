@@ -260,7 +260,7 @@ int tkip_encrypt (struct xmit_frame *pxmitframe, wf_u8 *pdata, wf_u32 len)
     /* calculate ICV */
     payload = &pframe[payload_ofs];
     //*((__le32 *)crc) = get_crc32(payload, payload_len);
-	*((wf_u32 *)crc) = get_crc32(payload, payload_len);
+    *((wf_u32 *)crc) = get_crc32(payload, payload_len);
     /* encrypt MSDU */
     arc4_init(&acr4_context, rc4key, 16);
     arc4_encrypt(&acr4_context, payload, payload, payload_len);
@@ -288,7 +288,6 @@ int tkip_decrypt (prx_pkt_t ppkt)
     wf_u8 *icv;
     wf_u32 icv_ofs;
     wf_u32 icv_len;
-	wf_u8 mic_code[8];
     wf_u16 pnl;
     wf_u32 pnh;
     wf_u8 rc4key[16];
@@ -348,9 +347,9 @@ int tkip_decrypt (prx_pkt_t ppkt)
 
     /* recalculate and verify ICV */
     //*((__le32 *)crc) = get_crc32(payload, payload_len);
-	*((wf_u32 *)crc) = get_crc32(payload, payload_len);
+    *((wf_u32 *)crc) = get_crc32(payload, payload_len);
     icv = &pframe[icv_ofs];
-	if (wf_memcmp(crc, icv, icv_len))
+    if (wf_memcmp(crc, icv, icv_len))
     {
         LOG_W("icv error crc");
         res = -3;

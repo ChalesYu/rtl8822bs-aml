@@ -1,54 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <ClCompile Include="mp\mp_cntl.c">
-      <Filter>Source Files\mp</Filter>
-    </ClCompile>
-    <ClCompile Include="mp\mp_elem.c">
-      <Filter>Source Files\mp</Filter>
-    </ClCompile>
-    <ClCompile Include="mp\mp_evnts.c">
-      <Filter>Source Files\mp</Filter>
-    </ClCompile>
-    <ClCompile Include="mp\mp_dbg.c">
-      <Filter>Source Files\mp</Filter>
-    </ClCompile>
-    <ClCompile Include="mp\mp_main.c">
-      <Filter>Source Files\mp</Filter>
-    </ClCompile>
-    <ClCompile Include="mp\mp_oids.c">
-      <Filter>Source Files\mp</Filter>
-    </ClCompile>
-    <ClCompile Include="mp\mp_power.c">
-      <Filter>Source Files\mp</Filter>
-    </ClCompile>
-    <ClCompile Include="mp\mp_recv.c">
-      <Filter>Source Files\mp</Filter>
-    </ClCompile>
-    <ClCompile Include="mp\mp_send.c">
-      <Filter>Source Files\mp</Filter>
-    </ClCompile>
-    <ClCompile Include="mp\mp_util.c">
-      <Filter>Source Files\mp</Filter>
-    </ClCompile>
-    <ClCompile Include="hw\usb_reg.c">
-      <Filter>Source Files\hw</Filter>
-    </ClCompile>
-    <ClCompile Include="hw\usb_main.c">
-      <Filter>Source Files\hw</Filter>
-    </ClCompile>
-    <ClCompile Include="hw\usb_recv.c">
-      <Filter>Source Files\hw</Filter>
-    </ClCompile>
-    <ClCompile Include="hw\usb_xmit.c">
-      <Filter>Source Files\hw</Filter>
-    </ClCompile>
-    <ClCompile Include="hw\bus_intf.c">
-      <Filter>Source Files\hw</Filter>
-    </ClCompile>
-    <ClCompile Include="hw\usb_io.c">
-      <Filter>Source Files\hw</Filter>
-    </ClCompile>
     <ClCompile Include="os_porting\wf_os_api_file.c">
       <Filter>Source Files\os_porting</Filter>
     </ClCompile>
@@ -157,18 +109,6 @@
     <ClCompile Include="..\..\..\..\nic\utility\wf_timer.c">
       <Filter>Source Files\nic</Filter>
     </ClCompile>
-    <ClCompile Include="dataflow\tx_windows.c">
-      <Filter>Source Files\dataflow</Filter>
-    </ClCompile>
-    <ClCompile Include="hw\hw_oids.c">
-      <Filter>Source Files\hw</Filter>
-    </ClCompile>
-    <ClCompile Include="dataflow\rx_windows.c">
-      <Filter>Source Files\dataflow</Filter>
-    </ClCompile>
-    <ClCompile Include="hw\wf_oids_adapt.c">
-      <Filter>Source Files\hw</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\..\..\nic\p2p\p2p.c">
       <Filter>Source Files\nic</Filter>
     </ClCompile>
@@ -190,11 +130,38 @@
     <ClCompile Include="..\..\..\..\nic\utility\wf_msg.c">
       <Filter>Source Files\nic</Filter>
     </ClCompile>
-    <ClCompile Include="hw\hw_sec.c">
-      <Filter>Source Files\hw</Filter>
+    <ClCompile Include="intf\wf_ioctrl.c">
+      <Filter>Source Files\intf</Filter>
     </ClCompile>
-    <ClCompile Include="hw\hw_init.c">
-      <Filter>Source Files\hw</Filter>
+    <ClCompile Include="intf\wf_oids.c">
+      <Filter>Source Files\intf</Filter>
+    </ClCompile>
+    <ClCompile Include="intf\wf_oids_adapt.c">
+      <Filter>Source Files\intf</Filter>
+    </ClCompile>
+    <ClCompile Include="intf\wf_oids_sec.c">
+      <Filter>Source Files\intf</Filter>
+    </ClCompile>
+    <ClCompile Include="trx\rx_windows.c">
+      <Filter>Source Files\trx</Filter>
+    </ClCompile>
+    <ClCompile Include="trx\tx_windows.c">
+      <Filter>Source Files\trx</Filter>
+    </ClCompile>
+    <ClCompile Include="pwr\power_on.c">
+      <Filter>Source Files\pwr</Filter>
+    </ClCompile>
+    <ClCompile Include="usb\usb_dev.c">
+      <Filter>Source Files\usb</Filter>
+    </ClCompile>
+    <ClCompile Include="usb\usb_reg.c">
+      <Filter>Source Files\usb</Filter>
+    </ClCompile>
+    <ClCompile Include="mp\mp_dev.c">
+      <Filter>Source Files\mp</Filter>
+    </ClCompile>
+    <ClCompile Include="mp\mp_power.c">
+      <Filter>Source Files\mp</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -422,9 +389,6 @@
     <Filter Include="Source Files">
       <UniqueIdentifier>{c2c121aa-04cf-498a-8a05-b75c41a62bce}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Source Files\hw">
-      <UniqueIdentifier>{8da11839-0957-4d28-a822-f5daaf0aca6f}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Source Files\mp">
       <UniqueIdentifier>{13ede8cb-9329-47b8-9e4f-5d5122403dec}</UniqueIdentifier>
     </Filter>
@@ -434,8 +398,17 @@
     <Filter Include="Source Files\nic">
       <UniqueIdentifier>{75a7250a-fea7-46f9-9f73-75bbd297e473}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Source Files\dataflow">
-      <UniqueIdentifier>{9d0dcf12-3ee3-447d-85b1-764a8d3bc510}</UniqueIdentifier>
+    <Filter Include="Source Files\usb">
+      <UniqueIdentifier>{aaeced3e-1e07-4c4b-88af-6c1926c617e5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\pwr">
+      <UniqueIdentifier>{4f62d398-bba3-46b3-a587-c1a0a20f8bd0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\trx">
+      <UniqueIdentifier>{4fce351b-9d0f-431f-927a-7fcd26fe07b8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\intf">
+      <UniqueIdentifier>{7ed587e4-884d-40ba-a950-aa49898b52ff}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

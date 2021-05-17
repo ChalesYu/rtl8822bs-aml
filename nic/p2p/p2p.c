@@ -312,17 +312,17 @@ wf_s32 wf_p2p_enable(nic_info_st *nic_info,P2P_ROLE role)
 {
     
     wf_s32 ret = WF_RETURN_OK;
-    nic_info_st *pother_nic                 = NULL;
     struct wifidirect_info *pwdinfo         = NULL;
+    p2p_info_st *p2p_info = nic_info->p2p;
+#ifdef CONFIG_CONCURRENT_MODE
+    nic_info_st *pother_nic                 = NULL;
     struct wifidirect_info *pbuddy_wdinfo   = NULL;
     wf_wlan_info_t *pother_wlan_info        = NULL;
     wf_wlan_network_t *pother_cur_network   = NULL;
-    wf_u8 channel = 0;
-    wf_u8 ch_offset = 0;
-    wf_u16 bwmode = 0;
-    wf_bool other_bconnect= wf_false;
-    p2p_info_st *p2p_info = nic_info->p2p;
     p2p_info_st *other_p2p_info = NULL;
+    wf_bool other_bconnect= wf_false;
+
+#endif
 
     LOG_I("[%s,%d] role:%s",__func__,__LINE__,p2p_role_to_str(role));
     pwdinfo = &p2p_info->wdinfo;
@@ -385,17 +385,17 @@ wf_s32 wf_p2p_enable(nic_info_st *nic_info,P2P_ROLE role)
             p2p_set_pre_state(pwdinfo, P2P_STATE_GONEGO_OK);
         }
 
-        wf_odm_sync_msg(nic_info,HAL_MSG_P2P_STATE,wf_true);
+        wf_mcu_msg_body_sync(nic_info,HAL_MSG_P2P_STATE,wf_true);
 #ifdef CONFIG_WFD
         //if (Func_Chip_Hw_Chk_Wl_Func(pwadptdata, WL_FUNC_MIRACAST))
         if(0)
         {
-            wf_odm_sync_msg(nic_info,HAL_MSG_WIFI_DISPLAY_STATE,wf_true);
+            wf_mcu_msg_body_sync(nic_info,HAL_MSG_WIFI_DISPLAY_STATE,wf_true);
         }
 #endif
     }
 
-    return 0;
+    return ret;
 
 }
 
@@ -428,12 +428,12 @@ wf_s32 wf_p2p_disable(nic_info_st *nic_info)
         pwdinfo->profileindex = 0;
     }
 
-    wf_odm_sync_msg(nic_info,HAL_MSG_P2P_STATE,wf_false);
+    wf_mcu_msg_body_sync(nic_info,HAL_MSG_P2P_STATE,wf_false);
 #ifdef CONFIG_WFD
     //if (Func_Chip_Hw_Chk_Wl_Func(pwadptdata, WL_FUNC_MIRACAST))
     if(0)
     { 
-        wf_odm_sync_msg(nic_info,HAL_MSG_WIFI_DISPLAY_STATE,wf_false);
+        wf_mcu_msg_body_sync(nic_info,HAL_MSG_WIFI_DISPLAY_STATE,wf_false);
     }
 #endif
 #if 0

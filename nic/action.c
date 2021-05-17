@@ -2,20 +2,21 @@
 #include "wf_debug.h"
 
 /* macro */
-#if 1
-#define ACTION_DBG(fmt, ...)        LOG_D("[%s]"fmt, __func__, ##__VA_ARGS__)
+#if 0
+#define ACTION_DBG(fmt, ...)        LOG_D("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
 #define ACTION_ARRAY(data, len)     log_array(data, len)
 #else
 #define ACTION_DBG(fmt, ...)
 #define ACTION_ARRAY(data, len)
 #endif
-#define ACTION_WARN(fmt, ...)       LOG_E("[%s]"fmt, __func__, ##__VA_ARGS__)
-#define ACTION_INFO(fmt, ...)       LOG_I("[%s]"fmt, __func__, ##__VA_ARGS__)
+#define ACTION_INFO(fmt, ...)       LOG_I("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
+#define ACTION_WARN(fmt, ...)       LOG_W("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
+#define ACTION_ERROR(fmt, ...)      LOG_E("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
 
 static
 wf_u8 get_rx_ampdu_size(nic_info_st *nic_info)
 {
-    wf_u8 size;
+    wf_u8 size          = 0;
     hw_info_st *hw_info = nic_info->hw_info;
 
     switch (hw_info->max_rx_ampdu_factor)
@@ -43,9 +44,9 @@ wf_u8 get_rx_ampdu_size(nic_info_st *nic_info)
 static
 int action_frame_add_ba_response(nic_info_st *nic_info)
 {
-    mlme_info_t *pmlme_info = nic_info->mlme_info;
-    wf_add_ba_parm_st *barsp_parm = &pmlme_info->barsp_parm;
-    int rst;
+    mlme_info_t *pmlme_info         = nic_info->mlme_info;
+    wf_add_ba_parm_st *barsp_parm   = &pmlme_info->barsp_parm;
+    int rst                         = 0;
 
     barsp_parm->size = get_rx_ampdu_size(nic_info);
     rst = wf_mlme_add_ba_rsp(nic_info);
@@ -62,16 +63,17 @@ static
 int action_frame_block_ack (nic_info_st *nic_info, wdn_net_info_st *pwdn_info,
                             wf_u8 *pkt, wf_u16 pkt_len)
 {
-    wf_80211_mgmt_t *pmgmt = (wf_80211_mgmt_t *)pkt;
-    wf_u16 status, tid, reason_code = 0;
-    wf_u8 *frame_body;
-    wf_u8 dialog, policy, size;
-    struct ADDBA_request *preq;
-    wf_u8 action;
-    wf_u16 param, start_req;
-    mlme_info_t *mlme_info = nic_info->mlme_info;
+    wf_80211_mgmt_t *pmgmt      = (wf_80211_mgmt_t *)pkt;
+    wf_u16 status, tid          = 0; 
+    wf_u16 reason_code          = 0;
+    wf_u8 *frame_body           = NULL;
+    struct ADDBA_request *preq  = NULL;
+    wf_u8 action                = 0;
+    wf_u16 param                = 0;
+    mlme_info_t *mlme_info      = nic_info->mlme_info;
     wf_add_ba_parm_st *barsp_parm = &mlme_info->barsp_parm;
 
+    //nic_unused_check(pkt_len);
     frame_body = &pmgmt->action.variable[0];
     action = pmgmt->action.action_field;
     if (pwdn_info == NULL)
@@ -158,9 +160,10 @@ int action_frame_block_ack (nic_info_st *nic_info, wdn_net_info_st *pwdn_info,
 static
 void action_frame_wlan_hdr (nic_info_st *pnic_info, struct xmit_buf *pxmit_buf)
 {
-    wf_u8 *pframe;
-    struct wl_ieee80211_hdr *pwlanhdr;
-    mlme_info_t *pmlme_info = (mlme_info_t *)pnic_info->mlme_info;;
+    wf_u8 *pframe                       = NULL;
+    struct wl_ieee80211_hdr *pwlanhdr   = NULL;
+    
+    //nic_unused_check(pnic_info);
     //LOG_D("[action]%s",__func__);
     pframe = pxmit_buf->pbuf + TXDESC_OFFSET;
     pwlanhdr = (struct wl_ieee80211_hdr *)pframe;
@@ -341,8 +344,8 @@ int wf_action_frame_ht(nic_info_st *nic_info, wf_u8 *pdata, wf_u16 pkt_len)
 int wf_action_frame_process (nic_info_st *nic_info, wdn_net_info_st *pwdn_info,
                              wf_80211_mgmt_t *pmgmt, wf_u16 mgmt_len)
 {
-    mlme_info_t *mlme_info = (mlme_info_t *)nic_info->mlme_info;
-    wf_u8 category;
+    mlme_info_t *mlme_info  = (mlme_info_t *)nic_info->mlme_info;
+    wf_u8 category          = 0;
 
     category = pmgmt->action.action_category;
 
@@ -401,23 +404,22 @@ int wf_action_frame_process (nic_info_st *nic_info, wdn_net_info_st *pwdn_info,
 
 int wf_action_frame_ba_to_issue (nic_info_st *nic_info, wf_u8 action)
 {
-    int rst = 0;
-    wf_u8 *pframe;
-    wf_u16 ba_para_set;
-    wf_u16 ba_timeout_value;
-    wf_u16 ba_starting_seqctrl;
-    wf_u16 start_seq;
-    struct wl_ieee80211_hdr *pwlanhdr;
-    struct xmit_buf *pxmit_buf;
-    wf_u32 pkt_len, i;
-    tx_info_st     *ptx_info;
-    wdn_net_info_st *pwdn_info;
-    mlme_info_t *mlme_info;
-    hw_info_st *hw_info = (hw_info_st *)nic_info->hw_info;
-    wf_u8 initiator = 0;
-    wf_u8 category = WF_WLAN_CATEGORY_BACK;
-    wf_add_ba_parm_st *barsp_info;
-    wf_add_ba_parm_st *bareq_info;
+    int rst                             = 0;
+    wf_u8 *pframe                       = NULL;
+    wf_u16 ba_para_set                  = 0;
+    wf_u16 ba_timeout_value             = 0;
+    wf_u16 ba_starting_seqctrl          = 0;
+    wf_u16 start_seq                    = 0;
+    struct wl_ieee80211_hdr *pwlanhdr   = NULL;
+    struct xmit_buf *pxmit_buf          = NULL;
+    wf_u16 pkt_len                      = 0;
+    tx_info_st  *ptx_info               = NULL;
+    wdn_net_info_st *pwdn_info          = NULL;
+    mlme_info_t *mlme_info              = NULL;
+    wf_u8 initiator                     = 0;
+    wf_u8 category                      = WF_WLAN_CATEGORY_BACK;
+    wf_add_ba_parm_st *barsp_info       = NULL;
+    wf_add_ba_parm_st *bareq_info       = NULL;
 
 
     //LOG_D("[action]%s",__func__);
@@ -547,15 +549,9 @@ int wf_action_frame_ba_to_issue (nic_info_st *nic_info, wf_u8 action)
 
 int wf_action_frame_add_ba_request(nic_info_st *nic_info, struct xmit_frame *pxmitframe)
 {
-    wf_u8 *mem_addr,issued;
-    wf_u32 ff_hwaddr;
-    wf_bool rst = wf_true;
-    wf_bool inner_ret = wf_true;
-    wf_bool blast;
-    int t, sz, w_sz, pull = 0;
-    struct xmit_buf *pxmitbuf = pxmitframe->pxmitbuf;
-    mlme_info_t *mlme_info;
-    wdn_net_info_st *pwdn_info;
+    wf_u8 issued                = 0;
+    mlme_info_t *mlme_info      = NULL;
+    wdn_net_info_st *pwdn_info  = NULL;
 
     if (pxmitframe->bmcast)
     {
@@ -598,8 +594,8 @@ int wf_action_frame_add_ba_request(nic_info_st *nic_info, struct xmit_frame *pxm
 
 int wf_action_frame_del_ba_request(nic_info_st *nic_info)
 {
-    wdn_net_info_st *wdn_net_info;
-    mlme_info_t *mlme_info = (mlme_info_t *)nic_info->mlme_info;
+    wdn_net_info_st *wdn_net_info   = NULL;
+    mlme_info_t *mlme_info          = (mlme_info_t *)nic_info->mlme_info;
 
     wdn_net_info  = wf_wdn_find_info(nic_info, wf_wlan_get_cur_bssid(nic_info));
     if (NULL != wdn_net_info)

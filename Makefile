@@ -9,6 +9,8 @@
 ##
 ## o TOPDIR                        = the toplevel directory (using slashes as path separator)
 ## o SUBDIR                        = the make file folder
+## o CT                            = display driver compile time(y)
+## o CONFIG_DRIVER_VER             = null(use svn version), else this is version
 ## o CONFIG_OS_LINUX               = Linux OS define (y)
 ## o CONFIG_OS_ANDROID             = Android OS define (n)
 ## o CONFIG_OS_RTOS                = RTOS OS define (n)
@@ -22,12 +24,14 @@
 ## o CONFIG_WIFI_MODE              = all(sta/ap/adhoc/monitor), sta, ap, adhoc
 ## o CONFIG_WIFI_FRAMEWORK         = wext, nl80211, mp
 ## o CONFIG_HIF_PORT               = usb, sdio, both
-## o CONFIG_CHIP                   = s9083,s9188_fpga,s9188
+## o CONFIG_CHIP                   = s9083,s9188
 ## o CONFIG_ARS_SUPPORT            = Adaptive rate system(y)
 ################################################################################
   export WDRV_DIR ?= $(shell pwd)
   SUBDIR = mak
   PLATDIR = platform
+  CT                       ?= n
+  CONFIG_DRIVER_VER         = null
   CONFIG_OS_LINUX           = y
   CONFIG_OS_ANDROID         = n
   CONFIG_OS_RTOS            = n

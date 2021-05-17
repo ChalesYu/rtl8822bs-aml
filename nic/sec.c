@@ -2,8 +2,8 @@
 #include "wf_debug.h"
 
 #if 0
-#define SEC_DBG(fmt, ...)       LOG_D("[%s]"fmt, __func__, ##__VA_ARGS__)
-#define SEC_WARN(fmt, ...)      LOG_E("[%s]"fmt, __func__, ##__VA_ARGS__)
+#define SEC_DBG(fmt, ...)       LOG_D("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
+#define SEC_WARN(fmt, ...)      LOG_E("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
 #define SEC_ARRAY(data, len)    log_array(data, len)
 #else
 #define SEC_DBG(...)
@@ -164,7 +164,6 @@ int wf_sec_decryptor (void *ptr)
 
     prx_pkt_info->bdecrypted = wf_true;
 
-exit :
     return res;
 }
 

@@ -6,7 +6,7 @@
 #define RX_DMA_RESERVED_SIZE_9086X  0x80
 #define RX_DMA_BOUNDARY_9086X       (RX_DMA_SIZE_9086X - RX_DMA_RESERVED_SIZE_9086X - 1)
 
-#ifdef CONFIG_RICHV200_FPGA
+#ifdef CONFIG_RICHV200
 #define RXDESC_SIZE 24
 #else
 #define RXDESC_SIZE 24
@@ -531,13 +531,9 @@ typedef struct hardware_info_struct_
 
 
 int wf_hw_info_init(nic_info_st *nic_info);
-
-
 int wf_hw_info_get_default_cfg(nic_info_st *nic_info);
 int wf_hw_info_set_default_cfg(nic_info_st *nic_info);
 int wf_hw_info_term(nic_info_st *nic_info);
-int wf_hw_info_get_macAddr(nic_info_st *nic_info, wf_u8 *macAddr);
-int wf_hw_info_get_wireless_info(nic_info_st *nic_info, wireless_info_st *wlInfo);
 int wf_hw_info_set_channnel_bw(nic_info_st *nic_info, wf_u8 channel, CHANNEL_WIDTH cw, wf_u8 offset);
 wf_u8 do_query_center_ch(wf_u8 chnl_bw, wf_u8 channel, wf_u8 chnl_offset);
 int channel_init (nic_info_st *pnic_info);

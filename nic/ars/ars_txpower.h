@@ -4,7 +4,8 @@ typedef struct txpower_info_st_
 {
 }ars_txpower_info_st;
 
-void odm_DynamicTxPower(void *ars);
-void odm_TXPowerTrackingCheckCE(void *ars);
+wf_s32 odm_DynamicTxPower(void *ars);
+wf_s32 odm_TXPowerTrackingCheckCE(void *ars);
+wf_s32 odm_DynamicTxPowerInit(void *ars);
 
 #endif

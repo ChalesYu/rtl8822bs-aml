@@ -6,15 +6,16 @@
 #ifdef CONFIG_MP_MODE
 #if defined(CONFIG_WEXT_PRIV)
 
-#if 1
-#define MP_DBG(fmt, ...)        LOG_D("[%s]"fmt, __func__, ##__VA_ARGS__)
-#define MP_WARN(fmt, ...)       LOG_E("[%s]"fmt, __func__, ##__VA_ARGS__)
+#if 0
+#define MP_DBG(fmt, ...)        LOG_D("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
 #define MP_ARRAY(data, len)     log_array(data, len)
 #else
 #define MP_DBG(fmt, ...)
-#define MP_WARN(fmt, ...)
 #define MP_ARRAY(data, len)
 #endif
+#define MP_INFO(fmt, ...)       LOG_I("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
+#define MP_WARN(fmt, ...)       LOG_W("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
+#define MP_ERROR(fmt, ...)      LOG_E("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
 
 
 static wf_u8 mp_key_of_char2num_func(wf_u8 ch)
@@ -32,6 +33,84 @@ static wf_u8 mp_key_of_char2num_func(wf_u8 ch)
 static wf_u8 mp_key_of_2char2num_func(wf_u8 hch, wf_u8 lch)
 {
 	return ((mp_key_of_char2num_func(hch) << 4) | mp_key_of_char2num_func(lch));
+}
+
+
+static wf_u32 wf_get_efuse_len(nic_info_st *nic_info)
+{
+    int ret = 0;
+    wf_u32 len  = 0;
+
+    ret = mcu_cmd_communicate(nic_info, UMSG_OPS_HAL_EFUSEMAP_LEN,NULL,0,&len,1);
+    if (WF_RETURN_FAIL == ret)
+    {
+        LOG_E("[%s] failed", __func__);
+        return 0;
+    }
+    else if(WF_RETURN_CMD_BUSY == ret)
+    {
+        LOG_W("[%s] cmd busy,try again if need!",__func__);
+        return 0;
+    }
+
+    return len;
+}
+
+
+static int  wf_get_efuse_data(nic_info_st *nic_info, wf_u8 *outdata, wf_u32 efuse_len )
+{
+    int ret                 = 0;
+    wf_u32 word_len         = 0;
+    wf_u32 intger           = 0;
+    wf_u32 remainder        = 0;
+    wf_u32 *pread           = 0;
+    wf_u32  i               = 0;
+    wf_u32 offset           = 0;
+
+    //wf_u32 tmp_efuse_len = wf_get_efuse_len(nic_info);
+    /* get efuse map */
+    word_len = efuse_len / 4;
+    //word_len = tmp_efuse_len / 4;
+    intger = word_len / MAILBOX_MAX_RDLEN;
+    remainder = word_len % MAILBOX_MAX_RDLEN;
+    pread = (wf_u32 *)outdata;
+
+    // LOG_I("%s,efuse_len=%d,intger=%d,remainder=%d",__FUNCTION__,efuse_len,intger,remainder);
+
+    for (i = 0; i < intger; i++)
+    {
+        ret = mcu_cmd_communicate_special(nic_info,UMSG_OPS_HAL_EFUSEMAP,pread,MAILBOX_MAX_RDLEN, offset);
+        if (WF_RETURN_FAIL == ret)
+        {
+            LOG_E("get efuse type failed");
+            return WF_RETURN_FAIL;
+        }
+        LOG_I("[%s] offset:0x%x",__func__,offset);
+        offset = offset + MAILBOX_MAX_RDLEN;//sdio need this
+        pread  = pread + MAILBOX_MAX_RDLEN;
+
+    }
+
+    LOG_I("[%s] offset:0x%x",__func__,offset);
+
+    if (remainder > 0)
+    {
+
+        ret = mcu_cmd_communicate_special(nic_info,UMSG_OPS_HAL_EFUSEMAP,pread,remainder,offset);
+        if (WF_RETURN_FAIL == ret)
+        {
+            LOG_E("get efuse type failed");
+            return WF_RETURN_FAIL;
+        }
+
+        offset += remainder;
+    }
+
+
+#if 0
+    log_array(outdata, 512);
+#endif
+    return WF_RETURN_OK;
 }
 
 static int mp_num0fstr(char *Mstr, char *substr)
@@ -63,8 +142,7 @@ int wf_mp_logic_efuse_read(struct net_device *dev, struct iw_request_info *info,
     nic_info_st *pnic_info = pndev_priv->nic;
     wf_mp_info_st *mp_info = pnic_info->mp_info;
     struct iw_point *wrqu;
-    int ret,i,cnts = 0;
-    int efuse_code = 1000;
+    int ret = 0,i,cnts = 0;
     char *pch, *ptmp, *token, *tmp[3] = { 0x00, 0x00, 0x00 };
     wf_u8 *outbuff = NULL;
     wf_u32 efuse_len;
@@ -94,7 +172,7 @@ int wf_mp_logic_efuse_read(struct net_device *dev, struct iw_request_info *info,
 	}
 
     if (strcmp(ptmp, "realmap") == 0) {
-		
+
         /*get efuse len*/
         efuse_len = wf_get_efuse_len(pnic_info);
         LOG_I("[%s] efuse len: %d",__func__, efuse_len);
@@ -180,7 +258,7 @@ int wf_mp_logic_efuse_read(struct net_device *dev, struct iw_request_info *info,
             wf_kfree(outbuff);
         return WF_RETURN_OK;
     }
-    
+
     if (outbuff)
         wf_kfree(outbuff);
     return WF_RETURN_OK;
@@ -194,28 +272,20 @@ int wf_mp_logic_efuse_write(struct net_device *dev, struct iw_request_info *info
     nic_info_st *pnic_info = pndev_priv->nic;
     struct iw_point *wrqu;
     int set_len;
-	wf_u8 m_len;
-	wf_u8 p_len;
-	wf_u32 i = 0, j = 0, k = 0, jj, kk;
-	wf_u8 *setdata = NULL;
-	wf_u8 *ShadowMapBT = NULL;
-	wf_u8 *ShadowMapWiFi = NULL;
-	wf_u8 *setrawdata = NULL;
+	wf_u32 i = 0;
 	char *pch, *ptmp, *token, *tmp[2] = { 0x00, 0x00 };
     char *set_data;
 	char cmd[8][20];
 	char data[8][80];
 	char str_data[100] = { 0 };
-
-    wf_u8 *cmd1;
-    wf_u32 addr1,data1;
-	wf_u32 addr = 0xFF, cnts = 0, BTStatus = 0, max_available_len = 0;
-	int efuse_code;
-	wf_u32 inbuff[] = {0};
-    wf_u32 inbuff1[2] = {0};
-	wf_u32 insize, outbuff = 0;
+	wf_u32 addr = 0xFF;
+	wf_u32 inbuff[32] = {0};
+	char buf_test[16] = {0};
+	wf_u32  outbuff = 0;
 	int cmd_len;
-    int ret;
+    int ret = 0;
+	int num = 0;
+	int bit = 0;
 
 	tmp[0] = str_data;
 
@@ -255,15 +325,45 @@ int wf_mp_logic_efuse_write(struct net_device *dev, struct iw_request_info *info
 //            MP_DBG("test2 = 0x%x", addr);
             set_data = pch;
             inbuff[0] = addr;
-            for(i=0;i<strlen(pch)/2;i++)
+			inbuff[1] = strlen(pch)/2;
+			if(strlen(pch)%8 == 0)
+			{
+				num = strlen(pch)/8;
+			}
+			else
+			{
+				num = strlen(pch)/8 + 1;
+			}
+            for(i=0;i<num;i++)
             {
-                sscanf(set_data,"%2x",&inbuff[i+1]);
-                set_data=set_data+2;
-                MP_DBG("data:0x%x ",inbuff[i+1]);
+            	MP_DBG("%s",set_data);
+                sscanf(set_data,"%8s",buf_test);
+				MP_DBG("data:0x%s ",buf_test);
+				sscanf(buf_test,"%8x",&inbuff[i+2]);
+				MP_DBG("inbuff:0x%x ",inbuff[i+2]);
+				inbuff[i+2] = wf_cpu_to_be32(inbuff[i+2]);
+				MP_DBG("data:0x%x ",inbuff[i+2]);
+				if(num - i != 1)
+                	set_data=set_data+8;
             }
+			bit = (((strlen(pch))/2)%4);
+			if(bit != 0)
+			{
+				MP_DBG("inbuff[i+2]:%8x",inbuff[i+1]);
+				inbuff[i+1] = inbuff[i+1] >> (4 - bit) * 8;
+				MP_DBG("inbuff[i+2]:%8x",inbuff[i+1]);
+			}
+			MP_DBG("bit:%d",bit);
             MP_DBG("inbuff[0]:%x",inbuff[0]);
+			MP_DBG("inbuff[1]:%x",inbuff[1]);
+			MP_DBG("inbuff[2]:%x",inbuff[2]);
+			MP_DBG("inbuff[3]:%x",inbuff[3]);
+			MP_DBG("inbuff[4]:%x",inbuff[4]);
+			MP_DBG("inbuff[5]:%x",inbuff[5]);
+			MP_DBG("inbuff[6]:%x",inbuff[6]);
 
-        }  
+
+        }
 	    else
         {
 		    sprintf(extra, "Command not found!");
@@ -273,7 +373,7 @@ int wf_mp_logic_efuse_write(struct net_device *dev, struct iw_request_info *info
 
         if (NIC_USB == pnic_info->nic_type)
         {
-            ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_MP_EFUSE_WRITE, (wf_u32 *) inbuff, i+1, &outbuff, 1);
+            ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_MP_EFUSE_WRITE, (wf_u32 *) inbuff, i+2, &outbuff, 1);
         }
         else
         {
@@ -308,27 +408,18 @@ int wf_mp_efuse_set(struct net_device *dev, struct iw_request_info *info, union 
     int set_len;
 	wf_u8 m_len;
 	wf_u8 p_len;
-	wf_u32 i = 0, j = 0, k = 0, jj, kk;
-	wf_u8 *setdata = NULL;
-	wf_u8 *ShadowMapBT = NULL;
-	wf_u8 *ShadowMapWiFi = NULL;
-	wf_u8 *setrawdata = NULL;
+	wf_u32 i = 0,jj, kk;
 	char *pch, *ptmp, *token, *tmp[2] = { 0x00, 0x00 };
-    char *set_data;
 	char cmd[8][20];
 	char data[8][80];
 	char str_data[100] = { 0 };
-    wf_u32 inbuff2[] = {0};
 
-    wf_u32 addr1;
-	wf_u16 addr = 0xFF, cnts = 0, BTStatus = 0, max_available_len = 0;
-	int efuse_code;
+	wf_u16  cnts = 0;
 	wf_u8 *inbuff = NULL;
-    wf_u32 inbuff1[2] = {0};
-	wf_u32 insize, outbuff = 0;
+	wf_u32  outbuff = 0;
 	int cmd_len;
     int ret;
-
+	int test = 0;
 	tmp[0] = str_data;
 
 	memset(cmd, 0, sizeof(cmd));
@@ -371,47 +462,8 @@ int wf_mp_efuse_set(struct net_device *dev, struct iw_request_info *info, union 
 	}
 	if (cmd_len == 1)
     {
-        if (strncmp(cmd[0], "wraw", 4) == 0)
-        {
-            set_data = pch;
-            sscanf(data[0],"%x",&addr1);
-            inbuff2[0] = 1;
-            inbuff2[1] = addr1;
-            MP_DBG("pch:%s",pch);
-            for(i=0;i<strlen(pch)/2;i++)
-            {
-                sscanf(set_data,"%2x",&inbuff2[i+2]);
-                set_data=set_data+2;
-                MP_DBG("data:0x%x ",inbuff2[i+2]);
-            }
-            if (NIC_USB == pnic_info->nic_type)
-            {
-                LOG_D("test------------------");
-                ret = mcu_cmd_communicate(pnic_info, M0_OPS_HAL_DBGLOG_CONFIG, inbuff2, i+2, &outbuff, 1);
-            }
-            else
-            {
-//                  ret = mcu_cmd_communicate(pnic_info, WLAN_OPS_DXX0_READ_VERSION, &efuse_code, 0, version, 1);
-            }
-            if(ret == WF_RETURN_FAIL)
-            {
-                MP_WARN("set reg fail");
-                if (inbuff)
-                    wf_kfree(inbuff);
-                return WF_RETURN_FAIL;
-            }
-            if (outbuff == 0)
-            {
-                sprintf(extra, "%s" "%s", extra, " fail");
-            }
-            else
-            {
-                sprintf(extra, "%s" "%s", extra, " ok");
-            }
-            return WF_RETURN_OK;
-
-        }
-        else if (strncmp(cmd[0], "mac", 3) == 0)
+        
+        if (strncmp(cmd[0], "mac", 3) == 0)
         {
 		    inbuff[0] = WLAN_EEPORM_MAC;
 	    }
@@ -451,14 +503,7 @@ int wf_mp_efuse_set(struct net_device *dev, struct iw_request_info *info, union 
         {
 		    inbuff[0] = EFUSE_HEADERCHECK;
 		    cnts = 1;
-            if (NIC_USB == pnic_info->nic_type)
-            {
-                ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_MP_EFUSE_SET, (wf_u32 *) inbuff, (cnts + 6) / 4, &outbuff, 1);
-            }
-            else
-            {
-                ret = mcu_cmd_communicate(pnic_info, WLAN_OPS_DXX0_HAL_MP_EEPORM_SET, (wf_u32 *) inbuff, (cnts + 6) / 4, &outbuff, 1);
-            }
+            ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_MP_EFUSE_SET, (wf_u32 *) inbuff, (cnts + 6) / 4, &outbuff, 1);
             if(ret == WF_RETURN_FAIL)
             {
                 MP_WARN("set reg fail");
@@ -485,14 +530,7 @@ int wf_mp_efuse_set(struct net_device *dev, struct iw_request_info *info, union 
         {
 		    inbuff[0] = EFUSE_FIXDVALUE;
 		    cnts = 1;
-            if (NIC_USB == pnic_info->nic_type)
-            {
-                ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_MP_EFUSE_SET, (wf_u32 *) inbuff, (cnts + 6) / 4, &outbuff, 1);
-            }
-            else
-            {
-                ret = mcu_cmd_communicate(pnic_info, WLAN_OPS_DXX0_HAL_MP_EEPORM_SET, (wf_u32 *) inbuff, (cnts + 6) / 4, &outbuff, 1);
-            }
+            ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_MP_EFUSE_SET, (wf_u32 *) inbuff, (cnts + 6) / 4, &outbuff, 1);
             if(ret == WF_RETURN_FAIL)
             {
                 MP_WARN("set reg fail");
@@ -519,14 +557,7 @@ int wf_mp_efuse_set(struct net_device *dev, struct iw_request_info *info, union 
         {
 		    inbuff[0] = EFUSE_PHYCFGCHECK;
 		    cnts = 1;
-            if (NIC_USB == pnic_info->nic_type)
-            {
-                ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_MP_EFUSE_SET, (wf_u32 *) inbuff, (cnts + 6) / 4, &outbuff, 1);
-            }
-            else
-            {
-                ret = mcu_cmd_communicate(pnic_info, WLAN_OPS_DXX0_HAL_MP_EEPORM_SET, (wf_u32 *) inbuff, (cnts + 6) / 4, &outbuff, 1);
-            }
+            ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_MP_EFUSE_SET, (wf_u32 *) inbuff, (cnts + 6) / 4, &outbuff, 1);
             if(ret == WF_RETURN_FAIL)
             {
                 MP_WARN("set reg fail");
@@ -570,8 +601,6 @@ int wf_mp_efuse_set(struct net_device *dev, struct iw_request_info *info, union 
 		    }
 
 		    cnts /= 2;
-
-		    MP_DBG("%s: addr=0x%x", __func__, addr);
 		    MP_DBG("%s: cnts=%d", __func__, cnts);
 		    MP_DBG("%s: data=%s", __func__, data[0]);
 
@@ -672,14 +701,12 @@ int wf_mp_efuse_set(struct net_device *dev, struct iw_request_info *info, union 
 		}
 
 	}
-    if (NIC_USB == pnic_info->nic_type)
-    {
-        ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_MP_EFUSE_SET, (wf_u32 *) inbuff, (cnts + 6) / 4, &outbuff, 1);
-    }
-    else
-    {
-        ret = mcu_cmd_communicate(pnic_info, WLAN_OPS_DXX0_HAL_MP_EEPORM_SET, (wf_u32 *) inbuff, (cnts + 6) / 4, &outbuff, 1);
-    }
+	for(test=0;test<24;test++)
+	{
+		LOG_D("%x",inbuff[test]);
+	}
+	//return WF_RETURN_FAIL;
+    ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_MP_EFUSE_SET, (wf_u32 *) inbuff, (cnts + 6) / 4, &outbuff, 1);
     if(ret == WF_RETURN_FAIL)
     {
         MP_WARN("set reg fail");
@@ -701,6 +728,92 @@ int wf_mp_efuse_set(struct net_device *dev, struct iw_request_info *info, union 
 
 }
 
+static int  wf_get_phy_efuse_data(nic_info_st *nic_info, wf_u8 *outdata, wf_u32 efuse_len )
+{
+    int ret                 = 0;
+    wf_u32 word_len         = 0;
+    wf_u32 intger           = 0;
+    wf_u32 remainder        = 0;
+    wf_u32 *pread           = 0;
+    wf_u32  i               = 0;
+    wf_u32 offset           = 0;
+    wf_u32 inbuff           = 0;
+
+    //wf_u32 tmp_efuse_len = wf_get_efuse_len(nic_info);
+    /* get efuse map */
+    word_len = efuse_len / 4;
+    //word_len = tmp_efuse_len / 4;
+    intger = word_len / MAILBOX_MAX_RDLEN;
+    remainder = word_len % MAILBOX_MAX_RDLEN;
+    pread = (wf_u32 *)outdata;
+
+    // LOG_I("%s,efuse_len=%d,intger=%d,remainder=%d",__FUNCTION__,efuse_len,intger,remainder);
+
+    for (i = 0; i < intger; i++)
+    {
+
+        if(NIC_USB == nic_info->nic_type)
+        {
+            ret = mcu_cmd_communicate(nic_info,UMSG_OPS_MP_EFUSE_ACCESS,&inbuff,1,pread,MAILBOX_MAX_RDLEN);
+        }
+        else
+        {
+//            ret = mcu_cmd_communicate_special(nic_info,WLAN_OPS_DXX0_HAL_EEPORMMAP,pread,MAILBOX_MAX_RDLEN,offset);
+        }
+
+        if (WF_RETURN_FAIL == ret)
+        {
+            LOG_E("[%s] failed", __func__);
+            return ret;
+        }
+        else if(WF_RETURN_CMD_BUSY == ret)
+        {
+            LOG_W("[%s] cmd busy,try again if need!",__func__);
+            return ret;
+        }
+        inbuff = inbuff + MAILBOX_MAX_RDLEN;
+        LOG_I("[%s] offset:0x%x",__func__,offset);
+        offset = offset + MAILBOX_MAX_RDLEN;//sdio need this
+        pread  = pread + MAILBOX_MAX_RDLEN;
+
+    }
+
+    LOG_I("[%s] offset:0x%x",__func__,offset);
+
+    if (remainder > 0)
+    {
+
+        if(NIC_USB == nic_info->nic_type)
+        {
+            ret = mcu_cmd_communicate(nic_info,UMSG_OPS_MP_EFUSE_ACCESS,&inbuff,1,pread,remainder);
+        }
+        else
+        {
+//            ret = mcu_cmd_communicate_special(nic_info,WLAN_OPS_DXX0_HAL_EEPORMMAP,pread,remainder,offset);
+        }
+
+        if (WF_RETURN_FAIL == ret)
+        {
+            LOG_E("[%s] failed", __func__);
+            return ret;
+        }
+        else if(WF_RETURN_CMD_BUSY == ret)
+        {
+            LOG_W("[%s] cmd busy,try again if need!",__func__);
+            return ret;
+        }
+
+        offset += remainder;
+    }
+
+
+#if 0
+    log_array(outdata, 512);
+#endif
+    return WF_RETURN_OK;
+}
+
+
 int wf_mp_efuse_get(struct net_device *dev, struct iw_request_info *info, union iwreq_data *wdata, char *extra)
 {
     ndev_priv_st *pndev_priv = netdev_priv(dev);
@@ -708,7 +821,7 @@ int wf_mp_efuse_get(struct net_device *dev, struct iw_request_info *info, union 
     struct iw_point *wrqu;
     int ret,i,cnts = 0;
     int efuse_code = 1000;
-    char *pch, *ptmp, *token, *tmp[3] = { 0x00, 0x00, 0x00 };
+    char *pch,*token, *tmp[3] = { 0x00, 0x00, 0x00 };
     wf_u8 *outbuff = NULL;
     static wf_u8 raw_order = 0;
 	wf_u32 shift, cnt;
@@ -788,18 +901,18 @@ int wf_mp_efuse_get(struct net_device *dev, struct iw_request_info *info, union 
 		}
 		if ((shift + cnt) < mapLen)
 			sprintf(extra, "%s\t...more (left:%d/%d)\n", extra, mapLen-(shift + cnt), mapLen);
-        
+
         if (outbuff)
             wf_kfree(outbuff);
-        
+
         wrqu->length = strlen(extra);
-        
+
         return 0;
 
     }else {
 		sprintf(extra, "Command not found!");
 	}
-    
+
 
 	if (efuse_code < 0 || efuse_code > WLAN_EEPORM_CODE_MAX)
     {
@@ -813,15 +926,7 @@ int wf_mp_efuse_get(struct net_device *dev, struct iw_request_info *info, union 
 		return  WF_RETURN_FAIL;
 	}
 
-    if (NIC_USB == pnic_info->nic_type)
-    {
-        ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_MP_EFUSE_GET, &efuse_code, 1, (wf_u32 *) outbuff, MAILBOX_MAX_TXLEN);
-    }
-    else
-    {
-        ret = mcu_cmd_communicate(pnic_info, WLAN_OPS_DXX0_HAL_MP_EEPORM_GET, &efuse_code, 1, (wf_u32 *) outbuff, MAILBOX_MAX_TXLEN);
-    }
-
+    ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_MP_EFUSE_GET, &efuse_code, 1, (wf_u32 *) outbuff, MAILBOX_MAX_TXLEN);
     if (WF_RETURN_FAIL == ret)
     {
         MP_WARN("[%s] read reg failed,check!!!", __func__);
@@ -848,6 +953,6 @@ int wf_mp_efuse_get(struct net_device *dev, struct iw_request_info *info, union 
 
 }
 
- 
+
 #endif
 #endif

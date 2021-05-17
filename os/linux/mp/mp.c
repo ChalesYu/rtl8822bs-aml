@@ -6,20 +6,86 @@
 #ifdef CONFIG_MP_MODE
 #if defined(CONFIG_WEXT_PRIV)
 
-#if 1
-#define MP_DBG(fmt, ...)        LOG_D("[%s]"fmt, __func__, ##__VA_ARGS__)
-#define MP_WARN(fmt, ...)       LOG_E("[%s]"fmt, __func__, ##__VA_ARGS__)
+#if 0
+#define MP_DBG(fmt, ...)        LOG_D("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
 #define MP_ARRAY(data, len)     log_array(data, len)
 #else
 #define MP_DBG(fmt, ...)
-#define MP_WARN(fmt, ...)
 #define MP_ARRAY(data, len)
 #endif
+#define MP_INFO(fmt, ...)       LOG_I("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
+#define MP_WARN(fmt, ...)       LOG_W("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
+#define MP_ERROR(fmt, ...)      LOG_E("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
 
 
 static wf_bool mp_test_enable = wf_false;
 
 
+
+int wf_io_write_cmd_special(nic_info_st *nic_info, wf_u32 func_code, wf_u32 *recv,  int len, int offs)
+{
+    int ret = 0;
+    wf_u32 mailbox_reg_addr = MAILBOX_ARG_START;
+    int revclen;
+
+    //LOG_I("[%s] func_code:0x%08x",__func__, func_code);
+    if (len > MAILBOX_MAX_RDLEN)
+    {
+        LOG_E("discard func %d because rd len = %d too big\r\n", func_code,len);
+        return WF_RETURN_FAIL;
+    }
+
+    revclen = len;
+
+    ret = wf_io_write32(nic_info, MAILBOX_REG_START, func_code);
+    if(WF_RETURN_FAIL == ret)
+    {
+        LOG_E("[%s,%d] wf_io_write32 failed",__func__,__LINE__);
+        return ret;
+    }
+
+    ret = wf_io_write32(nic_info, mailbox_reg_addr, len);
+    if(WF_RETURN_FAIL == ret)
+    {
+        LOG_E("[%s,%d] wf_io_write32 failed",__func__,__LINE__);
+        return ret;
+    }
+
+    mailbox_reg_addr += MAILBOX_WORD_LEN;
+    ret = wf_io_write32(nic_info, mailbox_reg_addr, offs);
+
+    if(WF_RETURN_FAIL == ret)
+    {
+        LOG_E("[%s,%d] wf_io_write32 failed",__func__,__LINE__);
+        return ret;
+    }
+    mailbox_reg_addr += MAILBOX_WORD_LEN;
+
+    ret = wf_mcu_cmd_get_status(nic_info,func_code);
+    if(WF_RETURN_FAIL == ret)
+    {
+        LOG_E("[%s,%d] wf_mcu_cmd_get_status failed",__func__,__LINE__);
+        return ret;
+    }
+    else if(WF_RETURN_REMOVED_FAIL == ret)
+    {
+        LOG_W("[%s,%d] removed driver or device warning",__func__,__LINE__);
+        return ret;
+    }
+
+    mailbox_reg_addr = MAILBOX_ARG_START;
+
+    while (len--)
+    {
+
+        *recv++ = wf_io_read32(nic_info, mailbox_reg_addr,NULL);
+        mailbox_reg_addr += 4;
+    }
+
+
+    LOG_I("func_code:0x%x, sendlen:%d, recvlen:%d\n",func_code, 0, revclen );
+    return ret;
+}
 
 static int mp_hw_init(nic_info_st *pnic_info)
 {
@@ -44,14 +110,7 @@ static int mp_hw_init(nic_info_st *pnic_info)
 
     /* mp start : adjust RF*/
     inbuff = 1;
-    if (NIC_USB == pnic_info->nic_type)
-    {
-       ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_MP_CTXRATE, &inbuff, 1, NULL, 0);
-    }
-    else
-    {
-       ret = mcu_cmd_communicate(pnic_info, WLAN_OPS_DXX0_MP_CTXRATE, &inbuff, 1, NULL, 0);
-    }
+    ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_MP_CTXRATE, &inbuff, 1, NULL, 0);
     if(ret == WF_RETURN_FAIL)
     {
        MP_WARN("set reg fail");
@@ -60,7 +119,7 @@ static int mp_hw_init(nic_info_st *pnic_info)
 
     /* set RF path */
     mp_set_rf(pnic_info);
-    
+
     /* set rcr 0, adjust bb reg*/
     if (NIC_USB == pnic_info->nic_type)
     {
@@ -68,7 +127,7 @@ static int mp_hw_init(nic_info_st *pnic_info)
     }
     else
     {
-        ret = mcu_cmd_communicate(pnic_info, WLAN_OPS_DXX0_HAL_MP_INIT, NULL, 0, NULL, 0);
+        ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_MP_INIT, NULL, 0, NULL, 0);
         wf_mcu_mp_bb_rf_gain_offset(pnic_info);
     }
     if(ret == WF_RETURN_FAIL)
@@ -76,7 +135,7 @@ static int mp_hw_init(nic_info_st *pnic_info)
         MP_WARN("set reg fail");
         return -1;
     }
-    
+
     return WF_RETURN_OK;
 }
 
@@ -87,7 +146,6 @@ static wf_u32 mp_init(nic_info_st *pnic_info)
     wf_wlan_network_t *pcur_network = &pwlan_info->cur_network;
     wf_mp_tx *pmptx ;
     rx_info_t *rx_info = pnic_info->rx_info;
-    hw_info_st *phw_info = pnic_info->hw_info;
     struct xmit_frame *pattrib;
 
     pmppriv = wf_kzalloc(sizeof(wf_mp_info_st));
@@ -100,9 +158,8 @@ static wf_u32 mp_init(nic_info_st *pnic_info)
     {
         pnic_info->mp_info = pmppriv;
     }
-	
-    pnic_info->cmd_lock_use = wf_true;
-        
+
+
     rx_info->rx_crcerr_pkt = 0;
     rx_info->rx_pkts = 0;
     rx_info->rx_total_pkts = 0;
@@ -137,10 +194,10 @@ static wf_u32 mp_init(nic_info_st *pnic_info)
 
 	pmppriv->bSetRxBssid = wf_false;
 	pmppriv->bWLSmbCfg = wf_true;
-    
+
 
 	wf_memcpy(pcur_network->mac_addr, pmppriv->network_macaddr, WF_ETH_ALEN);
-   
+
 
 	pcur_network->ssid.length = 8;
 	wf_memcpy(pcur_network->ssid.data, "mp_908621x", pcur_network->ssid.length);
@@ -177,9 +234,9 @@ static wf_u32 mp_init(nic_info_st *pnic_info)
 	pmppriv->antenna_tx = 8;
 	pmppriv->antenna_rx = 8;
     pnic_info->is_up = 1;
-	
+
 	pmppriv->pnic_info = pnic_info;
-	
+
     mp_hw_init(pnic_info);
 
     wf_mlme_set_connect(pnic_info, wf_true);
@@ -215,67 +272,53 @@ static int mp_test_start(struct net_device *dev, struct iw_request_info *info, u
     nic_info_st *pnic_info = pndev_priv->nic;
     hw_info_st *phw_info = pnic_info->hw_info;
     wf_mp_info_st *pmp_info;
-    odm_mgnt_st *odm = pnic_info->odm;
-    odm_msg_st *podm_msg = &odm->odm_msg;
 	wf_u32 inbuff;
 	int ret;
-    local_info_st *plocal_info = pnic_info->local_info;
-    wf_u8 bmc_addr[6] = {0xff,0xff,0xff,0xff,0xff,0xff};
+    if ((pnic_info->is_surprise_removed) || (pnic_info->is_driver_stopped))
+    {
+		return -1;
+	}
 
     LOG_D("set test=start");
-    
+
     if(phw_info->mp_mode == 0)
     {
         phw_info->mp_mode = 1;
         mp_init(pnic_info);
     }
-    
+
     pmp_info = pnic_info->mp_info;
     if(pmp_info->mode == MP_OFF)
     {
-        if (NIC_USB == pnic_info->nic_type)
-        {
-            ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_MP_DIS_DM, NULL, 0, NULL, 0);
-        }
-        else
-        {
-            ret = mcu_cmd_communicate(pnic_info, WLAN_OPS_DXX0_HAL_DISABLE_DM, NULL, 0, NULL, 0);
-        }
+        ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_MP_DIS_DM, NULL, 0, NULL, 0);
         if(ret == WF_RETURN_FAIL)
         {
             MP_WARN("set reg fail");
 			return -1;
         }
-        
-        wf_odm_set_ability(pnic_info,ODM_DIS_ALL_FUNC, 0);                
-        wf_odm_set_ability(pnic_info,ODM_FUNC_SET,ODM_RF_CALIBRATION);
-         
+
+        wf_mcu_msg_body_set_ability(pnic_info,ODM_DIS_ALL_FUNC, 0);
+        wf_mcu_msg_body_set_ability(pnic_info,ODM_FUNC_SET,ODM_RF_CALIBRATION);
+
         pmp_info->antenna_tx = 8;
         pmp_info->antenna_rx = 8;
         pmp_info->bStartContTx = wf_false;
         pmp_info->bCarrierSuppression = wf_false;
         pmp_info->bSingleTone = wf_false;
-     
+
 		pmp_info->mode = MP_ON;
     }
 
     pmp_info->bmac_filter = wf_false;
-    
+
 	inbuff = 0x26;
-    if (NIC_USB == pnic_info->nic_type)
-    {
-        ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_MSG_WRITE_DIG, &inbuff, 1, NULL, 0);
-    }
-    else
-    {
-        ret = mcu_cmd_communicate(pnic_info, WLAN_OPS_DXX0_MP_SET_WRITE_DIG, &inbuff, 1, NULL, 0);
-    }
+    ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_MSG_WRITE_DIG, &inbuff, 1, NULL, 0);
     if(ret == WF_RETURN_FAIL)
     {
         MP_WARN("set reg fail");
 		return WF_RETURN_FAIL;
     }
-    
+
 	return 0;
 }
 
@@ -286,14 +329,14 @@ static int mp_test_stop(struct net_device *dev, struct iw_request_info *info, un
     nic_info_st *pnic_info = pndev_priv->nic;
     hw_info_st *phw_info = pnic_info->hw_info;
     wf_mp_info_st *pmp_info = pnic_info->mp_info;
-    odm_mgnt_st *odm = pnic_info->odm;
-    odm_msg_st *podm_msg = &odm->odm_msg;
-	wdn_net_info_st *pwdn_info;
-	wf_u32 inbuff;
-	int ret;
+	int ret = 0;
 	wf_wlan_info_t *pwlan_info = pnic_info->wlan_info;
     wf_wlan_network_t *pcur_network = &pwlan_info->cur_network;
-    
+
+    if ((pnic_info->is_surprise_removed) || (pnic_info->is_driver_stopped))
+    {
+		return -1;
+	}
     LOG_D("set test=stop");
 
     if(phw_info->mp_mode == 1)
@@ -310,7 +353,7 @@ static int mp_test_stop(struct net_device *dev, struct iw_request_info *info, un
 		    {
 			    MP_WARN("mp_info addr error, check!!!!");
 			    return WF_RETURN_FAIL;
-		    }            
+		    }
         }
 	    wf_memset(pcur_network,0,sizeof(wf_wlan_network_t));
 	    pnic_info->nic_state &= (~(WIFI_MP_STATE));
@@ -325,7 +368,6 @@ static int mp_rfthermalmeter_get(struct net_device *dev,struct iw_request_info *
 {
     ndev_priv_st *pndev_priv = netdev_priv(dev);
     nic_info_st *pnic_info = pndev_priv->nic;
-    wf_mp_info_st *mp_info = pnic_info->mp_info;
 	wf_u8 temp;
     wf_u32 value;
 
@@ -339,7 +381,7 @@ static int mp_rfthermalmeter_get(struct net_device *dev,struct iw_request_info *
     }
     else
     {
-        mcu_cmd_communicate(pnic_info, WLAN_OPS_DXX0_HAL_TEMP_GET, NULL, 0, &value, 1);
+        mcu_cmd_communicate(pnic_info, UMSG_OPS_HAL_TEMP_GET, NULL, 0, &value, 1);
         temp = (wf_u8)value;
         LOG_D("temp:%x",temp);
     	sprintf(extra, "thermal=%02x", temp);
@@ -362,10 +404,10 @@ static int mp_rfthermalmeter_set(struct net_device *dev, struct iw_request_info 
     }
     else
     {
-        ret = mcu_cmd_communicate(pnic_info, WLAN_OPS_DXX0_HAL_TEMP_SET, NULL, 0, NULL, 0);
+        ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_HAL_TEMP_SET, NULL, 0, NULL, 0);
     }
     *extra = 0;
-    
+
     sprintf(extra, "set thermal %s",ret == 0 ? "ok" : "fail");
 	wrqu->length = strlen(extra);
     return 0;
@@ -377,7 +419,6 @@ static int mp_freq_get(struct net_device *dev,struct iw_request_info *info,struc
 {
     ndev_priv_st *pndev_priv = netdev_priv(dev);
     nic_info_st *pnic_info = pndev_priv->nic;
-    wf_mp_info_st *mp_info = pnic_info->mp_info;
 	wf_u16 temp;
     wf_u32 h2m_msg[2] = { 0 };
 	wf_u16 value_16;
@@ -388,14 +429,13 @@ static int mp_freq_get(struct net_device *dev,struct iw_request_info *info,struc
 	*extra = 0;
     if (NIC_USB == pnic_info->nic_type)
     {
-    	temp = wf_mp_read_bbreg(pnic_info, 0x0024, 0x00000FFE);
-        
-    	sprintf(extra, "freq=%04x", ((temp & 0x7) << 8) | ((temp >> 3) & 0xff));
-        MP_DBG("freq=%04x", ((temp & 0x7) << 8) | ((temp >> 3) & 0xff));
+    	temp = wf_mp_read_bbreg(pnic_info, 0x0024, 0x0001F800);
+		LOG_D("VALE:%x",temp);
+    	sprintf(extra, "freq=%02x", temp);
     }
     else
     {
-        mcu_cmd_communicate(pnic_info, WLAN_OPS_DXX0_HAL_FREQ_GET, NULL, 0, h2m_msg, 2);
+        mcu_cmd_communicate(pnic_info, UMSG_OPS_HAL_FREQ_GET, NULL, 0, h2m_msg, 2);
         h = (wf_u8)h2m_msg[0];
         l = (wf_u8)h2m_msg[1];
         value_16 = ((wf_u16)h<<8)|(wf_u16)l;
@@ -430,16 +470,18 @@ static int mp_freq_set(struct net_device *dev, struct iw_request_info *info, uni
 		return WF_RETURN_FAIL;
 
 	sprintf(input, "0x" "%s", ptr);
-	sscanf(input, "%i", &v);
+	sscanf(input, "%x", &v);
 	printk("0x%x\n", v);
 
-	ct = (wf_u8) (v >> 8);
+	//ct = (wf_u8) (v >> 8);
 	xt = (wf_u8) v;
     if (NIC_USB == pnic_info->nic_type)
     {
-        if (ct > 0 && xt > 0) {
-        	temp = ((ct & 0x7) | ((xt << 3) & 0x7f8));
-        	retValue = wf_mp_write_bbreg(pnic_info, 0x0024, 0x00000FFE, temp);
+        if (( xt > 0) && (xt <= 0x3f)) {
+        	temp = xt;
+			LOG_D("xt:%x",xt);
+			LOG_D("temp:%x",temp);
+        	retValue = wf_mp_write_bbreg(pnic_info, 0x0024, 0x0001F800, temp);
         }
     }
     else
@@ -447,7 +489,7 @@ static int mp_freq_set(struct net_device *dev, struct iw_request_info *info, uni
         sdio_buf[0] = (wf_u8)ct;
         sdio_buf[1] = (wf_u8)xt;
         sdio_buf[2] = 0;
-        retValue = mcu_cmd_communicate(pnic_info, WLAN_OPS_DXX0_HAL_FREQ_SET, sdio_buf, 3, NULL, 0);
+        retValue = mcu_cmd_communicate(pnic_info, UMSG_OPS_HAL_FREQ_SET, sdio_buf, 3, NULL, 0);
     }
     if(retValue == 0)
     {
@@ -528,14 +570,7 @@ static int mp_set_rate(struct net_device *dev, struct iw_request_info *info, uni
 	if(pmp_info->rateidx < DESC_RATE6M )
 	{
 		inbuff = 0;
-        if (NIC_USB == pnic_info->nic_type)
-        {
-            ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_MP_CTXRATE, &inbuff, 1, NULL, 0);
-        }
-        else
-        {
-            ret = mcu_cmd_communicate(pnic_info, WLAN_OPS_DXX0_MP_CTXRATE, &inbuff, 1, NULL, 0);
-        }
+        ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_MP_CTXRATE, &inbuff, 1, NULL, 0);
         if(ret == WF_RETURN_FAIL)
         {
             MP_WARN("set reg fail");
@@ -552,18 +587,10 @@ static int mp_set_rate(struct net_device *dev, struct iw_request_info *info, uni
 
 
 static int mp_phy_set_txpower(nic_info_st *pnic_info, wf_u32 txpower)
-{        
-    int ret = 0;    
-    wf_u32 inbuf = txpower; 
-    if(NIC_USB == pnic_info->nic_type)
-    {
-        ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_MP_PROSET_TXPWR_1, &(inbuf), 1, NULL, 0);
-    }
-    else
-    {
-        ret = mcu_cmd_communicate(pnic_info, WLAN_OPS_DXX0_MP_PROSET_TXPWR_1, &(inbuf), 1, NULL, 0);
-    }
-    return ret;
+{
+    wf_u32 inbuf = txpower;
+
+    return mcu_cmd_communicate(pnic_info, UMSG_OPS_MP_PROSET_TXPWR_1, &(inbuf), 1, NULL, 0);
 }
 
 static int mp_set_tx_power(struct net_device *dev, struct iw_request_info *info, union iwreq_data *wdata, char *extra)
@@ -573,10 +600,10 @@ static int mp_set_tx_power(struct net_device *dev, struct iw_request_info *info,
 	struct iw_point *wrqu = (struct iw_point *)wdata;
 	wf_mp_info_st *pmp_info = pnic_info->mp_info;
 
-	wf_u32 idx_a = 0, idx = 0, status = 0;
+	wf_u32 idx_a = 0;
 	int MsetPower = 1;
 	wf_u8 input[wrqu->length];
-	int ret;
+	int ret = 0;
 	wf_u8 *str;
 	char *ptr = NULL;
 
@@ -589,12 +616,12 @@ static int mp_set_tx_power(struct net_device *dev, struct iw_request_info *info,
 
 	MsetPower = strncmp(input, "off", 3);
 
-	if (MsetPower == 0) 
+	if (MsetPower == 0)
     {
 		pmp_info->bSetTxPower = 0;
 		sprintf(extra, "Test Set power off");
-	} 
-    else 
+	}
+    else
     {
 		idx_a = atoi(ptr);
 
@@ -621,9 +648,8 @@ static int mp_set_rf_path(nic_info_st *pnic_info)
 	wf_mp_antenna_select_ofdm *p_ofdm_tx;
 	wf_mp_antenna_select_cck *p_cck_txrx;
 	wf_u8 r_rx_antenna_ofdm = 0, r_ant_select_cck_val = 0;
-	wf_u8 chgTx = 0, chgRx = 0;
-	wf_u32 r_ant_sel_cck_val = 0, r_ant_select_ofdm_val = 0, r_ofdm_tx_en_val = 0;
-	int ret;
+	wf_u32  r_ant_select_ofdm_val = 0, r_ofdm_tx_en_val = 0;
+	int ret = 0;
 
 	ulAntennaTx = pmp_info->antenna_tx;
 	ulAntennaRx = pmp_info->antenna_rx;
@@ -650,7 +676,7 @@ static int mp_set_rf_path(nic_info_st *pnic_info)
 	}
 	else
 	{
-		ret = mcu_cmd_communicate(pnic_info, WLAN_OPS_DXX0_MP_SET_ANT_TX, NULL, 0, NULL, 1);
+		ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_MP_SET_ANT_TX, NULL, 0, NULL, 1);
 	}
 	if(ret == WF_RETURN_FAIL)
 	{
@@ -682,7 +708,7 @@ static int mp_set_rf_path(nic_info_st *pnic_info)
         sdio_buf[2] = 0x3;
         sdio_buf[3] = 0x1;
         sdio_buf[4] = 0;
-		ret = mcu_cmd_communicate(pnic_info, WLAN_OPS_DXX0_MP_SET_ANT_RX, sdio_buf, 5, NULL, 1);
+		ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_MP_SET_ANT_RX, sdio_buf, 5, NULL, 1);
 	}
 	if(ret == WF_RETURN_FAIL)
 	{
@@ -698,8 +724,6 @@ static int mp_set_antenna(struct net_device *dev, struct iw_request_info *info, 
     nic_info_st *pnic_info = pndev_priv->nic;
 	struct iw_point *wrqu = (struct iw_point *)wdata;
 	wf_mp_info_st *pmp_info = pnic_info->mp_info;
-
-	wf_u8 i;
 	wf_u8 input[wrqu->length];
 	wf_u16 antenna = 0;
     wf_u32 ret;
@@ -753,14 +777,14 @@ static int mp_set_gi(struct net_device *dev, struct iw_request_info *info, union
         return WF_RETURN_FAIL;
     }
 	if (gi == 0)
-    {   
+    {
 		pmp_info->preamble = PREAMBLE_SHORT;
     }
     else if (gi == 1)
     {
 		pmp_info->preamble = PREAMBLE_LONG;
     }
-    
+
     ret = wf_mcu_set_preamble(pnic_info, pmp_info->preamble);
     if(ret == WF_RETURN_FAIL)
     {
@@ -778,15 +802,12 @@ static int mp_set_bw(struct net_device *dev, struct iw_request_info *info, union
 {
 	ndev_priv_st *pndev_priv = netdev_priv(dev);
     nic_info_st *pnic_info = pndev_priv->nic;
-	wf_wlan_info_t *pwlan_info = pnic_info->wlan_info;
-	wf_wlan_network_t *pcur_network = &pwlan_info->cur_network;
 	struct iw_point *wrqu = (struct iw_point *)wdata;
 	local_info_st *local_info = pnic_info->local_info;
     wf_mp_info_st *mp_info = pnic_info->mp_info;
 
     wf_u32 ret;
 	wf_u32 bandwidth = 0;
-	int cur_ch_offset;
 	wf_u8 input[wrqu->length];
 	wf_u8 *str;
 	char *ptr = NULL;
@@ -805,7 +826,7 @@ static int mp_set_bw(struct net_device *dev, struct iw_request_info *info, union
     if(bandwidth == 1)
     {
         mp_info->bandwidth = CHANNEL_WIDTH_40;
-		
+
     }else if(bandwidth == 0)
     {
         mp_info->bandwidth = CHANNEL_WIDTH_20;
@@ -826,14 +847,16 @@ static int mp_set_channel(struct net_device *dev, struct iw_request_info *info, 
 	wf_wlan_info_t *pwlan_info = pnic_info->wlan_info;
 	wf_wlan_network_t *pcur_network = &pwlan_info->cur_network;
 	struct iw_point *wrqu = (struct iw_point *)wdata;
-	local_info_st *local_info = pnic_info->local_info;
     wf_mp_info_st *mp_info = pnic_info->mp_info;
 	wf_u8 input[wrqu->length];
 	wf_u32 channel = 1;
-	int cur_ch_offset;
 	wf_u8 *str;
     wf_u32 ret;
 	char *ptr = NULL;
+    if ((pnic_info->is_surprise_removed) || (pnic_info->is_driver_stopped))
+    {
+		return -1;
+	}
 
 	if (copy_from_user(input, wrqu->pointer, wrqu->length))
 		return WF_RETURN_FAIL;
@@ -842,7 +865,7 @@ static int mp_set_channel(struct net_device *dev, struct iw_request_info *info, 
 
 	channel = atoi(ptr);
     LOG_D("set  channel=%d",channel);
-    
+
     wf_memset(extra, 0, wrqu->length);
 	sprintf(extra, "Change channel %d to channel %d", pcur_network->channel,
 			channel);
@@ -868,13 +891,12 @@ static int mp_set_channel(struct net_device *dev, struct iw_request_info *info, 
 static int mp_wifi_get(struct net_device *dev,struct iw_request_info *info,union iwreq_data *wdata, char *extra)
 {
     struct iw_point *wrqu;
-	char *pch, *ptmp, *token, *tmp[3] = { 0x00, 0x00, 0x00 };
-	wf_u32 subcmd = -1;
+	char *pch, *token, *tmp[3] = { 0x00, 0x00, 0x00 };
 	int err, i;
     ndev_priv_st *pndev_priv = netdev_priv(dev);
     nic_info_st *pnic_info = pndev_priv->nic;
     wf_u32 inbuff1[2];
-    wf_u32 ret;
+    wf_u32 ret = 0;
 
 	wrqu = (struct iw_point *)wdata;
 	err = 0;
@@ -901,7 +923,7 @@ static int mp_wifi_get(struct net_device *dev,struct iw_request_info *info,union
         if (NIC_USB == pnic_info->nic_type)
         {
             LOG_D("test------------------");
-            ret = mcu_cmd_communicate(pnic_info, M0_OPS_HAL_DBGLOG_CONFIG, inbuff1, 2, NULL, 0);
+            //ret = mcu_cmd_communicate(pnic_info, M0_OPS_HAL_DBGLOG_CONFIG, inbuff1, 2, NULL, 0);
         }
         else
         {
@@ -943,8 +965,7 @@ static int mp_wifi_get(struct net_device *dev,struct iw_request_info *info,union
 static int mp_wifi_set(struct net_device *dev,struct iw_request_info *info,union iwreq_data *wdata, char *extra)
 {
 	struct iw_point *wrqu;
-	char *pch, *ptmp, *token, *tmp[3] = { 0x00, 0x00, 0x00 };
-	wf_u32 subcmd = -1;
+	char *pch,*token, *tmp[3] = { 0x00, 0x00, 0x00 };
 	int err, i;
     wf_u32 ret;
 	wrqu = (struct iw_point *)wdata;
@@ -965,8 +986,8 @@ static int mp_wifi_set(struct net_device *dev,struct iw_request_info *info,union
 		tmp[i] = token;
 		i++;
 	}
-   
-	if (strcmp(tmp[0], "test=start") == 0) 
+
+	if (strcmp(tmp[0], "test=start") == 0)
     {
 		ret = mp_test_start(dev, info, wdata, extra);
         wf_memset(extra, 0, wrqu->length);
@@ -981,74 +1002,74 @@ static int mp_wifi_set(struct net_device *dev,struct iw_request_info *info,union
         wrqu->length = strlen(extra);
         return WF_RETURN_FAIL;
     }
-    
-	if (strcmp(tmp[0], "test=stop") == 0) 
+
+	if (strcmp(tmp[0], "test=stop") == 0)
     {
 		ret = mp_test_stop(dev, info, wdata, extra);
         wf_memset(extra, 0, wrqu->length);
         sprintf(extra, "test_stop %s\n", ret == 0 ? "ok" : "fail");
         mp_test_enable = wf_false;
 	}
-    
+
 	token = strsep(&tmp[0], "=");
 
-	if (strcmp(token, "channel") == 0) 
+	if (strcmp(token, "channel") == 0)
     {
 		mp_set_channel(dev, info, wdata, extra);
 	}
-	else if (strcmp(token, "bw") == 0) 
+	else if (strcmp(token, "bw") == 0)
     {
 		mp_set_bw(dev, info, wdata, extra);
 	}
-	else if (strcmp(token, "gi") == 0) 
+	else if (strcmp(token, "gi") == 0)
     {
 		mp_set_gi(dev, info, wdata, extra);
 	}
-	else if (strcmp(token, "tx_ant") == 0) 
+	else if (strcmp(token, "tx_ant") == 0)
     {
 		mp_set_antenna(dev, info, wdata, extra);
 	}
-	else if (strcmp(token, "tx_power0") == 0) 
+	else if (strcmp(token, "tx_power0") == 0)
     {
 		mp_set_tx_power(dev, info, wdata, extra);
 	}
-	else if (strcmp(token, "rate") == 0) 
+	else if (strcmp(token, "rate") == 0)
     {
 		mp_set_rate(dev, info, wdata, extra);
 	}
-    else if (strcmp(token, "freq") == 0) 
+    else if (strcmp(token, "freq") == 0)
     {
 		mp_freq_set(dev, info, wdata, extra);
 	}
-	else if (strcmp(token, "thermal") == 0) 
+	else if (strcmp(token, "thermal") == 0)
     {
 		mp_rfthermalmeter_set(dev, info, wdata, extra);
 	}
-	else if (strcmp(token, "tx") == 0) 
-    {  
+	else if (strcmp(token, "tx") == 0)
+    {
 		wf_mp_test_tx(dev, info, wdata, extra);
 	}
-	else if (strcmp(token, "rx") == 0) 
+	else if (strcmp(token, "rx") == 0)
     {
 		wf_mp_test_rx(dev, info, wdata, extra);
 	}
-	else if (strcmp(token, "stats") == 0) 
+	else if (strcmp(token, "stats") == 0)
     {
 		wf_mp_stats(dev, info, wdata, extra);
     }
-	else if (strcmp(token, "fwdl") == 0) 
+	else if (strcmp(token, "fwdl") == 0)
     {
 		wf_mp_fw_download(dev, info, wdata, extra);
     }
-	else if (strcmp(token, "cmddl") == 0) 
+	else if (strcmp(token, "cmddl") == 0)
     {
 		wf_mp_cmd_download(dev, info, wdata, extra);
     }
-    else 
+    else
     {
         MP_DBG("other token :%s",token);
     }
-    
+
     wrqu->length = strlen(extra);
 
 	return err;
@@ -1063,7 +1084,6 @@ static int mp_wifi_set(struct net_device *dev,struct iw_request_info *info,union
 int wf_mp_set(struct net_device *dev,  struct iw_request_info *info, union iwreq_data *wdata, char *extra)
 {
     struct iw_point *wrqu = (struct iw_point *)wdata;
-	wf_u32 subcmd = wrqu->flags;
     ndev_priv_st *pndev_priv = netdev_priv(dev);
     nic_info_st *pnic_info = pndev_priv->nic;
     MP_DBG();
@@ -1086,6 +1106,10 @@ int wf_mp(struct net_device *dev, struct iw_request_info *info, union iwreq_data
 	wf_u32 subcmd = wrqu->flags;
     ndev_priv_st *pndev_priv = netdev_priv(dev);
     nic_info_st *pnic_info = pndev_priv->nic;
+    if ((pnic_info->is_surprise_removed) || (pnic_info->is_driver_stopped))
+    {
+		return -1;
+	}
 
     if(pnic_info == NULL)
     {
@@ -1100,20 +1124,20 @@ int wf_mp(struct net_device *dev, struct iw_request_info *info, union iwreq_data
         case IW_PRV_GET:
             mp_wifi_get(dev,info,wdata,extra);
             break;
-            
+
         case IW_PRV_EFUSE_GET_PHY:
             wf_mp_efuse_get(dev,info,wdata,extra);
             break;
         case IW_PRV_EFUSE_SET_PHY:
             wf_mp_efuse_set(dev,info,wdata,extra);
-            break;    
+            break;
         case IW_PRV_EFUSE_GET_LOGIC:
             wf_mp_logic_efuse_read(dev,info,wdata,extra);
             break;
         case IW_PRV_EFUSE_SET_LOGIC:
             wf_mp_logic_efuse_write(dev,info,wdata,extra);
             break;
-            
+
         //case IW_PRV_WRITE_REG:
             //wf_mp_reg_write(dev,info,wdata,extra);
             //break;

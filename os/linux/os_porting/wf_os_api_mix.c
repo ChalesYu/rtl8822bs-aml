@@ -5,6 +5,7 @@
 #include "wf_cfg80211.h"
 #endif
 #include "hif.h"
+#include "wf_debug.h"
 
 /* macro */
 
@@ -15,7 +16,9 @@
 void wf_os_api_ind_scan_done (void *arg, wf_bool arg1, wf_u8 arg2)
 {
     nic_info_st *pnic_info = arg;
+#ifdef CONFIG_IOCTL_CFG80211
     wf_u8 babort = arg1;
+#endif
     wf_mlme_framework_e framework = arg2;
 
 #ifdef CONFIG_WIRELESS_EXT
@@ -61,11 +64,13 @@ void wf_os_api_ind_connect (void *arg, wf_u8 arg1)
 #ifdef CONFIG_IOCTL_CFG80211
     if (framework == WF_MLME_FRAMEWORK_NETLINK)
     {
+        #ifdef CFG_ENABLE_ADHOC_MODE
         if(get_sys_work_mode(pnic_info) == WF_ADHOC_MODE)
         {
             wf_cfg80211_ibss_indicate_connect(pnic_info);
         }
         else
+        #endif
         {
             wf_cfg80211_indicate_connect(pnic_info);
         }
@@ -93,10 +98,29 @@ void wf_os_api_ind_disconnect (void *arg, wf_u8 arg1)
 #ifdef CONFIG_IOCTL_CFG80211
     if (framework == WF_MLME_FRAMEWORK_NETLINK)
     {
-        wf_cfg80211_indicate_disconnect(pnic_info);
+#ifdef CFG_ENABLE_ADHOC_MODE
+        if(get_sys_work_mode(pnic_info) == WF_ADHOC_MODE)
+        {
+            wf_cfg80211_ibss_indicate_disconnect(pnic_info);
+        }
+        else
+#endif
+        {
+            wf_cfg80211_indicate_disconnect(pnic_info);
+        }
     }
 #endif
 }
+
+#ifdef CFG_ENABLE_ADHOC_MODE
+void wf_os_api_cfg80211_unlink_ibss(void *arg)
+{
+    #ifdef CONFIG_IOCTL_CFG80211
+    nic_info_st *pnic_info = arg;
+    wf_cfg80211_unlink_ibss(pnic_info);
+    #endif
+}
+#endif
 
 #ifdef CFG_ENABLE_AP_MODE
 void wf_os_api_ap_ind_assoc (void *arg, void *arg1, void *arg2, wf_u8 arg3)
@@ -175,12 +199,27 @@ void wf_os_api_disable_all_data_queue (void *arg)
 #endif
 
     netif_carrier_off(ndev);
+    LOG_W("The netif carrier off");
 }
 
 wf_u32 wf_os_api_rand32 (void)
 {
     return wf_os_api_timestamp();
 }
+
+void *wf_os_api_get_ars(void *nic_info)
+{
+    nic_info_st * ni        = nic_info;
+    hif_node_st *hif_info   = ni->hif_node;
+    return hif_info->ars;
+}
+void  wf_os_api_set_ars(void *nic_info,void *ars)
+{
+    nic_info_st * ni        = nic_info;
+    hif_node_st *hif_info   = ni->hif_node;
+    hif_info->ars           = ars;
+}
+
 
 void *wf_os_api_get_odm(void *nic_info)
 {
@@ -194,6 +233,7 @@ void  wf_os_api_set_odm(void *nic_info,void *odm)
     hif_node_st *hif_info   = ni->hif_node;
     hif_info->odm           = odm;
 }
+
 
 wf_s32 wf_os_api_get_cpu_id(void)
 {

@@ -18,7 +18,7 @@
 #define WLAN_CSCAN_HEADER               "CSCAN S\x01\x00\x00S\x00"
 #define WLAN_CSCAN_HEADER_SIZE          12
 
-#define BEACON_IE_OFFSET 				12
+#define BEACON_IE_OFFSET                12
 #define _VENDOR_SPECIFIC_IE_            221
 
 #define WLAN_A3_PN_OFFSET               24
@@ -176,7 +176,7 @@ typedef struct
 typedef struct
 {
     wf_list_t head;
-    wf_lock_spin lock;
+    wf_lock_t lock;
     wf_u8 count;
 } wf_wlan_queue_t;
 
@@ -220,7 +220,7 @@ typedef struct
 {
     wf_wlan_queue_t free;
     wf_wlan_queue_t que;
-    wf_lock_spin    lock;
+    wf_lock_t       lock;
     wf_u8           count; /* the count of user read scanned_info */
     wf_os_api_sema_t         sema; /* used for Mutex */
 } wf_wlan_scanned_t;
@@ -316,23 +316,23 @@ typedef struct
     wf_u8                   short_slot;
     wf_u8                   ies[WLAN_BSS_IES_SIZE_MAX];
     wf_u32                  join_res;
-	wf_bool 				ht_enable;
-//	#ifdef CFG_ENABLE_ADHOC_MODE	
+    wf_bool                 ht_enable;
+//  #ifdef CFG_ENABLE_ADHOC_MODE
 //    wf_bool                 is_ibss,
-//	wf_bool 				join_to;
-//	#endif
-	
-	struct
-	{
-	    wf_u8 ie[WF_OFFSETOF(wf_80211_mgmt_t, assoc_req.listen_interval) +
-	             WF_80211_IES_SIZE_MAX];
-	    wf_u32 ie_len;
-	} assoc_req;
-	struct
-	{
-	    wf_u8 ie[WF_80211_IES_SIZE_MAX];
-	    wf_u32 ie_len;
-	} assoc_resp;
+//  wf_bool                 join_to;
+//  #endif
+
+    struct
+    {
+        wf_u8 ie[WF_OFFSETOF(wf_80211_mgmt_t, assoc_req.listen_interval) +
+                                              WF_80211_IES_SIZE_MAX];
+        wf_u32 ie_len;
+    } assoc_req;
+    struct
+    {
+        wf_u8 ie[WF_80211_IES_SIZE_MAX];
+        wf_u32 ie_len;
+    } assoc_resp;
 
 #ifdef CFG_ENABLE_AP_MODE
     void                   *ap_tid;
@@ -344,7 +344,7 @@ typedef struct
     wf_u8                   channle_offset;
     wf_que_t                ap_msg_free[WF_AP_MSG_TAG_MAX];
     wf_ap_status            ap_state;
-	wf_u8 					hidden_ssid_mode;
+    wf_80211_hidden_ssid_e  hidden_ssid_mode;
     wf_wlan_ssid_t          hidden_ssid;
 #endif
 } wf_wlan_network_t;
@@ -427,7 +427,7 @@ static wf_inline wf_bool wf_wlan_is_uninstalling (nic_info_st *pnic_info)
              wf_wlan_queue_node_t *_pnode;\
              _pnode = (void *)wf_list_entry(_pcur, wf_wlan_queue_node_t, list);\
              (pscanned_info) = (wf_wlan_scanned_info_t *)_pnode->data;
-             /* { here contain user code } */
+/* { here contain user code } */
 #define wf_wlan_scanned_each_end(pnic_info, pret)\
         }\
         wf_wlan_scanned_acce_post(pscanned_(pnic_info));\

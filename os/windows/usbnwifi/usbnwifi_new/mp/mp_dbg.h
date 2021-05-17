@@ -16,7 +16,7 @@ Revision History:
 Notes:
 
 --*/
-
+#if 0
 #ifndef _NATIVE_WIFI__MP_DBG_
 
 #define _NATIVE_WIFI__MP_DBG_
@@ -216,13 +216,9 @@ typedef     LONG   MUTUAL_EXCLUSION_VERIFIER;
 
     
 
-    #define MpEntry                  \
-        if (DBG_TRACE <= GlobalDebugLevel)   \
-            DbgPrint(("==> " __FUNCTION__ "\n"))
+#define MpEntry DbgPrint("==> " __FUNCTION__ "\n")
 
-    #define MpExit                  \
-        if (DBG_TRACE <= GlobalDebugLevel)   \
-            DbgPrint(("<== " __FUNCTION__ "\n"))
+#define MpExit DbgPrint("<== " __FUNCTION__ "\n")
 
     //
     // Function that reads DebugLevel and Components information from
@@ -295,4 +291,27 @@ typedef     LONG   MUTUAL_EXCLUSION_VERIFIER;
 #endif   // DBG
 
 #endif  // _NATIVE_WIFI__MP_DBG_
+#else
+#ifndef __MP_DBG_H__
+#define __MP_DBG_H__
 
+typedef     LONG   MUTUAL_EXCLUSION_VERIFIER;
+
+
+#define MpEntry LOG_D("==> ") 
+#define MpExit LOG_D("<== ") 
+
+#define MP_ENTER_MUTEX_REGION(MutexVerifier) 
+#define MP_LEAVE_MUTEX_REGION(MutexVerifier) 
+
+#define MPASSERT(_Exp) 
+#define MPASSERTMSG(_Msg, _Exp) 
+#define MPVERIFY(_Exp) 
+
+#define MP_VERIFY_PASSIVE_IRQL()      \
+    MPASSERTMSG("Driver expected IRQL to be passive. Use !irql to check current Irql\n", (NDIS_CURRENT_IRQL() == 0))
+
+
+#endif
+
+#endif

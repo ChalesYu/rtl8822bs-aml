@@ -3,25 +3,30 @@
 #ifdef CFG_ENABLE_ADHOC_MODE
 
 #if 0
-#define ADHOC_DBG(fmt, ...)      LOG_D("[%s]"fmt, __func__, ##__VA_ARGS__)
+#define ADHOC_DBG(fmt, ...)      LOG_D("[%s][%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
 #define ADHOC_ARRAY(data, len)   log_array(data, len)
 #else
 #define ADHOC_DBG(fmt, ...)
 #define ADHOC_ARRAY(data, len)
 #endif
-#define ADHOC_INFO(fmt, ...)     LOG_I("[%s]"fmt, __func__, ##__VA_ARGS__)
-#define ADHOC_WARN(fmt, ...)     LOG_E("[%s]"fmt, __func__, ##__VA_ARGS__)
+#define ADHOC_INFO(fmt, ...)     LOG_I("[%s][%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
+#define ADHOC_WARN(fmt, ...)     LOG_W("[%s][%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
+#define ADHOC_ERROR(fmt, ...)    LOG_E("[%s][%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
 
-wf_bool get_adhoc_master (nic_info_st *pnic_info)
+static void adhoc_set_sta_ratid (nic_info_st *pnic_info, wdn_net_info_st *pwdn_info,
+                                 wf_u8 bw, wf_u8 sgi, wf_u64 bitmap);
+int wf_adhoc_bcn_msg_send(nic_info_st *pnic_info, wf_80211_mgmt_t *pmgmt,wf_u16 mgmt_len);
+
+wf_bool wf_get_adhoc_master (nic_info_st *pnic_info)
 {
-    local_info_st *plocal = (local_info_st *)pnic_info->local_info;
-    return plocal->adhoc_master;
+    wf_adhoc_info_t *adhoc_info = (wf_adhoc_info_t *)pnic_info->adhoc_info;
+    return adhoc_info->adhoc_master;
 }
 
-wf_bool set_adhoc_master (nic_info_st *pnic_info,wf_bool status)
+wf_bool wf_set_adhoc_master (nic_info_st *pnic_info,wf_bool status)
 {
-    local_info_st *plocal = (local_info_st *)pnic_info->local_info;
-    return plocal->adhoc_master = status;
+    wf_adhoc_info_t *adhoc_info = (wf_adhoc_info_t *)pnic_info->adhoc_info;
+    return adhoc_info->adhoc_master = status;
 }
 
 inline wf_u32 wf_adhoc_andom32(void)
@@ -45,142 +50,254 @@ static void wf_make_random_ibss(wf_u8 * pibss)
     pibss[2] = 0x22;
 }
 
-int adhoc_work (nic_info_st *pnic_info, wf_80211_mgmt_t *pmgmt, wf_u16 mgmt_len)
+static wf_u8 adhoc_check_beacon( wf_wlan_network_t *pcur_network, wf_80211_mgmt_t *pmgmt, wf_u16 mgmt_len)
 {
-    wdn_net_info_st *pwdn_info;
-
-    if (mgmt_len > WF_80211_MGMT_BEACON_SIZE_MAX)
-    {
-        ADHOC_WARN("auth frame length too long");
-        return -1;
-    }
+    wf_80211_mgmt_ie_t *pie;
+    wf_u8 *pies = &pmgmt->beacon.variable[0];
+    wf_u16 ies_len = mgmt_len;
 
     if (wf_80211_get_frame_type(pmgmt->frame_control) != WF_80211_FRM_BEACON)
     {
-        return -2;
+        return 0;
+    }
+    
+    ADHOC_DBG();
+    if (wf_80211_mgmt_ies_search(pies, ies_len, WF_80211_MGMT_EID_SSID, &pie))
+    {
+        return 0;
+    }
+    
+    if (pcur_network->ssid.length != pie->len || wf_memcmp(pcur_network->ssid.data, pie->data, pie->len))
+    {
+        ADHOC_WARN("beacon frame no ssid element field");
+        return 0;
+    }
+
+    if(( !WF_80211_CAPAB_IS_IBSS(pmgmt->beacon.capab)
+        && !wf_memcmp(pcur_network->bssid, pmgmt->bssid, MAC_ADDR_LEN)))
+    {
+        return 0;
+    }
+        
+    if (mgmt_len > WF_80211_MGMT_BEACON_SIZE_MAX)
+    {
+        ADHOC_WARN("auth frame length too long");
+        return 0;
+    }
+
+    return 1;
+}
+
+int wf_adhoc_work (nic_info_st *pnic_info, wf_80211_mgmt_t *pmgmt, wf_u16 mgmt_len)
+{
+    wdn_net_info_st *pwdn_info;
+    wf_wlan_info_t *pwlan_info = pnic_info->wlan_info;
+
+    if (wf_get_adhoc_master(pnic_info) == wf_false)
+    {
+		return -1;
+	}
+	
+    if (!adhoc_check_beacon(&pwlan_info->cur_network, pmgmt, mgmt_len))
+    {
+        return -1;
     }
 
     pwdn_info = wf_wdn_find_info(pnic_info, pmgmt->sa);
     if(pwdn_info)
     {
+        pwdn_info->rx_pkt_stat++;
         return 0;
     }
 
-    /* create wdn if no find the node */
-    if (pwdn_info == NULL)
-    {
-        ADHOC_DBG("create new wdn");
-        ADHOC_DBG("pmgmt->sa:"WF_MAC_FMT,WF_MAC_ARG(pmgmt->sa));
-        pwdn_info = wf_wdn_add(pnic_info, pmgmt->sa);
-        if (pwdn_info == NULL)
-        {
-            ADHOC_WARN("wdn alloc fail");
-            return -3;
-        }
-        adhoc_wdn_info_update(pnic_info, pwdn_info);
-    }
-
-    if (wf_ap_msg_load(pnic_info, &pwdn_info->ap_msg,
-                       WF_AP_MSG_TAG_BEACON_FRAME, pmgmt, mgmt_len))
+    if (wf_adhoc_bcn_msg_send(pnic_info,  pmgmt, mgmt_len))
     {
         ADHOC_WARN("beacon msg enque fail");
-        return -5;
+        return -2;
     }
 
     return 0;
 }
 
-static
-void status_error (nic_info_st *pnic_info, wdn_net_info_st *pwdn_info,
-                   wf_ap_msg_t *pmsg, wf_80211_frame_e frame_type,
-                   wf_80211_statuscode_e status_code)
-{
-    /* free message */
-    if (pmsg)
-    {
-        wf_ap_msg_free(pnic_info, &pwdn_info->ap_msg, pmsg);
-    }
-}
-
-static void ap_set_sta_ratid (nic_info_st *pnic_info, wdn_net_info_st *pwdn_info,
-                              wf_u8 bw, wf_u8 sgi, wf_u64 bitmap)
+static void adhoc_set_sta_ratid (nic_info_st *pnic_info, wdn_net_info_st *pwdn_info,
+                                 wf_u8 bw, wf_u8 sgi, wf_u64 bitmap)
 {
     wf_u32 rate_bitmap = (wf_u32) bitmap;
     wf_u32 mask = rate_bitmap & 0x0FFFFFFF;
-    wf_odm_set_rfconfig(pnic_info, pwdn_info->wdn_id, pwdn_info->raid, bw, sgi, mask);
+    wf_mcu_rfconfig_set(pnic_info, pwdn_info->wdn_id, pwdn_info->raid, bw, sgi, mask);
 }
 
-wf_pt_rst_t wf_beacon_adhoc_thrd (nic_info_st *pnic_info, wdn_net_info_st *pwdn_info)
+void wf_adhoc_add_sta_ratid (nic_info_st *pnic_info, wdn_net_info_st *pwdn_info)
 {
-    wf_pt_t *pt = &pwdn_info->sub_thrd_pt;
+    wf_u8 sgi = 0;
+    wf_u64 tx_rate_mask;
+    wf_u8 bw = pwdn_info->bw_mode;
+    mcu_msg_sta_info_st msg_sta;
+    
+    ADHOC_DBG();
+
+    mcu_msg_sta_info_pars(pwdn_info,&msg_sta);
+    tx_rate_mask = wf_mcu_get_rate_bitmap(pnic_info, pwdn_info,&msg_sta, NULL);
+
+    sgi = wf_ra_sGI_get(pwdn_info, 1);
+
+    if (tx_rate_mask & 0xffff000)
+    {
+        pwdn_info->network_type = WIRELESS_11_24N;
+    }
+    else if (tx_rate_mask & 0xff0)
+    {
+        pwdn_info->network_type = WIRELESS_11G;
+    }
+    else if (tx_rate_mask & 0x0f)
+    {
+        pwdn_info->network_type = WIRELESS_11B;
+    }
+    pwdn_info->raid = wf_wdn_get_raid_by_network_type(pwdn_info);
+
+    if (pwdn_info->aid < ODM_WDN_INFO_SIZE)
+    {
+        ADHOC_DBG("wdn_id:%d, raid: %d, shortGIrate: %d,tx_rate_mask:0x%016llx, networkType:0x%02x",
+                  pwdn_info->wdn_id, pwdn_info->raid, sgi, tx_rate_mask, pwdn_info->network_type);
+        adhoc_set_sta_ratid(pnic_info, pwdn_info, bw, sgi, tx_rate_mask);
+    }
+    else
+    {
+        ADHOC_ERROR("aid exceed the max number");
+    }
+}
+
+int wf_adhoc_new_boradcast_wdn (nic_info_st *pnic_info)
+{
+    wdn_net_info_st *pwdn_info;
+    wf_adhoc_info_t *adhoc_info = pnic_info->adhoc_info;
+    wf_u8 bc_addr[WF_ETH_ALEN] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
+
+    pwdn_info = wf_wdn_add(pnic_info, bc_addr);
+    if (pwdn_info == NULL)
+    {
+        ADHOC_WARN("alloc bmc wdn error");
+        return -1;
+    }
+	
+    adhoc_info->asoc_sta_count ++;
+    pwdn_info->aid = 0;
+    pwdn_info->qos_option = 0;
+    pwdn_info->ieee8021x_blocked = wf_true;
+    pwdn_info->mode = WF_ADHOC_MODE;
+    return 0;
+}
+
+void wf_adhoc_flush_wdn(nic_info_st *pnic_info)
+{
+    wf_list_t *pos, *pos_next;
+    wdn_list *pwdn = (wdn_list *)pnic_info->wdn;
+    wf_adhoc_info_t *adhoc_info = pnic_info->adhoc_info;
+    wdn_net_info_st *pwdn_info;
+    wdn_node_st *pwdn_node;
+
+     wf_list_for_each_safe(pos, pos_next, &pwdn->head)
+    {
+        pwdn_node = wf_list_entry(pos, wdn_node_st, list);
+        pwdn_info = &pwdn_node->info;
+        if (pwdn_info->mode == WF_ADHOC_MODE)
+        {
+            /* free the wdn */
+            wf_wdn_remove(pnic_info, pwdn_info->mac);
+        }
+    }
+     
+     adhoc_info->asoc_sta_count = 0;
+}
+
+void wf_adhoc_flush_all_resource(nic_info_st *pnic_info, sys_work_mode_e network_type)
+{
+    wf_u32 tmp[2] = {0xAA, 0};
+    wf_u32 val[2]={0,0};
+    wf_adhoc_info_t *adhoc_info = pnic_info->adhoc_info;
+
+    ADHOC_DBG();
+	if(NULL == adhoc_info)
+	{
+		return;
+	}
+    
+    /*flush wdn*/
+    wf_adhoc_flush_wdn(pnic_info);
+    
+    if(!pnic_info->is_surprise_removed)
+    {
+        wf_io_write_cmd_by_mailbox(pnic_info, UMSG_OPS_HAL_SET_BCN, val, 2, NULL, 0);
+        wf_io_write_cmd_by_mailbox(pnic_info, UMSG_OPS_HW_SET_MLME_DISCONNECT, tmp, 2, NULL, 0);
+        wf_mcu_set_bssid(pnic_info, NULL);
+        switch(network_type)
+        {
+            case WF_INFRA_MODE:
+                wf_mcu_set_media_status(pnic_info, WIFI_FW_STATION_STATE);
+                break;
+            case WF_ADHOC_MODE:
+                wf_mcu_set_media_status(pnic_info, WIFI_FW_ADHOC_STATE);
+                break;
+            case WF_MASTER_MODE:
+                wf_mcu_set_media_status(pnic_info, WIFI_FW_AP_STATE);
+                break;
+            default:
+                break;
+        }
+    }
+    
+    wf_os_api_ind_disconnect(pnic_info,adhoc_info->framework);
+    set_sys_work_mode(pnic_info, network_type);
+    if(!pnic_info->is_surprise_removed)
+    {
+        wf_mcu_set_op_mode(pnic_info, network_type);
+    }
+    
+    wf_mlme_set_connect(pnic_info, wf_false);
+    wf_set_adhoc_master(pnic_info, wf_false);
+}
+
+wf_pt_rst_t wf_adhoc_prc_bcn (nic_info_st *pnic_info, wf_msg_t *pmsg, wdn_net_info_st *pwdn_info)
+{
     wf_wlan_info_t *pwlan_info = pnic_info->wlan_info;
     wf_wlan_network_t *pcur_network = &pwlan_info->cur_network;
-    sec_info_st *psec_info = pnic_info->sec_info;
-    wf_ap_msg_t *pmsg;
     wf_80211_mgmt_t *pmgmt;
-    wf_u16 var_len, ofs;
-    wf_u8 *pvar;
+    wf_u16 var_len = 0, ofs;
+    wf_u8 *pvar = NULL;
     wf_80211_mgmt_ie_t *pie;
-    wf_u32 wpa_multicast_cipher;
-    wf_u32 wpa_unicast_cipher;
-    wf_u32 rsn_group_cipher;
-    wf_u32 rsn_pairwise_cipher;
     wf_u8 i, j;
-    int ret;
     wf_80211_frame_e frame_type;
-    wf_80211_statuscode_e status_code;
-    wf_u8 wpa_ie_len;
 
-    PT_BEGIN(pt);
-
-    pmsg = wf_ap_msg_get(&pwdn_info->ap_msg);
+    ADHOC_DBG();
     if (pmsg == NULL)
     {
+
+        ADHOC_WARN("MSG---IS---NULL-----");
         /* abort thread */
-        PT_EXIT(pt);
-    }
-    ADHOC_INFO("beacon frame received");
-    if (pmsg->tag != WF_AP_MSG_TAG_BEACON_FRAME)
-    {
-        wf_ap_msg_free(pnic_info, &pwdn_info->ap_msg, pmsg);
-        ADHOC_DBG("no beacon frame received");
-        /* abort thread */
-        PT_EXIT(pt);
+        return -1;
     }
 
-    ADHOC_DBG("beacon begin->"WF_MAC_FMT, WF_MAC_ARG(pwdn_info->mac));
-
-    /* parse assocation frame */
-    ADHOC_DBG("beacon arrived");
-    ADHOC_ARRAY((void *)&pmsg->mgmt, pmsg->len);
-
+    pmgmt=(wf_80211_mgmt_t *)pmsg->value;
     /* retrive frame type */
-    frame_type = wf_80211_get_frame_type(pmsg->mgmt.frame_control);
+    frame_type = wf_80211_get_frame_type(pmgmt->frame_control);
 
     /* retrive element fiexd fields */
-    pmgmt = &pmsg->mgmt;
     pwdn_info->cap_info = wf_le16_to_cpu(pmgmt->beacon.capab);
     pwdn_info->bcn_interval = wf_le16_to_cpu(pmgmt->beacon.intv);
 
     /* initilize */
-    pwdn_info->rsn_pairwise_cipher = 0;
+    // pwdn_info->rsn_pairwise_cipher = 0;
     pwdn_info->wmm_enable = wf_false;
     pwdn_info->wpa_enable = wf_false;
     pwdn_info->rsn_enable = wf_false;
     pwdn_info->datarate_len = 0;
     pwdn_info->ext_datarate_len = 0;
     pwdn_info->ssid_len = 0;
-    wf_memset(pwdn_info->wpa_ie, 0x0, sizeof(pwdn_info->wpa_ie));
 
     /* element variable fields */
     if (frame_type == WF_80211_FRM_BEACON)
     {
-        pvar = pmsg->mgmt.beacon.variable;
-        var_len = pmsg->len - WF_OFFSETOF(wf_80211_mgmt_t, beacon.variable);
-    }
-    else
-    {
-        pvar = pmsg->mgmt.reassoc_req.variable;
+        pvar = pmgmt->beacon.variable;
         var_len = pmsg->len - WF_OFFSETOF(wf_80211_mgmt_t, beacon.variable);
     }
 
@@ -188,41 +305,14 @@ wf_pt_rst_t wf_beacon_adhoc_thrd (nic_info_st *pnic_info, wdn_net_info_st *pwdn_
          ofs += WF_OFFSETOF(wf_80211_mgmt_ie_t, data) + pie->len)
     {
         pie = (void *)&pvar[ofs];
-        if (pie->element_id == WF_80211_MGMT_EID_SSID)
-        {
-            if (pie->len == pcur_network->ssid.length &&
-                !wf_memcmp(pie->data, pcur_network->ssid.data, pie->len))
-            {
-                pwdn_info->ssid_len = pcur_network->ssid.length;
-                wf_memcpy(pwdn_info->ssid, pcur_network->ssid.data,
-                          pcur_network->ssid.length);
-                pwdn_info->ssid[pwdn_info->ssid_len] = '\0';
-            }
-            else
-            {
-                ADHOC_WARN("ssid error(len=%d): ", pie->len);
-                if (pie->len)
-                {
-                    ADHOC_ARRAY(pie->data, pie->len);
-                }
-                status_error(pnic_info, pwdn_info,
-                             pmsg, frame_type,
-                             WF_80211_STATUS_INVALID_IE);
-                /* abort thread */
-                PT_EXIT(pt);
-            }
-        }
 
-        else if (pie->element_id == WF_80211_MGMT_EID_SUPP_RATES)
+        if (pie->element_id == WF_80211_MGMT_EID_SUPP_RATES)
         {
             if (pie->len > WF_ARRAY_SIZE(pwdn_info->datarate))
             {
                 ADHOC_WARN("rates(%d) list size over limite", pie->len);
-                status_error(pnic_info, pwdn_info,
-                             pmsg, frame_type,
-                             WF_80211_STATUS_INVALID_IE);
-                /* abort thread */
-                PT_EXIT(pt);
+
+                return -1;
             }
             /* check and retrieve rate */
             wf_memset(pwdn_info->datarate, 0x0, sizeof(pwdn_info->datarate));
@@ -244,11 +334,8 @@ wf_pt_rst_t wf_beacon_adhoc_thrd (nic_info_st *pnic_info, wdn_net_info_st *pwdn_
                         else
                         {
                             ADHOC_WARN("beyond support rate upper limit");
-                            status_error(pnic_info, pwdn_info,
-                                         pmsg, frame_type,
-                                         WF_80211_STATUS_ASSOC_DENIED_RATES);
                             /* abort thread */
-                            PT_EXIT(pt);
+                            break;
                         }
                     }
                 }
@@ -256,11 +343,7 @@ wf_pt_rst_t wf_beacon_adhoc_thrd (nic_info_st *pnic_info, wdn_net_info_st *pwdn_
             if (pwdn_info->datarate_len == 0)
             {
                 ADHOC_WARN("invalid support extend rates");
-                status_error(pnic_info, pwdn_info,
-                             pmsg, frame_type,
-                             WF_80211_STATUS_ASSOC_DENIED_RATES);
-                /* abort thread */
-                PT_EXIT(pt);
+                return -1;
             }
             ADHOC_DBG("data rate(Mbps): %d, %d, %d, %d, %d, %d, %d, %d",
                       (pwdn_info->datarate[0] & 0x7F) / 2,
@@ -272,17 +355,14 @@ wf_pt_rst_t wf_beacon_adhoc_thrd (nic_info_st *pnic_info, wdn_net_info_st *pwdn_
                       (pwdn_info->datarate[6] & 0x7F) / 2,
                       (pwdn_info->datarate[7] & 0x7F) / 2);
         }
-
         else if (pie->element_id == WF_80211_MGMT_EID_EXT_SUPP_RATES)
         {
             if (pie->len > WF_ARRAY_SIZE(pwdn_info->ext_datarate))
             {
                 ADHOC_WARN("support extend rates(%d) list size over limite", pie->len);
-                status_error(pnic_info, pwdn_info,
-                             pmsg, frame_type,
-                             WF_80211_STATUS_ASSOC_DENIED_RATES);
+
                 /* abort thread */
-                PT_EXIT(pt);
+                return -1;
             }
             /* check and retrieve rate */
             wf_memset(pwdn_info->ext_datarate, 0x0,
@@ -305,11 +385,9 @@ wf_pt_rst_t wf_beacon_adhoc_thrd (nic_info_st *pnic_info, wdn_net_info_st *pwdn_
                         else
                         {
                             ADHOC_WARN("beyond support rate upper limit");
-                            status_error(pnic_info, pwdn_info,
-                                         pmsg, frame_type,
-                                         WF_80211_STATUS_ASSOC_DENIED_RATES);
+
                             /* abort thread */
-                            PT_EXIT(pt);
+                            break;
                         }
                     }
                 }
@@ -318,11 +396,9 @@ wf_pt_rst_t wf_beacon_adhoc_thrd (nic_info_st *pnic_info, wdn_net_info_st *pwdn_
             if (pwdn_info->ext_datarate_len == 0)
             {
                 ADHOC_WARN("invalid support extend rates");
-                status_error(pnic_info, pwdn_info,
-                             pmsg, frame_type,
-                             WF_80211_STATUS_ASSOC_DENIED_RATES);
+
                 /* abort thread */
-                PT_EXIT(pt);
+                return -1;
             }
             ADHOC_DBG("extend data rate(Mbps): %d, %d, %d, %d",
                       (pwdn_info->ext_datarate[0] & 0x7F) / 2,
@@ -341,41 +417,26 @@ wf_pt_rst_t wf_beacon_adhoc_thrd (nic_info_st *pnic_info, wdn_net_info_st *pwdn_
         }
     }
 
-    /* free message */
-    wf_ap_msg_free(pnic_info, &pwdn_info->ap_msg, pmsg);
-
     /* notify connection establish */
-    wf_ap_odm_connect_media_status(pnic_info, pwdn_info);
-
-    wf_assoc_ap_event_up(pnic_info, pwdn_info, pmsg);
-    ADHOC_DBG("beacon end->"WF_MAC_FMT, WF_MAC_ARG(pwdn_info->mac));
-
-//    wf_mcu_set_mlme_join(pnic_info, 2);
-
-    wf_ap_add_sta_ratid(pnic_info, pwdn_info);
-
-//    wf_mcu_set_mlme_scan(pnic_info, wf_false);
+    wf_adhoc_odm_connect_media_status(pnic_info, pwdn_info);
+    ADHOC_DBG("prc  beacon end->"WF_MAC_FMT, WF_MAC_ARG(pwdn_info->mac));
+    wf_adhoc_add_sta_ratid(pnic_info, pwdn_info);
     /* thread end */
-    PT_END(pt);
+    return 0;
 }
 
-
-void adhoc_wdn_info_update (nic_info_st *pnic_info, wdn_net_info_st *pwdn_info)
+void wf_adhoc_wdn_info_update (nic_info_st *pnic_info, wdn_net_info_st *pwdn_info)
 {
     wf_wlan_info_t *pwlan_info = pnic_info->wlan_info;
     wf_wlan_network_t *pcur_network = &pwlan_info->cur_network;
 
-
-    /* ap message queue initilize */
-    wf_que_init(&pwdn_info->ap_msg, WF_LOCK_TYPE_SPIN);
-    /* ap trhead initilize */
-    PT_INIT(&pwdn_info->ap_thrd_pt);
     /* generate wdn aid */
     pwdn_info->aid = pwdn_info->wdn_id + 1;
     /* retreive bssid into wdn_info */
     wf_memcpy(pwdn_info->bssid, pcur_network->bssid,
               WF_ARRAY_SIZE(pwdn_info->bssid));
     /* reset connection rx packets statistics */
+    pwdn_info->rx_pkt_stat_last  = 0;
     pwdn_info->rx_pkt_stat = 0;
     /* set mode */
     pwdn_info->mode = WF_ADHOC_MODE;
@@ -383,21 +444,35 @@ void adhoc_wdn_info_update (nic_info_st *pnic_info, wdn_net_info_st *pwdn_info)
 }
 
 int wf_adhoc_do_probrsp (nic_info_st *pnic_info,
-                 wf_80211_mgmt_t *pframe, wf_u16 frame_len)
+                         wf_80211_mgmt_t *pframe, wf_u16 mgmt_len)
 {
     struct xmit_buf *pxmit_buf;
     tx_info_st *ptx_info;
     wf_wlan_info_t *pwlan_info = pnic_info->wlan_info;
+    hw_info_st *hw_info = pnic_info->hw_info;
     wf_wlan_network_t *pcur_network = &pwlan_info->cur_network;
     wf_80211_mgmt_t *pmgmt;
-    wf_bool bConnect;
+    wf_80211_mgmt_ie_t *pie;
+    wf_u8 *pies = &pframe->probe_req.variable[0];
+    wf_u16 ies_len = mgmt_len;
 
-    if (wf_80211_get_frame_type(pframe->frame_control) != WF_80211_FRM_PROBE_REQ)
+    if (wf_get_adhoc_master(pnic_info) == wf_false)
+    {
+        return 0;
+    }
+
+    if (wf_80211_mgmt_ies_search(pies, ies_len, WF_80211_MGMT_EID_SSID, &pie))
+    {
+        ADHOC_WARN("no ssid element field");
+        return -1;
+    }
+
+    if (pcur_network->ssid.length != pie->len || wf_memcmp(pcur_network->ssid.data, pie->data, pie->len))
     {
         return -1;
     }
 
-    if (!(mac_addr_equal(pframe->da, pwlan_info->cur_network.mac_addr) ||
+    if (!(mac_addr_equal(pframe->da, hw_info->macAddr) ||
           is_bcast_addr(pframe->da)))
     {
         ADHOC_WARN("probe request target address invalid");
@@ -424,7 +499,7 @@ int wf_adhoc_do_probrsp (nic_info_st *pnic_info,
 
     /* set address */
     wf_memcpy(pmgmt->da, pframe->sa, WF_ARRAY_SIZE(pmgmt->da));
-    wf_memcpy(pmgmt->sa, pcur_network->mac_addr, WF_ARRAY_SIZE(pmgmt->sa));
+    wf_memcpy(pmgmt->sa, hw_info->macAddr, WF_ARRAY_SIZE(pmgmt->sa));
     wf_memcpy(pmgmt->bssid, pcur_network->bssid, WF_ARRAY_SIZE(pmgmt->bssid));
 
     /* set pies fiexd field */
@@ -445,16 +520,11 @@ int wf_adhoc_do_probrsp (nic_info_st *pnic_info,
 
 int proc_start_create_ibss_func(nic_info_st *pnic_info)
 {
-    wf_u8 val8;
-    wf_u32 bxmitok = wf_false;
-    wf_u8 join_type;
-    unsigned short caps;
     wf_80211_mgmt_capab_t capab;
     wf_wlan_info_t *pwlan_info = pnic_info->wlan_info;
-    sec_info_st *psec_info = pnic_info->sec_info;
     wf_wlan_network_t *pcur_network = &pwlan_info->cur_network;
 
-    wf_u8 null_addr[ETH_ALEN] = { 0, 0, 0, 0, 0, 0 };
+    wf_u8 null_addr[WF_ETH_ALEN] = { 0, 0, 0, 0, 0, 0 };
     struct beacon_ie *pbcn = (struct beacon_ie *)pcur_network->ies;
     capab = wf_le16_to_cpu(pbcn->capab);
 
@@ -465,7 +535,7 @@ int proc_start_create_ibss_func(nic_info_st *pnic_info)
 
         if (pcur_network->ssid.data && pcur_network->ssid.length)
         {
-            if(wf_adhoc_send_beacon(pnic_info))
+            if (wf_adhoc_send_beacon(pnic_info))
             {
                 ADHOC_INFO("ADHOC send beacon fall!!!!");
                 wf_mlme_set_connect(pnic_info, wf_false);
@@ -475,10 +545,10 @@ int proc_start_create_ibss_func(nic_info_st *pnic_info)
             }
             else
             {
-               wf_mcu_set_bssid(pnic_info, pwlan_info->cur_network.mac_addr);
-               wf_mcu_set_mlme_join(pnic_info, 0);
+                wf_mcu_set_bssid(pnic_info, pwlan_info->cur_network.mac_addr);
+                wf_mcu_set_mlme_join(pnic_info, 0);
 
-               wf_mlme_set_connect(pnic_info, wf_true);
+                wf_mlme_set_connect(pnic_info, wf_true);
             }
         }
     }
@@ -486,34 +556,10 @@ int proc_start_create_ibss_func(nic_info_st *pnic_info)
     return 0;
 }
 
-wf_u32 get_rate_len(wf_u8 *rate)
-{
-    int i = 0;
-
-    while(1)
-    {
-        if(rate[i] == 0)
-        {
-            break;
-        }
-
-        if(i > 12)
-        {
-            break;
-        }
-
-        i++;
-    }
-
-    return i;
-}
-
 static void adhoc_init_reg (nic_info_st *pnic_info)
 {
     wf_wlan_info_t *pwlan_info = pnic_info->wlan_info;
     wf_wlan_network_t *pcur_network = &pwlan_info->cur_network;
-    sec_info_st *psec_info = pnic_info->sec_info;
-    wf_u32 tmp32u;
 
     ADHOC_DBG();
 
@@ -573,7 +619,8 @@ static void adhoc_update_reg (nic_info_st *pnic_info)
 wf_u32 rate_len_to_get_func(wf_u8 * rateset)
 {
     wf_u32 i = 0;
-    while (1) {
+    while (1)
+    {
         if ((rateset[i]) == 0)
         {
             break;
@@ -594,14 +641,12 @@ void wf_adhoc_genarate_ie(nic_info_st *pnic_info)
     wf_wlan_info_t *pwlan_info = pnic_info->wlan_info;
     hw_info_st *hw_info = pnic_info->hw_info;
     wf_wlan_network_t *pcur_network = &pwlan_info->cur_network;
-    sec_info_st *psec_info = pnic_info->sec_info;
-    wf_u8 wireless_mode = 0;
     const wf_u16 atimwindow = 0;
     wf_u32 sz = 0, rateLen;
     wf_u8 *ie = pcur_network->ies;
 
     ie = set_ie(ie, WF_80211_MGMT_EID_SSID, pcur_network->ssid.length,
-                                 pcur_network->ssid.data, &sz);
+                pcur_network->ssid.data, &sz);
 
     rateLen = rate_len_to_get_func(hw_info->datarate);
 
@@ -612,35 +657,37 @@ void wf_adhoc_genarate_ie(nic_info_st *pnic_info)
     if (rateLen > 8)
     {
         ie = set_ie(ie, WF_80211_MGMT_EID_SUPP_RATES, 8,
-                                        hw_info->datarate, &sz);
+                    hw_info->datarate, &sz);
     }
     else
     {
         ie = set_ie(ie, WF_80211_MGMT_EID_SUPP_RATES, rateLen,
-                                         hw_info->datarate, &sz);
+                    hw_info->datarate, &sz);
     }
 
     ie = set_ie(ie, WF_80211_MGMT_EID_DS_PARAMS, 1,
-                                 (wf_u8 *) & (pcur_network->channel), &sz);
+                (wf_u8 *) & (pcur_network->channel), &sz);
 
     ie = set_ie(ie, WF_80211_MGMT_EID_IBSS_PARAMS, 2,
-                                 (wf_u8 *) & atimwindow, &sz);
+                (wf_u8 *) & atimwindow, &sz);
 
     if (rateLen > 8)
     {
         ie = set_ie(ie, WF_80211_MGMT_EID_EXT_SUPP_RATES, (rateLen - 8),
-                                         (hw_info->datarate + 8), &sz);
+                    (hw_info->datarate + 8), &sz);
     }
 
     pcur_network->ies_length =sz;
 
- }
+}
 
 int wf_adhoc_send_beacon(nic_info_st *pnic_info)
 {
     struct xmit_buf *pxmit_buf;
     tx_info_st *ptx_info;
     wf_wlan_info_t *pwlan_info = pnic_info->wlan_info;
+
+    hw_info_st *hw_info = pnic_info->hw_info;
     wf_wlan_network_t *pcur_network = &pwlan_info->cur_network;
     wf_80211_mgmt_t *pmgmt;
 
@@ -664,9 +711,9 @@ int wf_adhoc_send_beacon(nic_info_st *pnic_info)
     pmgmt->frame_control = wf_cpu_to_le16(pmgmt->frame_control);
 
     /* set address */
-    wf_memset(pmgmt->da, 0xff, ETH_ALEN);
-    wf_memcpy(pmgmt->sa, pcur_network->mac_addr, ETH_ALEN);
-    wf_memcpy(pmgmt->bssid, pcur_network->bssid, ETH_ALEN);
+    wf_memset(pmgmt->da, 0xff, WF_ETH_ALEN);
+    wf_memcpy(pmgmt->sa, hw_info->macAddr, WF_ETH_ALEN);
+    wf_memcpy(pmgmt->bssid, pcur_network->bssid, WF_ETH_ALEN);
 
     /* set ie fiexd field */
     pmgmt->beacon.intv = wf_cpu_to_le16(pcur_network->bcn_interval * 100);
@@ -686,70 +733,234 @@ int wf_adhoc_send_beacon(nic_info_st *pnic_info)
     return 0;
 }
 
-int wf_proc_ibss_join(nic_info_st * pnic_info)
+int wf_adhoc_ibss_join (nic_info_st * pnic_info, wf_u8 framework, int reason)
 {
-    wf_bool bBusy;
-    wf_bool  fscanned_empty;
-    sec_info_st *psec_info = pnic_info->sec_info;
-    wf_wlan_info_t *wlan_info = pnic_info->wlan_info;
-    wf_wlan_network_t *pcur_network = &wlan_info->cur_network;
-    wf_80211_mgmt_t *pmgmt;
-    wf_u32  ret = 0;
-    wf_u16 mgmt_len;
-    int scanned_ret;
-    wf_wlan_scanned_info_t *pscanned_info;
+    wf_wlan_info_t *pwlan_info = pnic_info->wlan_info;
+    wf_wlan_network_t *pcur_network = &pwlan_info->cur_network;
+    wf_adhoc_info_t *adhoc_info = pnic_info->adhoc_info;
+    wdn_net_info_st *pwdn_info = NULL;
+    wf_u8 send_count = 10;
+    int rst;
 
-    wf_wlan_scanned_each_begin(pscanned_info, pnic_info)
+
+    adhoc_info->framework = framework;
+    
+    if (wf_adhoc_new_boradcast_wdn(pnic_info))
     {
-    	if((pscanned_info->opr_mode == WF_WLAN_OPR_MODE_ADHOC) &&
-            (pscanned_info->privacy == wf_false) &&
-            pscanned_info->ssid.length == pcur_network->ssid.length &&
-            !wf_memcmp(pscanned_info->ssid.data, pcur_network->ssid.data, pcur_network->ssid.length) &&
-            (pcur_network->channel == pscanned_info->channel))
-        {
-            wf_memcpy(pcur_network->bssid, pscanned_info->bssid, ETH_ALEN);
-            pcur_network->timestamp = pscanned_info->timestamp;
-            break;
-        }
+        ADHOC_WARN("create boardcast wdn_info fail");
     }
-    wf_wlan_scanned_each_end(pnic_info, &scanned_ret);
 
-    if(WF_WLAN_SCANNED_EACH_RET_BREAK == scanned_ret)
+    if (reason == 0)
     {
-		ADHOC_INFO("find ibss, join ibss network!!!");
+        pwdn_info = wf_wdn_add(pnic_info, pcur_network->mac_addr);
+        ADHOC_ARRAY(pcur_network->mac_addr, MAC_ADDR_LEN);
+        if (pwdn_info == NULL)
+        {
+            ADHOC_WARN("wf_proc_ibss_join new wdn fail");
+            return -1;
+        }
+        adhoc_info->asoc_sta_count++;
+        wf_adhoc_wdn_info_update(pnic_info, pwdn_info);
+        wf_wdn_data_update(pnic_info, pwdn_info);
+        /*add sta ratid after wdn update*/
+        wf_adhoc_odm_connect_media_status(pnic_info, pwdn_info);
+        wf_adhoc_add_sta_ratid(pnic_info, pwdn_info);
+        wf_os_api_ind_connect(pnic_info, framework);
     }
     else
     {
-        ADHOC_INFO("no same ibss network, create ibss!!!");
-        wf_make_random_ibss(wlan_info->cur_network.bssid);
+        wf_make_random_ibss(pcur_network->bssid);
     }
 
     wf_adhoc_genarate_ie(pnic_info);
     adhoc_init_reg(pnic_info);
-    wf_os_api_ind_connect(pnic_info, WF_MLME_FRAMEWORK_NETLINK);
-    wf_mlme_set_connect(pnic_info, wf_true);
-    set_adhoc_master(pnic_info, wf_true);
 
     /* enable data queue */
-    wf_os_api_enable_all_data_queue(pnic_info->ndev);
-
     wf_mcu_set_correct_tsf(pnic_info, 0);
-
-    if(wf_adhoc_send_beacon(pnic_info))
+    wf_mcu_set_bcn_valid(pnic_info);
+    wf_mcu_set_bcn_sel(pnic_info);
+    while(send_count --)
     {
-        ADHOC_WARN("send beacon fail!!!");
-        ret = -1;
-        goto exit;
+        rst = wf_adhoc_send_beacon(pnic_info);
+        wf_yield();
+    }
+    #if 0
+    if (rst)
+    {
+        ADHOC_WARN("send beacon fail, error code: %d", rst);
+        return -2;
+    }
+    #endif
+    adhoc_update_reg(pnic_info);
+    wf_os_api_enable_all_data_queue(pnic_info->ndev);
+    wf_mlme_set_connect(pnic_info, wf_true);
+    wf_set_adhoc_master(pnic_info, wf_true);
+    return 0;
+}
+
+int wf_adhoc_keepalive_thrd ( nic_info_st *pnic_info)
+{
+    wdn_list *pwdn = (wdn_list *)pnic_info->wdn;
+    wf_adhoc_info_t *adhoc_info = pnic_info->adhoc_info;
+    wf_list_t *pos, *pos_next;
+    wdn_node_st *pwdn_node;
+    wdn_net_info_st *pwdn_info;
+
+    if( NULL == adhoc_info || !wf_timer_expired(&adhoc_info->timer) )
+    {
+        return 0;
+    }
+    
+    wf_list_for_each_safe(pos, pos_next, &pwdn->head)
+    {
+        pwdn_node = wf_list_entry(pos, wdn_node_st, list);
+        pwdn_info = &pwdn_node->info;
+        if (pwdn_info->rx_pkt_stat_last != pwdn_info->rx_pkt_stat)
+        {
+            pwdn_info->rx_pkt_stat_last = pwdn_info->rx_pkt_stat;
+            continue;
+        }
+
+        if(!is_bcast_addr(pwdn_info->mac))
+        {
+            /* free the wdn */
+            
+            adhoc_info->asoc_sta_count--;
+            wf_wdn_remove(pnic_info, pwdn_info->mac);
+            wf_adhoc_odm_disconnect_media_status(pnic_info, pwdn_info);
+            if(adhoc_info->asoc_sta_count == 1)
+            {
+                /*keep NL80211_IFTYPE_ADHOC type*/
+                wf_os_api_cfg80211_unlink_ibss(pnic_info);
+            }
+        }
     }
 
-    wf_mcu_set_mlme_join(pnic_info, 2);
-    adhoc_update_reg(pnic_info);
+    wf_timer_reset(&adhoc_info->timer);
+    return 0;
+}
 
-    ret = wf_ap_work_start(pnic_info);
+int wf_adhoc_leave_ibss_msg_send (nic_info_st *pnic_info)
+{
+    mlme_info_t *pmlme_info = pnic_info->mlme_info;
+    wf_msg_que_t *pmsg_que = &pmlme_info->msg_que;
+    wf_msg_t *pmsg;
+    int rst;
 
-exit:
+    if (pnic_info == NULL || WF_CANNOT_RUN(pnic_info))
+    {
+        return -1;
+    }
 
-    return ret;
+    ADHOC_DBG();
+
+    if (!pnic_info->is_up)
+    {
+        return -2;
+    }
+
+    rst = wf_msg_new(pmsg_que, WF_MLME_TAG_IBSS_LEAVE, &pmsg);
+    if (rst)
+    {
+        ADHOC_WARN("msg new fail error fail: %d", rst);
+        return -4;
+    }
+    rst = wf_msg_push(pmsg_que, pmsg);
+    if (rst)
+    {
+        wf_msg_del(pmsg_que, pmsg);
+        ADHOC_WARN("msg push fail error fail: %d", rst);
+        return -5;
+    }
+
+    return 0;
+}
+
+int wf_adhoc_bcn_msg_send(nic_info_st *pnic_info, wf_80211_mgmt_t *pmgmt,wf_u16 mgmt_len)
+{
+    mlme_info_t *pmlme_info = pnic_info->mlme_info;
+
+    if (pnic_info == NULL || WF_CANNOT_RUN(pnic_info))
+    {
+        return -1;
+    }
+
+    if (!pnic_info->is_up)
+    {
+        return -2;
+    }
+
+    ADHOC_DBG();
+
+    /* new message information */
+    {
+        wf_msg_que_t *pmsg_que = &pmlme_info->msg_que;
+        wf_msg_t *pmsg;
+        int rst;
+
+        rst = wf_msg_new(pmsg_que, WF_MLME_TAG_IBSS_BEACON_FRAME, &pmsg);
+        if (rst)
+        {
+            ADHOC_WARN("msg new fail error fail: %d", rst);
+            return -3;
+        }
+        pmsg->len = mgmt_len;
+        wf_memcpy(pmsg->value, pmgmt, mgmt_len);
+        rst = wf_msg_push(pmsg_que, pmsg);
+        if (rst)
+        {
+            ADHOC_WARN("msg push fail error fail: %d", rst);
+            return -4;
+        }
+    }
+
+    return 0;
+}
+
+int wf_adhoc_init (nic_info_st *pnic_info)
+{
+    wf_adhoc_info_t *adhoc_info;
+
+    if (pnic_info == NULL)
+    {
+        return -1;
+    }
+
+    ADHOC_DBG();
+    adhoc_info = wf_kzalloc(sizeof(wf_adhoc_info_t));
+
+    if (adhoc_info == NULL)
+    {
+        ADHOC_WARN("malloc adhoc_info failed");
+        return -2;
+    }
+    
+    adhoc_info->asoc_sta_count = 0;
+    wf_os_api_sema_init(&adhoc_info->sema, 1);
+    pnic_info->adhoc_info = adhoc_info;
+    wf_set_adhoc_master(pnic_info, wf_false);
+    return 0;
+}
+
+int wf_adhoc_term (nic_info_st *pnic_info)
+{
+    wf_adhoc_info_t *adhoc_info;
+
+    if (pnic_info == NULL)
+    {
+        return -1;
+    }
+	
+	ADHOC_DBG();
+    adhoc_info = pnic_info->adhoc_info;
+
+    if (adhoc_info)
+    {
+        wf_kfree(adhoc_info);
+        pnic_info->adhoc_info = NULL;
+    }
+    
+    return 0;
 }
 
 #endif

@@ -11,7 +11,6 @@
 #include "wf_debug.h"
 
 static void wf_tx_work(struct work_struct *work);
-static void wf_hif_queue_rx_work(struct work_struct *work);
 
 wf_u32 wf_data_queue_len(wf_que_t *queue)
 {
@@ -39,7 +38,7 @@ int wf_data_queue_insert(wf_que_t *queue, data_queue_node_st *qnode)
 data_queue_node_st * wf_data_queue_remove(wf_que_t *queue)
 {
     data_queue_node_st *rb_node     = NULL;
-    wf_list_t    *head       = NULL;
+    wf_list_t    *head              = NULL;
 
     if(wf_que_is_empty(queue))
     {
@@ -68,11 +67,8 @@ data_queue_node_st * wf_queue_node_malloc(void *hif_node,int cnt )
     return node;
 }
 
-#if HIF_QUEUE_PRE_ALLOC_DEBUG
-
 int wf_hif_queue_alloc_skb_one(struct sk_buff_head *skb_head,wf_u8 hif_type)
 {
-    int i                   = 0;
     struct sk_buff *pskb    = NULL;
     SIZE_PTR tmpaddr        = 0;
     SIZE_PTR alignment      = 0;
@@ -105,9 +101,6 @@ int wf_hif_queue_alloc_skb_one(struct sk_buff_head *skb_head,wf_u8 hif_type)
 void wf_hif_queue_alloc_skb(struct sk_buff_head *skb_head,wf_u8 hif_type)
 {
     int i                   = 0;
-    struct sk_buff *pskb    = NULL;
-    SIZE_PTR tmpaddr        = 0;
-    SIZE_PTR alignment      = 0;
     int ret                 = 0;
     for (i = 0; i < HIF_QUEUE_ALLOC_SKB_NUM; i++)
     {
@@ -130,27 +123,22 @@ static void wf_hif_queue_free_skb(struct sk_buff_head *skb_head)
     }
 }
 
-#endif
-
 int wf_data_queue_mngt_init(void *hif_node)
 {
-    int i = 0;
-    data_queue_node_st *recv_node = NULL;
-    data_queue_node_st *send_node = NULL;
-    hif_node_st *hif_info = (hif_node_st *)hif_node;
-    data_queue_mngt_st *data_queue_mngt = &hif_info->trx_pipe;
-    static wf_workqueue_func_param_st wq_rx_param={"wf_rx_workqueue",wf_hif_queue_rx_work};
-    static wf_workqueue_func_param_st wq_tx_param={"wf_tx_workqueue",wf_tx_work};
+    int i                                           = 0;
+    data_queue_node_st *recv_node                   = NULL;
+    data_queue_node_st *send_node                   = NULL;
+    hif_node_st *hif_info                           = (hif_node_st *)hif_node;
+    data_queue_mngt_st *data_queue_mngt             = &hif_info->trx_pipe;
+
+    static wf_workqueue_func_param_st wq_tx_param   ={"wf_tx_workqueue",wf_tx_work};
+
     skb_queue_head_init(&data_queue_mngt->rx_queue);
     skb_queue_head_init(&data_queue_mngt->free_rx_queue_skb);
     wf_que_init(&data_queue_mngt->free_rx_queue,WF_LOCK_TYPE_IRQ);
     wf_que_init(&data_queue_mngt->free_tx_queue, WF_LOCK_TYPE_IRQ);
     wf_que_init(&data_queue_mngt->tx_queue, WF_LOCK_TYPE_IRQ);
     data_queue_mngt->alloc_cnt=0;
-#if HIF_QUEUE_RX_WORKQUEUE_USE
-    /*rx queue init*/
-    wf_os_api_workqueue_register(&data_queue_mngt->rx_wq,&wq_rx_param);
-#endif
 
     wf_tasklet_init(&data_queue_mngt->recv_task, (void (*)(unsigned long))hif_tasklet_rx_handle,(unsigned long)hif_node);
 
@@ -161,10 +149,8 @@ int wf_data_queue_mngt_init(void *hif_node)
     wf_tasklet_init(&data_queue_mngt->send_task, (void (*)(unsigned long))hif_tasklet_tx_handle,(unsigned long)hif_node);
 
 
-#if HIF_QUEUE_PRE_ALLOC_DEBUG
     data_queue_mngt->alloc_cnt++;
     wf_hif_queue_alloc_skb(&data_queue_mngt->free_rx_queue_skb,hif_info->hif_type);
-#endif
 
     /*rx queue init */
     hif_info->trx_pipe.all_rx_queue = wf_queue_node_malloc(hif_node,WF_RX_MAX_DATA_QUEUE_NODE_NUM);
@@ -242,22 +228,21 @@ int wf_data_queue_mngt_term(void *hif_node)
     hif_node_st  *hif_info      = (hif_node_st  *)hif_node;
     data_queue_mngt_st *trxq    = &hif_info->trx_pipe;
 
-#if HIF_QUEUE_RX_WORKQUEUE_USE
-    if (trxq->rx_wq.ops->workqueue_term)
-    {
-        trxq->rx_wq.ops->workqueue_term(&trxq->rx_wq);
-    }
-#else
-
     if (trxq)
     {
         tasklet_kill(&trxq->recv_task);
     }
-#endif
 #if HIF_QUEUE_TX_WORKQUEUE_USE
-    if(trxq->tx_wq.ops->workqueue_term)
+    if(trxq->tx_wq.ops)
     {
-        trxq->tx_wq.ops->workqueue_term(&trxq->tx_wq);
+        if(trxq->tx_wq.ops->workqueue_term)
+        {
+            trxq->tx_wq.ops->workqueue_term(&trxq->tx_wq);
+        }
+    }
+    else
+    {
+        return WF_RETURN_OK;
     }
 #else
     if (trxq)
@@ -321,9 +306,7 @@ int wf_data_queue_mngt_term(void *hif_node)
         trxq->all_tx_queue = NULL;
     }
 
-#if HIF_QUEUE_PRE_ALLOC_DEBUG
     wf_hif_queue_free_skb(&hif_info->trx_pipe.free_rx_queue_skb);
-#endif
 
     return WF_RETURN_OK;
 }
@@ -331,16 +314,15 @@ int wf_data_queue_mngt_term(void *hif_node)
 int wf_tx_queue_empty(void *hif_info)
 {
     hif_node_st *hif_node = (hif_node_st *)hif_info;
-    data_queue_node_st *qnode = NULL;
     data_queue_mngt_st *trxq     = (data_queue_mngt_st *)&hif_node->trx_pipe;
     wf_que_t      *free_tx_queue = &trxq->free_tx_queue;
-    wf_que_t      *tx_queue = &trxq->tx_queue;
+    //wf_que_t      *tx_queue = &trxq->tx_queue;
 
     //LOG_I("[free_tx_queue] num:%d",free_tx_queue->num);
 
     if (wf_data_queue_full(free_tx_queue,WF_TX_MAX_DATA_QUEUE_NODE_NUM) == 1)
         return 1;
-
+    //LOG_I("[free_tx_queue] cnt:%d, tx_queue cnt:%d",free_tx_queue->cnt,tx_queue->cnt);
     return 0;
 }
 
@@ -449,11 +431,9 @@ int wf_tx_queue_remove(data_queue_mngt_st *trxq)
 static void wf_tx_work(struct work_struct *work)
 {
     data_queue_mngt_st *dqm     = NULL;
-    wf_que_t *data_queue   = NULL;
-    struct xmit_buf *pxmitbuf   = NULL;
+    wf_que_t *data_queue        = NULL;
     data_queue_node_st *qnode   = NULL;
     hif_node_st *hif_info       = NULL;
-    int ret                     = 0;
 
     wf_workqueue_mgnt_st *wq_mgt = NULL;
     wq_mgt = container_of(work, wf_workqueue_mgnt_st, work);
@@ -496,66 +476,5 @@ static void wf_tx_work(struct work_struct *work)
         }
     }
 }
-
-
-#if 1
-static void wf_hif_queue_rx_work(struct work_struct *work)
-{
-    data_queue_mngt_st *dqm     = NULL;
-    data_queue_node_st *qnode   = NULL;
-    hif_node_st *hif_info       = NULL;
-    struct sk_buff *pskb        = NULL;
-    wf_workqueue_mgnt_st *wq_mgt = NULL;
-
-    wq_mgt = container_of(work, wf_workqueue_mgnt_st, work);
-    dqm = container_of(wq_mgt, data_queue_mngt_st, rx_wq);
-
-    hif_info = container_of(dqm,hif_node_st,trx_pipe);
-    if(NULL == hif_info)
-    {
-        LOG_E("[%s] hif_info is null",__func__);
-        return;
-    }
-
-    while(1)
-    {
-        pskb = skb_dequeue(&hif_info->trx_pipe.rx_queue);
-        if (NULL == pskb)
-        {
-            break;
-        }
-
-#ifdef CONFIG_CONCURRENT_MODE
-        hif_frame_nic_check(hif_info,pskb);
-#else
-        if (hif_info->nic_info[0])
-        {
-            if (hif_info->nic_info[0]->ndev)
-            {
-                rx_work(hif_info->nic_info[0]->ndev, pskb);
-            }
-        }
-#endif
-
-#if HIF_QUEUE_PRE_ALLOC_DEBUG
-        skb_reset_tail_pointer(pskb);
-        pskb->len = 0;
-        skb_queue_tail(&hif_info->trx_pipe.free_rx_queue_skb, pskb);
-#else
-        wf_free_skb(pskb);
-        pskb = NULL;
-#endif
-
-        if(HIF_USB == hif_info->hif_type)
-        {
-            /* check urb node, if have free, used it */
-            if(NULL !=(qnode = wf_data_queue_remove(&hif_info->trx_pipe.free_rx_queue)))
-            {
-                hif_info->ops->hif_read(hif_info,WF_USB_NET_PIP,READ_QUEUE_INX, (wf_u8*)qnode,WF_MAX_RECV_BUFF_LEN_USB);
-            }
-        }
-    }
-}
-#endif
 
 

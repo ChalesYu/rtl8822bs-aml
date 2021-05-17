@@ -3,16 +3,16 @@
 #include "wf_debug.h"
 
 /* macro */
-#if 0
-#define ASSOC_DBG(fmt, ...)         LOG_D("[%s]"fmt, __func__, ##__VA_ARGS__)
+#if 1
+#define ASSOC_DBG(fmt, ...)         LOG_D("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
 #define ASSOC_ARRAY(data, len)      log_array(data, len)
 #else
 #define ASSOC_DBG(fmt, ...)
 #define ASSOC_ARRAY(data, len)
 #endif
-#define ASSOC_INFO(fmt, ...)        LOG_I("[%s]"fmt, __func__, ##__VA_ARGS__)
-#define ASSOC_WARN(fmt, ...)        LOG_W("[%s]"fmt, __func__, ##__VA_ARGS__)
-#define ASSOC_ERROR(fmt, ...)       LOG_E("[%s]"fmt, __func__, ##__VA_ARGS__)
+#define ASSOC_INFO(fmt, ...)        LOG_I("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
+#define ASSOC_WARN(fmt, ...)        LOG_W("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
+#define ASSOC_ERROR(fmt, ...)       LOG_E("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
 
 #define ASSOC_REQ_RESEND_TIMES      3
 #define ASSOC_RSP_TIMEOUT           50
@@ -39,7 +39,7 @@ static int disassoc_xmit_frame (nic_info_st *pnic_info,
     wf_u8 *pframe;
     struct wl_ieee80211_hdr *pwlanhdr;
     struct xmit_buf *pxmit_buf;
-    wf_u32 pkt_len;
+    wf_u16 pkt_len;
     tx_info_st      *ptx_info;
     wdn_net_info_st *pwdn_info;
 
@@ -199,7 +199,7 @@ int assoc_ap_xmit_frame (nic_info_st *pnic_info, wdn_net_info_st *pwdn_info,
         pie->element_id = WF_80211_MGMT_EID_HT_CAPABILITY;
         pie->len = sizeof(wf_80211_mgmt_ht_cap_t);
 
-		wf_memcpy(pie->data, &pcur_network->pht_cap, pie->len);
+        wf_memcpy(pie->data, &pcur_network->pht_cap, pie->len);
         var_len += WF_OFFSETOF(wf_80211_mgmt_ie_t, data) + pie->len;
 
 
@@ -227,20 +227,19 @@ static void ap_set_sta_ratid (nic_info_st *pnic_info, wdn_net_info_st *pwdn_info
 {
     wf_u32 rate_bitmap = (wf_u32) bitmap;
     wf_u32 mask = rate_bitmap & 0x0FFFFFFF;
-    wf_odm_set_rfconfig(pnic_info, pwdn_info->wdn_id, pwdn_info->raid, bw, sgi, mask);
+    wf_mcu_rfconfig_set(pnic_info, pwdn_info->wdn_id, pwdn_info->raid, bw, sgi, mask);
 }
 
 void wf_ap_add_sta_ratid (nic_info_st *pnic_info, wdn_net_info_st *pwdn_info)
 {
-    int i;
-    wf_u8 rf_type;
     wf_u8 sgi = 0;
     wf_u64 tx_rate_mask;
     wf_u8 bw = pwdn_info->bw_mode;
-
+    mcu_msg_sta_info_st msg_sta;
     ASSOC_DBG();
 
-    tx_rate_mask = wf_mcu_get_rate_bitmap(pnic_info, pwdn_info, NULL);
+    mcu_msg_sta_info_pars(pwdn_info,&msg_sta);
+    tx_rate_mask = wf_mcu_get_rate_bitmap(pnic_info, pwdn_info,&msg_sta, NULL);
 
     sgi = wf_ra_sGI_get(pwdn_info, 1);
 
@@ -285,7 +284,7 @@ void status_error (nic_info_st *pnic_info, wdn_net_info_st *pwdn_info,
 }
 
 void wf_assoc_ap_event_up (nic_info_st *nic_info, wdn_net_info_st *pwdn_info,
-                        wf_ap_msg_t *pmsg)
+                           wf_ap_msg_t *pmsg)
 {
     ASSOC_DBG();
 
@@ -326,7 +325,7 @@ wf_pt_rst_t wf_assoc_ap_thrd (nic_info_st *pnic_info, wdn_net_info_st *pwdn_info
     wf_u8 i, j;
     int ret;
     wf_80211_frame_e frame_type;
-    wf_80211_statuscode_e status_code;
+    wf_80211_statuscode_e status_code = WF_80211_STATUS_SUCCESS;
     wf_u8 wpa_ie_len;
 
     PT_BEGIN(pt);
@@ -737,23 +736,16 @@ int wf_assoc_ap_work (nic_info_st *pnic_info, wdn_net_info_st *pwdn_info,
 }
 #endif
 
-static int associate_xmit_frame (nic_info_st *nic_info, wdn_net_info_st *pwdn_info)
+static int associate_xmit_frame (nic_info_st *nic_info)
 {
     wf_u8 * pframe;
-    wf_u8 length;
     struct wl_ieee80211_hdr * pwlanhdr = NULL;
     struct xmit_buf * pxmit_buf;
     wf_wlan_info_t *wlan_info = nic_info->wlan_info;
     wf_wlan_network_t *pcur_network = &wlan_info->cur_network;
-    wf_u16 val16;
     wf_u32 pkt_len;
     wf_80211_mgmt_ie_t *pie;
-    wf_u8 IE[32];
-    wf_u8 wmmIE_len;
-    wf_u8 ratesIE_Len;
-    wf_u8 htcap_Len;
     wdn_net_info_st *wdn_info;
-    unsigned char WPA_OUI_TEMP[] = { 0x00, 0x50, 0xf2, 0x01 };
     tx_info_st *tx_info =   (tx_info_st *)nic_info->tx_info;
     hw_info_st *hw_info = nic_info->hw_info;
     sec_info_st *sec_info = nic_info->sec_info;
@@ -957,7 +949,7 @@ int wf_disassoc_frame_parse (nic_info_st *pnic_info, wdn_net_info_st *pwdn_info,
         case WF_INFRA_MODE :
             ASSOC_DBG("WF_80211_FRM_DISASSOC frame get, reason:%d",
                       pmgmt->disassoc.reason_code);
-            rst = wf_mlme_deauth(pnic_info);
+            rst = wf_mlme_deauth(pnic_info, wf_true);
             if (rst)
             {
                 ASSOC_WARN("wf_mlme_deauth fail, reason code: %d", rst);
@@ -988,7 +980,7 @@ wf_pt_rst_t wf_assoc_sta_thrd (wf_pt_t *pt, nic_info_st *pnic_info, int *prsn)
     assoc_info_t *passoc_info;
     wf_msg_que_t *pmsg_que;
     wf_msg_t *pmsg = NULL;
-    int reason;
+    int reason = WF_ASSOC_TAG_DONE;
     int rst;
 
     if (pt == NULL || pnic_info == NULL || prsn == NULL)
@@ -1031,22 +1023,25 @@ wf_pt_rst_t wf_assoc_sta_thrd (wf_pt_t *pt, nic_info_st *pnic_info, int *prsn)
          passoc_info->retry_cnt++)
     {
         ASSOC_DBG("send assoc request");
-        rst = associate_xmit_frame(pnic_info, NULL);
+        rst = associate_xmit_frame(pnic_info);
         if (rst)
         {
             ASSOC_WARN("assoc xmit fail, error code: %d", rst);
             reason = -2;
             break;
         }
+
         /* wait until receive assoc respone */
         wf_timer_set(&passoc_info->timer, ASSOC_RSP_TIMEOUT);
+    wait_msg :
         PT_WAIT_UNTIL(pt, !wf_msg_pop(pmsg_que, &pmsg) ||
-                          wf_timer_expired(&passoc_info->timer));
+                      wf_timer_expired(&passoc_info->timer));
         if (pmsg == NULL)
         {
             /* timeout, resend again */
             continue;
         }
+
         if (pmsg->tag == WF_ASSOC_TAG_ABORT)
         {
             wf_msg_del(pmsg_que, pmsg);
@@ -1054,7 +1049,7 @@ wf_pt_rst_t wf_assoc_sta_thrd (wf_pt_t *pt, nic_info_st *pnic_info, int *prsn)
             ASSOC_DBG("assoc abort");
             break;
         }
-        if (pmsg->tag == WF_ASSOC_TAG_RSP)
+        else if (pmsg->tag == WF_ASSOC_TAG_RSP)
         {
             wf_80211_mgmt_t *pmgmt = (wf_80211_mgmt_t *)pmsg->value;
             wf_u16 mgmt_len = pmsg->len;
@@ -1075,8 +1070,14 @@ wf_pt_rst_t wf_assoc_sta_thrd (wf_pt_t *pt, nic_info_st *pnic_info, int *prsn)
                 reason = WF_ASSOC_TAG_DONE;
                 break;
             }
+            wf_msg_del(pmsg_que, pmsg);
         }
-        wf_msg_del(pmsg_que, pmsg);
+        else
+        {
+            ASSOC_WARN("unsutied message tag(%d)", pmsg->tag);
+            wf_msg_del(pmsg_que, pmsg);
+            goto wait_msg;
+        }
     }
     if (passoc_info->retry_cnt == ASSOC_REQ_RESEND_TIMES)
     {
@@ -1212,7 +1213,6 @@ int wf_assoc_init (nic_info_st *pnic_info)
     }
     pnic_info->assoc_info = passoc_info;
     passoc_info->brun = wf_false;
-    passoc_info->wdn_info = NULL;
     if (assoc_msg_init(&passoc_info->msg_que))
     {
         ASSOC_ERROR("assoc msg init failed");

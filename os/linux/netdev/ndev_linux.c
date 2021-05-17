@@ -20,21 +20,18 @@ extern int wf_android_priv_cmd_ioctl(struct net_device *net, struct ifreq *ifr, 
 #endif
 
 #if 0
-#define NDEV_DBG(fmt, ...)      LOG_D("[%s]"fmt, __func__, ##__VA_ARGS__)
-#define NDEV_INFO(fmt, ...)     LOG_I("[%s]"fmt, __func__, ##__VA_ARGS__)
+#define NDEV_DBG(fmt, ...)      LOG_D("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
 #else
 #define NDEV_DBG(fmt, ...)
-#define NDEV_INFO(fmt, ...)
 #endif
-#define NDEV_WARN(fmt, ...)     LOG_E("[%s]"fmt, __func__, ##__VA_ARGS__)
+#define NDEV_INFO(fmt, ...)     LOG_I("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
+#define NDEV_WARN(fmt, ...)     LOG_W("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
+#define NDEV_ERROR(fmt, ...)    LOG_E("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
 
 static int ndev_init(struct net_device *ndev)
 {
     ndev_priv_st *ndev_priv;
     hw_info_st *hw_info;
-    mlme_info_t *mlme_info;
-    wf_u32 val;
-    wf_u8 macAddr1[WF_ETH_ALEN] = {0xb4, 0x04, 0x18, 0xc6, 0x75, 0xf9};
 
     NDEV_DBG("[NDEV] ndev_init ");
 
@@ -288,7 +285,6 @@ static void wiphy_regd_init (nic_info_st *pnic_info)
 
 void wf_wiphy_init(nic_info_st *pnic_info)
 {
-    wf_u8 rf_type;
     struct ieee80211_supported_band *pband;
     struct wiphy *pwiphy = pnic_info->pwiphy;
     hw_info_st *phw_info = pnic_info->hw_info;
@@ -605,7 +601,7 @@ static int ndev_set_mac_addr(struct net_device *pnetdev, void *addr)
     if (!is_valid_ether_addr(sock_addr->sa_data))
         return -EADDRNOTAVAIL;
     memcpy(pnetdev->dev_addr, sock_addr->sa_data, WF_ETH_ALEN);
-    
+
     ndev_priv = netdev_priv(pnetdev);
     wf_mcu_hw_var_set_macaddr(ndev_priv->nic,pnetdev->dev_addr);
     return 0;
@@ -651,8 +647,6 @@ int wf_hostapd_ioctl(struct net_device *dev, struct iw_point *p)
 {
     ndev_priv_st *ndev_priv = netdev_priv(dev);
     nic_info_st *nic_info = ndev_priv->nic;
-    wf_wlan_info_t *wlan_info = nic_info->wlan_info;
-    wf_wlan_network_t *cur_network = &wlan_info->cur_network;
     ieee_param *param ;
     wf_u32 ret = 0;
     wf_ap_status ap_sta;
@@ -740,7 +734,9 @@ int wf_hostapd_ioctl(struct net_device *dev, struct iw_point *p)
 static int ndev_ioctl(struct net_device *dev, struct ifreq *req, int cmd)
 {
     ndev_priv_st *ndev_priv;
+#ifdef CFG_ENABLE_AP_MODE
     struct iwreq *wrq = (struct iwreq *)req;
+#endif
     int ret = 0;
 
     ndev_priv = netdev_priv(dev);
@@ -893,7 +889,7 @@ static int _ndev_notifier_cb(struct notifier_block *nb,
 
     NDEV_DBG("state == %lu", state);
 
-    switch (state) 
+    switch (state)
     {
         case NETDEV_CHANGENAME:
             break;
@@ -995,7 +991,11 @@ int ndev_register (nic_info_st *pnic_info)
         }
         else
         {
-            sprintf(dev_name, ifname[0] ? ifname : "wlan%d_u%d", pnic_info->hif_node_id, pnic_info->ndev_id);
+        #ifdef CONFIG_MP_MODE
+            sprintf(dev_name, ifname[0] ? ifname : "wlan%d", pnic_info->hif_node_id);
+		#else
+			sprintf(dev_name, ifname[0] ? ifname : "wlan%d_u%d", pnic_info->hif_node_id, pnic_info->ndev_id);
+		#endif
         }
     }
     else

@@ -42,7 +42,6 @@ static const struct cfg_parse_t __gl_cfg_parse_st[] =
    //{"adaptivity_en", NULL},
    //{"antenna_diversity", NULL},
    //{"beamforming_support",NULL},
-   //{"force_igi",NULL},
    #endif
 };
 

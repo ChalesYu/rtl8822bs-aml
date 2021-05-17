@@ -3,8 +3,8 @@
 #include "wf_debug.h"
 
 #if 0
-#define AP_DBG(fmt, ...)        LOG_D("[%s]"fmt, __func__, ##__VA_ARGS__)
-#define AP_WARN(fmt, ...)       LOG_E("[%s]"fmt, __func__, ##__VA_ARGS__)
+#define AP_DBG(fmt, ...)        LOG_D("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
+#define AP_WARN(fmt, ...)       LOG_E("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
 #define AP_ARRAY(data, len)     log_array(data, len)
 #else
 #define AP_DBG(fmt, ...)
@@ -52,7 +52,6 @@ static int ap_hw_set_group_key (nic_info_st *pnic_info, wf_u8 *pmac)
     sec_info_st *psec_info = pnic_info->sec_info;
     wf_u8 cam_id;
     wf_u16 ctrl;
-    wf_u32 buf[2];
     int ret;
 
     cam_id = psec_info->dot118021XGrpKeyid & 0x03; /* cam_id0~3 8021x group key */
@@ -70,7 +69,7 @@ int wf_ap_msg_load (nic_info_st *pnic_info, wf_que_t *pque_tar,
 {
     wf_wlan_info_t *pwlan_info = pnic_info->wlan_info;
     wf_que_t *pque;
-    wf_que_list *pnode;
+    wf_que_list_t *pnode;
     wf_ap_msg_t *pmsg;
 
     /* pop message from queue free */
@@ -98,7 +97,7 @@ int wf_ap_msg_load (nic_info_st *pnic_info, wf_que_t *pque_tar,
 
 wf_ap_msg_t *wf_ap_msg_get (wf_que_t *pque)
 {
-    wf_que_list *pnode_list;
+    wf_que_list_t *pnode_list;
 
     if (wf_que_is_empty(pque))
     {
@@ -155,23 +154,6 @@ static int ap_msg_que_init (nic_info_st *pnic_info)
     wf_ap_msg_t *pnode;
 
     AP_DBG();
-
-    /* beacon queue */
-#define WF_ADHOC_MSG_BCN_QUE_DEEP     (WDN_NUM_MAX * 3)
-#define WF_ADHOC_MSG_BCN_SIZE_MAX     (WF_OFFSETOF(wf_ap_msg_t, mgmt) + \
-                                     WF_80211_MGMT_BEACON_SIZE_MAX)
-    pque = &pwlan_info->cur_network.ap_msg_free[WF_AP_MSG_TAG_BEACON_FRAME];
-    wf_que_init(pque, WF_LOCK_TYPE_SPIN);
-    for (i = 0; i < WF_ADHOC_MSG_BCN_QUE_DEEP; i++)
-    {
-        pnode = wf_kzalloc(WF_ADHOC_MSG_BCN_SIZE_MAX);
-        if (pnode == NULL)
-        {
-            AP_WARN("malloc failed");
-            return -1;
-        }
-        wf_enque_head(&pnode->list, pque);
-    }
 
     /* auth queue */
 #define WF_AP_MSG_AUTH_QUE_DEEP     (WDN_NUM_MAX * 3)
@@ -250,7 +232,7 @@ static int ap_msg_deinit (nic_info_st *pnic_info)
     wf_u8 i;
     wf_que_t *pque;
     wf_ap_msg_t *pap_msg;
-    wf_que_list *pnode;
+    wf_que_list_t *pnode;
     wf_list_t *pos, *pos_next;
     wdn_list *pwdn = (wdn_list *)pnic_info->wdn;
     wdn_net_info_st *pwdn_info;
@@ -286,13 +268,16 @@ static int ap_msg_deinit (nic_info_st *pnic_info)
             if(!MacAddr_isBcst(pwdn_info->mac))
             {
                 wf_deauth_xmit_frame(pnic_info, pwdn_info->mac,
-                              WF_80211_REASON_QSTA_TIMEOUT);
+                                     WF_80211_REASON_QSTA_TIMEOUT);
             }
             /* free the wdn */
             wf_wdn_remove(pnic_info, pwdn_info->mac);
         }
     }
-    wf_mcu_set_media_status(pnic_info, WIFI_FW_STATION_STATE);
+    if(wf_false == pnic_info->is_surprise_removed)
+    {
+        wf_mcu_set_media_status(pnic_info, WIFI_FW_STATION_STATE);
+    }
 
     return 0;
 }
@@ -322,7 +307,7 @@ wf_pt_rst_t maintain_thrd (nic_info_st *pnic_info, wdn_net_info_st *pwdn_info)
     for (;;)
     {
         PT_WAIT_UNTIL(pt, (pmsg = wf_ap_msg_get(&pwdn_info->ap_msg)) ||
-                           wf_timer_expired(&pwdn_info->ap_timer));
+                      wf_timer_expired(&pwdn_info->ap_timer));
         /* one second timeon */
         if (pmsg == NULL)
         {
@@ -342,7 +327,7 @@ wf_pt_rst_t maintain_thrd (nic_info_st *pnic_info, wdn_net_info_st *pwdn_info)
                 AP_WARN("STA timeout idle->"WF_MAC_FMT, WF_MAC_ARG(pwdn_info->mac));
                 /* send deauth frame to STA */
                 wf_deauth_xmit_frame(pnic_info, pwdn_info->mac,
-                                  WF_80211_REASON_QSTA_TIMEOUT);
+                                     WF_80211_REASON_QSTA_TIMEOUT);
                 break;
             }
         }
@@ -358,7 +343,7 @@ wf_pt_rst_t maintain_thrd (nic_info_st *pnic_info, wdn_net_info_st *pwdn_info)
             AP_DBG("deauth->"WF_MAC_FMT, WF_MAC_ARG(pwdn_info->mac));
             /* send deauth frame to STA as respond */
             wf_deauth_xmit_frame(pnic_info, pwdn_info->mac,
-                              WF_80211_REASON_DEAUTH_LEAVING);
+                                 WF_80211_REASON_DEAUTH_LEAVING);
             break;
         }
 
@@ -370,7 +355,7 @@ wf_pt_rst_t maintain_thrd (nic_info_st *pnic_info, wdn_net_info_st *pwdn_info)
             /* status 2 timeout */
             wf_timer_set(&pwdn_info->ap_timer, 5 * 1000);
             PT_YIELD_UNTIL(pt, (pmsg = wf_ap_msg_get(&pwdn_info->ap_msg)) ||
-                               wf_timer_expired(&pwdn_info->ap_timer));
+                           wf_timer_expired(&pwdn_info->ap_timer));
             if (pmsg && pmsg->tag == WF_AP_MSG_TAG_ASSOC_REQ_FRAME)
             {
                 /* back to process assoc */
@@ -378,7 +363,7 @@ wf_pt_rst_t maintain_thrd (nic_info_st *pnic_info, wdn_net_info_st *pwdn_info)
                 /* notify connection break */
                 wf_os_api_ap_ind_disassoc(pnic_info, pwdn_info,
                                           WF_MLME_FRAMEWORK_NETLINK);
-				wf_ap_odm_disconnect_media_status(pnic_info, pwdn_info);
+                wf_ap_odm_disconnect_media_status(pnic_info, pwdn_info);
             }
             break;
         }
@@ -400,7 +385,7 @@ static void clearup (nic_info_st *pnic_info, wdn_net_info_st *pwdn_info)
     if (pwdn_info->state > E_WDN_AP_STATE_ASSOC)
     {
         wf_os_api_ap_ind_disassoc(pnic_info, pwdn_info, WF_MLME_FRAMEWORK_NETLINK);
-		wf_ap_odm_disconnect_media_status(pnic_info, pwdn_info);
+        wf_ap_odm_disconnect_media_status(pnic_info, pwdn_info);
     }
 
     /* clearup message queue in the wdn */
@@ -415,22 +400,7 @@ static void clearup (nic_info_st *pnic_info, wdn_net_info_st *pwdn_info)
     }
 }
 
-#ifdef CFG_ENABLE_ADHOC_MODE
-static wf_pt_rst_t adhoc_thrd (nic_info_st *pnic_info, wdn_net_info_st *pwdn_info)
-{
-    wf_pt_t *pt = &pwdn_info->ap_thrd_pt;
-    wf_pt_rst_t thrd_ret;
 
-    PT_BEGIN(pt);
-
-        /* beacon */
-        PT_SPAWN(pt, &pwdn_info->sub_thrd_pt,
-                 thrd_ret = wf_beacon_adhoc_thrd(pnic_info, pwdn_info));
-
-
-    PT_END(pt);
-}
-#endif
 
 static wf_pt_rst_t ap_thrd (nic_info_st *pnic_info, wdn_net_info_st *pwdn_info)
 {
@@ -493,15 +463,8 @@ static wf_inline int new_boradcast_wdn (nic_info_st *pnic_info)
     pwdn_info->qos_option = 0;
     pwdn_info->state = E_WDN_AP_STATE_8021X_UNBLOCK;
     pwdn_info->ieee8021x_blocked = wf_true;
-    if (get_sys_work_mode(pnic_info) == WF_ADHOC_MODE)
-    {
-        pwdn_info->mode = WF_ADHOC_MODE;
 
-    }
-    else if (get_sys_work_mode(pnic_info) == WF_MASTER_MODE)
-    {
-        pwdn_info->mode = WF_MASTER_MODE;
-    }
+    pwdn_info->mode = WF_MASTER_MODE;
 
     /* notify connection establish */
     wf_ap_odm_connect_media_status(pnic_info, pwdn_info);
@@ -512,11 +475,9 @@ static wf_inline int new_boradcast_wdn (nic_info_st *pnic_info)
 static void ap_poll (nic_info_st *pnic_info)
 {
     wdn_list *pwdn = (wdn_list *)pnic_info->wdn;
-    sec_info_st *psec_info = pnic_info->sec_info;
     wf_list_t *pos, *pos_next;
     wdn_node_st *pwdn_node;
     wdn_net_info_st *pwdn_info;
-    wf_ap_msg_t *pmsg;
     wf_wlan_info_t *pwlan_info = pnic_info->wlan_info;
     wf_wlan_network_t *pcur_network = &pwlan_info->cur_network;
 
@@ -528,7 +489,7 @@ static void ap_poll (nic_info_st *pnic_info)
         return;
     }
 
-	wf_os_api_thread_affinity(DEFAULT_CPU_ID);
+    wf_os_api_thread_affinity(DEFAULT_CPU_ID);
 
     /* poll ap thread according to each wdn_info */
     while (wf_os_api_thread_wait_stop(pcur_network->ap_tid) == wf_false)
@@ -536,10 +497,10 @@ static void ap_poll (nic_info_st *pnic_info)
         /* if uninstall process is detected, stop ap process immediately */
         if (WF_CANNOT_RUN(pnic_info))
         {
-            wf_yield();
+            wf_msleep(1);
             continue;
         }
-        
+
         if(get_sys_work_mode(pnic_info) == WF_MASTER_MODE)
         {
             /* process ap threads in each wdn class */
@@ -550,27 +511,12 @@ static void ap_poll (nic_info_st *pnic_info)
                 ap_thrd(pnic_info, pwdn_info);
             }
         }
-        else if (get_sys_work_mode(pnic_info) == WF_ADHOC_MODE)
-        {
-#ifdef CFG_ENABLE_ADHOC_MODE
-            wf_list_for_each_safe(pos, pos_next, &pwdn->head)
-            {
-                pwdn_node = wf_list_entry(pos, wdn_node_st, list);
-                pwdn_info = &pwdn_node->info;
-                adhoc_thrd(pnic_info, pwdn_info);
-            }
-#endif
-        }
-        else
-        {
-            wf_yield();
-            continue;
-        }
 
-        wf_yield();
+        wf_msleep(1);
     }
 
-	wf_os_api_thread_exit(pcur_network->ap_tid);
+
+    wf_os_api_thread_exit(pcur_network->ap_tid);
 }
 
 int wf_ap_init (nic_info_st *pnic_info)
@@ -652,7 +598,7 @@ int wf_ap_probe (nic_info_st *pnic_info,
 
     switch(pcur_network->hidden_ssid_mode)
     {
-        case 0 :
+        case WF_80211_HIDDEN_SSID_NOT_IN_USE :
             /* set ie variable fields */
             wf_memcpy(pmgmt->beacon.variable,
                       pcur_network->ies, pcur_network->ies_length);
@@ -661,44 +607,44 @@ int wf_ap_probe (nic_info_st *pnic_info,
                                  pcur_network->ies_length;
             break;
 
-        case 1 :
-            if(!wf_memcmp(pframe->probe_req.variable + 2, 
-                          pcur_network->hidden_ssid.data, 
+        case WF_80211_HIDDEN_SSID_ZERO_LEN :
+            if(!wf_memcmp(pframe->probe_req.variable + 2,
+                          pcur_network->hidden_ssid.data,
                           pcur_network->hidden_ssid.length))
             {
                 wf_wlan_set_cur_ssid(pnic_info, &pcur_network->hidden_ssid);
                 pmgmt->beacon.variable[1] = pcur_network->hidden_ssid.length;
-                wf_memcpy(pmgmt->beacon.variable + 2, pcur_network->hidden_ssid.data, 
+                wf_memcpy(pmgmt->beacon.variable + 2, pcur_network->hidden_ssid.data,
                           pcur_network->hidden_ssid.length);
 
-                wf_memcpy(pmgmt->beacon.variable + 2 + pcur_network->hidden_ssid.length, 
-                          pcur_network->ies + 2 + pcur_network->ies[1], 
+                wf_memcpy(pmgmt->beacon.variable + 2 + pcur_network->hidden_ssid.length,
+                          pcur_network->ies + 2 + pcur_network->ies[1],
                           pcur_network->ies_length -  2 - pcur_network->ies[1]);
                 /* send packet */
                 pxmit_buf->pkt_len = WF_OFFSETOF(wf_80211_mgmt_t, probe_resp.variable) +
                                      pcur_network->ies_length + pcur_network->hidden_ssid.length;
             }
-            else 
+            else
             {
                 wf_xmit_extbuf_delete(ptx_info, pxmit_buf);
                 return 0;
             }
             break;
-        case 2 :
-            if(!wf_memcmp(pframe->probe_req.variable + 2, 
-                          pcur_network->hidden_ssid.data, 
+        case WF_80211_HIDDEN_SSID_ZERO_CONTENTS :
+            if(!wf_memcmp(pframe->probe_req.variable + 2,
+                          pcur_network->hidden_ssid.data,
                           pcur_network->hidden_ssid.length))
             {
                 wf_wlan_set_cur_ssid(pnic_info, &pcur_network->hidden_ssid);
                 wf_memcpy(pmgmt->beacon.variable,
-                      pcur_network->ies, pcur_network->ies_length);
-                wf_memcpy(pmgmt->beacon.variable + 2, pcur_network->hidden_ssid.data, 
+                          pcur_network->ies, pcur_network->ies_length);
+                wf_memcpy(pmgmt->beacon.variable + 2, pcur_network->hidden_ssid.data,
                           pcur_network->hidden_ssid.length);
                 /* send packet */
                 pxmit_buf->pkt_len = WF_OFFSETOF(wf_80211_mgmt_t, probe_resp.variable) +
                                      pcur_network->ies_length;
             }
-            else 
+            else
             {
                 wf_xmit_extbuf_delete(ptx_info, pxmit_buf);
                 return 0;
@@ -751,7 +697,7 @@ static int ap_launch_beacon (nic_info_st *pnic_info)
     /* set ie fiexd field */
     pmgmt->beacon.intv = wf_cpu_to_le16(pcur_network->bcn_interval);
     pmgmt->beacon.capab = wf_cpu_to_le16(pcur_network->cap_info);
-    
+
     /* set ie variable fields */
     wf_memcpy(pmgmt->beacon.variable,
               pcur_network->ies, pcur_network->ies_length);
@@ -862,7 +808,6 @@ int wf_ap_set_beacon (nic_info_st *pnic_info, wf_u8 *pbuf, wf_u32 len)
     sec_info_st *psec_info = pnic_info->sec_info;
     wf_wlan_network_t *pcur_network = &pwlan_info->cur_network;
     hw_info_st *phw_info = (hw_info_st *)pnic_info->hw_info;
-    auth_info_t *pauth_info = pnic_info->auth_info;
     wf_u32 ies_len;
     struct beacon_ie *pies;
     wf_u16 var_len, ofs;
@@ -873,8 +818,8 @@ int wf_ap_set_beacon (nic_info_st *pnic_info, wf_u8 *pbuf, wf_u32 len)
     wf_80211_mgmt_ht_operation_t *pht_oper;
     wf_u16 i, j;
 #ifdef CONFIG_CONCURRENT_MODE
-	wf_bool bConnect;
-	wdn_net_info_st *pwdn = NULL;
+    wf_bool bConnect;
+    wdn_net_info_st *pwdn = NULL;
 #endif
     AP_DBG();
 
@@ -889,10 +834,10 @@ int wf_ap_set_beacon (nic_info_st *pnic_info, wf_u8 *pbuf, wf_u32 len)
     pcur_network->ssid.length = 0;
     pcur_network->channel = 0;
     pcur_network->rate_len = 0;
-	pcur_network->ht_enable = wf_false;
-	wf_memset(&pcur_network->pwmm, 0, sizeof(wf_80211_wmm_param_ie_t));
-	wf_memset(&pcur_network->pht_cap, 0, sizeof(wf_80211_mgmt_ht_cap_t));
-	wf_memset(&pcur_network->pht_oper, 0, sizeof(wf_80211_mgmt_ht_operation_t));
+    pcur_network->ht_enable = wf_false;
+    wf_memset(&pcur_network->pwmm, 0, sizeof(wf_80211_wmm_param_ie_t));
+    wf_memset(&pcur_network->pht_cap, 0, sizeof(wf_80211_mgmt_ht_cap_t));
+    wf_memset(&pcur_network->pht_oper, 0, sizeof(wf_80211_mgmt_ht_operation_t));
 //    pcur_network->pht_cap = NULL;
 //    pcur_network->pht_oper = NULL;
 
@@ -938,22 +883,22 @@ int wf_ap_set_beacon (nic_info_st *pnic_info, wf_u8 *pbuf, wf_u32 len)
 
             case WF_80211_MGMT_EID_DS_PARAMS :
 #ifdef CONFIG_CONCURRENT_MODE
-				wf_mlme_get_connect(pnic_info->vir_nic, &bConnect);
-				if(bConnect == wf_true && wf_local_cfg_get_work_mode(pnic_info->vir_nic) == WF_INFRA_MODE)
-				{
-					pwdn = wf_wdn_find_info_by_id(pnic_info->vir_nic, 0);
-					if(pwdn)
-					{
-						AP_DBG("sta channel is : %d", pwdn->channel);
-						pcur_network->channel = pwdn->channel;
-						wf_ap_reset_beacon_channel(pnic_info, pwdn->channel);
-					}
+                wf_mlme_get_connect(pnic_info->vir_nic, &bConnect);
+                if(bConnect == wf_true && wf_local_cfg_get_work_mode(pnic_info->vir_nic) == WF_INFRA_MODE)
+                {
+                    pwdn = wf_wdn_find_info_by_id(pnic_info->vir_nic, 0);
+                    if(pwdn)
+                    {
+                        AP_DBG("sta channel is : %d", pwdn->channel);
+                        pcur_network->channel = pwdn->channel;
+                        wf_ap_reset_beacon_channel(pnic_info, pwdn->channel);
+                    }
 
-				}
-				else
-				{
-					pcur_network->channel = pie->data[0];
-				}
+                }
+                else
+                {
+                    pcur_network->channel = pie->data[0];
+                }
 #else
                 pcur_network->channel = pie->data[0];
 #endif
@@ -1033,7 +978,7 @@ int wf_ap_set_beacon (nic_info_st *pnic_info, wf_u8 *pbuf, wf_u32 len)
                 else if (!wf_80211_mgmt_wmm_parse(pie,
                                                   WF_OFFSETOF(wf_80211_mgmt_ie_t, data) + pie->len))
                 {
-                	wf_memcpy(&pcur_network->pwmm, pie, sizeof(pcur_network->pwmm));
+                    wf_memcpy(&pcur_network->pwmm, pie, sizeof(pcur_network->pwmm));
 //                    pcur_network->pwmm = (void *)pie;
                     /* adjust WMM information */
                     pwmm_ie = (void *)pie;
@@ -1049,15 +994,15 @@ int wf_ap_set_beacon (nic_info_st *pnic_info, wf_u8 *pbuf, wf_u32 len)
 
             case WF_80211_MGMT_EID_HT_CAPABILITY :
 //                pcur_network->pht_cap = (void *)pie->data;
-				wf_memcpy(&pcur_network->pht_cap, pie->data, pie->len);
+                wf_memcpy(&pcur_network->pht_cap, pie->data, pie->len);
                 pht_cap = &pcur_network->pht_cap;
-				pcur_network->ht_enable = wf_true;
+                pcur_network->ht_enable = wf_true;
                 AP_DBG("ht capatility");
                 break;
 
             case WF_80211_MGMT_EID_HT_OPERATION :
 //                pcur_network->pht_oper = (void *)pie->data;
-				wf_memcpy(&pcur_network->pht_oper, pie->data, pie->len);
+                wf_memcpy(&pcur_network->pht_oper, pie->data, pie->len);
                 pht_oper = &pcur_network->pht_oper;
                 AP_DBG("ht operation");
                 break;
@@ -1074,21 +1019,21 @@ int wf_ap_set_beacon (nic_info_st *pnic_info, wf_u8 *pbuf, wf_u32 len)
         {
             pcur_network->bw = CHANNEL_WIDTH_40;
         }
-		else
+        else
         {
             pcur_network->bw = CHANNEL_WIDTH_20;
             pht_cap->cap_info &= ~WF_80211_MGMT_HT_CAP_SGI_40;
         }
 #ifdef CONFIG_CONCURRENT_MODE
-		if(bConnect == wf_true && wf_local_cfg_get_work_mode(pnic_info->vir_nic) == WF_INFRA_MODE)
-		{
-			pwdn = wf_wdn_find_info_by_id(pnic_info->vir_nic, 0);
-			if(pwdn)
-			{
-				AP_DBG("sta bw is : %d", pwdn->bw_mode);
-				pcur_network->bw = pwdn->bw_mode;
-			}
-		}
+        if(bConnect == wf_true && wf_local_cfg_get_work_mode(pnic_info->vir_nic) == WF_INFRA_MODE)
+        {
+            pwdn = wf_wdn_find_info_by_id(pnic_info->vir_nic, 0);
+            if(pwdn)
+            {
+                AP_DBG("sta bw is : %d", pwdn->bw_mode);
+                pcur_network->bw = pwdn->bw_mode;
+            }
+        }
 #endif
 
         if (!phw_info->ldpc_support)
@@ -1159,15 +1104,15 @@ int wf_ap_set_beacon (nic_info_st *pnic_info, wf_u8 *pbuf, wf_u32 len)
                 WF_80211_MGMT_HT_OP_PARAM_CHA_SEC_OFFSET;
     }
 #ifdef CONFIG_CONCURRENT_MODE
-	if(bConnect == wf_true && wf_local_cfg_get_work_mode(pnic_info->vir_nic) == WF_INFRA_MODE)
-	{
-		pwdn = wf_wdn_find_info_by_id(pnic_info->vir_nic, 0);
-		if(pwdn)
-		{
-			AP_DBG("sta channel_offset is : %d", pwdn->channle_offset);
-			pcur_network->channle_offset = pwdn->channle_offset;
-		}
-	}
+    if(bConnect == wf_true && wf_local_cfg_get_work_mode(pnic_info->vir_nic) == WF_INFRA_MODE)
+    {
+        pwdn = wf_wdn_find_info_by_id(pnic_info->vir_nic, 0);
+        if(pwdn)
+        {
+            AP_DBG("sta channel_offset is : %d", pwdn->channle_offset);
+            pcur_network->channle_offset = pwdn->channle_offset;
+        }
+    }
 #endif
     /* get network type */
     if (pcur_network->channel > 14)
@@ -1190,11 +1135,11 @@ int wf_ap_set_beacon (nic_info_st *pnic_info, wf_u8 *pbuf, wf_u32 len)
     {
         pcur_network->short_slot = NON_SHORT_SLOT_TIME;
     }
-	else if (pcur_network->cur_wireless_mode & WIRELESS_11_24N)
-	{
-		pcur_network->short_slot = SHORT_SLOT_TIME;
-	}
-	else if (pcur_network->cur_wireless_mode & WIRELESS_11G)
+    else if (pcur_network->cur_wireless_mode & WIRELESS_11_24N)
+    {
+        pcur_network->short_slot = SHORT_SLOT_TIME;
+    }
+    else if (pcur_network->cur_wireless_mode & WIRELESS_11G)
     {
         if (pcur_network->cap_info & WF_80211_MGMT_CAPAB_SHORT_SLOT_TIME)
             pcur_network->short_slot = SHORT_SLOT_TIME;
@@ -1220,7 +1165,7 @@ int wf_ap_set_beacon (nic_info_st *pnic_info, wf_u8 *pbuf, wf_u32 len)
 
 int wf_ap_pre_set_beacon (nic_info_st *pnic_info, ieee_param *param, wf_u32 len)
 {
-	return wf_ap_set_beacon(pnic_info, param->u.bcn_ie.buf, (len - WF_OFFSETOF(ieee_param, u.bcn_ie.buf)));
+    return wf_ap_set_beacon(pnic_info, param->u.bcn_ie.buf, (len - WF_OFFSETOF(ieee_param, u.bcn_ie.buf)));
 }
 
 int wf_ap_work_start (nic_info_st *pnic_info)
@@ -1243,7 +1188,7 @@ int wf_ap_work_start (nic_info_st *pnic_info)
             pnic_info->virNic ? "wlan_info:vir%d_s%d" : "wlan_info:wlan%d_s%d",
             pnic_info->hif_node_id, pnic_info->ndev_id);
     if (NULL == (pcur_network->ap_tid = wf_os_api_thread_create(pcur_network->ap_tid, pcur_network->ap_name,
-                                ap_poll, pnic_info)))
+                                        ap_poll, pnic_info)))
     {
         AP_WARN("create wlan info parse thread failed");
         return -3;
@@ -1265,10 +1210,19 @@ int wf_ap_work_start (nic_info_st *pnic_info)
 int wf_ap_work_stop (nic_info_st *pnic_info)
 {
     wf_wlan_info_t *pwlan_info = pnic_info->wlan_info;
-    wf_wlan_network_t *pcur_network = &pwlan_info->cur_network;
+    wf_wlan_network_t *pcur_network = NULL;
     sec_info_st *psec_info = pnic_info->sec_info;
 
     AP_DBG();
+
+    if (pwlan_info == NULL)
+    {
+        return 0;
+    }
+    else
+    {
+        pcur_network = &pwlan_info->cur_network;
+    }
 
     /* destory thread */
     if (pcur_network->ap_tid)
@@ -1289,7 +1243,6 @@ void ap_deauth_frame_wlan_hdr (nic_info_st *pnic_info, struct xmit_buf *pxmit_bu
 {
     wf_u8 *pframe;
     struct wl_ieee80211_hdr *pwlanhdr;
-    mlme_info_t *pmlme_info = (mlme_info_t *)pnic_info->mlme_info;;
     pframe = pxmit_buf->pbuf + TXDESC_OFFSET;
     pwlanhdr = (struct wl_ieee80211_hdr *)pframe;
 
@@ -1302,15 +1255,12 @@ int wf_ap_deauth_all_sta (nic_info_st *pnic_info, wf_u16 reason)
 {
     wf_u8 bc_addr[ETH_ALEN] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
     wf_u8 *pframe;
-    wf_u16 start_seq;
     struct wl_ieee80211_hdr *pwlanhdr;
     struct xmit_buf *pxmit_buf;
-    wf_u32 pkt_len, i;
+    wf_u16 pkt_len = 0;
     tx_info_st *ptx_info;
     wdn_net_info_st *wdn_info;
     mlme_info_t *mlme_info;
-    hw_info_st *phw_info = (hw_info_st *)pnic_info->hw_info;
-    wf_u8 category = WF_WLAN_CATEGORY_BACK;
 
     AP_DBG();
 
@@ -1361,7 +1311,6 @@ int wf_ap_set_encryption (nic_info_st *pnic_info,
     int res = 0;
     wf_u32 wep_key_idx, wep_key_len;
     wdn_net_info_st *pwdn_info = NULL;
-    wf_u8 bc_addr[ETH_ALEN] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
 
     AP_DBG();
 
@@ -1653,7 +1602,7 @@ int wf_ap_remove_sta (nic_info_st *pnic_info, ieee_param *param, wf_u32 len)
 
 void wf_ap_reset_beacon_channel(nic_info_st *pnic_info,wf_u8 channel)
 {
-	wf_wlan_info_t *pwlan_info = pnic_info->wlan_info;
+    wf_wlan_info_t *pwlan_info = pnic_info->wlan_info;
     wf_wlan_network_t *pcur_network = &pwlan_info->cur_network;
     wf_80211_mgmt_ie_t *pie;
     wf_u16  ofs;
@@ -1687,7 +1636,7 @@ void wf_ap_reset_beacon_channel(nic_info_st *pnic_info,wf_u8 channel)
 
 void wf_resend_bcn(nic_info_st *pnic_info,wf_u8 channel)
 {
-	wf_ap_reset_beacon_channel(pnic_info, channel);
+    wf_ap_reset_beacon_channel(pnic_info, channel);
     /* send beacon */
     ap_launch_beacon(pnic_info);
 

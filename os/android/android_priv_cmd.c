@@ -2,6 +2,7 @@
 #include "android_priv_cmd.h"
 #include "wf_debug.h"
 #include "common.h"
+#include "wf_cfg80211.h"
 
 #define MIRACAST_DISABLED	0
 #define MIRACAST_SOURCE		0x00000001
@@ -54,7 +55,7 @@ static int android_cmd_getlinkspeed(nic_info_st *nic_info,char *command,int tota
     wf_mlme_get_connect(nic_info, &is_connected);
 
     if(is_connected){
-        wf_wlan_get_max_rate(nic_info,(wf_u8 *)pwlan_info->cur_network.bssid, &link_speed);
+        wf_wlan_get_max_rate(nic_info,(wf_u8 *)pcur_network->bssid, &link_speed);
         bytes_written += snprintf(command, total_len, "LinkSpeed %d", link_speed / 10);
     }else{
         bytes_written += snprintf(command, total_len, "LinkSpeed 0");
@@ -102,7 +103,6 @@ static int android_cmd_setband(nic_info_st *nic_info,char *command,int total_len
 
 static int android_cmd_getband(nic_info_st *nic_info,char *command,int total_len, android_cmd_handle_st *cmd_handle)
 {
-    u32 band = 0;
     int bytes_written = 0;
 
     bytes_written = snprintf(command, total_len, "%u", nic_info->setband);
@@ -133,7 +133,6 @@ static int andriod_set_countrycode(nic_info_st *nic_info, char *country_code)
 
 static int android_cmd_setcountry(nic_info_st *nic_info,char *command,int total_len, android_cmd_handle_st *cmd_handle)
 {
-    u32 band = 0;
     int bytes_written = 0;
     char *country_code = command + strlen(cmd_handle->cmd_name) + 1;
 
@@ -147,13 +146,10 @@ static int android_cmd_setcountry(nic_info_st *nic_info,char *command,int total_
 static int android_cmd_set_mgnt_wpsp2pie(nic_info_st *nic_info,char *command,int total_len, android_cmd_handle_st *cmd_handle)
 {
     int bytes_written = 0;
-    struct net_device *pndev = nic_info->ndev;
     int skip = strlen(cmd_handle->cmd_name) + 3;
-
-/*    bytes_written = Func_Of_Proc_Cfg_Nl_Set_Mgnt_Wpsp2Pie(pnet, command + skip,
-								    total_len - skip,*(command + skip - 2) - '0');
-*/
-    LOG_I(" command [%s] need realise\n",command);
+    
+    bytes_written = wf_cfg80211_set_wps_p2pie(nic_info, command + skip, total_len - skip, *(command + skip - 2) - '0');
+    LOG_I(" command [%s]  done\n",command);
 
     return bytes_written;
 }
@@ -177,7 +173,7 @@ static int android_cmd_set_miracastmode(nic_info_st *nic_info,char *command,int 
 {
     u8 mode;
     int bytes_written = 0;
-    wf_wlan_info_t *pwlan_info = nic_info->wlan_info;
+ //   wf_wlan_info_t *pwlan_info = nic_info->wlan_info;
 //    struct wifi_display_info *pwfd_info = pwlan_info->wfd_info;
     char *cmd = command + strlen(cmd_handle->cmd_name) + 1;
 
@@ -700,8 +696,8 @@ static int android_cmd_changedtim(nic_info_st *nic_info,char *command,int total_
 static int android_cmd_set_macacl(nic_info_st *nic_info,char *command,int total_len, android_cmd_handle_st *cmd_handle)
 {
     int bytes_written = 0;
-    wf_wlan_info_t *pwlan_info = nic_info->wlan_info;
-    wf_wlan_network_t *pcur_network = &pwlan_info->cur_network;
+    //wf_wlan_info_t *pwlan_info = nic_info->wlan_info;
+    //wf_wlan_network_t *pcur_network = &pwlan_info->cur_network;
 
 
     LOG_I("[%s,%d]:Process of android private command [%s] end\n",__func__,__LINE__,command);
@@ -786,7 +782,7 @@ int wf_android_priv_cmd_ioctl(struct net_device *net, struct ifreq *ifr, int cmd
     hw_info_st *hw_info = nic_info->hw_info;
     
 #ifdef CONFIG_WFD
-    struct wifi_display_info *pwfd_info;
+    //struct wifi_display_info *pwfd_info;
 #endif
     
     //Func_Of_Proc_Lock_Suspend();

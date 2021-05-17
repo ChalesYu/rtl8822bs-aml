@@ -4,7 +4,7 @@
 static int prv_hardware_init(nic_info_st *nic_info)
 {
     int ret=0;
-    wf_u8 mac_temp[WF_ETH_ALEN];
+    //wf_u8 mac_temp[WF_ETH_ALEN];
 
     LOG_D("[NIC] prv_hardware_init - entry");
 
@@ -116,8 +116,16 @@ int nic_init(nic_info_st *nic_info)
 {
     LOG_D("[NIC] nic_init - start");
 
+    #ifdef CONFIG_CONCURRENT_MODE
+    {
+        nic_info_st *pbuddy = nic_info->vir_nic;
+        wf_os_api_sema_init(&pbuddy->cmd_sema,1);
+        //LOG_I("222222222222222222");
+    }
+    #endif
+    
     wf_os_api_sema_init(&nic_info->cmd_sema,1);
-    nic_info->cmd_lock_use = wf_false;
+    
     /* hardware init by chip */
     if (prv_hardware_init(nic_info) < 0)
     {
@@ -125,13 +133,6 @@ int nic_init(nic_info_st *nic_info)
         return WF_RETURN_FAIL;
     }
 
-#ifdef CONFIG_ARS_SUPPORT
-    if(ars_init(nic_info) < 0)
-    {
-        LOG_E("===>ars_init error");
-        return WF_RETURN_FAIL;
-    }
-#endif
     /*p2p*/
 #ifdef CONFIG_P2P
     if (p2p_info_init(nic_info) < 0)
@@ -139,6 +140,15 @@ int nic_init(nic_info_st *nic_info)
         LOG_E("===>p2p_info_init error");
         return WF_RETURN_FAIL;
     }
+#endif
+
+#ifdef CFG_ENABLE_ADHOC_MODE
+        if (wf_adhoc_init(nic_info) < 0)
+        {
+            LOG_E("===>wf_adhoc_init error");
+            return WF_RETURN_FAIL;
+        }
+            
 #endif
     /*wdn init*/
     if (wf_wdn_init(nic_info) < 0)
@@ -189,12 +199,22 @@ int nic_init(nic_info_st *nic_info)
         return WF_RETURN_FAIL;
     }
 
+#ifdef CONFIG_ARS_SUPPORT
+    if(ars_init(nic_info) < 0)
+    {
+        LOG_E("===>ars_init error");
+        return WF_RETURN_FAIL;
+    }
+#else
+
     /*odm mangment init*/
     if (wf_odm_mgnt_init(nic_info) < 0)
     {
         LOG_E("===>wf_odm_mgnt_init error");
         return WF_RETURN_FAIL;
     }
+
+#endif
 
 #ifdef CONFIG_LPS
     /* pwr_info init  */
@@ -204,6 +224,7 @@ int nic_init(nic_info_st *nic_info)
         return WF_RETURN_FAIL;
     }
 #endif
+
 #ifdef CFG_ENABLE_AP_MODE
     /* ap init */
     if (wf_ap_init(nic_info) < 0)
@@ -223,7 +244,6 @@ int nic_init(nic_info_st *nic_info)
 
 
     LOG_D("[NIC] nic_init - end");
-    nic_info->cmd_lock_use = wf_true;
     return WF_RETURN_OK;
 
 }
@@ -232,16 +252,31 @@ int nic_init(nic_info_st *nic_info)
 
 int nic_term(nic_info_st *nic_info)
 {
-    wf_wlan_info_t *pwlan_info = nic_info->wlan_info;
-    wf_wlan_network_t *cur_network = &pwlan_info->cur_network;
+    //wf_wlan_info_t *pwlan_info = nic_info->wlan_info;
+    //wf_wlan_network_t *cur_network = &pwlan_info->cur_network;
 
-    nic_info->cmd_lock_use = wf_false;
     LOG_D("[NIC] nic_term - start");
 
 #ifdef CFG_ENABLE_AP_MODE
     if (wf_ap_work_stop(nic_info) < 0)
     {
         LOG_E("===>wf_ap_work_stop error");
+        return WF_RETURN_FAIL;
+    }
+#endif
+#ifdef CFG_ENABLE_ADHOC_MODE
+    if (wf_adhoc_term(nic_info) < 0)
+    {
+        LOG_E("===>wf_adhoc_term error");
+        return WF_RETURN_FAIL;
+    }
+#endif
+
+#ifdef CONFIG_LPS
+    /* pwr_info term  */
+    if (wf_lps_term(nic_info) < 0)
+    {
+        LOG_E("===>wf_lps_term error");
         return WF_RETURN_FAIL;
     }
 #endif
@@ -280,12 +315,22 @@ int nic_term(nic_info_st *nic_info)
         return WF_RETURN_FAIL;
     }
 
+    
+
+#ifdef CONFIG_ARS_SUPPORT
+    if (ars_term(nic_info) < 0)
+    {
+        LOG_E("===>ars_term error");
+        return WF_RETURN_FAIL;
+    }
+#else
     /* odm term */
     if (wf_odm_mgnt_term(nic_info) < 0)
     {
         LOG_E("===>wf_odm_mgnt_term error");
         return WF_RETURN_FAIL;
     }
+#endif
 
     /* local configure term */
     if (wf_local_cfg_term(nic_info) < 0)
@@ -308,21 +353,14 @@ int nic_term(nic_info_st *nic_info)
         return WF_RETURN_FAIL;
     }
 
+#ifdef CONFIG_RICHV200
+    wf_mcu_reset_chip(nic_info);
+#endif
 
-    #ifdef CONFIG_RICHV200_FPGA
-        wf_mcu_reset_chip(nic_info);
-    #endif
 #ifdef CONFIG_P2P
     if (p2p_info_term(nic_info) < 0)
     {
         LOG_E("===>p2p_info_term error");
-        return WF_RETURN_FAIL;
-    }
-#endif
-#ifdef CONFIG_ARS_SUPPORT
-    if (ars_term(nic_info) < 0)
-    {
-        LOG_E("===>ars_term error");
         return WF_RETURN_FAIL;
     }
 #endif
@@ -334,28 +372,27 @@ int nic_term(nic_info_st *nic_info)
         return WF_RETURN_FAIL;
     }
     LOG_D("[NIC] nic_term - end");
-    nic_info->cmd_lock_use = wf_true;
     return WF_RETURN_OK;
 }
 
 
 int nic_enable(nic_info_st *nic_info)
 {
-    int ret = 0;
-    odm_mgnt_st *odm = nic_info->odm;
+    //int ret = 0;
     LOG_I("[NIC] nic_enable\n");
-    nic_info->cmd_lock_use = wf_false;
 
     if( 0 == nic_info->is_up)
     {
         wf_mcu_enable_xmit(nic_info);
         nic_info->is_up = 1;
     }
-    nic_info->cmd_lock_use = wf_true;
 #ifdef CONFIG_ARS_SUPPORT
     //ars to do
 #else
+{
+    odm_mgnt_st *odm = nic_info->odm;
     wf_os_api_timer_set(&odm->odm_wdg_timer, 5000);
+}
 #endif
     return WF_RETURN_OK;
 }
@@ -366,7 +403,6 @@ int nic_disable(nic_info_st *nic_info)
     int ret = WF_RETURN_FAIL;
 
     LOG_D("[NIC] nic_disable");
-    nic_info->cmd_lock_use = wf_false;
 
     if(nic_info->is_up)
     {
@@ -376,15 +412,12 @@ int nic_disable(nic_info_st *nic_info)
             wf_ap_work_stop(nic_info);
 #endif
         }
-        else
-        {
-            wf_mlme_deauth(nic_info);
-        }
+        
+        wf_mlme_abort(nic_info);
+        
         nic_info->is_up = 0;
-
         ret = WF_RETURN_OK;
     }
-    nic_info->cmd_lock_use = wf_true;
 
     return ret;
 }
@@ -404,11 +437,9 @@ int nic_resume(nic_info_st *nic_info)
 int nic_shutdown(nic_info_st *nic_info)
 {
     nic_info->is_driver_stopped = wf_true;
-    nic_info->cmd_lock_use = wf_false;
 
     wf_scan_stop(nic_info);
 
-    nic_info->cmd_lock_use = wf_true;
 
     return WF_RETURN_OK;
 }

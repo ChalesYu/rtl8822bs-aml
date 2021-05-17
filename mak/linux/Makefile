@@ -9,16 +9,6 @@ MODULE_NAME := s9083
 endif
 endif
 
-ifeq ($(CONFIG_CHIP), s9188_fpga)
-ifeq ($(CONFIG_HIF_PORT), usb)
-MODULE_NAME := s9188u_fpga
-else ifeq ($(CONFIG_HIF_PORT), sdio)
-MODULE_NAME := s9188s_fpga
-else
-MODULE_NAME := s9188_fpga
-endif
-endif
-
 ifeq ($(CONFIG_CHIP), s9188)
 ifeq ($(CONFIG_HIF_PORT), usb)
 MODULE_NAME := s9188u
@@ -29,18 +19,20 @@ MODULE_NAME := s9188
 endif
 endif
 #####################################################
+ifeq ($(CONFIG_DRIVER_VER), null)
+# get svn version
+EXTRA_CFLAGS += -D'WF_VERSION="[svn]$(shell svnversion -n $$WDRV_DIR)"'
+else
+# use Driver version
+EXTRA_CFLAGS += -D'WF_VERSION="$(CONFIG_DRIVER_VER)"'
+endif
+#get compile time
+ifeq ($(CT), y)
+EXTRA_CFLAGS += -D'COMPILE_TIME="$(shell date +"%Y-%m-%d %H:%M:%S")"'
+endif
 
 EXTRA_CFLAGS += $(USER_EXTRA_CFLAGS)
 EXTRA_CFLAGS += -O1
-EXTRA_CFLAGS += -Werror
-EXTRA_CFLAGS += -Wno-implicit-fallthrough
-EXTRA_CFLAGS += -Wno-unused-variable
-EXTRA_CFLAGS += -Wno-unused-value
-EXTRA_CFLAGS += -Wno-unused-label
-EXTRA_CFLAGS += -Wno-unused-parameter
-EXTRA_CFLAGS += -Wno-unused-function
-EXTRA_CFLAGS += -Wno-unused
-EXTRA_CFLAGS += -Wno-uninitialized
 EXTRA_CFLAGS += -I$(WDRV_DIR)/os/
 EXTRA_CFLAGS += -I$(WDRV_DIR)/os/linux
 EXTRA_CFLAGS += -I$(WDRV_DIR)/os/linux/os_porting
@@ -90,7 +82,6 @@ EXTRA_CFLAGS += -DCFG_ENABLE_MONITOR_MODE
 endif
 
 ifeq ($(CONFIG_WIFI_MODE), adhoc)
-EXTRA_CFLAGS += -DCFG_ENABLE_AP_MODE
 EXTRA_CFLAGS += -DCFG_ENABLE_ADHOC_MODE
 endif
 
@@ -193,7 +184,6 @@ $(MODULE_NAME)-y += nic/assoc.o
 $(MODULE_NAME)-y += nic/action.o
 $(MODULE_NAME)-y += nic/wlan_mgmt.o
 $(MODULE_NAME)-y += nic/wf_80211.o
-$(MODULE_NAME)-y += nic/odm.o
 $(MODULE_NAME)-y += nic/ie.o
 $(MODULE_NAME)-y += nic/local_config.o
 $(MODULE_NAME)-y += nic/fw_download.o
@@ -214,7 +204,6 @@ endif
 
 ifeq ($(CONFIG_WIFI_MODE), adhoc)
 $(MODULE_NAME)-y += nic/adhoc.o
-$(MODULE_NAME)-y += nic/ap.o
 endif
 
 ifeq ($(CONFIG_WIFI_MODE), ap)
@@ -232,15 +221,10 @@ $(MODULE_NAME)-y += os/linux/pwr/power_rich100.o
 EXTRA_CFLAGS += -DCONFIG_RICHV100
 endif
 
-ifeq ($(CONFIG_CHIP), s9188_fpga)
-$(MODULE_NAME)-y += os/linux/pwr/power_hw_rich200.o
-EXTRA_CFLAGS += -DCONFIG_RICHV200_FPGA
-EXTRA_CFLAGS += -DCONFIG_FW_ENCRYPT
-endif
-
 ifeq ($(CONFIG_CHIP), s9188)
 $(MODULE_NAME)-y += os/linux/pwr/power_hw_rich200.o
 EXTRA_CFLAGS += -DCONFIG_RICHV200
+EXTRA_CFLAGS += -DCONFIG_FW_ENCRYPT
 endif
 
 ifeq ($(CONFIG_ARS_SUPPORT), y)
@@ -260,8 +244,10 @@ $(MODULE_NAME)-y += nic/ars/ars_noisemonitor.o
 $(MODULE_NAME)-y += nic/ars/ars_pathdiv.o
 $(MODULE_NAME)-y += nic/ars/ars_powertracking.o
 $(MODULE_NAME)-y += nic/ars/ars_rainfo.o
-$(MODULE_NAME)-y += nic/ars/ars_timer.o
+$(MODULE_NAME)-y += nic/ars/ars_thread.o
 $(MODULE_NAME)-y += nic/ars/ars_txpower.o
+else
+$(MODULE_NAME)-y += nic/ars/odm.o
 endif
 
 ifeq ($(CONFIG_CMD_METHOD), mailbox)

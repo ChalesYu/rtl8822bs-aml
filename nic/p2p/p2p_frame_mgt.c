@@ -12,7 +12,6 @@
         (a)[0] = ((wf_u16) (val)) & 0xff;\
     } while (0)
 
-#define WF_GET_BE16(a) ((wf_u16) (((a)[0] << 8) | (a)[1]))
 #define WF_PUT_BE16(a, val)         \
         do {                    \
             (a)[0] = ((wf_u16) (val)) >> 8;    \
@@ -222,7 +221,7 @@ wf_u32 p2p_set_ie(wf_u8 * pbuf, wf_u8 index, wf_u16 attr_len, wf_u8 * pdata_attr
 
     return a_len;
 }
-
+/*
 static wf_u32 p2p_ie_to_del_func(wf_u8 * ies, wf_u32 ies_len_ori, const wf_u8 *msg, wf_u8 flag)
 {
     wf_u8 *target_ie;
@@ -248,6 +247,7 @@ static wf_u32 p2p_ie_to_del_func(wf_u8 * ies, wf_u32 ies_len_ori, const wf_u8 *m
     }
     return ies_len;
 }
+
 
 static wf_u32 p2p_attr_to_del_func(wf_u8 * ie, wf_u32 ielen_ori, wf_u8 attr_id, wf_u8 flag)
 {
@@ -402,6 +402,7 @@ wf_u32 probe_resp_p2p_ie_build_func(struct wifidirect_info * pwdinfo, wf_u8 * pb
     return len;
 
 }
+*/
 
 void p2p_provision_request_to_issue_func(nic_info_st *nic_info, wf_u8 * pssid, wf_u8 ussidlen,wf_u8 * pdev_raddr, wf_u8 flag)
 {
@@ -418,14 +419,10 @@ void p2p_invitation_request_to_issue_func(nic_info_st *nic_info, wf_u8 * raddr, 
 
 static wf_s32 p2p_mgmt_frame_xmit (nic_info_st *nic_info, wdn_net_info_st *wdn, struct xmit_buf *pxmitbuf, wf_u16 len)
 {
-    wf_u8 bc_addr[WF_ETH_ALEN] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
-    wf_u16 raid;
     wf_u8 *pbuf;
     wf_u8 *pwlanhdr;
     struct tx_desc *ptxdesc;
-    struct sta_unit *psta;
     tx_info_st *tx_info = nic_info->tx_info;
-    mlme_info_t *mlme_info = nic_info->mlme_info;
 
     if(pxmitbuf == NULL)
     {
@@ -439,7 +436,7 @@ static wf_s32 p2p_mgmt_frame_xmit (nic_info_st *nic_info, wdn_net_info_st *wdn, 
         return -1;
     }
 
-#ifdef CONFIG_RICHV200_FPGA
+#ifdef CONFIG_RICHV200
     // add txd
     pbuf = pxmitbuf->pbuf;
     pwlanhdr = pbuf + TXDESC_OFFSET_NEW;
@@ -648,8 +645,6 @@ int probereq_p2p_to_issue_func(nic_info_st *pnic_info, wf_u8 * da, wf_s32 wait_a
     tx_info_st *ptx_info        = (tx_info_st *)pnic_info->tx_info;
     struct xmit_buf *pxmit_buf  = NULL;
     wf_80211_mgmt_t *pframe     = NULL;
-    wf_scan_info_t *pscan_info     = pnic_info->scan_info;
-    hw_info_st *hw_info         = pnic_info->hw_info;
     wf_u32 var_len              = 0;
     wf_u8 *pvar                 = NULL;
     p2p_info_st *p2p_info       = pnic_info->p2p;

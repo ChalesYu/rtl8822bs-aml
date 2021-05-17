@@ -6,9 +6,9 @@
 
 void wf_os_api_thread_affinity(wf_u8 cpu_id)
 {
-	KAFFINITY act_affinity, config_affinity = 0;
-	wf_u8 max_processor;
-	wf_s8 i;
+	KAFFINITY act_affinity, config_affinity = 0, temp = 1;
+	ULONG max_processor;
+	//wf_s8 i;
 
 	LOG_D("curr process=%d", KeGetCurrentProcessorIndex()); 
 
@@ -17,8 +17,8 @@ void wf_os_api_thread_affinity(wf_u8 cpu_id)
 		act_affinity = KeQueryActiveProcessors();
 		LOG_D("act=%x", act_affinity);
 
-		if(act_affinity & 1<<cpu_id) {
-			config_affinity = (act_affinity & 1<<cpu_id);
+		if(act_affinity & temp<<cpu_id) {
+			config_affinity = (act_affinity & temp<<cpu_id);
 			act_affinity = KeSetSystemAffinityThreadEx(config_affinity);
 			LOG_D("rlt=%x, cfg=%x", act_affinity, config_affinity);
 		}
@@ -67,13 +67,12 @@ void* wf_os_api_thread_create(void *ptid, char *name, void *func, void *param)
         ZwClose(ThreadHandle);
         return pthread;
     }
-	DbgPrint("Thread creation is shielded.");
-	return NULL;
 }
 
 int wf_os_api_thread_wakeup(void *ptid)
 {
-    wf_thread_t *pthread = ptid;
+	UNREFERENCED_PARAMETER(ptid);
+    //wf_thread_t *pthread = ptid;
     return 0;
 }
 

@@ -3,8 +3,8 @@
 #include "wf_debug.h"
 
 #if 0
-#define WLAN_DBG(fmt, ...)      LOG_D("[%s]"fmt, __func__, ##__VA_ARGS__)
-#define WLAN_WARN(fmt, ...)     LOG_E("[%s]"fmt, __func__, ##__VA_ARGS__)
+#define WLAN_DBG(fmt, ...)      LOG_D("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
+#define WLAN_WARN(fmt, ...)     LOG_E("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
 #else
 #define WLAN_DBG(fmt, ...)
 #define WLAN_WARN(fmt, ...)
@@ -29,11 +29,11 @@
  */
 static wf_inline void queue_lock (wf_wlan_queue_t *pque)
 {
-    wf_lock_spin_lock(&pque->lock);
+    wf_lock_lock(&pque->lock);
 }
 static wf_inline void queue_unlock (wf_wlan_queue_t *pque)
 {
-    wf_lock_spin_unlock(&pque->lock);
+    wf_lock_unlock(&pque->lock);
 }
 static wf_inline wf_wlan_queue_node_t *queue_head (wf_wlan_queue_t *pque)
 {
@@ -102,8 +102,12 @@ static int dequeue (wf_wlan_queue_t *pque, wf_wlan_queue_node_t *pnode)
 static wf_inline void queue_init (wf_wlan_queue_t *pque)
 {
     wf_list_init(&pque->head);
-    wf_lock_spin_init(&pque->lock);
+    wf_lock_init(&pque->lock, WF_LOCK_TYPE_IRQ);
     pque->count = 0;
+}
+static wf_inline void queue_deinit (wf_wlan_queue_t *pque)
+{
+    wf_lock_term(&pque->lock);
 }
 
 
@@ -120,7 +124,7 @@ int wf_wlan_scanned_acce_try (wf_wlan_scanned_t *pscanned)
         goto exit;
     }
 
-    wf_lock_spin_lock(&pscanned->lock);
+    wf_lock_lock(&pscanned->lock);
     if (pscanned->count == 0xFF)
     {
         ret = -2;
@@ -133,10 +137,10 @@ int wf_wlan_scanned_acce_try (wf_wlan_scanned_t *pscanned)
         }
         else
         {
-            wf_lock_spin_unlock(&pscanned->lock);
+            wf_lock_unlock(&pscanned->lock);
             if (!wf_os_api_sema_try(&pscanned->sema))
             {
-                wf_lock_spin_lock(&pscanned->lock);
+                wf_lock_lock(&pscanned->lock);
                 pscanned->count++;
             }
             else
@@ -146,7 +150,7 @@ int wf_wlan_scanned_acce_try (wf_wlan_scanned_t *pscanned)
             }
         }
     }
-    wf_lock_spin_unlock(&pscanned->lock);
+    wf_lock_unlock(&pscanned->lock);
 
 exit :
     return ret;
@@ -162,13 +166,13 @@ int wf_wlan_scanned_acce_post (wf_wlan_scanned_t *pscanned)
         goto exit;
     }
 
-    wf_lock_spin_lock(&pscanned->lock);
+    wf_lock_lock(&pscanned->lock);
     if (pscanned->count > 0)
     {
         pscanned->count--;
         if (pscanned->count == 0)
         {
-            wf_lock_spin_unlock(&pscanned->lock);
+            wf_lock_unlock(&pscanned->lock);
             wf_os_api_sema_post(&pscanned->sema);
             goto exit;
         }
@@ -177,7 +181,7 @@ int wf_wlan_scanned_acce_post (wf_wlan_scanned_t *pscanned)
     {
         ret = -2;
     }
-    wf_lock_spin_unlock(&pscanned->lock);
+    wf_lock_unlock(&pscanned->lock);
 
 exit :
     return ret;
@@ -470,7 +474,6 @@ static int make_scanned_info (msg_frame_t *pmsg_frame, wf_u16 msg_frame_len,
     wf_80211_mgmt_ht_cap_t *pht_cap;
     wf_u8 i;
     wf_bool cck_spot = wf_false, ofdm_spot = wf_false;
-    wf_80211_vendor_ie_t *pvendor_ie;
     wf_u8 wpa_oui[4] = {0x0, 0x50, 0xf2, 0x01};
     wf_u8 wps_oui[4] = {0x0, 0x50, 0xf2, 0x04};
 
@@ -684,7 +687,7 @@ static int scanned_flush (nic_info_st *pnic_info)
     wf_list_t *pcur, *pnext;
     int ret = 0;
 
-    while (wf_wlan_scanned_mdfy_pend(pscanned)) wf_yield();
+    while (wf_wlan_scanned_mdfy_pend(pscanned)) wf_msleep(1);
 
     wf_list_for_each_safe(pcur, pnext, &pscanned->que.head)
     {
@@ -704,25 +707,20 @@ static int rx_frame_handle (nic_info_st *pnic_info)
     wf_wlan_info_t *pwlan_info = pnic_info->wlan_info;
     wf_wlan_rx_frame_t *prx_frame = &pwlan_info->rx_frame;
     wf_wlan_scanned_t *pscanned = &pwlan_info->scanned;
-    wf_wlan_network_t *pcur_network = &pwlan_info->cur_network;
     wf_wlan_scanned_info_t *pscanned_info;
-    wdn_net_info_st *pwdn_info = NULL;
     wf_wlan_queue_node_t *pnode;
     wf_wlan_msg_t *pmsg;
     msg_frame_t *pmsg_frame;
-    wf_80211_mgmt_t *pmgmt;
-    wf_wlan_queue_node_t *pscanned_node;
-    wf_wlan_remote_t *premote;
+    wf_wlan_queue_node_t *pscanned_node = NULL;
     wf_bool uninstalling = wf_false;
-    wf_bool bConnect;
 
-	wf_os_api_thread_affinity(DEFAULT_CPU_ID);
+    wf_os_api_thread_affinity(DEFAULT_CPU_ID);
 
-    while (wf_os_api_thread_wait_stop(pwlan_info->tid) == wf_false)
+    while (1)
     {
         if (uninstalling)
         {
-            continue;
+            break;
         }
 
         /* block here until received an message */
@@ -783,7 +781,10 @@ static int rx_frame_handle (nic_info_st *pnic_info)
         }
     }
 
-	wf_os_api_thread_exit(pwlan_info->tid);
+    if(wf_os_api_thread_wait_stop(pwlan_info->tid) == wf_true)
+    {
+        wf_os_api_thread_exit(pwlan_info->tid);
+    }
 
     return 0;
 }
@@ -887,11 +888,7 @@ int wf_wlan_mgmt_rx_frame (void *pin)
 #ifdef CFG_ENABLE_ADHOC_MODE
             if(get_sys_work_mode(pnic_info) == WF_ADHOC_MODE)
             {
-                if((get_adhoc_master(pnic_info) == wf_true) &&
-                     WF_80211_CAPAB_IS_IBSS(pmgmt->beacon.capab))
-                {
-                    adhoc_work(pnic_info, (void *)pmgmt, mgmt_len);
-                }
+                wf_adhoc_work(pnic_info, (void *)pmgmt, mgmt_len);
             }
 #endif
             break;
@@ -960,13 +957,10 @@ int wf_wlan_mgmt_rx_frame (void *pin)
             break;
 
         case WF_80211_FRM_PROBE_REQ :
-#if defined(CFG_ENABLE_ADHOC_MODE) && defined(CFG_ENABLE_AP_MODE)
+#if defined(CFG_ENABLE_ADHOC_MODE)
             if(get_sys_work_mode(pnic_info) == WF_ADHOC_MODE)
             {
-                if(get_adhoc_master(pnic_info) == wf_true)
-                {
-                    wf_adhoc_do_probrsp(pnic_info, pmgmt, mgmt_len);
-                }
+                wf_adhoc_do_probrsp(pnic_info, pmgmt, mgmt_len);
                 break;
             }
 #endif
@@ -1019,7 +1013,7 @@ static wf_inline int scanned_init (wf_wlan_info_t *pwlan_info)
         enqueue_head(&pscanned->free, pnode);
     }
 
-    wf_lock_spin_init(&pscanned->lock);
+    wf_lock_init(&pscanned->lock, WF_LOCK_TYPE_IRQ);
     pscanned->count = 0;
     wf_os_api_sema_init(&pscanned->sema, 1);
 
@@ -1222,7 +1216,7 @@ static wf_inline int scanned_deinit (wf_wlan_info_t *pwlan_info)
         wf_kfree(pnode);
     }
 
-    wf_lock_spin_free(&pscanned->lock);
+    queue_deinit(&pscanned->que);
     wf_os_api_sema_free(&pscanned->sema);
 
     return 0;
@@ -1258,6 +1252,8 @@ static wf_inline int rx_frame_deinit (wf_wlan_info_t *pwlan_info)
         dequeue(&prx_frame->probersp, pnode);
         wf_kfree(pnode);
     }
+
+    queue_deinit(&prx_frame->beacon);
 
     return 0;
 }
@@ -1303,6 +1299,8 @@ static wf_inline int nofity_deinit (wf_wlan_info_t *pwlan_info)
         wf_kfree(pnode);
     }
 
+    queue_deinit(pnotify);
+
     return 0;
 }
 
@@ -1326,6 +1324,7 @@ static wf_inline int msg_que_deinit (wf_wlan_info_t *pwlan_info)
         wf_kfree(pnode);
     }
 
+    queue_deinit(&pmsg_que->que);
     wf_os_api_sema_free(&pmsg_que->sema);
 
     return 0;

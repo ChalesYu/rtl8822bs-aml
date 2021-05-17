@@ -3,7 +3,19 @@
 
 #ifdef CONFIG_ARS_SUPPORT
 
-void ODM_ParsingCFO(void *pars, void *pkt_info,wf_s8 *pcfotail )
+#if 0
+#define ARS_CFO_DBG(fmt, ...)      LOG_D("ARS_CFO[%s,%d]"fmt, __func__, __LINE__,##__VA_ARGS__)
+#define ARS_CFO_PRT(fmt, ...)      LOG_D("ARS_CFO-"fmt,##__VA_ARGS__)
+
+#else
+#define ARS_CFO_DBG(fmt, ...)
+#define ARS_CFO_PRT(fmt, ...) 
+#endif
+#define ARS_CFO_INFO(fmt, ...)      LOG_I("ARS_CFO-"fmt,##__VA_ARGS__)
+#define ARS_CFO_ERR(fmt, ...)      LOG_E("ARS_CFO-"fmt,##__VA_ARGS__)
+
+
+wf_s32 ODM_ParsingCFO(void *pars, void *pkt_info,wf_s8 *pcfotail )
 {
     ars_st *ars                         = NULL;
     ODM_PACKET_INFO_T *pktinfo          = NULL;
@@ -12,15 +24,17 @@ void ODM_ParsingCFO(void *pars, void *pkt_info,wf_s8 *pcfotail )
 
     if(NULL == pars || NULL == pkt_info)
     {
-        ARS_DBG("input param is null");
-        return;
+        ARS_CFO_ERR("input param is null");
+        return WF_RETURN_FAIL;
     }
     
     ars = pars;
     pktinfo = pkt_info;
     pCfoTrack = &ars->cfo.cfo_tr;
     if(!(ars->SupportAbility & ODM_BB_CFO_TRACKING))
-        return;
+    {
+        return WF_RETURN_OK;
+    }
 
     if(pktinfo->bPacketMatchBSSID)
     {               
@@ -37,6 +51,7 @@ void ODM_ParsingCFO(void *pars, void *pkt_info,wf_s8 *pcfotail )
         else
             pCfoTrack->packetCount++;
     }
+    return WF_RETURN_OK;
 }
 
 wf_u8 odm_GetDefaultCrytaltalCap(void *ars)
@@ -54,17 +69,19 @@ wf_u8 odm_GetDefaultCrytaltalCap(void *ars)
 
     return CrystalCap;
     #else
-    return 0;
+    return EEPROM_Default_CrystalCap_8188F & 0x3f;
     #endif
 }
 
-void odm_SetCrystalCap(void *ars,wf_u8 CrystalCap)
+wf_s32 odm_SetCrystalCap(void *ars,wf_u8 CrystalCap)
 {
     ars_st *    pars = ars;
     CFO_TRACKING                *pCfoTrack = &pars->cfo.cfo_tr;
 
     if(pCfoTrack->CrystalCap == CrystalCap)
-        return;
+    {
+        return WF_RETURN_OK;
+    }
 
     pCfoTrack->CrystalCap = CrystalCap;
 
@@ -75,22 +92,28 @@ void odm_SetCrystalCap(void *ars,wf_u8 CrystalCap)
         hw_write_bb_reg(pars, REG_AFE_XTAL_CTRL, 0x007ff800, (CrystalCap|(CrystalCap << 6)));
 #endif
     } 
-    LOG_I("%s(): CrystalCap = 0x%x\n", __func__,CrystalCap);
+    ARS_CFO_DBG("%s(): CrystalCap = 0x%x\n", __func__,CrystalCap);
+
+    return WF_RETURN_OK;
 }
 
-void odm_SetATCStatus(void *ars,wf_bool ATCStatus)
+wf_s32 odm_SetATCStatus(void *ars,wf_bool ATCStatus)
 {
     ars_st*                 pars = ars;
     CFO_TRACKING           *pCfoTrack = &pars->cfo.cfo_tr;
 
     if(pCfoTrack->bATCStatus == ATCStatus)
-        return;
+    {
+        return WF_RETURN_OK;
+    }
     
     hw_write_bb_reg(pars->nic_info, ODM_REG_BB_ATC_11N, ODM_BIT_BB_ATC_11N, ATCStatus);
     pCfoTrack->bATCStatus = ATCStatus;
+
+    return WF_RETURN_OK;
 }
 
-void ODM_CfoTrackingReset(void *ars)
+wf_s32 ODM_CfoTrackingReset(void *ars)
 {
     ars_st* pars = ars;
     CFO_TRACKING*   pCfoTrack = &pars->cfo.cfo_tr;
@@ -101,19 +124,20 @@ void ODM_CfoTrackingReset(void *ars)
     if(pCfoTrack->CrystalCap > pCfoTrack->DefXCap)
     {
         odm_SetCrystalCap(pars, pCfoTrack->CrystalCap - 1);
-        LOG_I("ODM_CfoTrackingReset(): approch default value (0x%x)\n", pCfoTrack->CrystalCap);
+        ARS_CFO_DBG("ODM_CfoTrackingReset(): approch default value (0x%x)\n", pCfoTrack->CrystalCap);
     } 
     else if (pCfoTrack->CrystalCap < pCfoTrack->DefXCap)
     {
         odm_SetCrystalCap(pars, pCfoTrack->CrystalCap + 1);
-        LOG_I("ODM_CfoTrackingReset(): approch default value (0x%x)\n", pCfoTrack->CrystalCap);
+        ARS_CFO_DBG("ODM_CfoTrackingReset(): approch default value (0x%x)\n", pCfoTrack->CrystalCap);
     }
 
     odm_SetATCStatus(pars, wf_true);
+    return WF_RETURN_OK;
 }
 
 
-void ODM_CfoTracking(void *ars)
+wf_s32 ODM_CfoTracking(void *ars)
 {
     ars_st *    pars = ars;
     CFO_TRACKING *pCfoTrack = &pars->cfo.cfo_tr;
@@ -127,17 +151,17 @@ void ODM_CfoTracking(void *ars)
     //4 Support ability
     if(!(pars->SupportAbility & ODM_BB_CFO_TRACKING))
     {
-        LOG_I("%s(): Return: SupportAbility ODM_BB_CFO_TRACKING is disabled\n",__func__);
-        return;
+        ARS_CFO_DBG("%s(): Return: SupportAbility ODM_BB_CFO_TRACKING is disabled\n",__func__);
+        return WF_RETURN_OK;
     }
 
-    LOG_I("ODM_CfoTracking()=========> \n");
+    ARS_CFO_DBG("ODM_CfoTracking()=========> \n");
 
     if(!pars->bLinked || !pars->bOneEntryOnly)
     {   
         //4 No link or more than one entry
         ODM_CfoTrackingReset(pars);
-        LOG_I("%s(): Reset: bLinked = %d, bOneEntryOnly = %d\n", 
+        ARS_CFO_DBG("%s(): Reset: bLinked = %d, bOneEntryOnly = %d\n", 
             __func__,pars->bLinked, pars->bOneEntryOnly);
     }
     else
@@ -146,8 +170,8 @@ void ODM_CfoTracking(void *ars)
         //4 1.1 No new packet
         if(pCfoTrack->packetCount == pCfoTrack->packetCount_pre)
         {
-            LOG_I("ODM_CfoTracking(): packet counter doesn't change\n");
-            return;
+            ARS_CFO_DBG("ODM_CfoTracking(): packet counter doesn't change\n");
+            return WF_RETURN_OK;
         }
         pCfoTrack->packetCount_pre = pCfoTrack->packetCount;
     
@@ -163,16 +187,16 @@ void ODM_CfoTracking(void *ars)
         {      
             CFO_ave = (int)(CFO_kHz_A + CFO_kHz_B) >> 1;
         }
-        LOG_I("ODM_CfoTracking(): CFO_kHz_A = %dkHz, CFO_kHz_B = %dkHz, CFO_ave = %dkHz\n", 
+        ARS_CFO_DBG("ODM_CfoTracking(): CFO_kHz_A = %dkHz, CFO_kHz_B = %dkHz, CFO_ave = %dkHz\n", 
                         CFO_kHz_A, CFO_kHz_B, CFO_ave);
 
         //4 1.3 Avoid abnormal large CFO
         CFO_ave_diff = (pCfoTrack->CFO_ave_pre >= CFO_ave)?(pCfoTrack->CFO_ave_pre - CFO_ave):(CFO_ave - pCfoTrack->CFO_ave_pre);
         if(CFO_ave_diff > 20 && pCfoTrack->largeCFOHit == 0 && !pCfoTrack->bAdjust)
         {
-            LOG_I("ODM_CfoTracking(): first large CFO hit\n");
+            ARS_CFO_DBG("ODM_CfoTracking(): first large CFO hit\n");
             pCfoTrack->largeCFOHit = 1;
-            return;
+            return WF_RETURN_OK;
         }
         else
         {
@@ -207,23 +231,59 @@ void ODM_CfoTracking(void *ars)
 
             odm_SetCrystalCap(pars, (wf_u8)CrystalCap);
         }
-        LOG_I("ODM_CfoTracking(): Crystal cap = 0x%x, Default Crystal cap = 0x%x\n", 
+        ARS_CFO_DBG("ODM_CfoTracking(): Crystal cap = 0x%x, Default Crystal cap = 0x%x\n", 
             pCfoTrack->CrystalCap, pCfoTrack->DefXCap);
 
         //3 2. Dynamic ATC switch
         if(CFO_ave < CFO_TH_ATC && CFO_ave > -CFO_TH_ATC)
         {
             odm_SetATCStatus(pars, wf_false);
-            LOG_I("ODM_CfoTracking(): Disable ATC!!\n");
+            ARS_CFO_DBG("ODM_CfoTracking(): Disable ATC!!\n");
         }
         else
         {
             odm_SetATCStatus(pars, wf_true);
-            LOG_I("ODM_CfoTracking(): Enable ATC!!\n");
+            ARS_CFO_DBG("ODM_CfoTracking(): Enable ATC!!\n");
         }
     }
+
+    return WF_RETURN_OK;
 }
 
+wf_bool odm_GetATCStatus(void *ars)
+{
+    ars_st *pars = ars;
+    wf_bool ATCStatus = wf_false;
+
+    ars_io_lock_try(pars);
+    ATCStatus = (wf_bool)hw_read_bb_reg(pars->nic_info, ODM_REG_BB_ATC_11N, ODM_BIT_BB_ATC_11N);
+    ars_io_unlock_try(pars);
+    return ATCStatus;
+}
+
+
+wf_s32 ODM_CfoTrackingInit(void* ars)
+{
+    ars_st *pars = NULL;
+    CFO_TRACKING    *pCfoTrack = NULL;
+    if(NULL == ars)
+    {
+        ARS_CFO_DBG("input param is null");
+        return WF_RETURN_FAIL;
+    }
+
+    pars = ars;
+
+    pCfoTrack= &pars->cfo.cfo_tr;
+    
+    pCfoTrack->DefXCap = pCfoTrack->CrystalCap = odm_GetDefaultCrytaltalCap(pars);
+    pCfoTrack->bATCStatus = odm_GetATCStatus(pars);
+    pCfoTrack->bAdjust = wf_false;
+    ARS_CFO_DBG("ODM_CfoTracking_init()=========> \n");
+    ARS_CFO_DBG("ODM_CfoTracking_init(): bATCStatus = %d, CrystalCap = 0x%x \n",pCfoTrack->bATCStatus, pCfoTrack->DefXCap);
+
+    return WF_RETURN_OK;
+}
 
 #endif
 

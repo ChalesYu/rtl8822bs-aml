@@ -262,7 +262,6 @@ int wep_decrypt (prx_pkt_t prx_pkt)
         ret = -1;
     }
 
-exit:
     return ret;
 }
 

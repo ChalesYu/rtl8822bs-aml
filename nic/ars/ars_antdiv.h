@@ -47,5 +47,6 @@ typedef struct antdiv_info_st_
 {
 }ars_antdiv_info_st;
 
-void odm_AntennaDiversity(void *ars);
+wf_s32 odm_AntennaDiversity(void *ars);
+wf_s32 odm_AntennaDiversityInit(void *ars);
 #endif

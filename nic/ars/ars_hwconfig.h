@@ -2,6 +2,8 @@
 #define __ARS_HWCONFIG_H__
 
 #define ODM_RF_PATH_MAX 2
+
+
 typedef enum _RF_PATH 
 {
     RF_PATH_A = 0,
@@ -93,25 +95,25 @@ typedef struct
 
 typedef struct _BB_REGISTER_DEFINITION
 {
-	wf_u32 rfintfs;			// set software control: 
-						//		0x870~0x877[8 bytes]
-							
-	wf_u32 rfintfo; 			// output data: 
-						//		0x860~0x86f [16 bytes]
-							
-	wf_u32 rfintfe; 			// output enable: 
-						//		0x860~0x86f [16 bytes]
-							
-	wf_u32 rf3wireOffset;	// LSSI data:
-						//		0x840~0x84f [16 bytes]
+    wf_u32 rfintfs;         // set software control: 
+                        //      0x870~0x877[8 bytes]
+                            
+    wf_u32 rfintfo;             // output data: 
+                        //      0x860~0x86f [16 bytes]
+                            
+    wf_u32 rfintfe;             // output enable: 
+                        //      0x860~0x86f [16 bytes]
+                            
+    wf_u32 rf3wireOffset;   // LSSI data:
+                        //      0x840~0x84f [16 bytes]
 
-	wf_u32 rfHSSIPara2; 	// wire parameter control2 : 
-						//		0x824~0x827,0x82c~0x82f, 0x834~0x837, 0x83c~0x83f [16 bytes]
-								
-	wf_u32 rfLSSIReadBack; 	//LSSI RF readback data SI mode
-						//		0x8a0~0x8af [16 bytes]
+    wf_u32 rfHSSIPara2;     // wire parameter control2 : 
+                        //      0x824~0x827,0x82c~0x82f, 0x834~0x837, 0x83c~0x83f [16 bytes]
+                                
+    wf_u32 rfLSSIReadBack;  //LSSI RF readback data SI mode
+                        //      0x8a0~0x8af [16 bytes]
 
-	wf_u32 rfLSSIReadBackPi; 	//LSSI RF readback data PI mode 0x8b8-8bc for Path A and B
+    wf_u32 rfLSSIReadBackPi;    //LSSI RF readback data PI mode 0x8b8-8bc for Path A and B
 
 }BB_REGISTER_DEFINITION_T, *PBB_REGISTER_DEFINITION_T;
 
@@ -125,11 +127,13 @@ typedef struct hwconfig_info_st_
     BB_REGISTER_DEFINITION_T PHYRegDef[MAX_RF_PATH];
 }ars_hwconfig_info_st;
 
-void wf_ars_query_phystatus(nic_info_st *nic_info, recv_phy_status_st *rps, wf_u8 *pbuf, prx_pkt_t ppt);
+wf_s32 wf_ars_query_phystatus(nic_info_st *nic_info, recv_phy_status_st *rps, wf_u8 *pbuf, prx_pkt_t ppt);
 
 wf_u32 hw_read_bb_reg(nic_info_st *pnic_info,wf_u32 RegAddr,wf_u32 BitMask);
-void hw_write_bb_reg(nic_info_st *pnic_info,wf_u32 RegAddr,wf_u32 BitMask,wf_u32 Data);
-void hw_write_rf_reg(    nic_info_st *nic_info,wf_u8 eRFPath,wf_u32 RegAddr,wf_u32 BitMask,wf_u32 Data);
-void phy_InitBBRFRegisterDefinition(void *ars);
+wf_s32 hw_write_bb_reg(nic_info_st *pnic_info,wf_u32 RegAddr,wf_u32 BitMask,wf_u32 Data);
+wf_s32 hw_write_rf_reg(    nic_info_st *nic_info,wf_u8 eRFPath,wf_u32 RegAddr,wf_u32 BitMask,wf_u32 Data);
+wf_s32 phy_InitBBRFRegisterDefinition(void *ars);
+
+wf_s32 FillH2CCmd(nic_info_st *nic_info, wf_u8 ElementID, wf_u32 CmdLen, wf_u8 *pCmdBuffer);
 
 #endif

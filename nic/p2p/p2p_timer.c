@@ -6,10 +6,11 @@
 void process_p2p_switch_timer_of_ap_func(wf_os_api_timer_t *ptimer)
 {
     p2p_info_st *p2p_info = WF_CONTAINER_OF((wf_os_api_timer_t *)ptimer,p2p_info_st,ap_p2p_switch_timer);
-    nic_info_st *nic_info = p2p_info->nic_info;
     struct wifidirect_info *pwdinfo = &p2p_info->wdinfo;
+#ifdef CONFIG_IOCTL_CFG80211	
     struct wf_widev_priv *pwdev_priv = NULL;
-
+    nic_info_st *nic_info = p2p_info->nic_info;
+#endif
     
     if (pwdinfo->p2p_state == P2P_STATE_NONE)
     {

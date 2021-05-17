@@ -20,6 +20,8 @@ static void wf_workque_init(wf_work_struct *wk_que, void *dev, void *func, void 
 
 void *wf_workque_alloc(wf_work_struct *wk_que)
 {
+	UNREFERENCED_PARAMETER(wk_que);
+
     return NULL;
 }
 

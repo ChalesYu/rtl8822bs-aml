@@ -4,15 +4,15 @@
 #ifdef CONFIG_LPS
 
 #if 0
-#define LPS_DBG(fmt, ...)      LOG_D("[%s]"fmt, __func__, ##__VA_ARGS__)
+#define LPS_DBG(fmt, ...)      LOG_D("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
 #define LPS_ARRAY(data, len)   log_array(data, len)
-#define LPS_WARN(fmt, ...)     LOG_E("[%s]"fmt, __func__, ##__VA_ARGS__)
 #else
 #define LPS_DBG(fmt, ...)
 #define LPS_ARRAY(data, len)
-#define LPS_WARN(fmt, ...)
 #endif
-#define LPS_INFO(fmt, ...)     LOG_I("[%s]"fmt, __func__, ##__VA_ARGS__)
+#define LPS_INFO(fmt, ...)     LOG_I("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
+#define LPS_WARN(fmt, ...)     LOG_W("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
+#define LPS_ERROR(fmt, ...)    LOG_E("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
 
 
 /***************************************************************
@@ -39,7 +39,419 @@ const char LPS_CTRL_TYPE_STR[13][40] =
 /***************************************************************
     Static Function
 ***************************************************************/
-static wf_u8* st_query_data_from_ie(wf_u8 * ie, wf_u8 type)
+static int lps_check_lps_ok(nic_info_st *pnic_info)
+{
+    int ret = WF_RETURN_OK;
+    pwr_info_st *ppwr_info = pnic_info->pwr_info;
+    sec_info_st *psec_info = pnic_info->sec_info;
+    wf_u64 current_time;
+    wf_u64 delta_time;
+
+    LPS_DBG();
+    current_time = wf_os_api_timestamp();
+    delta_time = current_time - ppwr_info->delay_lps_last_timestamp;
+    if (delta_time < LPS_DELAY_TIME)
+    {
+        LPS_WARN(" return: delta_time < LPS_DELAY_TIME");
+        return WF_RETURN_FAIL;
+    }
+    if (wf_local_cfg_get_work_mode(pnic_info) != WF_INFRA_MODE)
+    {
+        LPS_WARN(" return: %d", pnic_info->nic_state);
+        return WF_RETURN_FAIL;
+    }
+    if (psec_info->dot11AuthAlgrthm == dot11AuthAlgrthm_8021X &&
+        psec_info->binstallGrpkey == wf_false)
+    {
+        LPS_WARN(" Group handshake still in progress!");
+        return WF_RETURN_FAIL;
+    }
+
+    return ret;
+}
+
+static wf_s32 lps_get_fw_lps_rf_on(nic_info_st *pnic_info, wf_u8 type, wf_u8 *out_value, wf_u32 len)
+{
+    wf_u32 val_crc;
+    pwr_info_st *pwr_info_ptr = (pwr_info_st *)pnic_info->pwr_info;
+    wf_s32 err;
+    wf_s32 ret = WF_RETURN_OK;
+
+    LPS_DBG();
+    if (pnic_info->is_surprise_removed || pwr_info_ptr->rf_pwr_state == rf_off)
+    {
+        *out_value = wf_true;
+    }
+    else
+    {
+        val_crc = wf_io_read32(pnic_info, REG_RCR, &err);
+        if(err)
+        {
+            LPS_DBG("read failed,err:%d", err);
+            ret = WF_RETURN_FAIL;
+        }
+        val_crc &= 0x00070000;
+
+        if (val_crc)
+        {
+            *out_value = wf_false;
+        }
+        else
+        {
+            *out_value = wf_true;
+        }
+    }
+
+    return ret;
+}
+
+#if USE_M0_LPS_INTERFACES
+#else
+static void lps_set_fw_power_mode(nic_info_st *pnic_info, wf_u8 lps_mode)
+{
+    wf_u8 smart_ps = 0;
+    wf_u8 u1wMBOX1PwrModeParm[wMBOX1_PWRMODE_LEN] = { 0 };
+    wf_u8 power_state = 0;
+    wf_u8 awake_intvl = 1;
+    wf_u8 byte5 = 0;
+    wf_u8 rlbm = 0;
+    pwr_info_st *pwr_info_ptr = (pwr_info_st *)pnic_info->pwr_info;
+
+    LPS_DBG();
+    pwr_info_ptr->b_mailbox_sync = wf_true;
+
+    if (lps_mode == PWR_MODE_MIN)
+    {
+        rlbm = 0;
+        awake_intvl = 2;
+        smart_ps = pwr_info_ptr->smart_lps;
+    }
+    else if (lps_mode == PWR_MODE_MAX)
+    {
+        rlbm = 1;
+        awake_intvl = 2;
+        smart_ps = pwr_info_ptr->smart_lps;
+    }
+    else if (lps_mode == PWR_MODE_DTIM)
+    {
+        rlbm = 2;
+        awake_intvl = 4;
+        smart_ps = pwr_info_ptr->smart_lps;
+    }
+    else
+    {
+        rlbm = 2;
+        awake_intvl = 4;
+        smart_ps = pwr_info_ptr->smart_lps;
+    }
+    if (lps_mode > 0)
+    {
+        power_state = 0x00;
+        byte5 = 0x40;
+    }
+    else
+    {
+        power_state = 0x0C;
+        byte5 = 0x40;
+    }
+
+    SET_9086X_wMBOX1CMD_PWRMODE_PARM_MODE(u1wMBOX1PwrModeParm, (lps_mode > 0) ? 1 : 0);
+	SET_9086X_wMBOX1CMD_PWRMODE_PARM_SMART_PS(u1wMBOX1PwrModeParm, smart_ps);
+	SET_9086X_wMBOX1CMD_PWRMODE_PARM_RLBM(u1wMBOX1PwrModeParm, rlbm);
+	SET_9086X_wMBOX1CMD_PWRMODE_PARM_BCN_PASS_TIME(u1wMBOX1PwrModeParm, awake_intvl);
+	SET_9086X_wMBOX1CMD_PWRMODE_PARM_ALL_QUEUE_UAPSD(u1wMBOX1PwrModeParm, 0); //pnic_info->registrypriv.uapsd_enable
+	SET_9086X_wMBOX1CMD_PWRMODE_PARM_PWR_STATE(u1wMBOX1PwrModeParm, power_state);
+	SET_9086X_wMBOX1CMD_PWRMODE_PARM_BYTE5(u1wMBOX1PwrModeParm, byte5);
+
+	wf_mcu_fill_mbox1_fw(pnic_info, wMBOX1_9086X_SET_PWR_MODE, u1wMBOX1PwrModeParm, wMBOX1_PWRMODE_LEN);
+
+	pwr_info_ptr->b_mailbox_sync = wf_false;
+}
+
+static void lps_set_rpwm_hw(nic_info_st *pnic_info, wf_u8 lps_state)
+{
+    int error;
+    wf_u8 temp;
+    pwr_info_st *pwr_info_ptr;
+    pwr_info_ptr = (pwr_info_st *)pnic_info->pwr_info;
+
+    LPS_DBG();
+    lps_state = PS_STATE(lps_state);
+    if (lps_state == pwr_info_ptr->rpwm)
+    {
+        LPS_DBG(" Already set rpwm 0x%02x", pwr_info_ptr->rpwm);
+        return;
+    }
+    if (pnic_info->is_driver_stopped == wf_true)
+    {
+        LPS_DBG(" Driver stopped");
+        if (lps_state < PS_STATE_S2)
+        {
+            LPS_DBG(" Reject to enter PS_STATE(0x%02X) lower than S2 when DriverStopped!", lps_state);
+            return;
+        }
+    }
+    // This code block should discuss with fw team
+    temp = wf_io_read8(pnic_info, 0xFE78, &error); //0xFE78
+    LPS_DBG(" error = %d temp = %d", error, temp);
+    temp = temp & 0xFC;
+    if (lps_state <= PS_STATE_S2)
+    {
+        temp = temp | 0x01;
+        wf_io_write8(pnic_info, 0xFE78, temp);
+        LPS_DBG(" Set rpwm lps state: 0x%02x", lps_state);
+    }
+    else
+    {
+        temp = temp | 0x02;
+        wf_io_write8(pnic_info, 0xFE78, temp);
+        LPS_DBG(" Set rpwm lps state: 0x%02x", lps_state);
+    }
+}
+#endif
+
+inline static void _lps_init_lps_lock(wf_os_api_sema_t *sema)
+{
+    wf_os_api_sema_init(sema, 1);
+}
+
+inline static void _lps_enter_lps_lock(wf_os_api_sema_t *sema)
+{
+    wf_os_api_sema_wait(sema);
+}
+
+inline static void _lps_exit_lps_lock(wf_os_api_sema_t *sema)
+{
+    wf_os_api_sema_post(sema);
+}
+
+/***************************************************************
+    Global Function
+***************************************************************/
+wf_u32 wf_lps_init(nic_info_st *pnic_info)
+{
+    wf_u32 ret = WF_RETURN_OK;
+    pwr_info_st *pwr_info;
+    LPS_DBG();
+
+    pwr_info = wf_kzalloc(sizeof(pwr_info_st));
+    if (pwr_info == NULL)
+    {
+        LPS_WARN("[LPS] malloc lps_param_st failed");
+        return WF_RETURN_FAIL;
+    }
+    else
+    {
+        pnic_info->pwr_info = (void *)pwr_info;
+    }
+    _lps_init_lps_lock(&pwr_info->lock); // Init lock
+    _lps_init_lps_lock(&pwr_info->check_32k_lock);
+
+    pwr_info->rf_pwr_state = rf_on;
+    pwr_info->lps_enter_cnts = 0;
+    pwr_info->lps_idle_cnts = 0;
+    pwr_info->rpwm = 0;
+    pwr_info->b_fw_current_in_ps_mode = wf_false;
+    pwr_info->pwr_current_mode = PWR_MODE_ACTIVE;
+    pwr_info->smart_lps = 2; // According to 9083
+
+    // Set pwr_info->pwr_mgmt according to registry_par->power_mgnt and registrypriv.mp_mode in 9083
+    pwr_info->pwr_mgnt = PWR_MODE_MAX;
+
+    return ret;
+}
+
+wf_u32 wf_lps_term(nic_info_st *pnic_info)
+{
+    pwr_info_st *pwr_info;
+    wf_u32 ret = WF_RETURN_OK;
+
+    if (pnic_info == NULL)
+    {
+        return -1;
+    }
+    pwr_info = pnic_info->pwr_info;
+
+    LPS_DBG();
+
+    if (pwr_info)
+    {
+        wf_kfree(pwr_info);
+        pnic_info->pwr_info = NULL;
+    }
+    return ret;
+}
+
+void wf_lps_ctrl_state_hdl(nic_info_st *pnic_info, wf_u8 lps_ctrl_type)
+{
+    static wf_bool con_flag = wf_true;
+
+    LPS_DBG();
+
+    LPS_INFO("con_flag = %d", con_flag);
+    if (con_flag == wf_true)
+    {
+        wf_lps_ctrl_wk_hdl(pnic_info, LPS_CTRL_CONNECT);
+        con_flag = wf_false;
+    }
+    wf_lps_ctrl_wk_hdl(pnic_info, lps_ctrl_type);
+}
+
+static void lps_set_enter_register(nic_info_st *pnic_info, wf_u8 lps_mode, wf_u8 smart_lps)
+{
+    pwr_info_st *ppwr_info = pnic_info->pwr_info;
+    wf_bool is_connected;
+
+    LPS_DBG();
+
+    if(ppwr_info->pwr_current_mode == lps_mode)
+    {
+        if (ppwr_info->pwr_mgnt == PWR_MODE_ACTIVE)
+        {
+            LPS_DBG(" Skip: now in PWR_MODE_ACTIVE");
+            return;
+        }
+    }
+    if (lps_mode == PWR_MODE_ACTIVE)
+    {
+        ppwr_info->lps_exit_cnts++;
+        ppwr_info->pwr_current_mode = lps_mode;
+        LPS_DBG("ppwr_info->pwr_current_mode = %d", ppwr_info->pwr_current_mode);
+#if USE_M0_LPS_INTERFACES
+        wf_mcu_set_lps_opt(pnic_info, 0);
+#else
+        lps_set_rpwm_hw(pnic_info, PS_STATE_S4);
+        lps_set_fw_power_mode(pnic_info, PWR_MODE_ACTIVE);
+#endif
+        ppwr_info->b_fw_current_in_ps_mode = wf_false;
+        LPS_DBG(" FW exit low power saving mode\r\n");
+    }
+    else
+    {
+        wf_mlme_get_connect(pnic_info, &is_connected);
+        if (lps_check_lps_ok(pnic_info) == WF_RETURN_OK && is_connected)
+        {
+            ppwr_info->lps_enter_cnts++;
+        }
+        ppwr_info->pwr_current_mode = ppwr_info->pwr_mgnt;
+        ppwr_info->smart_lps = smart_lps;
+        ppwr_info->b_fw_current_in_ps_mode = wf_true;
+#if USE_M0_LPS_INTERFACES
+        wf_mcu_set_lps_opt(pnic_info, 1);
+#else
+        lps_set_fw_power_mode(pnic_info, PWR_MODE_ACTIVE);
+        lps_set_rpwm_hw(pnic_info, PS_STATE_S4);
+#endif
+        LPS_DBG(" FW enter low power saving mode\r\n");
+    }
+}
+
+static int lps_wait_rf_resume(nic_info_st *pnic_info, wf_u32 delay_ms)
+{
+    int ret = WF_RETURN_OK;
+    wf_u64 start_time;
+    wf_u8 status;
+
+    LPS_DBG();
+    
+    start_time = wf_os_api_timestamp();
+    while(1)
+    {
+        if (pnic_info->is_surprise_removed)
+        {
+            ret = WF_RETURN_FAIL;
+            LPS_DBG(" Error: device surprise removed!");
+            break;
+        }
+        if (wf_os_api_timestamp() - start_time > delay_ms)
+        {
+            ret = WF_RETURN_FAIL;
+            LPS_DBG(" Wait time out!");
+            break;
+        }
+        if (lps_get_fw_lps_rf_on(pnic_info, (wf_u8)HW_VAR_FWLPS_RF_ON, &status, 1) == WF_RETURN_OK)
+        {
+            if (status == wf_true)
+            {
+                break;
+            }
+        }
+        wf_msleep(100);
+    }
+    return ret;
+}
+
+static void lps_enter(nic_info_st *pnic_info, char *msg)
+{
+    pwr_info_st *ppwr_info = (pwr_info_st *)pnic_info->pwr_info;
+    wf_bool bconnect;
+    wf_u8 n_assoc_iface = 0;
+    char buff[32] = {0};
+    
+    LPS_DBG(" reason: %s", msg);
+
+    wf_mlme_get_connect(pnic_info, &bconnect);
+    if (bconnect && pnic_info->nic_num == 0)
+    {
+        n_assoc_iface++;
+    }
+
+    if (n_assoc_iface == 0)
+    {
+        LPS_DBG(" Can not enter lps: NO LINKED || virtual nic");
+        return;
+    }
+
+    if (lps_check_lps_ok(pnic_info) == WF_RETURN_FAIL)
+    {
+        LPS_DBG("Check lps fail");
+        return;
+    }
+
+    LOG_D("ppwr_info->pwr_mgnt = %d, ppwr_info->pwr_current_mode = %d", ppwr_info->pwr_mgnt, ppwr_info->pwr_current_mode);
+    if(ppwr_info->pwr_mgnt != PWR_MODE_ACTIVE)
+    {
+        if(ppwr_info->pwr_current_mode == PWR_MODE_ACTIVE)
+        {
+            sprintf(buff, "WIFI-%s", msg);
+            ppwr_info->b_power_saving = wf_true;
+
+            lps_set_enter_register(pnic_info, ppwr_info->pwr_mgnt, ppwr_info->smart_lps);
+        }
+    }
+}
+
+static void lps_exit(nic_info_st *pnic_info, char *msg)
+{
+    char buff[32] = {0};
+    pwr_info_st *ppwr_info= pnic_info->pwr_info;
+
+    LPS_DBG(" reason: %s", msg);
+
+    if (ppwr_info->pwr_mgnt != PWR_MODE_ACTIVE)
+    {
+        if (ppwr_info->pwr_current_mode != PWR_MODE_ACTIVE)
+        {
+            sprintf(buff, "WIFI-%s", msg);
+            lps_set_enter_register(pnic_info, PWR_MODE_ACTIVE, 0);
+            if (ppwr_info->pwr_current_mode == PWR_MODE_ACTIVE)
+            {
+                lps_wait_rf_resume(pnic_info, 300);
+            }
+            LPS_DBG(" Exit lps from sleep success");
+        }
+        else
+        {
+            LPS_DBG(" Now is awake");
+        }
+    }
+    else
+    {
+        printk("Enter lps fail: pwr_info->pwr_mgnt == PWR_MODE_ACTIVE\r\n");
+    }
+}
+
+static wf_u8* lps_query_data_from_ie(wf_u8 * ie, wf_u8 type)
 {
     if (type == CAPABILITY)
         return (ie + 8 + 2);
@@ -51,21 +463,7 @@ static wf_u8* st_query_data_from_ie(wf_u8 * ie, wf_u8 type)
         return NULL;
 }
 
-static wf_u8 * st_ie_to_set_func(wf_u8 * pbuf, int index, wf_u32 len, wf_u8 * source, wf_u32 * frlen)
-{
-    *pbuf = (wf_u8) index;
-
-    *(pbuf + 1) = (wf_u8) len;
-
-    if (len > 0)
-        wf_memcpy((void *)(pbuf + 2), (void *)source, len);
-
-    *frlen = *frlen + (len + 2);
-
-    return (pbuf + len + 2);
-}
-
-static void st_rsvd_page_chip_hw_construct_beacon(nic_info_st *pnic_info, wf_u8 *frame_index_ptr, wf_u32 *length_out)
+static void lps_rsvd_page_chip_hw_construct_beacon(nic_info_st *pnic_info, wf_u8 *frame_index_ptr, wf_u32 *length_out)
 {
     struct wl_ieee80211_hdr *wlan_hdr_ptr;
     wdn_net_info_st *pwdn =  wf_wdn_find_info(pnic_info,wf_wlan_get_cur_bssid(pnic_info));
@@ -75,7 +473,6 @@ static void st_rsvd_page_chip_hw_construct_beacon(nic_info_st *pnic_info, wf_u8 
     wf_u32 pkt_len = 0;
     wf_wlan_info_t *wlan_info_ptr = (wf_wlan_info_t *)pnic_info->wlan_info;
     wf_wlan_network_t *cur_network_ptr = & (wlan_info_ptr->cur_network);
-    mlme_info_t *mlme_info_ptr = pnic_info->mlme_info;
 
     LPS_DBG();
     if (pwdn == NULL)
@@ -83,7 +480,7 @@ static void st_rsvd_page_chip_hw_construct_beacon(nic_info_st *pnic_info, wf_u8 
         LPS_WARN("Not find wdn");
         return;
     }
-
+    
     wlan_hdr_ptr = (struct wl_ieee80211_hdr *)frame_index_ptr;
     frame_control = &(wlan_hdr_ptr->frame_ctl);
     *frame_control = 0; // Clear 0
@@ -98,38 +495,29 @@ static void st_rsvd_page_chip_hw_construct_beacon(nic_info_st *pnic_info, wf_u8 
 
     frame_index_ptr = frame_index_ptr + 8;
     pkt_len = pkt_len + 8;
-
-    wf_memcpy(frame_index_ptr, (wf_u8 *)st_query_data_from_ie(cur_network_ptr->ies, BCN_INTERVAL), 2);
+    
+    wf_memcpy(frame_index_ptr, (wf_u8 *)lps_query_data_from_ie(cur_network_ptr->ies, BCN_INTERVAL), 2);
     frame_index_ptr = frame_index_ptr + 2;
     pkt_len = pkt_len + 2;
 
-    wf_memcpy(frame_index_ptr, (wf_u8 *)st_query_data_from_ie(cur_network_ptr->ies, CAPABILITY), 2);
+    wf_memcpy(frame_index_ptr, (wf_u8 *)lps_query_data_from_ie(cur_network_ptr->ies, CAPABILITY), 2);
     frame_index_ptr = frame_index_ptr + 2;
     pkt_len = pkt_len + 2;
-    // LPS_DBG(" pkt_len: %d", pkt_len);
-    // if ((mlme_info_ptr->state & 0x03) == WIFI_FW_AP_STATE) // ???????
-    // {
-    //     pkt_len = pkt_len + cur_network_ptr->ies_length - sizeof(NDIS_802_11_FIXED_IEs);
-    //     wf_memcpy(frame_index_ptr, cur_network_ptr->ies + sizeof(NDIS_802_11_FIXED_IEs), pkt_len);
-
-    //     goto _ConstructBeacon;
-    // }
-    // LPS_DBG(" pkt_len: %d", pkt_len);
-    frame_index_ptr = st_ie_to_set_func(frame_index_ptr, _SSID_IE_, cur_network_ptr->ssid.length,
+    
+    frame_index_ptr = set_ie(frame_index_ptr, _SSID_IE_, cur_network_ptr->ssid.length,
                                         cur_network_ptr->ssid.data, &pkt_len);
-    frame_index_ptr= st_ie_to_set_func(frame_index_ptr, _SUPPORTEDRATES_IE_,
+    frame_index_ptr= set_ie(frame_index_ptr, _SUPPORTEDRATES_IE_, 
                                        ((pwdn->datarate_len > 8) ? 8 : pwdn->datarate_len),
                                         pwdn->datarate, &pkt_len); // cur_network->SupportedRates
-    frame_index_ptr= st_ie_to_set_func(frame_index_ptr, _DSSET_IE_, 1,
+    frame_index_ptr= set_ie(frame_index_ptr, _DSSET_IE_, 1,
                                        (wf_u8 *)&cur_network_ptr->channel, &pkt_len); // Configuration.DSConfig
     if (pwdn->ext_datarate_len > 0)
     {
-        frame_index_ptr= st_ie_to_set_func(frame_index_ptr, _EXT_SUPPORTEDRATES_IE_,
+        frame_index_ptr= set_ie(frame_index_ptr, _EXT_SUPPORTEDRATES_IE_, 
                                            pwdn->ext_datarate_len,
                                            pwdn->ext_datarate, &pkt_len);
     }
-
-_ConstructBeacon:
+    
     if (pkt_len + TXDESC_SIZE > 512)
     {
         LPS_DBG("Beacon frame too large: %d", pkt_len);
@@ -139,10 +527,9 @@ _ConstructBeacon:
     *length_out = pkt_len; // Output packet length
 }
 
-static void st_rsvd_page_chip_hw_construct_pspoll(nic_info_st *pnic_info, wf_u8 *frame_index_ptr, wf_u32 *length_out)
+static void lps_rsvd_page_chip_hw_construct_pspoll(nic_info_st *pnic_info, wf_u8 *frame_index_ptr, wf_u32 *length_out)
 {
     struct wl_ieee80211_hdr *wlan_hdr_ptr;
-    wf_u32 pkt_len = 0;
     wf_u16 *frame_control; // Mac header (1)
     wf_wlan_info_t *wlan_info_ptr = (wf_wlan_info_t *)pnic_info->wlan_info;
     wf_wlan_network_t *cur_network_ptr = &(wlan_info_ptr->cur_network);
@@ -163,7 +550,7 @@ static void st_rsvd_page_chip_hw_construct_pspoll(nic_info_st *pnic_info, wf_u8 
     *length_out = 16; // Output packet length
 }
 
-static void st_rsvd_page_chip_hw_construct_nullfunctiondata(nic_info_st *pnic_info, wf_u8 *frame_index_ptr, wf_u32 *length_out,
+static void lps_rsvd_page_chip_hw_construct_nullfunctiondata(nic_info_st *pnic_info, wf_u8 *frame_index_ptr, wf_u32 *length_out,
                                                             wf_u8 *addr_start_ptr, wf_bool b_qos, wf_u8 ac, wf_u8 eosp, wf_bool b_force_power_save)
 {
     struct wl_ieee80211_hdr *wlan_hdr_ptr;
@@ -180,7 +567,7 @@ static void st_rsvd_page_chip_hw_construct_nullfunctiondata(nic_info_st *pnic_in
     {
         SetPwrMgt(frame_control);
     }
-    switch (wf_local_cfg_get_work_mode(pnic_info)) // In nic local_info
+    switch (get_sys_work_mode(pnic_info)) // In nic local_info
     {
         case WF_INFRA_MODE:
             SetToDs(frame_control);
@@ -225,7 +612,7 @@ static void st_rsvd_page_chip_hw_construct_nullfunctiondata(nic_info_st *pnic_in
     *length_out = pkt_len;
 }
 
-static void st_fill_fake_txdesc(nic_info_st *pnic_info, wf_u8 *tx_des_start_addr, wf_u32 pkt_len,
+static void lps_fill_fake_txdesc(nic_info_st *pnic_info, wf_u8 *tx_des_start_addr, wf_u32 pkt_len, 
                                       wf_bool is_ps_poll, wf_bool is_bt_qos_null, wf_bool is_dataframe)
 {
     LPS_DBG();
@@ -287,7 +674,26 @@ static void st_fill_fake_txdesc(nic_info_st *pnic_info, wf_u8 *tx_des_start_addr
     wf_txdesc_chksum((struct tx_desc *)tx_des_start_addr);
 }
 
-static wf_bool st_mpdu_send_complete_cb(nic_info_st *nic_info, struct xmit_buf *pxmitbuf)
+static void lps_rsvd_page_mgntframe_attrib_update(nic_info_st * pnic_info, struct xmit_frame *pattrib)
+{
+    wdn_net_info_st *wdn_net_info_ptr;
+
+    LPS_DBG();
+
+    pattrib->hdrlen = WLAN_HDR_A3_LEN;
+    pattrib->nr_frags = 1;
+    pattrib->priority = 7;
+
+    wdn_net_info_ptr =  wf_wdn_find_info(pnic_info,wf_wlan_get_cur_bssid(pnic_info));
+    pattrib->qsel = QSLT_MGNT;
+
+    pattrib->encrypt_algo = _NO_PRIVACY_;
+
+    pattrib->ht_en = wf_false;
+    pattrib->seqnum = wdn_net_info_ptr->wdn_xmitpriv.txseq_tid[QSLT_MGNT];
+}
+
+static wf_bool lps_mpdu_send_complete_cb(nic_info_st *nic_info, struct xmit_buf *pxmitbuf)
 {
     tx_info_st *tx_info = nic_info->tx_info;
 
@@ -298,52 +704,8 @@ static wf_bool st_mpdu_send_complete_cb(nic_info_st *nic_info, struct xmit_buf *
     return wf_true;
 }
 
-static void st_rsvd_page_mgntframe_attrib_update(nic_info_st * pnic_info, struct pkt_attrib *pattrib)
+static wf_bool lps_mpdu_insert_sending_queue(nic_info_st *nic_info, struct xmit_frame *pxmitframe)
 {
-    wdn_net_info_st *wdn_net_info_ptr;
-    tx_info_st *tx_info = pnic_info->tx_info;
-    wf_wlan_info_t *pwlan_info = pnic_info->wlan_info;
-    wf_wlan_network_t *pcur_network = &pwlan_info->cur_network;
-
-    LPS_DBG();
-
-    pattrib->hdrlen = WLAN_HDR_A3_LEN;
-    pattrib->nr_frags = 1;
-    pattrib->priority = 7;
-
-    if (is_bcast_addr(pcur_network->mac_addr))
-    {
-        pattrib->mac_id = wdn_net_info_ptr->wdn_id;
-    }
-    else
-    {
-        pattrib->mac_id = 0;
-        LPS_DBG(" mgmt use mac_id 0 will affect RA");
-    }
-
-    wdn_net_info_ptr =  wf_wdn_find_info(pnic_info,wf_wlan_get_cur_bssid(pnic_info));
-    pattrib->qsel = QSLT_MGNT;
-
-    pattrib->raid = (wdn_net_info_ptr->tx_rate == MGN_1M) ? RATEID_IDX_B : RATEID_IDX_G;
-    pattrib->rate = wdn_net_info_ptr->tx_rate;
-    pattrib->encrypt_algo = _NO_PRIVACY_;
-
-    pattrib->qos_en = wf_false;
-    pattrib->ht_en = wf_false;
-    pattrib->bwmode = CHANNEL_WIDTH_20;
-    pattrib->ch_offset = HAL_PRIME_CHNL_OFFSET_DONT_CARE;
-    pattrib->sgi = wf_false;
-    pattrib->seqnum = wdn_net_info_ptr->wdn_xmitpriv.txseq_tid[QSLT_MGNT];
-
-    pattrib->retry_ctrl = wf_true;
-
-    pattrib->mbssid = 0;
-    pattrib->hw_ssn_sel = tx_info->hw_ssn_seq_no;
-}
-static wf_bool st_mpdu_insert_sending_queue(nic_info_st *nic_info, struct xmit_frame *pxmitframe, wf_bool ack)
-{
-    wf_u8 val;
-    wf_u32 curTime,endTime,timeout;
     wf_u8 *mem_addr;
     wf_u32 ff_hwaddr;
     wf_bool bRet = wf_true;
@@ -352,24 +714,20 @@ static wf_bool st_mpdu_insert_sending_queue(nic_info_st *nic_info, struct xmit_f
     wf_bool blast = wf_false;
     int t, sz, w_sz, pull = 0;
     struct xmit_buf *pxmitbuf = pxmitframe->pxmitbuf;
-    struct pkt_attrib *pattrib = &pxmitframe->attrib;
     hw_info_st *hw_info = nic_info->hw_info;
-    tx_info_st *tx_info = nic_info->tx_info;
-    sec_info_st *sec_info = nic_info->sec_info;
-    mlme_state_e state;
     wf_u32  txlen = 0;
 
     LPS_DBG();
     mem_addr = pxmitframe->buf_addr;
 
-    for (t = 0; t < pattrib->nr_frags; t++)
+    for (t = 0; t < pxmitframe->nr_frags; t++)
     {
         if (inner_ret != wf_true && ret == wf_true)
             ret = wf_false;
 
-        if (t != (pattrib->nr_frags - 1))
+        if (t != (pxmitframe->nr_frags - 1))
         {
-            LPS_DBG("pattrib->nr_frags=%d\n", pattrib->nr_frags);
+            LPS_DBG("pattrib->nr_frags=%d\n", pxmitframe->nr_frags);
             sz = hw_info->frag_thresh;
             sz = sz - 4 - 0; /* 4: wlan head filed????????? */
         }
@@ -377,7 +735,7 @@ static wf_bool st_mpdu_insert_sending_queue(nic_info_st *nic_info, struct xmit_f
         {
             /* no frag */
             blast = wf_true;
-            sz = pattrib->last_txcmdsz;
+            sz = pxmitframe->last_txcmdsz;
         }
 
         pull = wf_tx_txdesc_init(pxmitframe, mem_addr, sz, wf_false, 1);
@@ -397,16 +755,16 @@ static wf_bool st_mpdu_insert_sending_queue(nic_info_st *nic_info, struct xmit_f
             ret = wf_false;
             LPS_WARN("encrypt fail!!!!!!!!!!!");
         }
-        ff_hwaddr = wf_quary_addr(pattrib->qsel);
+        ff_hwaddr = wf_quary_addr(pxmitframe->qsel);
 
-        txlen = TXDESC_SIZE + pxmitframe->attrib.last_txcmdsz;
+        txlen = TXDESC_SIZE + pxmitframe->last_txcmdsz;
         pxmitbuf->pg_num   += (txlen+127)/128;
         wf_timer_set(&pxmitbuf->time, 0);
 
         if(blast)
         {
             ret = wf_io_write_data(nic_info, 1, mem_addr, w_sz,
-                                          ff_hwaddr,(void *)st_mpdu_send_complete_cb, nic_info, pxmitbuf);
+                                          ff_hwaddr,(void *)lps_mpdu_send_complete_cb, nic_info, pxmitbuf);
         }
         else
         {
@@ -428,22 +786,8 @@ static wf_bool st_mpdu_insert_sending_queue(nic_info_st *nic_info, struct xmit_f
 
     return bRet;
 }
-static wf_s32 st_chip_hw_mgnt_xmit(nic_info_st * pnic_info, struct xmit_frame * mgnt_frame_ptr)
-{
-    wf_s32 ret = wf_false;
-    wf_u8 *pframe = (wf_u8 *) (mgnt_frame_ptr->buf_addr) + TXDESC_OFFSET;
-    struct pkt_attrib *pattrib = &mgnt_frame_ptr->attrib;
-    LPS_DBG();
 
-    wf_memcpy(pattrib->ra, GetAddr1Ptr(pframe), ETH_ADDRESS_LEN);
-    wf_memcpy(pattrib->ta, GetAddr2Ptr(pframe), ETH_ADDRESS_LEN);
-
-    ret = st_mpdu_insert_sending_queue(pnic_info, mgnt_frame_ptr, wf_true);
-
-    return ret;
-}
-
-static wf_s32 st_mgntframe_xmit(nic_info_st * pnic_info, struct xmit_frame *mgnt_frame_ptr)
+static wf_s32 lps_resv_page_xmit(nic_info_st * pnic_info, struct xmit_frame *mgnt_frame_ptr)
 {
     wf_s32 ret = wf_false;
     LPS_DBG();
@@ -456,11 +800,11 @@ static wf_s32 st_mgntframe_xmit(nic_info_st * pnic_info, struct xmit_frame *mgnt
         return ret;
     }
 
-    ret = st_chip_hw_mgnt_xmit(pnic_info, mgnt_frame_ptr); // s_tx_mgnt
+    ret = lps_mpdu_insert_sending_queue(pnic_info, mgnt_frame_ptr);
     return ret;
 }
 
-static wf_s32 st_rsvd_page_h2c_loc_set(nic_info_st * nic_info, PRSVDPAGE_LOC rsvdpageloc)
+static wf_s32 lps_set_rsvd_page_h2c_loc(nic_info_st * nic_info, PRSVDPAGE_LOC rsvdpageloc)
 {
     wf_u8 u1wMBOX1RsvdPageParm[wMBOX1_RSVDPAGE_LOC_LEN] = { 0 };
     int ret = 0;
@@ -481,13 +825,12 @@ static wf_s32 st_rsvd_page_h2c_loc_set(nic_info_st * nic_info, PRSVDPAGE_LOC rsv
     return ret;
 }
 
-static void st_hal_set_fw_rsvd_page(nic_info_st *pnic_info)
+static void lps_set_fw_rsvd_page(nic_info_st *pnic_info)
 {
     wf_u8 rsvd_page_num = 0;
     wf_u32 max_rsvd_page_buff_size = 0;
     wf_u32 page_size = 128;// Unit byte
     struct xmit_frame *cmd_frame_ptr;
-    struct pkt_attrib * attrib_ptr;
     wf_u8 *reserved_page_packet; // Unit byte
     RSVDPAGE_LOC rsvd_page_loc;
     wf_u16 buff_index = 0; // Unit byte
@@ -523,12 +866,12 @@ static void st_hal_set_fw_rsvd_page(nic_info_st *pnic_info)
 
     // beacon * 2 pages
     buff_index = TXDESC_OFFSET;
-    st_rsvd_page_chip_hw_construct_beacon(pnic_info, &reserved_page_packet[buff_index], &beacon_length);
+    lps_rsvd_page_chip_hw_construct_beacon(pnic_info, &reserved_page_packet[buff_index], &beacon_length);
     /*
     * When we count the first page size, we need to reserve description size for the RSVD
     * packet, it will be filled in front of the packet in TXPKTBUF.
     */
-    current_packet_page_num = (wf_u8)PageNum(TXDESC_SIZE + beacon_length, page_size);
+    current_packet_page_num = (wf_u8)PageNum(TXDESC_SIZE + beacon_length, page_size); 
     // If we don't add 1 more page, ARP offload function will fail at 8723bs
     if (current_packet_page_num == 1)
     {
@@ -539,8 +882,8 @@ static void st_hal_set_fw_rsvd_page(nic_info_st *pnic_info)
 
     // ps-poll * 1 page
     rsvd_page_loc.LocPsPoll = total_page_number;// ?????????
-    st_rsvd_page_chip_hw_construct_pspoll(pnic_info, &reserved_page_packet[buff_index], &ps_poll_length);
-    st_fill_fake_txdesc(pnic_info, &reserved_page_packet[buff_index - TXDESC_SIZE],
+    lps_rsvd_page_chip_hw_construct_pspoll(pnic_info, &reserved_page_packet[buff_index], &ps_poll_length);
+    lps_fill_fake_txdesc(pnic_info, &reserved_page_packet[buff_index - TXDESC_SIZE],
                         ps_poll_length, wf_true, wf_false, wf_false); // ???????
     current_packet_page_num = (wf_u8)PageNum(TXDESC_SIZE + ps_poll_length, page_size);
     total_page_number = total_page_number + current_packet_page_num;
@@ -548,10 +891,10 @@ static void st_hal_set_fw_rsvd_page(nic_info_st *pnic_info)
 
     // null data * 1 page
     rsvd_page_loc.LocNullData = total_page_number;// ????????
-    st_rsvd_page_chip_hw_construct_nullfunctiondata(pnic_info, &reserved_page_packet[buff_index],
+    lps_rsvd_page_chip_hw_construct_nullfunctiondata(pnic_info, &reserved_page_packet[buff_index],
                                                     &null_data_length, wf_wlan_get_cur_bssid(pnic_info),
                                                     wf_false, 0, 0, wf_false);
-    st_fill_fake_txdesc(pnic_info, &reserved_page_packet[buff_index - TXDESC_SIZE],
+    lps_fill_fake_txdesc(pnic_info, &reserved_page_packet[buff_index - TXDESC_SIZE],
                         null_data_length, wf_false, wf_false, wf_false);
     current_packet_page_num = (wf_u8)PageNum(null_data_length + TXDESC_SIZE, page_size);
     total_page_number = total_page_number + current_packet_page_num;
@@ -559,17 +902,16 @@ static void st_hal_set_fw_rsvd_page(nic_info_st *pnic_info)
 
     // Qos null data * 1 page
     rsvd_page_loc.LocQosNull = total_page_number;// ???????
-    st_rsvd_page_chip_hw_construct_nullfunctiondata(pnic_info, &reserved_page_packet[buff_index],
+    lps_rsvd_page_chip_hw_construct_nullfunctiondata(pnic_info, &reserved_page_packet[buff_index],
                                                     &qos_null_length, wf_wlan_get_cur_bssid(pnic_info),
                                                     wf_true, 0, 0, wf_false);
-    st_fill_fake_txdesc(pnic_info, &reserved_page_packet[buff_index - TXDESC_SIZE],
+    lps_fill_fake_txdesc(pnic_info, &reserved_page_packet[buff_index - TXDESC_SIZE],
                         qos_null_length, wf_false, wf_false, wf_false);
     current_packet_page_num = (wf_u8)PageNum(qos_null_length + TXDESC_SIZE, page_size);
     total_page_number = total_page_number + current_packet_page_num;
     total_packets_len = buff_index + qos_null_length; // Do not contain TXDESC_SIZE of next packet
     buff_index = buff_index + current_packet_page_num * page_size;
 
-download_page:
     if (total_packets_len > max_rsvd_page_buff_size)
     {
         LPS_DBG(" Rsvd page size is not enough! total_packets_len: %d, max_rsvd_page_buff_size: %d", total_packets_len, max_rsvd_page_buff_size);
@@ -577,593 +919,94 @@ download_page:
     else
     {
         // update attribute
-        attrib_ptr = &cmd_frame_ptr->attrib;
-        st_rsvd_page_mgntframe_attrib_update(pnic_info, attrib_ptr);
-        attrib_ptr->qsel = QSLT_BEACON;
-        attrib_ptr->pktlen = total_packets_len - TXDESC_OFFSET;       // ???????
-        attrib_ptr->last_txcmdsz = total_packets_len - TXDESC_OFFSET; // ???????
-
-
-        ret = st_mgntframe_xmit(pnic_info, cmd_frame_ptr);
+        lps_rsvd_page_mgntframe_attrib_update(pnic_info, cmd_frame_ptr);
+        cmd_frame_ptr->qsel = QSLT_BEACON;
+        cmd_frame_ptr->pktlen= total_packets_len - TXDESC_OFFSET;       // ???????
+        
+        ret = lps_resv_page_xmit(pnic_info, cmd_frame_ptr);
         if (ret == wf_false)
         {
-            LPS_DBG(" fail: st_mgntframe_xmit: %d", ret);
+            LPS_DBG(" fail: lps_resv_page_xmit: %d", ret);
         }
     }
 
-    printk("Set RSVD page location to FW, total packet len: %d, total page num: %d\r\n",
+    printk("Set RSVD page location to FW, total packet len: %d, total page num: %d\r\n", 
            total_packets_len, total_page_number);
-    LPS_DBG(" ProbeRsp: %d, PsPoll: %d, NullData: %d, QosNull: %d, BTNull: %d\r\n",
+    LPS_DBG(" ProbeRsp: %d, PsPoll: %d, NullData: %d, QosNull: %d, BTNull: %d\r\n", 
            rsvd_page_loc.LocProbeRsp, rsvd_page_loc.LocPsPoll, rsvd_page_loc.LocNullData, rsvd_page_loc.LocQosNull, rsvd_page_loc.LocBTQosNull);
 
     wf_mlme_get_connect(pnic_info, &b_connect);
 
     if (b_connect == wf_true)
     {
-        if (st_rsvd_page_h2c_loc_set(pnic_info, &rsvd_page_loc) == WF_RETURN_FAIL)
+        if (lps_set_rsvd_page_h2c_loc(pnic_info, &rsvd_page_loc) == WF_RETURN_FAIL)
         {
-            LPS_WARN(" fail: st_rsvd_page_h2c_loc_set");
+            LPS_WARN(" fail: lps_set_rsvd_page_h2c_loc");
         }
     }
 }
 
-static void st_set_fw_join_bss_rpt_cmd(nic_info_st *pnic_info, wf_u8 in_value)
+static int wf_lps_start (nic_info_st *pnic_info, wf_u8 lps_ctrl_type)
 {
-    pwr_info_st *pwr_info_ptr = (pwr_info_st *)pnic_info->pwr_info;
-    wf_u8 mstatus = in_value;
-    wf_u8 dlbcn_count = 0;
-    wf_u8 poll = 0;
-    wf_bool b_cn_valid = wf_false;
-    wf_s32 ret = WF_RETURN_OK;
-    LPS_DBG();
-
-    if (mstatus == 1)
-    {
-        wf_mcu_set_fw_lps_config(pnic_info);
-        do
-        {
-            st_hal_set_fw_rsvd_page(pnic_info);
-            dlbcn_count++;
-            do
-            {
-                wf_yield();
-                st_get_lps_hw_reg(pnic_info, HW_VAR_BCN_VALID, (wf_u8 *)&b_cn_valid);
-                LPS_DBG(" b_cn_valid: %d", b_cn_valid);
-                poll++;
-            }while(b_cn_valid == wf_false && (poll % 10) != 0 &&
-                   !((pnic_info->is_surprise_removed) || (pnic_info->is_driver_stopped)));
-
-        }while(b_cn_valid == wf_false && dlbcn_count <= 100 &&
-               !((pnic_info->is_surprise_removed) || (pnic_info->is_driver_stopped)));
-
-        if ((pnic_info->is_surprise_removed) || (pnic_info->is_driver_stopped))
-        {
-            printk("Error: surprise removed or driver stopped!\r\n");
-        }
-        else if (b_cn_valid == wf_false)
-        {
-            printk("Error: RSVD page failed! dlbcn_count: %u, poll: %u\r\n", dlbcn_count, poll);
-        }
-        else
-        {
-            printk("RSVD page success! dlbcn_count: %u, poll: %u\r\n", dlbcn_count, poll);
-        }
-        // 9083 source code
-//        if(pHalData->RegFwHwTxQCtrl & BIT(6))
-//            poll = wf_true;
-//        else
-//            poll = wf_false;
-
-        poll = wf_false;
-        if (NIC_USB == pnic_info->nic_type)
-        {
-            ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_HAL_LPS_GET, (wf_u32 *)&poll, 1, NULL, 0);
-        }
-        else
-        {
-            ret = mcu_cmd_communicate(pnic_info, WLAN_OPS_DXX0_HAL_LPS_GET, (wf_u32 *)&poll, 1, NULL, 0);
-        }
-
-        if (WF_RETURN_FAIL == ret)
-        {
-            LPS_WARN("[%s] UMSG_OPS_HAL_LPS_GET[%d] failed, check!!!!", __func__, poll);
-        }
-    }
-}
-
-static void st_set_fw_power_mode(nic_info_st *pnic_info, wf_u8 lps_mode)
-{
-    int i;
-    wf_u8 smart_ps = 0;
-    wf_u8 u1wMBOX1PwrModeParm[wMBOX1_PWRMODE_LEN] = { 0 };
-    wf_u8 power_state = 0;
-    wf_u8 awake_intvl = 1;
-    wf_u8 byte5 = 0;
-    wf_u8 rlbm = 0;
-    pwr_info_st *pwr_info_ptr = (pwr_info_st *)pnic_info->pwr_info;
+    mlme_info_t *pmlme_info;
+    wf_msg_que_t *pmsg_que;
+    wf_msg_t *pmsg;
+    mlme_lps_t *param;
+    int rst;
 
     LPS_DBG();
-    pwr_info_ptr->b_mailbox_sync = wf_true;
-
-    if (lps_mode == PS_MODE_MIN)
+    
+    if (pnic_info == NULL)
     {
-        rlbm = 0;
-        awake_intvl = 2;
-        smart_ps = pwr_info_ptr->smart_lps;
-    }
-    else if (lps_mode == PS_MODE_MAX)
-    {
-        rlbm = 1;
-        awake_intvl = 2;
-        smart_ps = pwr_info_ptr->smart_lps;
-    }
-    else if (lps_mode == PS_MODE_DTIM)
-    {
-        rlbm = 2;
-        awake_intvl = 4;
-        smart_ps = pwr_info_ptr->smart_lps;
-    }
-    else
-    {
-        rlbm = 2;
-        awake_intvl = 4;
-        smart_ps = pwr_info_ptr->smart_lps;
-    }
-    if (lps_mode > 0)
-    {
-        power_state = 0x00;
-        byte5 = 0x40;
-    }
-    else
-    {
-        power_state = 0x0C;
-        byte5 = 0x40;
+        return -1;
     }
 
-    SET_9086X_wMBOX1CMD_PWRMODE_PARM_MODE(u1wMBOX1PwrModeParm, (lps_mode > 0) ? 1 : 0);
-	SET_9086X_wMBOX1CMD_PWRMODE_PARM_SMART_PS(u1wMBOX1PwrModeParm, smart_ps);
-	SET_9086X_wMBOX1CMD_PWRMODE_PARM_RLBM(u1wMBOX1PwrModeParm, rlbm);
-	SET_9086X_wMBOX1CMD_PWRMODE_PARM_BCN_PASS_TIME(u1wMBOX1PwrModeParm, awake_intvl);
-	SET_9086X_wMBOX1CMD_PWRMODE_PARM_ALL_QUEUE_UAPSD(u1wMBOX1PwrModeParm, 0); //pnic_info->registrypriv.uapsd_enable
-	SET_9086X_wMBOX1CMD_PWRMODE_PARM_PWR_STATE(u1wMBOX1PwrModeParm, power_state);
-	SET_9086X_wMBOX1CMD_PWRMODE_PARM_BYTE5(u1wMBOX1PwrModeParm, byte5);
-
-#if 0 //CHIP51_DIRECT_ACCESS
-    FillH2CCmd(pnic_info,wMBOX1_9086X_SET_PWR_MODE, wMBOX1_PWRMODE_LEN, u1wMBOX1PwrModeParm);
-#else
-	wf_mcu_fill_mbox1_fw(pnic_info, wMBOX1_9086X_SET_PWR_MODE, u1wMBOX1PwrModeParm, wMBOX1_PWRMODE_LEN);
-#endif
-	pwr_info_ptr->b_mailbox_sync = wf_false;
-}
-
-static void st_set_lps_hw_reg(nic_info_st *pnic_info, wf_u8 type, wf_u8 in_value)
-{
-    switch(type)
+    if (!pnic_info->is_up)
     {
-        case HW_VAR_wMBOX1_FW_JOINBSSRPT:
-            st_set_fw_join_bss_rpt_cmd(pnic_info, in_value);
-            break;
-        case HW_VAR_wMBOX1_FW_PWRMODE:
-            st_set_fw_power_mode(pnic_info, in_value);
-            break;
-        default:
-            break;
+        LPS_WARN("ndev down");
+        return -2;
     }
-}
 
-static wf_s32 st_get_fw_bcn_valid(nic_info_st *pnic_info, wf_u8 type, wf_u8 *out_value, wf_u32 len)
-{
-    wf_s32 ret = WF_RETURN_OK;
-    wf_u32 in_value;
-    wf_u32 out_value_tmp = 0;
-    in_value = (wf_u32)type;
+    pmlme_info = pnic_info->mlme_info;
+    pmsg_que = &pmlme_info->msg_que;
 
     LPS_DBG();
-    ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_HAL_GET_HWREG, &in_value, 1, &out_value_tmp, 1);
-    LPS_DBG(" in_value: %d, out_value_tmp: %x", in_value, out_value_tmp);
-    if (WF_RETURN_FAIL == ret)
+
+    rst = wf_msg_new(pmsg_que, WF_MLME_TAG_LPS, &pmsg);
+    if (rst)
     {
-        LPS_WARN("[%s] UMSG_OPS_HAL_GET_HWREG[%d] failed, check!", __func__, out_value_tmp);
-        ret = WF_RETURN_FAIL;
+        LPS_WARN("msg new fail error code: %d", rst);
+        return -3;
     }
-    *out_value = (wf_u8)(out_value_tmp & 0x000000FF);
+    param = (mlme_lps_t *)pmsg->value;
 
-    return ret;
-}
-static wf_s32 st_get_fw_lps_rf_on(nic_info_st *pnic_info, wf_u8 type, wf_u8 *out_value, wf_u32 len)
-{
-    wf_u32 val_crc;
-    pwr_info_st *pwr_info_ptr = (pwr_info_st *)pnic_info->pwr_info;
-    wf_s32 err;
-    wf_s32 ret = WF_RETURN_OK;
+    param->lps_ctrl_type = lps_ctrl_type;
 
-    LPS_DBG();
-    if (pnic_info->is_surprise_removed || pwr_info_ptr->rf_pwr_state == rf_off)
+    rst = wf_msg_push(pmsg_que, pmsg);
+    if (rst)
     {
-        *out_value = wf_true;
+        wf_msg_del(pmsg_que, pmsg);
+        LPS_WARN("msg push fail error code: %d", rst);
+        return -4;
     }
-    else
-    {
-        val_crc = wf_io_read32(pnic_info, REG_RCR, &err);
-        if(err)
-        {
-            LPS_DBG("read failed,err:%d", err);
-            ret = WF_RETURN_FAIL;
-        }
-        val_crc &= 0x00070000;
-
-        if (val_crc)
-        {
-            *out_value = wf_false;
-        }
-        else
-        {
-            *out_value = wf_true;
-        }
-    }
-
-    return ret;
-}
-static wf_s32 st_get_lps_hw_reg(nic_info_st *pnic_info, wf_u8 type, wf_u8 *out_value)
-{
-    wf_s32 ret = WF_RETURN_OK;
-
-    switch(type)
-    {
-        case HW_VAR_BCN_VALID:
-            ret = st_get_fw_bcn_valid(pnic_info, (wf_u8)HW_VAR_BCN_VALID, out_value, 1);
-            break;
-        case HW_VAR_FWLPS_RF_ON:
-            ret = st_get_fw_lps_rf_on(pnic_info, (wf_u8)HW_VAR_FWLPS_RF_ON, out_value, 1);
-            break;
-        default:
-            break;
-    }
-
-    return ret;
+    
+    return 0;
 }
 
-static bool st_check_nic_state(nic_info_st *pnic_info, wf_u32 check_state)
-{
-    bool ret = wf_false;
-    if (pnic_info->nic_state & check_state)
-    {
-        ret = wf_true;
-    }
-    return ret;
-}
-static int st_check_lps_ok(nic_info_st *pnic_info)
-{
-    int ret = WF_RETURN_OK;
-    pwr_info_st *pwr_info_ptr;
-    sec_info_st *sec_info_ptr;
-    wf_u32 current_time;
-    wf_u32 delta_time;
-    pwr_info_ptr = (pwr_info_st *)pnic_info->pwr_info;
-    sec_info_ptr = (sec_info_st *)pnic_info->sec_info;
-
-    LPS_DBG();
-    current_time = st_get_current_time();
-    delta_time = current_time - pwr_info_ptr->delay_lps_last_timestamp;
-    if (delta_time < LPS_DELAY_TIME)
-    {
-        LPS_WARN(" return: delta_time < LPS_DELAY_TIME");
-        return WF_RETURN_FAIL;
-    }
-    if (//st_check_nic_state(pnic_info, WIFI_SITE_MONITOR) ||
-        st_check_nic_state(pnic_info, WIFI_UNDER_LINKING | WIFI_UNDER_WPS) ||
-        st_check_nic_state(pnic_info, WIFI_AP_STATE) ||
-        st_check_nic_state(pnic_info, WIFI_ADHOC_MASTER_STATE | WIFI_ADHOC_STATE))
-    {
-        LPS_WARN(" return: %d", pnic_info->nic_state);
-        return WF_RETURN_FAIL;
-    }
-    if (sec_info_ptr->dot11AuthAlgrthm == dot11AuthAlgrthm_8021X &&
-        sec_info_ptr->binstallGrpkey == wf_false)
-    {
-        LPS_WARN(" Group handshake still in progress!");
-        return WF_RETURN_FAIL;
-    }
-
-    return ret;
-}
-static void st_set_rpwm_hw(nic_info_st *pnic_info, wf_u8 lps_state)
-{
-    int error;
-    wf_u8 temp;
-    pwr_info_st *pwr_info_ptr;
-    pwr_info_ptr = (pwr_info_st *)pnic_info->pwr_info;
-
-    LPS_DBG();
-    lps_state = PS_STATE(lps_state);
-    if (lps_state == pwr_info_ptr->rpwm)
-    {
-        LPS_DBG(" Already set rpwm 0x%02x", pwr_info_ptr->rpwm);
-        return;
-    }
-    if (pnic_info->is_driver_stopped == wf_true)
-    {
-        LPS_DBG(" Driver stopped");
-        if (lps_state < PS_STATE_S2)
-        {
-            LPS_DBG(" Reject to enter PS_STATE(0x%02X) lower than S2 when DriverStopped!", lps_state);
-            return;
-        }
-    }
-    // This code block should discuss with fw team
-    temp = wf_io_read8(pnic_info, 0xFE78, &error); //0xFE78
-    LPS_DBG(" error = %d temp = %d", error, temp);
-    temp = temp & 0xFC;
-    if (lps_state <= PS_STATE_S2)
-    {
-        temp = temp | 0x01;
-        wf_io_write8(pnic_info, 0xFE78, temp);
-        LPS_DBG(" Set rpwm lps state: 0x%02x", lps_state);
-    }
-    else
-    {
-        temp = temp | 0x02;
-        wf_io_write8(pnic_info, 0xFE78, temp);
-        LPS_DBG(" Set rpwm lps state: 0x%02x", lps_state);
-    }
-}
-static void st_set_lps_mode_hw(nic_info_st *pnic_info, wf_u8 bcn_ant_mode, wf_u8 lps_mode, wf_u8 smart_lps, const char* msg)
-{
-    pwr_info_st *pwr_info_ptr;
-#if USE_M0_LPS_INTERFACES
-    wf_u32 arg[1] = {0};
-    wf_u32 val32;
-#endif
-    pwr_info_ptr = (pwr_info_st *)pnic_info->pwr_info;
-
-    LPS_DBG();
-    // if (lps_mode >= PS_MODE_NUM)
-    // {
-    //     printk("Error: lps mode not support\r\n");
-    //     return;
-    // }
-    if (pwr_info_ptr->pwr_current_mode == lps_mode)
-    {
-        if (lps_mode == PS_MODE_ACTIVE)
-        {
-            LPS_DBG(" Skip: now in PS_MODE_ACTIVE");
-            return;
-        }
-        if (pwr_info_ptr->smart_lps == smart_lps && pwr_info_ptr->bcn_ant_mode == bcn_ant_mode)
-        {
-            LPS_DBG(" Skip: lps mode is the same as current lps mode");
-            return;
-        }
-    }
-    if (lps_mode == PS_MODE_ACTIVE)
-    {
-        pwr_info_ptr->lps_exit_cnts++;
-        pwr_info_ptr->pwr_current_mode = lps_mode;
-#if USE_M0_LPS_INTERFACES
-        arg[0] = 0;
-        mcu_cmd_communicate(pnic_info, UMSG_OPS_HAL_LPS_OPT, arg, 1, &val32, 1);
-        if(val32 != 0)
-            LOG_W(" Leave LPS fail\n");
-#else
-        st_set_rpwm_hw(pnic_info, PS_STATE_S4);
-        st_set_lps_hw_reg(pnic_info, HW_VAR_wMBOX1_FW_PWRMODE, lps_mode);
-#endif
-        pwr_info_ptr->b_fw_current_in_ps_mode = wf_false;
-        LPS_DBG(" FW exit low power saving mode\r\n");
-    }
-    else
-    {
-        if (st_check_lps_ok(pnic_info) == WF_RETURN_OK && st_check_nic_state(pnic_info, WIFI_ASOC_STATE))
-        {
-            pwr_info_ptr->lps_enter_cnts;
-        }
-        pwr_info_ptr->pwr_current_mode = lps_mode;
-        pwr_info_ptr->smart_lps = smart_lps;
-        pwr_info_ptr->bcn_ant_mode = bcn_ant_mode;
-        pwr_info_ptr->b_fw_current_in_ps_mode = wf_true;
-#if USE_M0_LPS_INTERFACES
-        arg[0] = 1;
-            mcu_cmd_communicate(pnic_info, UMSG_OPS_HAL_LPS_OPT, arg, 1, NULL, 0);
-#else
-        st_set_lps_hw_reg(pnic_info, HW_VAR_wMBOX1_FW_PWRMODE, lps_mode);
-        st_set_rpwm_hw(pnic_info, PS_STATE_S2);
-#endif
-        LPS_DBG(" FW enter low power saving mode\r\n");
-    }
-}
-
-static int st_wait_rf_resume(nic_info_st *pnic_info, wf_u32 delay_ms)
-{
-    int ret = WF_RETURN_OK;
-    wf_u32 start_time;
-    wf_u8 status;
-
-    LPS_DBG();
-    start_time = st_get_current_time();
-    while(1)
-    {
-        if (pnic_info->is_surprise_removed)
-        {
-            ret = WF_RETURN_FAIL;
-            LPS_DBG(" Error: device surprise removed!");
-            break;
-        }
-        if (st_get_current_time() - start_time > delay_ms)
-        {
-            ret = WF_RETURN_FAIL;
-            LPS_DBG(" Wait time out!");
-            break;
-        }
-        if (st_get_lps_hw_reg(pnic_info, HW_VAR_FWLPS_RF_ON, &status) == WF_RETURN_OK)
-        {
-            if (status == wf_true)
-            {
-                break;
-            }
-        }
-        wf_msleep(1);
-    }
-    return ret;
-}
-static void st_enter_lps(nic_info_st *pnic_info, char *msg)
-{
-    wf_u8 n_assoc_iface = 0;
-    char buff[32] = {0};
-    int i;
-    pwr_info_st *pwr_info_ptr;
-    wf_bool bconnect;
-    pwr_info_ptr = (pwr_info_st *)pnic_info->pwr_info;
-    // hif_node_st *hif_node_ptr = (hif_node_st *)pnic_info->hif_node;
-    LPS_DBG(" reason: %s", msg);
-
-    // for (i = 0; i < hif_node_ptr->nic_number; i++)
-    // {
-    //     if (st_check_nic_state(hif_node_ptr->nic_info[i], WIFI_ASOC_STATE))
-    //     {
-    //         n_assoc_iface++;
-    //     }
-    // }
-    // if (n_assoc_iface != 1)
-    // {
-    //     if (n_assoc_iface == 0)
-    //     {
-    //         LPS_DBG(" Can not enter lps: NO LINKED");
-    //         return;
-    //     }
-    //     LPS_DBG(" Can not enter lps: more than one nic linked");
-    // }
-
-    // for (i = 0; i < hif_node_ptr->nic_number; i++)
-    // {
-    //     if (st_check_lps_ok(hif_node_ptr->nic_info[i]) == WF_RETURN_FAIL)
-    //     {
-    //         LPS_DBG("Check lps fail");
-    //         return;
-    //     }
-    // }
-    wf_mlme_get_connect(pnic_info, &bconnect);
-    if (bconnect && pnic_info->nic_num == 0)
-    {
-        n_assoc_iface++;
-    }
-    if (n_assoc_iface == 0)
-    {
-        LPS_DBG(" Can not enter lps: NO LINKED || virtual nic");
-        return;
-    }
-    if (st_check_lps_ok(pnic_info) == WF_RETURN_FAIL)
-    {
-        LPS_DBG("Check lps fail");
-        return;
-    }
-
-
-    // I think pwr_info_ptr->b_leisure_lps can be replaced by pwr_info_ptr->pwr_mode
-    if (pwr_info_ptr->pwr_mgnt != PS_MODE_ACTIVE)
-    {
-        // I think lps_idle_cnts is no use.
-        if (pwr_info_ptr->lps_idle_cnts >= 2)
-        {
-            if (pwr_info_ptr->pwr_current_mode == PS_MODE_ACTIVE)
-            {
-                sprintf(buff, "WIFI-%s", msg);
-                pwr_info_ptr->b_power_saving = wf_true;
-                st_set_lps_mode_hw(pnic_info, pwr_info_ptr->bcn_ant_mode, pwr_info_ptr->pwr_mgnt,
-                                   pwr_info_ptr->smart_lps, buff);
-                LPS_DBG(" Enter lps success....");
-            }
-            else
-            {
-                LPS_DBG(" Now is sleeping");
-            }
-        }
-        else
-        {
-            pwr_info_ptr->lps_idle_cnts++;
-        }
-    }
-    else
-    {
-        LPS_DBG(" Enter lps fail: pwr_info_ptr->pwr_mgnt == PS_MODE_ACTIVE");
-    }
-}
-
-static void st_exit_lps(nic_info_st *pnic_info, char *msg)
-{
-    char buff[32] = {0};
-    pwr_info_st *pwr_info_ptr;
-    pwr_info_ptr = (pwr_info_st *)pnic_info->pwr_info;
-
-    LPS_DBG(" reason: %s", msg);
-
-    if (pwr_info_ptr->pwr_mgnt != PS_MODE_ACTIVE)
-    {
-        if (pwr_info_ptr->pwr_current_mode != PS_MODE_ACTIVE)
-        {
-            sprintf(buff, "WIFI-%s", msg);
-            st_set_lps_mode_hw(pnic_info, 0, PS_MODE_ACTIVE, 0, buff);
-            if (pwr_info_ptr->pwr_current_mode == PS_MODE_ACTIVE)
-            {
-                st_wait_rf_resume(pnic_info, 300);
-            }
-            LPS_DBG(" Exit lps from sleep success");
-        }
-        else
-        {
-            LPS_DBG(" Now is awake");
-        }
-    }
-    else
-    {
-        printk("Enter lps fail: pwr_info->pwr_mgnt == PS_MODE_ACTIVE\r\n");
-    }
-}
-
-inline static wf_u32 st_get_current_time(void)
-{
-    return jiffies;
-}
-inline static wf_u32 st_ms_to_systime(wf_u32 ms)
-{
-    return ms / 1000 * HZ;
-}
-inline static wf_u32 st_systime_to_ms(wf_u32 systime)
-{
-    return systime / HZ * 1000;
-}
-inline static void _st_init_lps_lock(wf_os_api_sema_t *sema)
-{
-    wf_os_api_sema_init(sema, 1);
-}
-
-inline static void _st_enter_lps_lock(wf_os_api_sema_t *sema)
-{
-    wf_os_api_sema_wait(sema);
-}
-
-inline static void _st_exit_lps_lock(wf_os_api_sema_t *sema)
-{
-    wf_os_api_sema_post(sema);
-}
-
-/***************************************************************
-    Global Function
-***************************************************************/
 void wf_lps_ctrl_wk_hdl(nic_info_st *pnic_info, wf_u8 lps_ctrl_type)
 {
-    wf_u8 m_status;
-    pwr_info_st *pwr_info_ptr;
+    pwr_info_st *ppwr_info = (pwr_info_st *)pnic_info->pwr_info;
     wf_bool lps_flag = wf_false, bconnect;
-    pwr_info_ptr = (pwr_info_st *)pnic_info->pwr_info;
 
     LPS_DBG();
-    if (st_check_nic_state(pnic_info, WIFI_ADHOC_MASTER_STATE) ||
-        st_check_nic_state(pnic_info, WIFI_ADHOC_STATE))
+    
+    if (wf_local_cfg_get_work_mode(pnic_info) == WF_ADHOC_MODE)
     {
-        LPS_DBG(" return: nic state WIFI_ADHOC_MASTER_STATE || WIFI_ADHOC_STATE");
+        LPS_DBG(" return: nic mode is ADHOC, break!!!");
         return;
     }
 
+    LPS_DBG("lps_ctrl_type == %d", lps_ctrl_type);
     switch(lps_ctrl_type)
     {
         case LPS_CTRL_SCAN:
@@ -1174,17 +1017,19 @@ void wf_lps_ctrl_wk_hdl(nic_info_st *pnic_info, wf_u8 lps_ctrl_type)
             }
             break;
         case LPS_CTRL_CONNECT:
-            m_status = 1;
-            pwr_info_ptr->lps_idle_cnts = 0;
+            ppwr_info->lps_idle_cnts = 0;
 #if USE_M0_LPS_INTERFACES
-            wf_mcu_lps_config(pnic_info);
+            wf_mcu_set_lps_config(pnic_info);
 #endif
-            st_set_lps_hw_reg(pnic_info, HW_VAR_wMBOX1_FW_JOINBSSRPT, m_status);
+            wf_mcu_set_fw_lps_config(pnic_info);
+            lps_set_fw_rsvd_page(pnic_info);
+            wf_mcu_set_fw_lps_get(pnic_info);
+
             lps_flag = wf_false;
             break;
         case LPS_CTRL_SPECIAL_PACKET:
-            pwr_info_ptr->delay_lps_last_timestamp = st_get_current_time();
-            atomic_set(&pwr_info_ptr->lps_spc_flag, 0);
+            ppwr_info->delay_lps_last_timestamp = wf_os_api_timestamp();
+            atomic_set(&ppwr_info->lps_spc_flag, 0);
         case LPS_CTRL_LEAVE:
         case LPS_CTRL_JOINBSS:
         case LPS_CTRL_LEAVE_CFG80211_PWRMGMT:
@@ -1203,106 +1048,33 @@ void wf_lps_ctrl_wk_hdl(nic_info_st *pnic_info, wf_u8 lps_ctrl_type)
     }
     if (lps_flag == wf_true)
     {
-        st_enter_lps(pnic_info, (char *)(LPS_CTRL_TYPE_STR[lps_ctrl_type]));
+        lps_enter(pnic_info, (char *)(LPS_CTRL_TYPE_STR[lps_ctrl_type]));
     }
     else
     {
-        st_exit_lps(pnic_info, (char *)(LPS_CTRL_TYPE_STR[lps_ctrl_type]));
+        lps_exit(pnic_info, (char *)(LPS_CTRL_TYPE_STR[lps_ctrl_type]));
     }
 }
-wf_s32 wf_lps_init(nic_info_st *pnic_info)
+
+wf_u32 wf_lps_wakeup(nic_info_st *pnic_info, wf_u8 lps_ctrl_type, wf_bool enqueue) // Enqueue for interrupt
 {
-    wf_s32 ret = WF_RETURN_OK;
-    pwr_info_st *pwr_info;
-    LPS_DBG();
-
-    pwr_info = wf_kzalloc(sizeof(pwr_info_st));
-    if (pwr_info == NULL)
-    {
-        LPS_WARN("[LPS] malloc lps_param_st failed");
-        return WF_RETURN_FAIL;
-    }
-    else
-    {
-        pnic_info->pwr_info = (void *)pwr_info;
-    }
-    _st_init_lps_lock(&pwr_info->lock); // Init lock
-    _st_init_lps_lock(&pwr_info->check_32k_lock);
-
-    pwr_info->rf_pwr_state = rf_on;
-    pwr_info->lps_enter_cnts = 0;
-    pwr_info->pwr_state_check_cnts = 0;
-    pwr_info->lps_idle_cnts = 0;
-    pwr_info->rpwm = 0;
-    pwr_info->wfprs = PS_STATE_S4;
-    pwr_info->b_fw_current_in_ps_mode = wf_false;
-    pwr_info->pwr_current_mode = PS_MODE_ACTIVE;
-    pwr_info->smart_lps = 2; // According to 9083
-    pwr_info->bcn_ant_mode = 0;
-
-    // Set pwr_info->pwr_mgmt according to registry_par->power_mgnt and registrypriv.mp_mode in 9083
-    pwr_info->pwr_mgnt = PS_MODE_MAX;
-    //pwr_info->b_leisure_lps = (pwr_info->pwr_mgnt != PS_MODE_ACTIVE)? wf_true : wf_false;
-
-    return ret;
-}
-
-void wf_lps_deny(nic_info_st *pnic_info, PS_DENY_REASON reason)
-{
-    pwr_info_st *pwr_info_ptr;
-    pwr_info_ptr = (pwr_info_st *)pnic_info->pwr_info;
-    LPS_DBG();
-
-    _st_enter_lps_lock(&pwr_info_ptr->lock);
-    if (pwr_info_ptr->lps_deny & BIT(reason))
-    {
-        printk("[WARNING] Reason %d had been set before!!\r\n", reason);
-    }
-    pwr_info_ptr->lps_deny | BIT(reason);
-    _st_exit_lps_lock(&pwr_info_ptr->lock);
-}
-
-void wf_lps_deny_cancel(nic_info_st *pnic_info, PS_DENY_REASON reason)
-{
-    pwr_info_st *pwr_info_ptr;
-    pwr_info_ptr = (pwr_info_st *)pnic_info->pwr_info;
-    _st_enter_lps_lock(&pwr_info_ptr->lock);
-    LPS_DBG();
-
-    if (((pwr_info_ptr->lps_deny) & BIT(reason)) == 0)
-    {
-        printk("[WARNING] Reason %d had been canceled before!!\r\n", reason);
-    }
-    _st_exit_lps_lock(&pwr_info_ptr->lock);
-
-    pwr_info_ptr->lps_deny & (~BIT(reason));
-}
-
-wf_s32 wf_lps_wakeup(nic_info_st *pnic_info, wf_u8 lps_ctrl_type, wf_bool enqueue) // Enqueue for interrupt
-{
-    wf_u32 n_assoc_iface = 0;
+    wf_bool bconnect, wakeup_flag = wf_false;
     wf_u32 ret = WF_RETURN_OK;
-    int i;
-    wf_bool wakeup_flag = wf_false, bconnect;
-    // hif_node_st *hif_node_ptr = (hif_node_st *)pnic_info->hif_node;
 
     LPS_DBG();
 
-    if (pnic_info->is_driver_stopped == wf_true)
+    if(WF_CANNOT_RUN(pnic_info))
     {
-        LPS_WARN("is_driver_stopped = true Skip!");
-        return WF_RETURN_FAIL;
+        LPS_WARN("WF_CANNOT_RUN = true Skip!");
+        return -1;
     }
-    if (pnic_info->is_surprise_removed == wf_true)
-    {
-        LPS_WARN("nic is surprise removed Skip!");
-        return WF_RETURN_FAIL;
-    }
-    if (lps_ctrl_type == LPS_CTRL_ENTER || lps_ctrl_type >= LPS_CTRL_MAX)
+
+    if (lps_ctrl_type == LPS_CTRL_ENTER)
     {
         LPS_WARN("Error: lps ctrl type not support!");
-        return WF_RETURN_FAIL;
+        return -2;
     }
+
     if (lps_ctrl_type == LPS_CTRL_NO_LINKED)
     {
         wakeup_flag = wf_true;
@@ -1312,12 +1084,13 @@ wf_s32 wf_lps_wakeup(nic_info_st *pnic_info, wf_u8 lps_ctrl_type, wf_bool enqueu
         wf_mlme_get_connect(pnic_info, &bconnect);
         if (bconnect && pnic_info->nic_num == 0)
         {
-            n_assoc_iface++;
-        }
-        if (n_assoc_iface)
-        {
-
             wakeup_flag = wf_true;
+        }
+        
+        if(!bconnect)
+        {
+            LPS_INFO("driver not connected!!!");
+            return ret;
         }
     }
 
@@ -1325,44 +1098,51 @@ wf_s32 wf_lps_wakeup(nic_info_st *pnic_info, wf_u8 lps_ctrl_type, wf_bool enqueu
     {
         if (enqueue == wf_true)
         {
-            mlme_msg_t msg;
-            msg.module = MLME_MSG_LPS;
-            msg.position = 0;
-            msg.lps_type = lps_ctrl_type;
-            wf_mlme_msg_send(pnic_info, &msg);
+            wf_lps_start(pnic_info, lps_ctrl_type);
         }
         else
         {
             wf_lps_ctrl_wk_hdl(pnic_info, lps_ctrl_type);
         }
-
     }
+    
     return ret;
 }
 
-wf_s32 wf_lps_sleep(nic_info_st *pnic_info, wf_u8 lps_ctrl_type, wf_bool enqueue) // Enqueue for interrupt
+wf_u32 wf_lps_sleep(nic_info_st *pnic_info, wf_u8 lps_ctrl_type, wf_bool enqueue) // Enqueue for interrupt
 {
-    wf_u32 ret = WF_RETURN_OK;
     pwr_info_st *pwr_info_ptr;
     wf_u32 lps_deny = 0;
-    pwr_info_ptr = (pwr_info_st *)pnic_info->pwr_info;
+    wf_u32 ret = WF_RETURN_OK;
+    wf_bool bconnect;
 
-    LOG_D("wf_lps_sleep");
+    LPS_DBG();
+    
+    pwr_info_ptr = (pwr_info_st *)pnic_info->pwr_info;
+    
     if (wf_local_cfg_get_work_mode(pnic_info) != WF_INFRA_MODE)
     {
         LPS_INFO("lps only supports the STA mode");
         return WF_RETURN_FAIL;
     }
-    _st_enter_lps_lock(&pwr_info_ptr->lock);
+    
+    wf_mlme_get_connect(pnic_info, &bconnect);
+    if(!bconnect)
+    {
+        LPS_INFO("driver not connected!!!");
+        return ret;
+    }
+    
+    _lps_enter_lps_lock(&pwr_info_ptr->lock);
     lps_deny = pwr_info_ptr->lps_deny;
-    _st_exit_lps_lock(&pwr_info_ptr->lock);
+    _lps_exit_lps_lock(&pwr_info_ptr->lock);
     if (lps_deny != 0)
     {
         LPS_INFO("Skip: can not sleep! Reason: %d", lps_deny);
         return WF_RETURN_FAIL;
     }
 
-    if (lps_ctrl_type != LPS_CTRL_ENTER || lps_ctrl_type >= LPS_CTRL_MAX)
+    if (lps_ctrl_type != LPS_CTRL_ENTER)
     {
         LPS_WARN("Error: lps ctrl type not support!");
         return WF_RETURN_FAIL;
@@ -1370,11 +1150,7 @@ wf_s32 wf_lps_sleep(nic_info_st *pnic_info, wf_u8 lps_ctrl_type, wf_bool enqueue
 
     if (enqueue == wf_true)
     {
-        mlme_msg_t msg;
-        msg.module = MLME_MSG_LPS;
-        msg.position = 0;
-        msg.lps_type = lps_ctrl_type;
-        wf_mlme_msg_send(pnic_info, &msg);
+        wf_lps_start(pnic_info, lps_ctrl_type);
     }
     else
     {
@@ -1384,57 +1160,91 @@ wf_s32 wf_lps_sleep(nic_info_st *pnic_info, wf_u8 lps_ctrl_type, wf_bool enqueue
     return ret;
 }
 
-void wf_lps_sleep_mlme_monitor(nic_info_st *pnic_info)
+wf_pt_rst_t wf_lps_sleep_mlme_monitor(wf_pt_t *pt, nic_info_st *pnic_info)
 {
+    mlme_info_t *pmlme_info  = (mlme_info_t*)pnic_info->mlme_info;
+    pwr_info_st *ppwr_info = (pwr_info_st *)pnic_info->pwr_info;
     wf_u8 n_assoc_iface = 0;
-    wf_u32 ret = WF_RETURN_OK;
-    int i = 0;
-    // hif_node_st *hif_node_ptr = (hif_node_st *)pnic_info->hif_node;
-    mlme_info_t *mlme_info  = (mlme_info_t*)pnic_info->mlme_info;
-    pwr_info_st *pwr_info_ptr = (pwr_info_st *)pnic_info->pwr_info;
     wf_bool bconnect;
-    LPS_DBG();
+    mlme_state_e state;
 
-    wf_mlme_get_connect(pnic_info, &bconnect);
-    if (bconnect)
+    PT_BEGIN(pt);
+
+    LPS_DBG();
+    
+    for(;;)
     {
-        n_assoc_iface++;
-    }
-    if (n_assoc_iface == 0)
-    {
-        if (pwr_info_ptr->pwr_current_mode != PS_MODE_ACTIVE)
+        wf_timer_set(&ppwr_info->lps_timer, 2000);
+        PT_WAIT_UNTIL(pt, wf_timer_expired(&ppwr_info->lps_timer));
+        
+        wf_mlme_get_state(pnic_info, &state);
+        if (state != MLME_STATE_IDLE)
         {
-            wf_lps_wakeup(pnic_info, LPS_CTRL_NO_LINKED, wf_true);
+            wf_timer_set(&ppwr_info->lps_timer, 2000);
+            PT_WAIT_UNTIL(pt, wf_timer_expired(&ppwr_info->lps_timer));
+            continue;
         }
-    }
-    else
-    {
-        if(bconnect)
+        pmlme_info->link_info.num_tx_ok_in_period = 0;
+        pmlme_info->link_info.num_rx_unicast_ok_in_period = 0;
+        
+        PT_WAIT_WHILE(pt, pmlme_info->link_info.busy_traffic);
+
+        wf_mlme_get_connect(pnic_info, &bconnect);
+        if (bconnect)
         {
-            if (mlme_info->link_info.num_rx_unicast_ok_in_period + mlme_info->link_info.num_tx_ok_in_period > 8)
+            n_assoc_iface++;
+        }
+        if (n_assoc_iface == 0)
+        {
+            if (ppwr_info->pwr_current_mode != PWR_MODE_ACTIVE)
             {
-                if (pwr_info_ptr->pwr_current_mode != PS_MODE_ACTIVE)
+                wf_lps_wakeup(pnic_info, LPS_CTRL_NO_LINKED, wf_true);
+                continue;
+            }
+        }
+        else
+        {
+            if(bconnect)
+            {
+                LPS_DBG("pkt_num == %d", pmlme_info->link_info.num_rx_unicast_ok_in_period + 
+                        pmlme_info->link_info.num_tx_ok_in_period);
+                LPS_DBG("ppwr_info->pwr_current_mode = %d", ppwr_info->pwr_current_mode);
+                if (pmlme_info->link_info.num_rx_unicast_ok_in_period + 
+                    pmlme_info->link_info.num_tx_ok_in_period > 8)
                 {
-                    wf_lps_wakeup(pnic_info, LPS_CTRL_TRAFFIC_BUSY, wf_true);
+                    if (ppwr_info->pwr_current_mode != PWR_MODE_ACTIVE)
+                    {
+                        wf_lps_wakeup(pnic_info, LPS_CTRL_TRAFFIC_BUSY, wf_true);
+                        continue;
+                    }
+                    else
+                    {
+                        LPS_DBG(" now is awake");
+                        continue;
+                    }
                 }
                 else
                 {
-                    LPS_DBG(" now is awake");
+                    if (ppwr_info->pwr_current_mode == PWR_MODE_ACTIVE)
+                    {
+                        wf_lps_sleep(pnic_info, LPS_CTRL_ENTER, wf_true);
+                        continue;
+                    }
+                    else
+                    {
+                        LPS_DBG(" now is sleeping");
+                        continue;
+                    }
                 }
             }
             else
             {
-                if (pwr_info_ptr->pwr_current_mode == PS_MODE_ACTIVE)
-                {
-                    wf_lps_sleep(pnic_info, LPS_CTRL_ENTER, wf_true);
-                }
-                else
-                {
-                    LPS_DBG(" now is sleeping");
-                }
+                wf_lps_wakeup(pnic_info, LPS_CTRL_TRAFFIC_BUSY, wf_true);
+                continue;
             }
         }
     }
+    PT_END(pt);
 }
 #endif
 

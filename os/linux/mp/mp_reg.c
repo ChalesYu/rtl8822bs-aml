@@ -2,6 +2,17 @@
 #include "iw_priv_func.h"
 #include "mp.h"
 
+#if 0
+#define MP_DBG(fmt, ...)        LOG_D("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
+#define MP_ARRAY(data, len)     log_array(data, len)
+#else
+#define MP_DBG(fmt, ...)
+#define MP_ARRAY(data, len)
+#endif
+#define MP_INFO(fmt, ...)       LOG_I("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
+#define MP_WARN(fmt, ...)       LOG_W("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
+#define MP_ERROR(fmt, ...)      LOG_E("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
+
 #ifdef CONFIG_MP_MODE
 #if defined(CONFIG_WEXT_PRIV)
 
@@ -18,16 +29,6 @@
 
 #define		bMaskDWord		0xffffffff
 
-#if 1
-#define MP_DBG(fmt, ...)        LOG_D("[%s]"fmt, __func__, ##__VA_ARGS__)
-#define MP_WARN(fmt, ...)       LOG_E("[%s]"fmt, __func__, ##__VA_ARGS__)
-#define MP_ARRAY(data, len)     log_array(data, len)
-#else
-#define MP_DBG(fmt, ...)
-#define MP_WARN(fmt, ...)
-#define MP_ARRAY(data, len)
-#endif
-
 wf_u32 mp_set_rf(nic_info_st *pnic_info)
 {
     wf_u32 inbuff;
@@ -35,23 +36,23 @@ wf_u32 mp_set_rf(nic_info_st *pnic_info)
     inbuff = 1;
     if (NIC_USB == pnic_info->nic_type)
     {
-        wf_io_write32(pnic_info, 0x92c, 0x1);    
+        wf_io_write32(pnic_info, 0x92c, 0x1);
     }
     else
     {
-        ret = mcu_cmd_communicate(pnic_info, WLAN_OPS_DXX0_MP_SET_RF_PATH_SWICTH, &inbuff, 1, NULL, 0);    
+       // ret = mcu_cmd_communicate(pnic_info, WLAN_OPS_DXX0_MP_SET_RF_PATH_SWICTH, &inbuff, 1, NULL, 0);
     }
     return ret;
 }
 
 static wf_u32 mp_bb_calculatebitshift(wf_u32 BitMask)
-{       
-    wf_u32 i;        
-    for (i = 0; i <= 31; i++) 
-    {                
-        if (((BitMask >> i) & 0x1) == 1)                        
-            break;        
-    }        
+{
+    wf_u32 i;
+    for (i = 0; i <= 31; i++)
+    {
+        if (((BitMask >> i) & 0x1) == 1)
+            break;
+    }
     return (i);
 }
 
@@ -75,7 +76,6 @@ static int mp_write_bb_reg(nic_info_st * pnic_info, wf_u32 RegAddr, wf_u32 BitMa
 static wf_u32 mp_read_bb_reg(nic_info_st *pnic_info, wf_u32 RegAddr, wf_u32 BitMask)
 {
 	wf_u32 ReturnValue = 0, OriginalValue, BitShift;
-	u16 BBWaitCounter = 0;
     int err;
 	OriginalValue = wf_io_read32(pnic_info, RegAddr,&err);
 	BitShift = mp_bb_calculatebitshift(BitMask);
@@ -88,7 +88,7 @@ static wf_u32 mp_read_rf_process(nic_info_st *pnic_info, wf_u32 eRFPath, wf_u32 
 {
 	wf_u32 retValue = 0;
 	wf_u32 NewOffset;
-	wf_u32 tmplong, tmplong2;
+	wf_u32 tmplong2;
 	u8 RfPiEnable = 0;
 	int MaskforPhySet = 0;
 	int i = 0;
@@ -273,9 +273,8 @@ int wf_mp_read_bb(struct net_device *dev,struct iw_request_info *info,union iwre
     ndev_priv_st *pndev_priv = netdev_priv(dev);
     nic_info_st *pnic_info = pndev_priv->nic;
     struct iw_point *wrqu;
-	char *pch, *ptmp, *token, *tmp[3] = { 0x00, 0x00, 0x00 };
-	wf_u32 subcmd = -1;
-	int err, i;
+	char *pch;
+	int err;
     wf_u32 bit,addr;
     wf_u32 data;
 	wrqu = (struct iw_point *)wdata;
@@ -308,7 +307,7 @@ int wf_mp_read_bb(struct net_device *dev,struct iw_request_info *info,union iwre
     }
     wrqu->length = strlen(extra);
     return 0;
-    
+
 }
 
 
@@ -317,11 +316,10 @@ int wf_mp_write_bb(struct net_device *dev,struct iw_request_info *info,union iwr
     ndev_priv_st *pndev_priv = netdev_priv(dev);
     nic_info_st *pnic_info = pndev_priv->nic;
     struct iw_point *wrqu;
-	char *pch, *ptmp, *token, *tmp[3] = { 0x00, 0x00, 0x00 };
-	wf_u32 subcmd = -1;
-	int err, i;
+	char *pch;
+	int err;
     wf_u32 ret;
-    wf_u32 ant,addr;
+    wf_u32 addr;
     wf_u32 data;
     wf_u32 bit;
 	wrqu = (struct iw_point *)wdata;
@@ -359,19 +357,17 @@ int wf_mp_read_rf(struct net_device *dev,struct iw_request_info *info,union iwre
     ndev_priv_st *pndev_priv = netdev_priv(dev);
     nic_info_st *pnic_info = pndev_priv->nic;
     struct iw_point *wrqu;
-	char *pch, *ptmp, *token, *tmp[3] = { 0x00, 0x00, 0x00 };
-	wf_u32 subcmd = -1;
-	int err, i;
+	char *pch;
+	int err;
     wf_u32 ant,addr;
     wf_u32 data;
-    wf_u32 bit;
 	wrqu = (struct iw_point *)wdata;
 	err = 0;
 
 	if (copy_from_user(extra, wrqu->pointer, wrqu->length))
 		return WF_RETURN_FAIL;
     MP_DBG(": in=%s\n", extra);
-	
+
 	pch = extra;
 	MP_DBG(": in=%s\n", extra);
     if(strcmp(pch, "all") == 0)
@@ -399,12 +395,10 @@ int wf_mp_write_rf(struct net_device *dev,struct iw_request_info *info,union iwr
     ndev_priv_st *pndev_priv = netdev_priv(dev);
     nic_info_st *pnic_info = pndev_priv->nic;
     struct iw_point *wrqu;
-	char *pch, *ptmp, *token, *tmp[3] = { 0x00, 0x00, 0x00 };
-	wf_u32 subcmd = -1;
-	int err, i;
-    wf_u32 ant,addr;
+	char *pch;
+	int err;
+    wf_u32 addr;
     wf_u32 data,read_data;
-    wf_u32 bit;
 	wrqu = (struct iw_point *)wdata;
 	err = 0;
 
@@ -425,7 +419,7 @@ int wf_mp_write_rf(struct net_device *dev,struct iw_request_info *info,union iwr
     else
     {
         sprintf(extra,"write rf fail");
-    }   
+    }
     wrqu->length = strlen(extra);
     return 0;
 
@@ -443,7 +437,7 @@ int wf_mp_write_bbreg(nic_info_st *pnic_info, wf_u32 RegAddr, wf_u32 BitMask,wf_
     inbuff[2] = Data;
     if (NIC_USB == pnic_info->nic_type)
     {
-        ret = mcu_cmd_communicate(pnic_info, M0_OPS_MP_BB_REG_SET , inbuff, 3, NULL, 0);
+        ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_MP_BB_REG_SET , inbuff, 3, NULL, 0);
     }
     else
     {
@@ -469,8 +463,7 @@ int wf_mp_write_bbreg(nic_info_st *pnic_info, wf_u32 RegAddr, wf_u32 BitMask,wf_
 
 wf_u32 wf_mp_read_bbreg(nic_info_st *pnic_info, wf_u32 RegAddr, wf_u32 BitMask)
 {
-    wf_u32 ret;
-    wf_u32 inbuff[2];
+    wf_u32 ret = 0;
     wf_u32 outbuff;
 
     #ifdef REG_CMD
@@ -479,7 +472,7 @@ wf_u32 wf_mp_read_bbreg(nic_info_st *pnic_info, wf_u32 RegAddr, wf_u32 BitMask)
 
     if (NIC_USB == pnic_info->nic_type)
     {
-        ret = mcu_cmd_communicate(pnic_info, M0_OPS_MP_BB_REG_GET , inbuff, 2, &outbuff, 1);
+        ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_MP_BB_REG_GET , inbuff, 2, &outbuff, 1);
     }
     #else
     outbuff = mp_read_bb_reg(pnic_info, RegAddr, BitMask);
@@ -496,8 +489,7 @@ wf_u32 wf_mp_read_bbreg(nic_info_st *pnic_info, wf_u32 RegAddr, wf_u32 BitMask)
 
 wf_u32 wf_mp_read_rfreg(nic_info_st *pnic_info, wf_u32 RegAddr, wf_u32 BitMask)
 {
-    wf_u32 ret;
-    wf_u32 inbuff[2];
+    wf_u32 ret = 0;
     wf_u32 outbuff;
 
     #ifdef REG_CMD
@@ -506,9 +498,9 @@ wf_u32 wf_mp_read_rfreg(nic_info_st *pnic_info, wf_u32 RegAddr, wf_u32 BitMask)
 
     if (NIC_USB == pnic_info->nic_type)
     {
-        ret = mcu_cmd_communicate(pnic_info, M0_OPS_MP_RF_REG_GET , inbuff, 2, &outbuff, 1);
+        ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_MP_RF_REG_GET , inbuff, 2, &outbuff, 1);
     }
-    
+
     #else
     {
         wf_u32 Original_Value, BitShift;
@@ -541,7 +533,7 @@ int wf_mp_write_rfreg(nic_info_st *pnic_info, wf_u32 eRFPath, wf_u32 RegAddr,wf_
     inbuff[2] = Data;
     if (NIC_USB == pnic_info->nic_type)
     {
-        ret = mcu_cmd_communicate(pnic_info, M0_OPS_MP_RF_REG_SET, inbuff, 3, NULL, 0);
+        ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_MP_RF_REG_SET, inbuff, 3, NULL, 0);
     }
     if(ret == WF_RETURN_FAIL)
     {

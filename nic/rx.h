@@ -6,11 +6,11 @@
 #define ETHERNET_HEADER_SIZE                14  /* A-MSDU header ï¼? DA(6)+SA(6)+Length(2) */
 #define LLC_HEADER_SIZE                     6
 
-#ifdef CONFIG_RICHV200_FPGA
+#ifdef CONFIG_RICHV200
 #define HIF_HDR_LEN 56
 #else
 #define HIF_HDR_LEN 56
-#endif // CONFIG_RICHV200_FPGA
+#endif // CONFIG_RICHV200
 
 #define ETH_P_IP    0x0800
 #define ETH_P_ARP   0x0806
@@ -61,7 +61,7 @@ typedef enum {
 #define NR_RECVBUFF 8
 #endif
 
-#ifdef CONFIG_RICHV200_FPGA
+#ifdef CONFIG_RICHV200
 
 #ifndef RXD_SIZE
 #define RXD_SIZE    24
@@ -77,7 +77,7 @@ typedef enum {
 #endif
 #endif
 
-#endif // CONFIG_RICHV200_FPGA
+#endif // CONFIG_RICHV200
 
 #define MAX_PKT_NUM     20
 //#define MAC_ADDR_LEN  6
@@ -231,21 +231,6 @@ enum wf_radiotap_channel_flags {
 };
 
 
-static wf_u8 SNAP_ETH_TYPE_IPX[2] = { 0x81, 0x37 };
-
-static wf_u8 SNAP_ETH_TYPE_APPLETALK_AARP[2] = { 0x80, 0xf3 }; /* AppleTale ARP */
-static wf_u8 SNAP_ETH_TYPE_APPLETALK_DDP[2] = { 0x80, 0x9b };
-static wf_u8 SNAP_ETH_TYPE_TDLS[2] = { 0x89, 0x0d };
-static wf_u8 SNAP_HDR_APPLETALK_DDP[3] = { 0x08, 0x00, 0x07 };
-
-static wf_u8 oui_8021h[] = { 0x00, 0x00, 0xf8 };
-static wf_u8 oui_rfc1042[] = { 0x00, 0x00, 0x00 };
-
-#define MAX_SUBFRAME_COUNT  64
-static wf_u8 wl_rfc1042_header[] = { 0xaa, 0xaa, 0x03, 0x00, 0x00, 0x00 };
-static wf_u8 wl_bridge_tunnel_header[] = { 0xaa, 0xaa, 0x03, 0x00, 0x00, 0xf8 };
-
-
 /*
 rx descriptor
 */
@@ -346,7 +331,7 @@ struct rx_desc_detail {
 
 };
 
-#ifdef CONFIG_RICHV200_FPGA
+#ifdef CONFIG_RICHV200
 /* new rxd */
 struct rxd_detail_new {
    /* DW0 */
@@ -590,6 +575,8 @@ typedef struct rx_info {
     wf_u64 rx_data_pkt;
     wf_u64 rx_crcerr_pkt;
     wf_u32 m0_rxbuf[3];
+
+    recv_ba_ctrl_st  ba_ctl[TID_NUM];
 #if RX_REORDER_THREAD_EN
     char rx_reorder_name[RX_REORDER_NAME_LEN];
     void *rx_reorder_tid;
@@ -639,7 +626,7 @@ typedef struct
 
 typedef struct rx_reorder_node_
 {
-    wf_que_list list;
+    wf_que_list_t list;
     rx_pkt_t pkt;
 }rx_reorder_node_t;
 
@@ -696,7 +683,7 @@ wf_u8 calc_rx_rate(wf_u8 rx_rate);
 wf_u16     wf_rx_get_pkt_len_and_check_valid(wf_u8 *buf,  wf_u16 remain, wf_bool *valid, wf_bool *notice);
 PKT_TYPE_T wf_rx_data_type(wf_u8 *pbuf);
 void       wf_rx_rxd_prase(wf_u8 *pbuf, struct rx_pkt *prx_pkt);
-int wf_rx_action_ba_ctl_init(nic_info_st *nic_info,wdn_net_info_st *wdn_net_info);
+int wf_rx_action_ba_ctl_init(nic_info_st *nic_info);
 
 rx_reorder_queue_st *rx_free_reorder_dequeue(recv_ba_ctrl_st *ba_ctl);
 int rx_free_reorder_enqueue(recv_ba_ctrl_st *ba_ctl, rx_reorder_queue_st *node);
@@ -707,16 +694,20 @@ int rx_pending_reorder_enqueue(wf_u16 current_seq, void *pskb, recv_ba_ctrl_st  
 rx_reorder_queue_st * rx_pending_reorder_dequeue(recv_ba_ctrl_st   *ba_order);
 rx_reorder_queue_st *rx_pending_reorder_getqueue(recv_ba_ctrl_st   *ba_order);
 int rx_do_chk_expect_seq(wf_u16 seq_num, recv_ba_ctrl_st   *ba_order);
-int wf_rx_action_ba_ctl_deinit(wdn_net_info_st *wdn_net_info);
+int wf_rx_action_ba_ctl_deinit(nic_info_st *nic_info);
+wf_s32 wf_rx_ba_reinit(nic_info_st *nic_io, wf_u8 tid);
+
 int rx_pending_reorder_get_cnt(recv_ba_ctrl_st   *ba_order);
 void rx_reorder_timeout_handle(wf_os_api_timer_t * timer);
 
-
+void wf_rx_ba_all_reinit(nic_info_st *nic_info);
 int rx_reorder_upload(recv_ba_ctrl_st   *ba_order);
 void wf_rx_data_reorder_core(rx_pkt_t *pkt);
 
 int rx_check_data_frame_valid(prx_pkt_t prx_pkt);
 int rx_check_mngt_frame_valid(prx_pkt_t prx_pkt);
+
+wf_s32 wf_rx_calc_str_and_qual(nic_info_st *nic_info, wf_u8 *phystatus,  wf_u8 *mac_frame, void *prx_pkt);
 
 #endif
 

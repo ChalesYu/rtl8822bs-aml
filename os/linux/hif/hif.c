@@ -43,31 +43,20 @@ static hif_mngent_st *gl_hif = NULL;
 static wf_bool gl_mode_removed = wf_true;
 
 #ifdef CONFIG_OS_ANDROID
-static char *fw_usb = "/system/vendor/firmware/ram-fw-9083-old-r0000.bin";
+static char *fw = "/system/vendor/firmware/ram-fw-908x-old-r1549.bin";
 #else
-#ifdef CONFIG_RICHV200_FPGA
-static char *fw_usb = "";
+#ifdef CONFIG_RICHV200
+static char *fw = "";
 #else
-static char *fw_usb = "";
+static char *fw = "";
 #endif
 #endif
-module_param(fw_usb, charp, 0644);
-
-#ifdef CONFIG_OS_ANDROID
-static char *fw_sdio = "/system/vendor/firmware/ram-fw-9082-old-r0000.bin";
-#else
-#ifdef CONFIG_RICHV200_FPGA
-static char *fw_sdio = "";
-#else
-static char *fw_sdio = "";
-#endif
-#endif
-module_param(fw_sdio, charp, 0644);
+module_param(fw, charp, 0644);
 
 #ifdef CONFIG_OS_ANDROID
 char *ifname = "wlan0";
 #else
-#ifdef CONFIG_RICHV200_FPGA
+#ifdef CONFIG_RICHV200
 char *ifname = "";
 #else
 char *ifname = "";
@@ -81,13 +70,6 @@ char *if2name = "p2p0";
 char *if2name = "";
 #endif
 module_param(if2name, charp, 0644);
-
-
-static int tx_callback_func(void *tx_info, void *param)
-{
-    LOG_D("[%s] handle",__func__);
-    return WF_RETURN_OK;
-}
 
 wf_bool hm_get_mod_removed(void)
 {
@@ -125,9 +107,6 @@ static int hif_create_id (wf_u64 *id_map, wf_u8 *id)
 
 static int hif_destory_id (wf_u64 *id_map, wf_u8  id)
 {
-    wf_u8 i = 0;
-    int bit_mask = 0;
-
     if (id >= 64)
     {
         return WF_RETURN_FAIL;
@@ -285,6 +264,11 @@ static int __init hif_init(void)
     fw_header_t fw_head;
     LOG_D("\n\n     <SCI WIFI DRV INSMOD> \n\n");
     LOG_D("************HIF INIT*************");
+#ifdef COMPILE_TIME
+    LOG_I("Driver Ver:%s, Compile time:%s", WF_VERSION, COMPILE_TIME);
+#else
+    LOG_I("Driver Ver:%s", WF_VERSION);
+#endif
 
     gl_hif = wf_kzalloc(sizeof(hif_mngent_st));
     if( NULL == gl_hif )
@@ -315,12 +299,12 @@ static int __init hif_init(void)
        wf_os_api_file_close(file); 
     }
 
-#ifdef CONFIG_RICHV200_FPGA
+#ifdef CONFIG_RICHV200
     LOG_D("prase richv200 firmware!");
-    file = wf_os_api_file_open(fw_usb);
+    file = wf_os_api_file_open(fw);
     if(file == NULL)
     {
-        LOG_E("usb firmware open failed");
+        LOG_E("firmware open failed");
         kfree(gl_hif);
         return -1;
     }
@@ -328,14 +312,14 @@ static int __init hif_init(void)
     wf_os_api_file_read(file, pos, (unsigned char *)&fw_file_head, sizeof(fw_file_head));
     if((fw_file_head.magic_number != 0xaffa) || (fw_file_head.interface_type != 0x9188))
     {
-        LOG_E("usb firmware format error, magic:0x%x, type:0x%x",
+        LOG_E("firmware format error, magic:0x%x, type:0x%x",
               fw_file_head.magic_number, fw_file_head.interface_type);
         wf_os_api_file_close(file);
         kfree(gl_hif);
         return -1;
     }
 
-    gl_hif->fw_usb_rom_type = fw_file_head.rom_type;
+    gl_hif->fw_rom_type = fw_file_head.rom_type;
     pos += sizeof(fw_file_head);
     for(i=0; i<fw_file_head.firmware_num; i++)
     {
@@ -343,101 +327,38 @@ static int __init hif_init(void)
         wf_os_api_file_read(file, pos, (unsigned char *)&fw_head, sizeof(fw_head));
         if(fw_head.type == 0)
         {
-            LOG_D("USB FW0 Ver: %d.%d.%d.%d, size:%dBytes",
+            LOG_D("FW0 Ver: %d.%d.%d.%d, size:%dBytes",
                   fw_head.version & 0xFF, (fw_head.version >> 8) & 0xFF,
                   (fw_head.version >> 16) & 0xFF,(fw_head.version >> 24) & 0xFF,
                   fw_head.length);
-            gl_hif->fw0_usb_size = fw_head.length;
-            gl_hif->fw0_usb = wf_kzalloc(fw_head.length);
-            if(NULL == gl_hif->fw0_usb)
+            gl_hif->fw0_size = fw_head.length;
+            gl_hif->fw0 = wf_kzalloc(fw_head.length);
+            if(NULL == gl_hif->fw0)
             {
-                LOG_E("firmware0 usb kzalloc failed");
+                LOG_E("firmware0 kzalloc failed");
                 wf_os_api_file_close(file);
                 kfree(gl_hif);
                 return -1;
             }
-            wf_os_api_file_read(file, fw_head.offset, (unsigned char *)gl_hif->fw0_usb, fw_head.length);
+            wf_os_api_file_read(file, fw_head.offset, (unsigned char *)gl_hif->fw0, fw_head.length);
         }
         else
         {
-            LOG_D("USB FW1 Ver: %d.%d.%d.%d, size:%dBytes",
+            LOG_D("FW1 Ver: %d.%d.%d.%d, size:%dBytes",
                   fw_head.version & 0xFF, (fw_head.version >> 8) & 0xFF,
                   (fw_head.version >> 16) & 0xFF,(fw_head.version >> 24) & 0xFF,
                   fw_head.length);
             fw_head.length -= 32;
-            gl_hif->fw1_usb_size = fw_head.length;
-            gl_hif->fw1_usb = wf_kzalloc(fw_head.length);
-            if(NULL == gl_hif->fw1_usb)
+            gl_hif->fw1_size = fw_head.length;
+            gl_hif->fw1 = wf_kzalloc(fw_head.length);
+            if(NULL == gl_hif->fw1)
             {
-                LOG_E("firmware1 usb kzalloc failed");
+                LOG_E("firmware1 kzalloc failed");
                 wf_os_api_file_close(file);
                 kfree(gl_hif);
                 return -1;
             }
-            wf_os_api_file_read(file, fw_head.offset + 32, (unsigned char *)gl_hif->fw1_usb, fw_head.length);
-        }
-        pos += sizeof(fw_head);
-    }
-    wf_os_api_file_close(file);
-
-    file = wf_os_api_file_open(fw_sdio);
-    if(file == NULL)
-    {
-        LOG_E("sdio firmware open failed");
-        kfree(gl_hif);
-        return -1;
-    }
-    pos = 0;
-    wf_os_api_file_read(file, pos, (unsigned char *)&fw_file_head, sizeof(fw_file_head));
-    if((fw_file_head.magic_number != 0xaffa) || (fw_file_head.interface_type != 0x9189))
-    {
-        LOG_E("sdio firmware format error, magic:0x%x, type:0x%x",
-              fw_file_head.magic_number, fw_file_head.interface_type);
-        wf_os_api_file_close(file);
-        kfree(gl_hif);
-        return -1;
-    }
-
-    gl_hif->fw_sdio_rom_type = fw_file_head.rom_type;
-    pos += sizeof(fw_file_head);
-    for(i=0; i<fw_file_head.firmware_num; i++)
-    {
-        wf_memset(&fw_head, 0, sizeof(fw_head));
-        wf_os_api_file_read(file, pos, (unsigned char *)&fw_head, sizeof(fw_head));
-        if(fw_head.type == 0)
-        {
-            LOG_D("SDIO FW0 Ver: %d.%d.%d.%d, size:%dBytes",
-                  fw_head.version & 0xFF, (fw_head.version >> 8) & 0xFF,
-                  (fw_head.version >> 16) & 0xFF,(fw_head.version >> 24) & 0xFF,
-                  fw_head.length);
-            gl_hif->fw0_sdio_size = fw_head.length;
-            gl_hif->fw0_sdio = wf_kzalloc(fw_head.length);
-            if(NULL == gl_hif->fw0_sdio)
-            {
-                LOG_E("firmware0 sdio kzalloc failed");
-                wf_os_api_file_close(file);
-                kfree(gl_hif);
-                return -1;
-            }
-            wf_os_api_file_read(file, fw_head.offset, (unsigned char *)gl_hif->fw0_sdio, fw_head.length);
-        }
-        else
-        {
-            LOG_D("SDIO FW1 Ver: %d.%d.%d.%d, size:%dBytes",
-                  fw_head.version & 0xFF, (fw_head.version >> 8) & 0xFF,
-                  (fw_head.version >> 16) & 0xFF,(fw_head.version >> 24) & 0xFF,
-                  fw_head.length);
-            fw_head.length -= 32;
-            gl_hif->fw1_sdio_size = fw_head.length;
-            gl_hif->fw1_sdio = wf_kzalloc(fw_head.length);
-            if(NULL == gl_hif->fw1_sdio)
-            {
-                LOG_E("firmware1 sdio kzalloc failed");
-                wf_os_api_file_close(file);
-                kfree(gl_hif);
-                return -1;
-            }
-            wf_os_api_file_read(file, fw_head.offset + 32, (unsigned char *)gl_hif->fw1_sdio, fw_head.length);
+            wf_os_api_file_read(file, fw_head.offset + 32, (unsigned char *)gl_hif->fw1, fw_head.length);
         }
         pos += sizeof(fw_head);
     }
@@ -445,10 +366,10 @@ static int __init hif_init(void)
 
 #else
     LOG_D("prase richv100 firmware!");
-    file = wf_os_api_file_open(fw_usb);
+    file = wf_os_api_file_open(fw);
     if(file == NULL)
     {
-        LOG_E("usb firmware open failed");
+        LOG_E("firmware open failed");
         kfree(gl_hif);
         return -1;
     }
@@ -456,14 +377,14 @@ static int __init hif_init(void)
     wf_os_api_file_read(file, pos, (unsigned char *)&fw_file_head, sizeof(fw_file_head));
     if((fw_file_head.magic_number != 0xaffa) || (fw_file_head.interface_type != 0x9083))
     {
-        LOG_E("usb firmware format error, magic:0x%x, type:0x%x",
+        LOG_E("firmware format error, magic:0x%x, type:0x%x",
               fw_file_head.magic_number, fw_file_head.interface_type);
         wf_os_api_file_close(file);
         kfree(gl_hif);
         return -1;
     }
 
-    gl_hif->fw_usb_rom_type = fw_file_head.rom_type;
+    gl_hif->fw_rom_type = fw_file_head.rom_type;
     pos += sizeof(fw_file_head);
     for(i=0; i<fw_file_head.firmware_num; i++)
     {
@@ -471,65 +392,20 @@ static int __init hif_init(void)
         wf_os_api_file_read(file, pos, (unsigned char *)&fw_head, sizeof(fw_head));
         if(fw_head.type == 0)
         {
-            LOG_D("USB FW0 Ver: %d.%d.%d.%d, size:%dBytes",
+            LOG_D("FW0 Ver: %d.%d.%d.%d, size:%dBytes",
                   fw_head.version & 0xFF, (fw_head.version >> 8) & 0xFF,
                   (fw_head.version >> 16) & 0xFF,(fw_head.version >> 24) & 0xFF,
                   fw_head.length);
-            gl_hif->fw0_usb_size = fw_head.length;
-            gl_hif->fw0_usb = wf_kzalloc(fw_head.length);
-            if(NULL == gl_hif->fw0_usb)
+            gl_hif->fw0_size = fw_head.length;
+            gl_hif->fw0 = wf_kzalloc(fw_head.length);
+            if(NULL == gl_hif->fw0)
             {
-                LOG_E("firmware0 usb kzalloc failed");
+                LOG_E("firmware0 kzalloc failed");
                 wf_os_api_file_close(file);
                 wf_kfree(gl_hif);
                 return -1;
             }
-            wf_os_api_file_read(file, fw_head.offset, (unsigned char *)gl_hif->fw0_usb, fw_head.length);
-        }
-        pos += sizeof(fw_head);
-    }
-    wf_os_api_file_close(file);
-
-    file = wf_os_api_file_open(fw_sdio);
-    if(file == NULL)
-    {
-        LOG_E("sdio firmware open failed");
-        kfree(gl_hif);
-        return -1;
-    }
-    pos = 0;
-    wf_os_api_file_read(file, pos, (unsigned char *)&fw_file_head, sizeof(fw_file_head));
-    if((fw_file_head.magic_number != 0xaffa) || (fw_file_head.interface_type != 0x9082))
-    {
-        LOG_E("sdio firmware format error, magic:0x%x, type:0x%x",
-              fw_file_head.magic_number, fw_file_head.interface_type);
-        wf_os_api_file_close(file);
-        kfree(gl_hif);
-        return -1;
-    }
-
-    gl_hif->fw_sdio_rom_type = fw_file_head.rom_type;
-    pos += sizeof(fw_file_head);
-    for(i=0; i<fw_file_head.firmware_num; i++)
-    {
-        wf_memset(&fw_head, 0, sizeof(fw_head));
-        wf_os_api_file_read(file, pos, (unsigned char *)&fw_head, sizeof(fw_head));
-        if(fw_head.type == 0)
-        {
-            LOG_D("SDIO FW0 Ver: %d.%d.%d.%d, size:%dBytes",
-                  fw_head.version & 0xFF, (fw_head.version >> 8) & 0xFF,
-                  (fw_head.version >> 16) & 0xFF,(fw_head.version >> 24) & 0xFF,
-                  fw_head.length);
-            gl_hif->fw0_sdio_size = fw_head.length;
-            gl_hif->fw0_sdio = wf_kzalloc(fw_head.length);
-            if(NULL == gl_hif->fw0_sdio)
-            {
-                LOG_E("firmware0 sdio kzalloc failed");
-                wf_os_api_file_close(file);
-                wf_kfree(gl_hif);
-                return -1;
-            }
-            wf_os_api_file_read(file, fw_head.offset, (unsigned char *)gl_hif->fw0_sdio, fw_head.length);
+            wf_os_api_file_read(file, fw_head.offset, (unsigned char *)gl_hif->fw0, fw_head.length);
         }
         pos += sizeof(fw_head);
     }
@@ -574,32 +450,22 @@ static void __exit hif_exit(void)
     sdio_exit();
 #endif
 
-    if(gl_hif->cfg_content != NULL) {
+    if(gl_hif->cfg_content != NULL) 
+    {
         wf_kfree(gl_hif->cfg_content);
         gl_hif->cfg_content = NULL;
     }
     gl_hif->cfg_size = 0;
 
-    gl_hif->fw0_usb_size = 0;
-    gl_hif->fw1_usb_size = 0;
-    if(gl_hif->fw0_usb)
+    gl_hif->fw0_size = 0;
+    gl_hif->fw1_size = 0;
+    if(gl_hif->fw0)
     {
-        wf_kfree(gl_hif->fw0_usb);
+        wf_kfree(gl_hif->fw0);
     }
-    if(gl_hif->fw1_usb)
+    if(gl_hif->fw1)
     {
-        wf_kfree(gl_hif->fw1_usb);
-    }
-
-    gl_hif->fw0_sdio_size = 0;
-    gl_hif->fw1_sdio_size = 0;
-    if(gl_hif->fw0_sdio)
-    {
-        wf_kfree(gl_hif->fw0_sdio);
-    }
-    if(gl_hif->fw1_sdio)
-    {
-        wf_kfree(gl_hif->fw1_sdio);
+        wf_kfree(gl_hif->fw1);
     }
 	
     wf_lock_term(hm_get_lock());
@@ -613,9 +479,9 @@ static void __exit hif_exit(void)
 int hif_frame_nic_check(hif_node_st *hif_info,struct sk_buff *pskb )
 {
     int num = 0;
-    struct net_device *ndev;
-    wf_u8 *pdata;
-    struct rxd_detail_org *prxd;
+    struct net_device *ndev = NULL;
+    wf_u8 *pdata = NULL;
+    struct rxd_detail_org *prxd = NULL;
     wf_u8 bc_addr[ETH_ALEN] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
 
     prxd = (struct rxd_detail_org *)(pskb->data);
@@ -631,34 +497,30 @@ int hif_frame_nic_check(hif_node_st *hif_info,struct sk_buff *pskb )
 //  LOG_D("[hif_frame_nic_check]:ta:"WF_MAC_FMT,WF_MAC_ARG(get_ta(pdata)));
     while(num < hif_info->nic_number)
     {
+        if(NULL == hif_info->nic_info[num])
+        {
+            LOG_E("%s  nic_info[%d] NULL",__func__,num);
+            return WF_RETURN_FAIL;
+        }
+        
         ndev = hif_info->nic_info[num]->ndev;
 
         if(ndev == NULL)
         {
             LOG_E("%s  ndev[%d] NULL",__func__,num);
-            return 0;
+            return WF_RETURN_FAIL;
         }
+        
         if(wf_memcmp(ndev->dev_addr,get_ra(pdata),ETH_ALEN) == 0)
         {
-            if (hif_info->nic_info[num])
-            {
-                if (hif_info->nic_info[num]->ndev)
-                {
-                    LOG_D("nic[%d]",num);
-                    rx_work(hif_info->nic_info[num]->ndev, pskb);
-                    return 0;
-                }
-            }
+            LOG_D("nic[%d]",num);
+            rx_work(hif_info->nic_info[num]->ndev, pskb);
+            return 0;
+           
         }
         else if(wf_memcmp(bc_addr,get_ra(pdata),ETH_ALEN) == 0)
         {
-            if (hif_info->nic_info[num])
-            {
-                if (hif_info->nic_info[num]->ndev)
-                {
-                    rx_work(hif_info->nic_info[num]->ndev, pskb);
-                }
-            }
+            rx_work(hif_info->nic_info[num]->ndev, pskb);
         }
         num++;
     }
@@ -669,9 +531,9 @@ int hif_frame_nic_check(hif_node_st *hif_info,struct sk_buff *pskb )
 int hif_tasklet_rx_handle(hif_node_st *hif_info)
 {
     struct sk_buff *pskb  = NULL;
-    int ret = 0;
     data_queue_node_st *qnode       = NULL;
-
+    int ret = 0;
+    
     if(NULL == hif_info)
     {
         LOG_E("[%s] hif_info is null",__func__);
@@ -693,7 +555,7 @@ int hif_tasklet_rx_handle(hif_node_st *hif_info)
         }
 
 #ifdef CONFIG_CONCURRENT_MODE
-        hif_frame_nic_check(hif_info,pskb);
+        ret = hif_frame_nic_check(hif_info,pskb);
 #else
         if (hif_info->nic_info[0])
         {
@@ -703,15 +565,14 @@ int hif_tasklet_rx_handle(hif_node_st *hif_info)
             }
         }
 #endif
+    if(ret)
+    {
+        //LOG_W("[%s] failed ret:%d",__func__,ret);
+    }
 
-#if HIF_QUEUE_PRE_ALLOC_DEBUG
         skb_reset_tail_pointer(pskb);
         pskb->len = 0;
         skb_queue_tail(&hif_info->trx_pipe.free_rx_queue_skb, pskb);
-#else
-        wf_free_skb(pskb);
-        pskb = NULL;
-#endif
 
         if(HIF_USB == hif_info->hif_type)
         {
@@ -781,29 +642,22 @@ int hif_add_vir_init(hif_node_st *hif_info)
     hif_info->nic_info[num]->ndev_id = num;
     hif_info->nic_info[num]->is_up   = 0;
     hif_info->nic_info[num]->virNic = wf_true;
+
     if(hif_info->hif_type == HIF_USB)
     {
-
         hif_info->nic_info[num]->nic_type = NIC_USB;
         hif_info->nic_info[num]->dev = &pusb_intf_tmp->dev;
-
-		hif_info->nic_info[num]->fwdl_info.fw_usb_rom_type = hif_mngent->fw_usb_rom_type;
-        hif_info->nic_info[num]->fwdl_info.fw0_usb = hif_mngent->fw0_usb;
-        hif_info->nic_info[num]->fwdl_info.fw0_usb_size = hif_mngent->fw0_usb_size;
-        hif_info->nic_info[num]->fwdl_info.fw1_usb = hif_mngent->fw1_usb;
-        hif_info->nic_info[num]->fwdl_info.fw1_usb_size = hif_mngent->fw1_usb_size;
     }
     else
     {
         hif_info->nic_info[num]->nic_type = NIC_SDIO;
         hif_info->nic_info[num]->dev = &psdio_func_tmp->dev;
-
-		hif_info->nic_info[num]->fwdl_info.fw_sdio_rom_type = hif_mngent->fw_sdio_rom_type;
-        hif_info->nic_info[num]->fwdl_info.fw0_sdio = hif_mngent->fw0_sdio;
-        hif_info->nic_info[num]->fwdl_info.fw0_sdio_size = hif_mngent->fw0_sdio_size;
-        hif_info->nic_info[num]->fwdl_info.fw1_sdio = hif_mngent->fw1_sdio;
-        hif_info->nic_info[num]->fwdl_info.fw1_sdio_size = hif_mngent->fw1_sdio_size;
     }
+    hif_info->nic_info[num]->fwdl_info.fw_rom_type = hif_mngent->fw_rom_type;
+    hif_info->nic_info[num]->fwdl_info.fw0 = hif_mngent->fw0;
+    hif_info->nic_info[num]->fwdl_info.fw0_size = hif_mngent->fw0_size;
+    hif_info->nic_info[num]->fwdl_info.fw1 = hif_mngent->fw1;
+    hif_info->nic_info[num]->fwdl_info.fw1_size = hif_mngent->fw1_size;
 
     hif_info->nic_info[num]->func_check_flag = 0xAA55BB66;
     hif_info->nic_info[num]->nic_read = hif_io_read;
@@ -811,7 +665,7 @@ int hif_add_vir_init(hif_node_st *hif_info)
     hif_info->nic_info[num]->nic_tx_queue_insert = hif_info->ops->hif_tx_queue_insert;
     hif_info->nic_info[num]->nic_tx_queue_empty =  hif_info->ops->hif_tx_queue_empty;
 
-#ifdef CONFIG_RICHV200_FPGA
+#ifdef CONFIG_RICHV200
     hif_info->nic_info[num]->nic_write_fw = hif_write_firmware;
     hif_info->nic_info[num]->nic_write_cmd = hif_write_cmd;
 #endif
@@ -847,7 +701,7 @@ int hif_dev_insert(hif_node_st *hif_info)
     {
         LOG_D("wf_power_on success");
 
-#ifdef CONFIG_RICHV200_FPGA
+#ifdef CONFIG_RICHV200
         side_road_cfg(hif_info);
 #endif
 
@@ -872,7 +726,7 @@ int hif_dev_insert(hif_node_st *hif_info)
     LOG_D("<< create hif tx/rx queue >>");
     wf_data_queue_mngt_init(hif_info);
 
-#ifdef CONFIG_RICHV200_FPGA
+#ifdef CONFIG_RICHV200
     ret = wf_hif_bulk_enable(hif_info);
     if(WF_RETURN_FAIL == ret)
     {
@@ -913,24 +767,17 @@ int hif_dev_insert(hif_node_st *hif_info)
     {
         hif_info->nic_info[0]->nic_type = NIC_USB;
         hif_info->nic_info[0]->dev = &pusb_intf_tmp->dev;
-
-        hif_info->nic_info[0]->fwdl_info.fw_usb_rom_type = hif_mngent->fw_usb_rom_type;
-        hif_info->nic_info[0]->fwdl_info.fw0_usb = hif_mngent->fw0_usb;
-        hif_info->nic_info[0]->fwdl_info.fw0_usb_size = hif_mngent->fw0_usb_size;
-        hif_info->nic_info[0]->fwdl_info.fw1_usb = hif_mngent->fw1_usb;
-        hif_info->nic_info[0]->fwdl_info.fw1_usb_size = hif_mngent->fw1_usb_size;
     }
     else
     {
         hif_info->nic_info[0]->nic_type = NIC_SDIO;
         hif_info->nic_info[0]->dev = &psdio_func_tmp->dev;
-
-        hif_info->nic_info[0]->fwdl_info.fw_sdio_rom_type = hif_mngent->fw_sdio_rom_type;
-        hif_info->nic_info[0]->fwdl_info.fw0_sdio = hif_mngent->fw0_sdio;
-        hif_info->nic_info[0]->fwdl_info.fw0_sdio_size = hif_mngent->fw0_sdio_size;
-        hif_info->nic_info[0]->fwdl_info.fw1_sdio = hif_mngent->fw1_sdio;
-        hif_info->nic_info[0]->fwdl_info.fw1_sdio_size = hif_mngent->fw1_sdio_size;
     }
+    hif_info->nic_info[0]->fwdl_info.fw_rom_type = hif_mngent->fw_rom_type;
+    hif_info->nic_info[0]->fwdl_info.fw0 = hif_mngent->fw0;
+    hif_info->nic_info[0]->fwdl_info.fw0_size = hif_mngent->fw0_size;
+    hif_info->nic_info[0]->fwdl_info.fw1 = hif_mngent->fw1;
+    hif_info->nic_info[0]->fwdl_info.fw1_size = hif_mngent->fw1_size;
 
     hif_info->nic_info[0]->func_check_flag = 0xAA55BB66;
     hif_info->nic_info[0]->nic_read = hif_io_read;
@@ -939,7 +786,7 @@ int hif_dev_insert(hif_node_st *hif_info)
     hif_info->nic_info[0]->nic_tx_queue_insert = hif_info->ops->hif_tx_queue_insert;
     hif_info->nic_info[0]->nic_tx_queue_empty =  hif_info->ops->hif_tx_queue_empty;
 
-#ifdef CONFIG_RICHV200_FPGA
+#ifdef CONFIG_RICHV200
     hif_info->nic_info[0]->nic_write_fw = hif_write_firmware;
     hif_info->nic_info[0]->nic_write_cmd = hif_write_cmd;
 #endif
@@ -976,15 +823,14 @@ int hif_dev_insert(hif_node_st *hif_info)
 
 void  hif_dev_removed(hif_node_st *hif_info)
 {
-    nic_info_st *nic_info;
-    int nic_cnt=0;
-    int ret;
+    nic_info_st *nic_info   = NULL;
+    int nic_cnt             = 0;
 
     hif_info->dev_removed = wf_true;
 
     LOG_D("************HIF DEV REMOVE [NODE:%d TYPE:%d]*************",
           hif_info->node_id,hif_info->hif_type);
-#ifdef CONFIG_RICHV200_FPGA
+#ifdef CONFIG_RICHV200
 #if 0
     wf_mcu_reset_chip(hif_info->nic_info[0]);
     if(hif_info->cmd_completion_flag)
@@ -1006,6 +852,7 @@ void  hif_dev_removed(hif_node_st *hif_info)
         if (nic_info)
         {
             LOG_D("[hif_dev_removed] nic_id    :%d",nic_info->ndev_id);
+            nic_info->is_surprise_removed = hif_info->dev_removed;
             ndev_shutdown(nic_info);
             ndev_unregister(nic_info);
             kfree(nic_info);
@@ -1022,7 +869,7 @@ void  hif_dev_removed(hif_node_st *hif_info)
     }
     wf_hif_queue_disable(hif_info);
 
-#ifdef CONFIG_RICHV200_FPGA
+#ifdef CONFIG_RICHV200
     wf_hif_bulk_disable(hif_info);
 #endif
 
@@ -1122,7 +969,7 @@ void hif_node_unregister(hif_node_st *pnode)
     LOG_I("[%s] end",__func__);
 }
 
-#ifdef CONFIG_RICHV200_FPGA
+#ifdef CONFIG_RICHV200
 
 
 static void io_txdesc_chksum(wf_u8 *ptx_desc)
@@ -1318,8 +1165,6 @@ int hif_write_firmware(void *node, wf_u8 which,  wf_u8 *firmware, wf_u32 len)
     wf_u8 *use_buffer;
     wf_u8 *ptx_desc;
     wf_u8 *prx_desc;
-    wf_u32 register_addr;
-    wf_u16 rx_len;
     hif_node_st *hif_node = (hif_node_st *)node;
 
     if (hif_node->dev_removed == wf_true)
@@ -1492,7 +1337,6 @@ int hif_write_cmd(void *node, wf_u32 cmd, wf_u32 *send_buf, wf_u32 send_len, wf_
     wf_u16 u16Value;
     wf_u8 *ptx_desc;
     wf_u8 *prx_desc;
-    wf_u32 register_addr;
     wf_u16 snd_pktLen = 0;
     wf_u16 rcv_pktLen = 0;
     hif_node_st *hif_node = (hif_node_st *)node;
@@ -1593,11 +1437,8 @@ mcu_cmd_communicate_exit:
 
 int wf_hif_queue_enable(hif_node_st *hif_node)
 {
-    int i = 0;
     data_queue_mngt_st *hqueue  = NULL;
     data_queue_node_st  *qnode  = NULL;
-    wf_list_t *pos       = NULL;
-    wf_list_t *next      = NULL;
 
     LOG_D("[%s] begin",__func__);
 
@@ -1618,11 +1459,9 @@ int wf_hif_queue_enable(hif_node_st *hif_node)
 }
 
 
-int wf_hif_queue_disable(hif_node_st *hif_node)
+wf_s32 wf_hif_queue_disable(hif_node_st *hif_node)
 {
-    struct sk_buff *pskb  = NULL;
-    wf_u32   rx_queue_len = 0;
-    int ret = 0;
+    struct sk_buff *pskb    = NULL;
 
     hif_node->hif_tr_ctrl = wf_false;
 

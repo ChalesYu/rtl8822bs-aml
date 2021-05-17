@@ -1,16 +1,25 @@
 #include "common.h"
 #include "wf_debug.h"
 #ifdef CONFIG_ARS_SUPPORT
+#if 0
+#define ARS_DBG(fmt, ...)      LOG_D("ARS_DBG[%s,%d]"fmt, __func__, __LINE__,##__VA_ARGS__)
+#define ARS_PRT(fmt, ...)      LOG_D("ARS_DBG-"fmt,##__VA_ARGS__)
+
+#else
+#define ARS_DBG(fmt, ...)
+#define ARS_PRT(fmt, ...) 
+#endif
+
 #define DBG 0
 
-void ars_debug_init(void *ars)
+wf_s32 ars_debug_init(void *ars)
 {
     ars_st *pars = NULL;
     ars_dbg_info_st *dbg = NULL;
     if(NULL == ars)
     {
         ARS_DBG("input param is null");
-        return;
+        return WF_RETURN_FAIL;
     }
 
     pars = ars;
@@ -57,6 +66,8 @@ void ars_debug_init(void *ars)
 
     dbg->fw_buff_is_enpty = wf_true;
     dbg->pre_c2h_seq = 0;
+    
+    return WF_RETURN_OK;
 }
 
 #endif

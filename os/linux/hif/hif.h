@@ -56,11 +56,11 @@ struct hif_node_
     wf_u32 nic_number;
 
     void *odm;
-
+    void *ars;
     /*proc debug system*/
     void *proc_info;
 
-#ifdef CONFIG_RICHV200_FPGA
+#ifdef CONFIG_RICHV200
     /* usb or sdio rx handle info */
 #define HIF_BULK_MSG_TIMEOUT    5000
     struct mutex      reg_mutex;
@@ -101,17 +101,11 @@ typedef struct hif_management_
     wf_u32  cfg_size;
     char   *cfg_content;
 
-    wf_u8  fw_usb_rom_type;
-    wf_u32 fw0_usb_size;
-    wf_u32 fw1_usb_size;
-    char  *fw0_usb;
-    char  *fw1_usb;
-
-    wf_u8  fw_sdio_rom_type;
-    wf_u32 fw0_sdio_size;
-    wf_u32 fw1_sdio_size;
-    char  *fw0_sdio;
-    char  *fw1_sdio;
+    wf_u8  fw_rom_type;
+    wf_u32 fw0_size;
+    wf_u32 fw1_size;
+    char  *fw0;
+    char  *fw1;
 
     wf_list_t hif_usb_sdio;
     wf_lock_t lock_mutex;
@@ -172,7 +166,7 @@ int hif_io_write32(void *node, unsigned int addr, unsigned int value);
 int wf_hif_queue_enable(hif_node_st *hif_node);
 int wf_hif_queue_disable(hif_node_st *hif_node);
 
-#ifdef CONFIG_RICHV200_FPGA
+#ifdef CONFIG_RICHV200
 int wf_hif_bulk_enable(hif_node_st *hif_node);
 int wf_hif_bulk_disable(hif_node_st *hif_node);
 

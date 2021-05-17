@@ -1,16 +1,14 @@
 #include "wf_debug.h"
 #include "hif.h"
 
-#define DXX0_EN_ADDR     		0x00E4
-#define DXX0_START_ADDR 		0x00E8
-#define DXX0_CLOCK_EN   		0x0094
+#define DXX0_EN_ADDR            0x00E4
+#define DXX0_START_ADDR         0x00E8
+#define DXX0_CLOCK_EN           0x0094
 
 int side_road_cfg(struct hif_node_ *node)
 {
-    int ret = 0;
-    wf_u8  value8;
-    wf_u16 value16;
-    wf_u32 value32;
+    int ret         = 0;
+    wf_u8  value8   = 0;
 
     /************************func configure*****************************/
     
@@ -55,11 +53,10 @@ int side_road_cfg(struct hif_node_ *node)
 
 int power_on(struct hif_node_ *node)
 {
-	int ret = 0;
+    int ret = 0;
     wf_bool initSuccess=wf_false;
-    wf_u8  value8;
-    wf_u16 value16;
-    wf_u32 value32;
+    wf_u8  value8 = 0;
+    wf_u16 value16 = 0;
     
     LOG_I("[%s] start",__func__);
    // return -1;
@@ -94,7 +91,7 @@ int power_on(struct hif_node_ *node)
         }
         LOG_I("[%s]  sdio clear suspend ",__func__);
     }
-	
+    
     //set 0x_00AC  bit 4 写0
     value8 = hif_io_read8(node, 0xac,NULL);
     value8 &= 0xEF;
@@ -124,7 +121,7 @@ int power_on(struct hif_node_ *node)
     // waiting for power on
     value16 = 0;
   
-	while(1){
+    while(1){
         value8 = hif_io_read8(node, 0xac,NULL);
         if(value8 & 0x10) {
             initSuccess = wf_true;
@@ -161,154 +158,152 @@ int power_on(struct hif_node_ *node)
 
 int power_off(struct hif_node_ *node)
 {
-	int ret = 0;
-	if(hm_get_mod_removed() == wf_false && node->dev_removed == wf_true)
-	{
-		return 0;
-	}
+    int ret = 0;
+    if(hm_get_mod_removed() == wf_false && node->dev_removed == wf_true)
+    {
+        return 0;
+    }
 
     // disable mcu-bus clk
     hif_io_read32(node,0x94,NULL);
-	ret = hif_io_write32(node,0x94,0);
+    ret = hif_io_write32(node,0x94,0);
     if (WF_RETURN_FAIL == ret)
     {
-    	LOG_E("[%s] WF_CLK_ADDR failed,check!!!",__func__);
+        LOG_E("[%s] WF_CLK_ADDR failed,check!!!",__func__);
         return WF_RETURN_FAIL;
     }
     
-	switch(node->hif_type)
+    switch(node->hif_type)
     {
         case HIF_USB:
-		{
-			wf_u8  value8;
-            wf_u16 value16;
-			wf_u32 value32;
+        {
+            wf_u16 value16 = 0;
+            wf_u32 value32 = 0;
 
             // 0x00ac  bit 22 write 1, reset dsp
-			value32 = hif_io_read32(node, 0xac,NULL);
-			value32 |= WF_BIT(22);
-			ret = hif_io_write32(node, 0xac, value32);
-			if( WF_RETURN_FAIL == ret)
-			{
-				LOG_E("[%s] 0xac failed, check!!!",__func__);
-				return ret;
-			}
+            value32 = hif_io_read32(node, 0xac,NULL);
+            value32 |= WF_BIT(22);
+            ret = hif_io_write32(node, 0xac, value32);
+            if( WF_RETURN_FAIL == ret)
+            {
+                LOG_E("[%s] 0xac failed, check!!!",__func__);
+                return ret;
+            }
 
             // clear the power off bit
-			value32 &= ~((wf_u32)WF_BIT(11)); 
-			ret = hif_io_write32(node, 0xac, value32);
-			if( WF_RETURN_FAIL == ret)
-			{
-				LOG_E("[%s] 0xac failed, check!!!",__func__);
-				return ret;
-			}
+            value32 &= ~((wf_u32)WF_BIT(11)); 
+            ret = hif_io_write32(node, 0xac, value32);
+            if( WF_RETURN_FAIL == ret)
+            {
+                LOG_E("[%s] 0xac failed, check!!!",__func__);
+                return ret;
+            }
 
-			// 配置下电起始条件为：0x00AC[10] 先配0再配1，上升沿使能硬件下电状态机
-			value32 &= ~((wf_u32)WF_BIT(10));  
-			ret = hif_io_write32(node, 0xac, value32);
-			if( WF_RETURN_FAIL == ret)
-			{
-				LOG_E("[%s] 0xac failed, check!!!",__func__);
-				return ret;
-			}
-			value32 |= WF_BIT(10);  
-			ret = hif_io_write32(node, 0xac, value32);
-			if( WF_RETURN_FAIL == ret)
-			{
-				LOG_E("[%s] 0xac failed, check!!!",__func__);
-				return ret;
-			}
+            // 配置下电起始条件为：0x00AC[10] 先配0再配1，上升沿使能硬件下电状态机
+            value32 &= ~((wf_u32)WF_BIT(10));  
+            ret = hif_io_write32(node, 0xac, value32);
+            if( WF_RETURN_FAIL == ret)
+            {
+                LOG_E("[%s] 0xac failed, check!!!",__func__);
+                return ret;
+            }
+            value32 |= WF_BIT(10);  
+            ret = hif_io_write32(node, 0xac, value32);
+            if( WF_RETURN_FAIL == ret)
+            {
+                LOG_E("[%s] 0xac failed, check!!!",__func__);
+                return ret;
+            }
 
             wf_msleep(10);
-			// waiting for power off
-			value16 = 0;
+            // waiting for power off
+            value16 = 0;
             while(1) {
-				value32 = hif_io_read32(node, 0xac,NULL);
-				if(value32 & WF_BIT(11)) {
-					break;
-				}
+                value32 = hif_io_read32(node, 0xac,NULL);
+                if(value32 & WF_BIT(11)) {
+                    break;
+                }
                 wf_msleep(1);
-				value16++;
-				if(value16 > 10) {
-					break;
-				}
-			}
-			if(value16 > 10) {
-				LOG_E("[%s] failed!!!",__func__);
-				return WF_RETURN_FAIL;
-			}
-			return WF_RETURN_OK;
-		}
-		case HIF_SDIO:
-		{
-            wf_u8  value8;
-			wf_u16 value16;
-			wf_u32 value32;
+                value16++;
+                if(value16 > 10) {
+                    break;
+                }
+            }
+            if(value16 > 10) {
+                LOG_E("[%s] failed!!!",__func__);
+                return WF_RETURN_FAIL;
+            }
+            return WF_RETURN_OK;
+        }
+        case HIF_SDIO:
+        {
+            wf_u8  value8 = 0;
+            wf_u16 value16 = 0;
 
             // 0x00ac  bit 22 write 1, reset dsp
             value8 = hif_io_read8(node, 0xac+2,NULL);
-			value8 |= WF_BIT(6);
+            value8 |= WF_BIT(6);
             ret = hif_io_write8(node, 0xac+2, value8);
-			if( WF_RETURN_FAIL == ret)
-			{
-				LOG_E("[%s] 0xac failed, check!!!",__func__);
-				return ret;
-			}
+            if( WF_RETURN_FAIL == ret)
+            {
+                LOG_E("[%s] 0xac failed, check!!!",__func__);
+                return ret;
+            }
 
             // clear the power off bit
-			value8 = hif_io_read8(node, 0x9094,NULL);
-			value8 &= 0xFE;
-			ret = hif_io_write8(node, 0x9094, value8);
-			if( WF_RETURN_FAIL == ret)
-			{
-				LOG_E("[%s] 0x9094 failed, check!!!",__func__);
-				return ret;
-			}
+            value8 = hif_io_read8(node, 0x9094,NULL);
+            value8 &= 0xFE;
+            ret = hif_io_write8(node, 0x9094, value8);
+            if( WF_RETURN_FAIL == ret)
+            {
+                LOG_E("[%s] 0x9094 failed, check!!!",__func__);
+                return ret;
+            }
 
-			// 配置下电起始条件为：0x00AC[10] 先配0再配1，上升沿使能硬件下电状态机
+            // 配置下电起始条件为：0x00AC[10] 先配0再配1，上升沿使能硬件下电状态机
             value8 = hif_io_read8(node, 0xac+1,NULL);
             value8 &= ~(WF_BIT(2));
             ret = hif_io_write8(node, 0xac+1, value8);
-			if( WF_RETURN_FAIL == ret)
-			{
-				LOG_E("[%s] 0xac failed, check!!!",__func__);
-				return ret;
-			}
+            if( WF_RETURN_FAIL == ret)
+            {
+                LOG_E("[%s] 0xac failed, check!!!",__func__);
+                return ret;
+            }
             value8 |= WF_BIT(2);
             ret = hif_io_write8(node, 0xac+1, value8);
-			if( WF_RETURN_FAIL == ret)
-			{
-				LOG_E("[%s] 0xac failed, check!!!",__func__);
-				return ret;
-			}
-			wf_msleep(10);
-			// waiting for power off
-			value16 = 0;
+            if( WF_RETURN_FAIL == ret)
+            {
+                LOG_E("[%s] 0xac failed, check!!!",__func__);
+                return ret;
+            }
+            wf_msleep(10);
+            // waiting for power off
+            value16 = 0;
             while(1) {
-				value8 = hif_io_read8(node, 0x9094,NULL);
-				if(value8 & WF_BIT(0)) {
-					break;
-				}
+                value8 = hif_io_read8(node, 0x9094,NULL);
+                if(value8 & WF_BIT(0)) {
+                    break;
+                }
                 wf_msleep(1);
-				value16++;
-				if(value16 > 100) {
-					break;
-				}
-			}
-			if(value16 > 100) {
-				LOG_E("[%s] failed!!!",__func__);
-				return WF_RETURN_FAIL;
-			}
+                value16++;
+                if(value16 > 100) {
+                    break;
+                }
+            }
+            if(value16 > 100) {
+                LOG_E("[%s] failed!!!",__func__);
+                return WF_RETURN_FAIL;
+            }
 
-			return WF_RETURN_OK;
-		}
+            return WF_RETURN_OK;
+        }
 
-		default:
-		{
+        default:
+        {
             LOG_E("Error Nic type");
             return WF_RETURN_FAIL;
-		}
-	}
+        }
+    }
 
     return WF_RETURN_OK;
 }

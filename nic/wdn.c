@@ -5,15 +5,15 @@
 #define WDN_INFO_DUMP
 
 #if 0
-#define WDN_DBG(fmt, ...)       LOG_D("[%s]"fmt, __func__, ##__VA_ARGS__)
+#define WDN_DBG(fmt, ...)       LOG_D("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
 #define WDN_ARRAY(data, len)    log_array(data, len)
 #else
 #define WDN_DBG(fmt, ...)
 #define WDN_ARRAY(data, len)
 #endif
-#define WDN_INFO(fmt, ...)      LOG_I("[%s]"fmt, __func__, ##__VA_ARGS__)
-#define WDN_WARN(fmt, ...)      LOG_W("[%s]"fmt, __func__, ##__VA_ARGS__)
-#define WDN_ERROR(fmt, ...)     LOG_E("[%s]"fmt, __func__, ##__VA_ARGS__)
+#define WDN_INFO(fmt, ...)      LOG_I("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
+#define WDN_WARN(fmt, ...)      LOG_W("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
+#define WDN_ERROR(fmt, ...)     LOG_E("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
 
 unsigned char WPA_OUI[4] = { 0x00, 0x50, 0xf2, 0x01 };
 unsigned char WMM_OUI[4] = { 0x00, 0x50, 0xf2, 0x02 };
@@ -60,9 +60,6 @@ static int new_wdn_id (wdn_list *pwdn, wf_u8 *pwdn_id)
 
 static int free_wdn_id (wdn_list *pwdn, wf_u16 id)
 {
-    wf_u8 i;
-    int bit_mask;
-
     if (id >= 32)
     {
         return -1;
@@ -126,7 +123,7 @@ void get_bratecfg_by_support_dates(wf_u8 *pdataRate, wf_u8 dataRate_len, wf_u16 
     }
 }
 
-#ifdef CONFIG_RICHV200_FPGA
+#ifdef CONFIG_RICHV200
 static const wf_u8 _graid_table[] =
 {
     0, 5, 0, 4,0,3,2,1,0
@@ -187,7 +184,7 @@ wf_u8 wf_wdn_get_raid_by_network_type (wdn_net_info_st *pwdn_info)
 
     }
 
-#ifdef CONFIG_RICHV200_FPGA
+#ifdef CONFIG_RICHV200
     return _graid_table[raid];
 #else
     return raid;
@@ -349,6 +346,7 @@ int wf_wdn_term (nic_info_st *pnic_info)
     wf_list_t *pos, *pos_next;
     wdn_node_st *pwdn_node;
 
+    LOG_I("[%s] start",__func__);
     if (pwdn == NULL)
         return -1;
 
@@ -373,12 +371,10 @@ int wf_wdn_term (nic_info_st *pnic_info)
 
 int wf_wdn_data_update(nic_info_st *nic_info, wdn_net_info_st *wdn_info)
 {
-    wf_u16 len, basic_dr_cfg;
     wf_u8 i;
-    wf_u8 *pele_start, *pele_end;
+    wf_u8 *pele_start;
     wf_80211_mgmt_ie_t *pie;
     wf_wlan_info_t *wlan_info = nic_info->wlan_info;
-    sec_info_st *sec_info = nic_info->sec_info;
     wf_wlan_network_t *cur_network = &wlan_info->cur_network;
     hw_info_st *hw_info = nic_info->hw_info;
 
@@ -481,7 +477,7 @@ int wf_wdn_data_update(nic_info_st *nic_info, wdn_net_info_st *wdn_info)
 
     /* add debug info */
 #ifdef WDN_INFO_DUMP
-#define _DUMP   LOG_D
+#define _DUMP   WDN_INFO
     _DUMP("== WDN INFO DUMP ==");
 
     _DUMP("ID: %d", wdn_info->wdn_id);
@@ -590,49 +586,7 @@ wf_u8 wf_wdn_is_alive(wdn_net_info_st *wdn_net_info, wf_u8 update_tag)
     return wf_true;
 }
 
-void wf_wdn_update_traffic_stat(nic_info_st *nic_info,wf_u8 update_odm_flag)
-{
-    tx_info_st *tx_info         = NULL;
-    wdn_net_info_st *wdn_info   = NULL;
-    rx_info_t * rx_info         = NULL;
-    odm_mgnt_st *odm            = NULL;
-    wdn_info = wf_wdn_find_info(nic_info,wf_wlan_get_cur_bssid(nic_info));
-    if (wdn_info == NULL)
-    {
-        return;
-    }
 
-    /*tx statistics*/
-    tx_info = (tx_info_st *)nic_info->tx_info;
-    wdn_info->wdn_stats.tx_bytes        = tx_info->tx_bytes;
-    wdn_info->wdn_stats.tx_pkts         = tx_info->tx_pkts;
-    wdn_info->wdn_stats.tx_drops        = tx_info->tx_drop;
-    wdn_info->wdn_stats.cur_tx_bytes    = wdn_info->wdn_stats.tx_bytes - wdn_info->wdn_stats.last_tx_bytes;
-    wdn_info->wdn_stats.last_tx_bytes   = wdn_info->wdn_stats.tx_bytes;
-    wdn_info->wdn_stats.cur_tx_tp       = (wf_u32)(wdn_info->wdn_stats.cur_tx_bytes * 8 / 2 / 1024 / 1024);
-
-    /*rx statistics*/
-    rx_info = (rx_info_t *)nic_info->rx_info;
-    wdn_info->wdn_stats.rx_bytes        = rx_info->rx_bytes;
-    wdn_info->wdn_stats.rx_pkts         = rx_info->rx_pkts;
-    wdn_info->wdn_stats.rx_drops        = rx_info->rx_drop;
-    wdn_info->wdn_stats.cur_rx_bytes    = wdn_info->wdn_stats.rx_bytes - wdn_info->wdn_stats.last_rx_bytes;
-    wdn_info->wdn_stats.last_rx_bytes   = wdn_info->wdn_stats.rx_bytes;
-    wdn_info->wdn_stats.cur_rx_tp       = (wf_u32)(wdn_info->wdn_stats.cur_rx_bytes * 8 / 2 / 1024 / 1024);
-
-#if 0
-    WDN_INFO("tx_bytes:%lld,rx_bytes:%lld,cur_tx_bytes:%lld,cur_rx_bytes:%lld",
-             wdn_info->wdn_stats.tx_bytes, wdn_info->wdn_stats.rx_pkts,
-             wdn_info->wdn_stats.cur_tx_bytes, wdn_info->wdn_stats.cur_rx_bytes);
-#endif
-    /*update odm message*/
-    if(update_odm_flag)
-    {
-        odm     = (odm_mgnt_st *)nic_info->odm;
-        odm->odm_msg.traffic_stat_cur_tx_tp = wdn_info->wdn_stats.cur_tx_tp;
-        odm->odm_msg.traffic_stat_cur_rx_tp = wdn_info->wdn_stats.cur_rx_tp;
-    }
-}
 
 wf_u8 wf_wdn_get_cnt(nic_info_st *pnic_info)
 {
@@ -648,6 +602,6 @@ wf_u8 wf_wdn_get_cnt(nic_info_st *pnic_info)
     {
         return 0;
     }
-    
+
     return pwdn->cnt;
 }

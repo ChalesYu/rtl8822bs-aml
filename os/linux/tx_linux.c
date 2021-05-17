@@ -129,13 +129,13 @@ static int tx_work_mpdu_xmit_agg(nic_info_st *nic_info)
         next_qsel = pxframe->qsel;
         if((pxmitbuf->pkt_len+ wf_get_wlan_pkt_size(pxframe) > wf_nic_get_tx_max_len(nic_info,pxframe))
             || (0 != packet_index && WF_RETURN_FAIL == wf_nic_tx_qsel_check(pre_qsel,next_qsel))
-            #ifdef CONFIG_RICHV200_FPGA
+            #ifdef CONFIG_RICHV200
             || ((pxmitbuf->pkt_len <= 512) && (3 <= packet_index ) && (NIC_USB == nic_info->nic_type) ) //redmine/issues/45
             || ( (pxmitbuf->pkt_len%16 == 8) && (NIC_USB == nic_info->nic_type)) //redmine/issues/46
             #endif
             || MAX_AGG_NUM/2 <= packet_index )
         {
-            #ifdef CONFIG_RICHV200_FPGA
+            #ifdef CONFIG_RICHV200
             if(((pxmitbuf->pkt_len <= 512) && (3 <= packet_index )) )
             {
                 LOG_I("agg <<=512> pkt_len:%d,packet_index:%d",pxmitbuf->pkt_len,packet_index);
@@ -229,8 +229,6 @@ static int tx_work_mpdu_xmit_agg(nic_info_st *nic_info)
 
 static wf_bool mpdu_insert_sending_queue(nic_info_st *nic_info, struct xmit_frame *pxmitframe, wf_bool ack)
 {
-    wf_u8 val;
-    wf_u32 curTime,endTime,timeout;
     wf_u8 *mem_addr;
     wf_u32 ff_hwaddr;
     wf_bool bRet = wf_true;
@@ -240,9 +238,6 @@ static wf_bool mpdu_insert_sending_queue(nic_info_st *nic_info, struct xmit_fram
     int t, sz, w_sz, pull = 0;
     struct xmit_buf *pxmitbuf = pxmitframe->pxmitbuf;
     hw_info_st *hw_info = nic_info->hw_info;
-    tx_info_st *tx_info = nic_info->tx_info;
-    sec_info_st *sec_info = nic_info->sec_info;
-    mlme_state_e state;
     wf_u32  txlen = 0;
 
     mem_addr = pxmitframe->buf_addr;
@@ -318,14 +313,12 @@ static wf_bool mpdu_insert_sending_queue(nic_info_st *nic_info, struct xmit_fram
 
 static int tx_work_mpdu_xmit(nic_info_st *nic_info)
 {
-    wf_list_t *plist, *phead;
     struct xmit_frame *pxframe = NULL;
     tx_info_st *tx_info = nic_info->tx_info;
     struct xmit_buf *pxmitbuf = NULL;
-    wf_s32 res;
-    wf_bool exit = wf_false;
+    wf_s32 res = wf_false;
     wf_bool bTxQueue_empty;
-    mlme_state_e state;
+    mlme_state_e state = MLME_STATE_IDLE;
     int addbaRet = -1;
     wf_bool bRet = wf_false;
     mlme_info_t *mlme_info = nic_info->mlme_info;

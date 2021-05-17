@@ -17,7 +17,7 @@ int only_cckrates(unsigned char *rate, int ratelen);
 int have_cckrates(unsigned char *rate, int ratelen);
 
 wf_u8 * set_ie(wf_u8 * pbuf, wf_u8 index, wf_u8 len, wf_u8 * source, wf_u32 * frlen);
-wf_u8 * set_fixed_ie(wf_u8 *pbuf, wf_u32 len, wf_u8 *source, wf_u32 *frlen);
+wf_u8 * set_fixed_ie(wf_u8 *pbuf, wf_u32 len, wf_u8 *source, wf_u16 *frlen);
 
 
 #endif

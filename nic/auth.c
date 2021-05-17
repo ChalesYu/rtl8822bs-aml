@@ -4,15 +4,15 @@
 
 /* macro */
 #if 0
-#define AUTH_DBG(fmt, ...)      LOG_D("[%s]"fmt, __func__, ##__VA_ARGS__)
+#define AUTH_DBG(fmt, ...)      LOG_D("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
 #define AUTH_ARRAY(data, len)   log_array(data, len)
 #else
 #define AUTH_DBG(fmt, ...)
 #define AUTH_ARRAY(data, len)
 #endif
-#define AUTH_INFO(fmt, ...)     LOG_I("[%s]"fmt, __func__, ##__VA_ARGS__)
-#define AUTH_WARN(fmt, ...)     LOG_W("[%s]"fmt, __func__, ##__VA_ARGS__)
-#define AUTH_ERROR(fmt, ...)    LOG_E("[%s]"fmt, __func__, ##__VA_ARGS__)
+#define AUTH_INFO(fmt, ...)     LOG_I("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
+#define AUTH_WARN(fmt, ...)     LOG_W("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
+#define AUTH_ERROR(fmt, ...)    LOG_E("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
 
 #define AUTH_REQ_RESEND_TIMES   3
 #define AUTH_RSP_TIMEOUT        50
@@ -26,8 +26,6 @@ static int auth_send (nic_info_st *pnic_info, wdn_net_info_st *pwdn_info,
     tx_info_st *ptx_info = (void *)pnic_info->tx_info;
     sec_info_st *psec_info = pnic_info->sec_info;
     wf_80211_mgmt_t *pauth_frame;
-    wf_wlan_info_t *pwlan_info = pnic_info->wlan_info;
-    wf_wlan_network_t *pcur_network = &pwlan_info->cur_network;
     wf_80211_mgmt_ie_t *pie;
     wf_u16 frame_len = 0;
     wf_u32 tmp_32;
@@ -136,7 +134,7 @@ static int auth_send (nic_info_st *pnic_info, wdn_net_info_st *pwdn_info,
     }
 
     return wf_nic_mgmt_frame_xmit(pnic_info, pwdn_info,
-                               pxmit_buf, pxmit_buf->pkt_len = frame_len);
+                                  pxmit_buf, pxmit_buf->pkt_len = frame_len);
 }
 
 #ifdef CFG_ENABLE_AP_MODE
@@ -244,7 +242,7 @@ wf_pt_rst_t wf_auth_ap_thrd (nic_info_st *pnic_info, wdn_net_info_st *pwdn_info)
         wf_ap_msg_free(pnic_info, &pwdn_info->ap_msg, pmsg);
         AUTH_WARN("receive a frame no auth type");
         wf_deauth_xmit_frame(pnic_info, pwdn_info->mac,
-                          WF_80211_REASON_DEAUTH_LEAVING);
+                             WF_80211_REASON_DEAUTH_LEAVING);
         PT_EXIT(pt);
     }
 
@@ -476,7 +474,7 @@ wf_pt_rst_t wf_auth_sta_thrd (wf_pt_t *pt, nic_info_st *pnic_info, int *prsn)
     wf_msg_que_t *pmsg_que;
     wf_msg_t *pmsg;
     wf_80211_mgmt_t *pmgmt=NULL;
-    wf_u16 mgmt_len;
+    wf_u16 mgmt_len = 0;
     struct auth_ie *pauth_ie=NULL;
     int reason;
     int rst;
@@ -527,7 +525,7 @@ wf_pt_rst_t wf_auth_sta_thrd (wf_pt_t *pt, nic_info_st *pnic_info, int *prsn)
 
     /* send auth with sequence number 1 */
     pwdn_info = pauth_info->pwdn_info =
-        wf_wdn_find_info(pnic_info, wf_wlan_get_cur_bssid(pnic_info));
+                    wf_wdn_find_info(pnic_info, wf_wlan_get_cur_bssid(pnic_info));
     if (pwdn_info == NULL)
     {
         AUTH_ERROR("wdn null");
@@ -549,22 +547,25 @@ wf_pt_rst_t wf_auth_sta_thrd (wf_pt_t *pt, nic_info_st *pnic_info, int *prsn)
             reason = -3;
             goto exit;
         }
+
         /* wait until receive auth with seq2 */
         wf_timer_set(&pauth_info->timer, AUTH_RSP_TIMEOUT);
+    wait_seq2 :
         PT_WAIT_UNTIL(pt, !wf_msg_pop(pmsg_que, &pmsg) ||
-                          wf_timer_expired(&pauth_info->timer));
+                      wf_timer_expired(&pauth_info->timer));
         if (pmsg == NULL)
         {
             /* timeout, resend again */
             continue;
         }
+
         if (pmsg->tag == WF_AUTH_TAG_ABORT)
         {
             wf_msg_del(pmsg_que, pmsg);
             reason = WF_AUTH_TAG_ABORT;
             goto exit;
         }
-        if (pmsg->tag == WF_AUTH_TAG_RSP)
+        else if (pmsg->tag == WF_AUTH_TAG_RSP)
         {
             wf_u8 ofs;
             wf_u16 seq, status;
@@ -599,8 +600,14 @@ wf_pt_rst_t wf_auth_sta_thrd (wf_pt_t *pt, nic_info_st *pnic_info, int *prsn)
                     break;
                 }
             }
+            wf_msg_del(pmsg_que, pmsg);
         }
-        wf_msg_del(pmsg_que, pmsg);
+        else
+        {
+            AUTH_ERROR("unsutied message tag(%d)", pmsg->tag);
+            wf_msg_del(pmsg_que, pmsg);
+            goto wait_seq2;
+        }
     }
     /* no expected auth with seq2 received */
     if (pauth_info->retry_cnt == AUTH_REQ_RESEND_TIMES)
@@ -645,22 +652,25 @@ wf_pt_rst_t wf_auth_sta_thrd (wf_pt_t *pt, nic_info_st *pnic_info, int *prsn)
             reason = -6;
             goto exit;
         }
+
         /* wait until receive auth with seq4 */
         wf_timer_set(&pauth_info->timer, AUTH_RSP_TIMEOUT);
+    wait_seq4 :
         PT_WAIT_UNTIL(pt, !wf_msg_pop(pmsg_que, &pmsg) ||
-                          wf_timer_expired(&pauth_info->timer));
+                      wf_timer_expired(&pauth_info->timer));
         if (pmsg == NULL)
         {
             /* timeout, resend again */
             continue;
         }
+
         if (pmsg->tag == WF_AUTH_TAG_ABORT)
         {
             wf_msg_del(pmsg_que, pmsg);
             reason = WF_AUTH_TAG_ABORT;
             goto exit;
         }
-        if (pmsg->tag == WF_AUTH_TAG_RSP)
+        else if (pmsg->tag == WF_AUTH_TAG_RSP)
         {
             wf_u8 ofs;
             wf_u16 seq, status;
@@ -686,8 +696,14 @@ wf_pt_rst_t wf_auth_sta_thrd (wf_pt_t *pt, nic_info_st *pnic_info, int *prsn)
                     pauth_info->retry_cnt = AUTH_REQ_RESEND_TIMES;
                 }
             }
+            wf_msg_del(pmsg_que, pmsg);
         }
-        wf_msg_del(pmsg_que, pmsg);
+        else
+        {
+            AUTH_ERROR("unsutied message tag(%d)", pmsg->tag);
+            wf_msg_del(pmsg_que, pmsg);
+            goto wait_seq4;
+        }
     }
     /* no expected auth with seq4 received */
     if (pauth_info->retry_cnt == AUTH_REQ_RESEND_TIMES)
@@ -696,7 +712,7 @@ wf_pt_rst_t wf_auth_sta_thrd (wf_pt_t *pt, nic_info_st *pnic_info, int *prsn)
         reason = -7;
     }
 
-exit:
+exit :
     pauth_info->brun = wf_false;
     wf_os_api_sema_post(&pauth_info->sema);
 
@@ -793,11 +809,16 @@ int wf_auth_sta_stop (nic_info_st *pnic_info)
 int auth_sta_recv (nic_info_st *pnic_info, wdn_net_info_st *pwdn_info,
                    wf_80211_mgmt_t *pmgmt, wf_u16 mgmt_len)
 {
-    if (pnic_info == NULL || pwdn_info == NULL ||
-        pmgmt == NULL || mgmt_len == 0)
+    if (pnic_info == NULL || pmgmt == NULL || mgmt_len == 0)
     {
         AUTH_WARN("None pointer");
         return -1;
+    }
+
+    if (pwdn_info == NULL)
+    {
+        AUTH_ERROR("pwdn_info None pointer");
+        return -2;
     }
 
     AUTH_DBG();
@@ -807,20 +828,20 @@ int auth_sta_recv (nic_info_st *pnic_info, wdn_net_info_st *pwdn_info,
         wf_mlme_get_state(pnic_info, &state);
         if (state != MLME_STATE_AUTH)
         {
-            return -2;
+            return -3;
         }
     }
 
     if (!mac_addr_equal(pmgmt->da, nic_to_local_addr(pnic_info)) ||
         !mac_addr_equal(pwdn_info->bssid, wf_wlan_get_cur_bssid(pnic_info)))
     {
-        return -3;
+        return -4;
     }
 
     if (mgmt_len > sizeof(auth_rsp_t))
     {
         AUTH_DBG("auth frame length over limite");
-        return -4;
+        return -5;
     }
 
     /* send message */
@@ -834,7 +855,7 @@ int auth_sta_recv (nic_info_st *pnic_info, wdn_net_info_st *pwdn_info,
         if (rst)
         {
             AUTH_DBG("new msg fail, error code: %d", rst);
-            return -5;
+            return -6;
         }
         pmsg->len = mgmt_len;
         wf_memcpy(pmsg->value, pmgmt, mgmt_len);
@@ -843,7 +864,7 @@ int auth_sta_recv (nic_info_st *pnic_info, wdn_net_info_st *pwdn_info,
         {
             wf_msg_del(pmsg_que, pmsg);
             AUTH_DBG("push msg fail, error code: %d", rst);
-            return -6;
+            return -7;
         }
     }
 
@@ -982,7 +1003,7 @@ int wf_deauth_xmit_frame (nic_info_st *pnic_info, wf_u8 *pmac, wf_u16 reason_cod
     wf_u8 *pframe;
     struct wl_ieee80211_hdr *pwlanhdr;
     struct xmit_buf *pxmit_buf;
-    wf_u32 pkt_len;
+    wf_u16 pkt_len;
     tx_info_st      *ptx_info;
     wdn_net_info_st *pwdn_info;
 
@@ -1046,7 +1067,7 @@ int wf_deauth_frame_parse (nic_info_st *pnic_info, wdn_net_info_st *pwdn_info,
         case WF_INFRA_MODE :
             AUTH_INFO("WF_80211_FRM_DEAUTH frame reason:%d",
                       pmgmt->deauth.reason_code);
-            rst = wf_mlme_deauth(pnic_info);
+            rst = wf_mlme_deauth(pnic_info, wf_true);
             if (rst)
             {
                 AUTH_WARN("wf_mlme_deauth fail, reason code: %d", rst);

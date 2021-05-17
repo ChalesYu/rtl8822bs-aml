@@ -3,8 +3,8 @@
 #include "wf_debug.h"
 
 #if 0
-#define _80211_DBG(fmt, ...)      LOG_D("[%s]"fmt, __func__, ##__VA_ARGS__)
-#define _80211_WARN(fmt, ...)     LOG_E("[%s]"fmt, __func__, ##__VA_ARGS__)
+#define _80211_DBG(fmt, ...)      LOG_D("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
+#define _80211_WARN(fmt, ...)     LOG_E("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
 #define _80211_ARRAY(data, len)   log_array(data, len)
 #else
 #define _80211_DBG(fmt, ...)
@@ -12,12 +12,19 @@
 #define _80211_ARRAY(data, len)
 #endif
 
+static wf_u8 SNAP_ETH_TYPE_IPX[2] = { 0x81, 0x37 };
+
+static wf_u8 SNAP_ETH_TYPE_APPLETALK_AARP[2] = { 0x80, 0xf3 }; /* AppleTale ARP */
+
+
+static wf_u8 wl_rfc1042_header[] = { 0xaa, 0xaa, 0x03, 0x00, 0x00, 0x00 };
+static wf_u8 wl_bridge_tunnel_header[] = { 0xaa, 0xaa, 0x03, 0x00, 0x00, 0xf8 };
+
 int wf_80211_mgmt_ies_search (void *pvar, wf_u16 var_len,
                               wf_u8 cmp_id,
                               wf_80211_mgmt_ie_t **pout)
 {
     wf_80211_mgmt_ie_t *pie = NULL;
-    wf_u16 ele_len;
     wf_u8 *pstart = pvar;
     wf_u16 offset = 0;
 
@@ -48,7 +55,6 @@ int wf_80211_mgmt_ies_search_with_oui (void *pies, wf_u16 ies_len,
                                        wf_80211_mgmt_ie_t **ppie)
 {
     wf_80211_mgmt_ie_t *pie;
-    wf_u16 ele_len;
     wf_u8 *pstart = pies;
     wf_u16 offset = 0;
 
@@ -77,13 +83,13 @@ int wf_80211_mgmt_ies_search_with_oui (void *pies, wf_u16 ies_len,
     }
 }
 
-wf_u8 *wf_80211_set_fixed_ie(wf_u8 *pbuf, wf_u32 len, wf_u8 *source, wf_u32 *frlen)
+wf_u8 *wf_80211_set_fixed_ie(wf_u8 *pbuf, wf_u32 len, wf_u8 *source, wf_u16 *frlen)
 {
 
-	wf_memcpy((void *)pbuf, (void *)source, len);
+    wf_memcpy((void *)pbuf, (void *)source, len);
 
-	*frlen = *frlen + len;
-	return (pbuf + len);
+    *frlen = *frlen + len;
+    return (pbuf + len);
 }
 
 
@@ -400,10 +406,8 @@ exit :
 
 int wf_80211_mgmt_wmm_parse (void *pwmm, wf_u16 len)
 {
-    wf_u8 left, *pos;
     wf_80211_wmm_param_ie_t *pie;
     wf_u64 oui_type;
-    wf_u16 version;
     int ret = 0;
 
     if (pwmm == NULL || len == 0)
@@ -533,55 +537,150 @@ wf_u8 wf_wlan_check_is_wps_ie(wf_u8 *ie_ptr, wf_u32 *wps_ielen)
     return match;
 }
 
+wf_u8 *wf_wlan_get_ie(wf_u8 * pbuf, wf_s32 index, wf_s32 * len, wf_s32 limit)
+{
+	wf_s32 tmp, i;
+	wf_u8 *p;
+    
+	if (limit < 1) {
+		return NULL;
+	}
+
+	p = pbuf;
+	i = 0;
+	*len = 0;
+	while (1) {
+		if (*p == index) {
+			*len = *(p + 1);
+			return (p);
+		} else {
+			tmp = *(p + 1);
+			p += (tmp + 2);
+			i += (tmp + 2);
+		}
+		if (i >= limit)
+			break;
+	}
+	return NULL;
+}
+
+
 wf_u8 *wf_wlan_get_wps_ie(wf_u8 *temp_ie, wf_u32 temp_len, wf_u8 *wps_ie, wf_u32 *ie_len)
 {
-	wf_u32 count = 0;
-	wf_u8 *temp_wps_ie = NULL;
-	wf_u8 eid, wps_oui[4] = {0x00, 0x50, 0xf2, 0x04};
+    wf_u32 count = 0;
+    wf_u8 *temp_wps_ie = NULL;
+    wf_u8 eid, wps_oui[4] = {0x00, 0x50, 0xf2, 0x04};
 
-	if(ie_len)
-	{
-		*ie_len = 0;
-	}
-
-	if(!temp_ie)
-	{
-		LOG_E("[%s]temp_ie isn't null, check", __func__);
+    if(ie_len)
+    {
         *ie_len = 0;
-		return temp_wps_ie;
-	}
+    }
 
-	if(temp_len <= 0)
-	{
-		LOG_E("[%s]ie_len is 0, check", __func__);
+    if(!temp_ie)
+    {
+        _80211_WARN("[%s]temp_ie isn't null, check", __func__);
         *ie_len = 0;
-		return temp_wps_ie;
-	}
+        return temp_wps_ie;
+    }
 
-	while(count + 1 + 4 < temp_len)
-	{
-		eid = temp_ie[count];
-		if(eid == WF_80211_MGMT_EID_VENDOR_SPECIFIC && wf_memcmp(&temp_ie[count + 2], wps_oui, 4) == wf_false)
-		{
-			 	temp_wps_ie = temp_ie + count;
-                if(wps_ie)
-                {
-			        wf_memcpy(wps_ie, &temp_ie[count], temp_ie[count + 1 + 2]);
-                }
+    if(temp_len <= 0)
+    {
+        _80211_WARN("[%s]ie_len is 0, check", __func__);
+        *ie_len = 0;
+        return temp_wps_ie;
+    }
 
-				if(ie_len)
-				{
-					*ie_len = temp_ie[count + 1] + 2;
-				}
-				break;
-			}
-			else
-			{
-				count += temp_ie[count + 1] + 2;
-			}
-	}
-	return temp_wps_ie;
+    while(count + 1 + 4 < temp_len)
+    {
+        eid = temp_ie[count];
+        if(eid == WF_80211_MGMT_EID_VENDOR_SPECIFIC && wf_memcmp(&temp_ie[count + 2], wps_oui, 4) == wf_false)
+        {
+            temp_wps_ie = temp_ie + count;
+            if(wps_ie)
+            {
+                wf_memcpy(wps_ie, &temp_ie[count], temp_ie[count + 1 + 2]);
+            }
+
+            if(ie_len)
+            {
+                *ie_len = temp_ie[count + 1] + 2;
+            }
+            break;
+        }
+        else
+        {
+            count += temp_ie[count + 1] + 2;
+        }
+    }
+    return temp_wps_ie;
 }
+
+wf_u8 *wf_wlan_get_wps_attr(wf_u8 * wps_ie, uint wps_ielen, wf_u16 target_attr_id, wf_u8 * buf_attr, wf_u32 * len_attr, wf_u8 flag)
+{
+    wf_u8 *attr_ptr = NULL;
+    wf_u8 *target_attr_ptr = NULL;
+    wf_u8 wps_oui[4] = { 0x00, 0x50, 0xF2, 0x04 };
+
+    if (flag) {
+        if (len_attr)
+            *len_attr = 0;
+    }
+    if ((wps_ie[0] != _VENDOR_SPECIFIC_IE_) || (wf_memcmp(wps_ie + 2, wps_oui, 4) != wf_true)) {
+        return attr_ptr;
+    }
+
+    attr_ptr = wps_ie + 6;
+
+    while (attr_ptr - wps_ie < wps_ielen) {
+        wf_u16 attr_id = WF_GET_BE16(attr_ptr);
+        wf_u16 attr_data_len = WF_GET_BE16(attr_ptr + 2);
+        wf_u16 attr_len = attr_data_len + 4;
+
+        if (attr_id == target_attr_id) {
+            target_attr_ptr = attr_ptr;
+
+            if (buf_attr)
+                wf_memcpy(buf_attr, attr_ptr, attr_len);
+
+            if (len_attr)
+                *len_attr = attr_len;
+
+            break;
+        } else {
+            attr_ptr += attr_len;
+        }
+
+    }
+
+    return target_attr_ptr;
+}
+
+
+wf_u8 *wf_wlan_get_wps_attr_content(wf_u8 flag, wf_u8 * wps_ie, uint wps_ielen, wf_u16 target_attr_id, wf_u8 * buf_content, uint * len_content)
+{
+    wf_u8 *attr_ptr;
+    wf_u32 attr_len;
+
+    if (flag) {
+        if (len_content)
+            *len_content = 0;
+    }
+    attr_ptr =
+        wf_wlan_get_wps_attr(wps_ie, wps_ielen, target_attr_id, NULL, &attr_len, 1);
+
+    if (attr_ptr && attr_len) {
+        if (buf_content)
+            wf_memcpy(buf_content, attr_ptr + 4, attr_len - 4);
+
+        if (len_content)
+            *len_content = attr_len - 4;
+
+        return attr_ptr + 4;
+    }
+
+    return NULL;
+}
+
 
 int wf_ch_2_freq(int ch)
 {

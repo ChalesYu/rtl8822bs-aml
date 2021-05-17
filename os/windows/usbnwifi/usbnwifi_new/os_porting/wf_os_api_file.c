@@ -6,13 +6,13 @@
 wf_file *wf_os_api_file_open(const char *path)
 {
 	NTSTATUS Status = STATUS_SUCCESS;
-	HANDLE SourceFileHandle = NULL;
+	//HANDLE SourceFileHandle = NULL;
 	OBJECT_ATTRIBUTES ObjectAttributes;
-	IO_STATUS_BLOCK IoStatusBlock;
+	//IO_STATUS_BLOCK IoStatusBlock;
 	wf_file *file = NULL;
 	UNICODE_STRING SourceFilePath;
 
-	RtlInitUnicodeString(&SourceFilePath, path);
+	RtlInitUnicodeString(&SourceFilePath, (PCWSTR)path);
 
 	file = wf_malloc(sizeof(wf_file));
 	if (file == NULL) {

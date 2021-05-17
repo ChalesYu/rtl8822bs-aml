@@ -7,7 +7,6 @@
 #include <linux/mutex.h>
 #include <linux/interrupt.h>
 
-#define QUEUE_LOCK_USE_MUTEX             0
 #define WF_TX_MAX_DATA_QUEUE_NODE_NUM   (32)
 #define WF_RX_MAX_DATA_QUEUE_NODE_NUM   (14)
 
@@ -20,10 +19,8 @@
 #endif
 
 
-#define HIF_QUEUE_RX_WORKQUEUE_USE      (0)
 #define HIF_QUEUE_TX_WORKQUEUE_USE      (1)
 
-#define HIF_QUEUE_PRE_ALLOC_DEBUG       (1)
 #define HIF_QUEUE_ALLOC_SKB_ALIGN_SZ    (8)
 #define HIF_QUEUE_ALLOC_SKB_NUM         (16)
 #define HIF_MAX_ALLOC_CNT               (4)
@@ -104,8 +101,7 @@ data_queue_node_st * wf_data_queue_remove(wf_que_t *queue);
 void wf_data_queue_unlock(wf_que_t *queue);
 wf_u32 wf_data_queue_len(wf_que_t *queue);
 
-#if HIF_QUEUE_PRE_ALLOC_DEBUG
 int wf_hif_queue_alloc_skb_one(struct sk_buff_head *skb_head,wf_u8 hif_type);
 void wf_hif_queue_alloc_skb(struct sk_buff_head *skb_head,wf_u8 hif_type);
-#endif
+
 #endif

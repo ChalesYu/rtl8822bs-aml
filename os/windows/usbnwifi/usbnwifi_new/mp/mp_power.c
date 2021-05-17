@@ -16,6 +16,8 @@ Revision History:
 Notes:
 
 --*/
+
+#if 1
 #include "pcomp.h"
 #include "wf_debug.h"
 #ifdef DOT11_TRACE_ENABLED
@@ -120,7 +122,7 @@ MpSetPower(
             //
             // Do an internal reset to start fresh
             //
-            Mp11InternalReset(pAdapter, MP_RESET_TYPE_INTERNAL_RESET);
+            //Mp11InternalReset(pAdapter, MP_RESET_TYPE_INTERNAL_RESET);
 
             //
             // Inform the station that we just came up from a power save state
@@ -144,6 +146,9 @@ MpQueryPnPCapabilities(
     )
 {
     NDIS_STATUS ndisStatus = NDIS_STATUS_SUCCESS;
+
+	UNREFERENCED_PARAMETER(pAdapter);
+	UNREFERENCED_PARAMETER(InformationBuffer);
 
     *BytesWritten = 0;
     *BytesNeeded = 0;
@@ -200,4 +205,4 @@ MpRemoveWakeUpPattern(
 
     return NDIS_STATUS_SUCCESS;
 }
-
+#endif

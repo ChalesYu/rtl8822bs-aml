@@ -5,6 +5,8 @@
 #define     CFO_TH_XTAL_LOW         10          // kHz
 #define     CFO_TH_ATC              80          // kHz
 
+#define EEPROM_Default_CrystalCap_8188F 0x20
+
 typedef struct _CFO_TRACKING_
 {
     wf_bool         bATCStatus;
@@ -28,7 +30,8 @@ typedef struct cfo_info_st_
 }ars_cfo_info_st;
 
 
-void ODM_ParsingCFO(void *pars, void *pkt_info,wf_s8 *pcfotail );
-void ODM_CfoTracking(void *ars);
+wf_s32 ODM_ParsingCFO(void *pars, void *pkt_info,wf_s8 *pcfotail );
+wf_s32 ODM_CfoTracking(void *ars);
+wf_s32 ODM_CfoTrackingInit(void* ars);
 
 #endif

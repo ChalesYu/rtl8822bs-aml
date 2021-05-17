@@ -97,7 +97,7 @@ do{\
     dot11txpn.val = dot11txpn.val == 0xffffffffffffULL ? 0: (dot11txpn.val+1);\
 }while(0)
 
-#ifdef CONFIG_RICHV200_FPGA
+#ifdef CONFIG_RICHV200
 #ifndef TXDESC_OFFSET_NEW
 #define TXDESC_OFFSET_NEW      20
 #endif
@@ -493,7 +493,7 @@ extern void wf_tx_agg_num_fill(wf_u16 agg_num, wf_u8 * pbuf);
 extern wf_u32 wf_nic_get_tx_max_len(nic_info_st *nic_info, struct xmit_frame *pxmitframe);
 extern int wf_nic_tx_qsel_check(wf_u8 pre_qsel, wf_u8 next_qsel);
 #endif
-#ifdef CONFIG_RICHV200_FPGA
+#ifdef CONFIG_RICHV200
 void wf_txdesc_chksum(wf_u8 *ptx_desc);
 #else
 void wf_txdesc_chksum(struct tx_desc *ptxdesc);

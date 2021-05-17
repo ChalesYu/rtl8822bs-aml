@@ -15,6 +15,10 @@ void KdeferredRoutine(KDPC *Dpc, PVOID DeferredContext,
 {
     wf_os_api_timer_t *ptimer = DeferredContext;
 
+	UNREFERENCED_PARAMETER(SystemArgument1);
+	UNREFERENCED_PARAMETER(SystemArgument2);
+	UNREFERENCED_PARAMETER(Dpc);
+
     if (ptimer && ptimer->fn)
     {
         ptimer->fn(ptimer->pdata);

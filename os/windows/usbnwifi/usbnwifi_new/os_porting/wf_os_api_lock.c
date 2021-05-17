@@ -43,7 +43,7 @@ wf_inline void wf_lock_irq_lock(wf_lock_spin *plock, wf_irq *pirqL)
 
 wf_inline void wf_lock_irq_unlock(wf_lock_spin *plock, wf_irq *pirqL)
 {
-	plock->OldIrql = *pirqL;
+	plock->OldIrql = (KIRQL)*pirqL;
 	NdisReleaseSpinLock(plock);
 	//spin_unlock_irqrestore(plock, *pirqL);
 }

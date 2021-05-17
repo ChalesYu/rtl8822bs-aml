@@ -125,18 +125,18 @@ enum LPS_CTRL_TYPE {
 };
 
 enum Power_Mgnt {
-    PS_MODE_ACTIVE = 0,
-    PS_MODE_MIN,
-    PS_MODE_MAX,
-    PS_MODE_DTIM,
-    PS_MODE_VOIP,
-    PS_MODE_UAPSD_WMM,
-    PS_MODE_UAPSD,
-    PS_MODE_IBSS,
-    PS_MODE_WWLAN,
-    PM_Radio_Off,
-    PM_Card_Disable,
-    PS_MODE_NUM,
+    PWR_MODE_ACTIVE = 0,
+    PWR_MODE_MIN,
+    PWR_MODE_MAX,
+    PWR_MODE_DTIM,
+    PWR_MODE_VOIP,
+    PWR_MODE_UAPSD_WMM,
+    PWR_MODE_UAPSD,
+    PWR_MODE_IBSS,
+    PWR_MODE_WWLAN,
+    PWR_Radio_Off,
+    PWR_Card_Disable,
+    PWR_MODE_NUM,
 };
 
 typedef enum {
@@ -153,7 +153,12 @@ typedef struct _RSVDPAGE_LOC {
         u8 LocQosNull;
         u8 LocBTQosNull;
         u8 LocApOffloadBCN;
-    } RSVDPAGE_LOC, *PRSVDPAGE_LOC;
+} RSVDPAGE_LOC, *PRSVDPAGE_LOC;
+
+typedef struct
+{
+    wf_u8 lps_ctrl_type;
+} mlme_lps_t;
 
 // For nic_info->pwr_info
 typedef struct pwr_info
@@ -164,74 +169,30 @@ typedef struct pwr_info
     wf_u32 lps_enter_cnts;
     wf_u32 lps_exit_cnts;
     wf_u8 lps_idle_cnts;
-//    wf_bool b_in_suspend;
-//    wf_bool b_internal_auto_suspend;
-//    wf_bool b_keep_fw_alive;
-//    wf_bool b_ips_processing;
-    wf_u8 pwr_state_check_cnts;
     wf_u8 pwr_mgnt;
     wf_u8 pwr_current_mode;
     volatile wf_u8 rpwm;
-    volatile wf_u8 wfprs;
-    wf_u8 bcn_ant_mode;
     wf_bool b_fw_current_in_ps_mode;
     wf_u8 smart_lps;
-//    wf_bool b_leisure_lps;
-    wf_u32 delay_lps_last_timestamp;
+    wf_u64 delay_lps_last_timestamp;
     wf_u32 lps_deny;
     wf_bool b_power_saving;
     wf_bool b_mailbox_sync;
     atomic_t lps_spc_flag;
+    wf_timer_t lps_timer;
 }pwr_info_st;
-
-/***************************************************************
-    Static Function Declare
-***************************************************************/
-static bool st_check_nic_state(nic_info_st *pnic_info, wf_u32 check_state);
-static void st_enter_lps(nic_info_st *pnic_info, char *msg);
-static void st_exit_lps(nic_info_st *pnic_info, char *msg);
-inline static wf_u32 st_get_current_time(void);
-inline static wf_u32 st_ms_to_systime(wf_u32 ms);
-inline static wf_u32 st_systime_to_ms(wf_u32 systime);
-inline static void _st_init_lps_lock(wf_os_api_sema_t *sema);
-inline static void _st_enter_lps_lock(wf_os_api_sema_t *sema);
-inline static void _st_exit_lps_lock(wf_os_api_sema_t *sema);
-static int st_check_lps_ok(nic_info_st *pnic_info);
-static void st_set_lps_mode_hw(nic_info_st *pnic_info, wf_u8 bcn_ant_mode, wf_u8 ps_mode, wf_u8 smart_ps, const char* msg);
-static void st_set_rpwm_hw(nic_info_st *pnic_info, wf_u8 lps_state);
-
-// Configure register
-static void st_set_lps_hw_reg(nic_info_st *pnic_info, wf_u8 type, wf_u8 in_value);
-static void st_set_fw_join_bss_rpt_cmd(nic_info_st *pnic_info, wf_u8 value);
-static void st_hal_set_fw_rsvd_page(nic_info_st *pnic_info);
-static wf_s32 st_get_lps_hw_reg(nic_info_st *pnic_info, wf_u8 type, wf_u8 *out_value);
-static wf_u8* st_query_data_from_ie(wf_u8 * ie, wf_u8 type);
-static wf_u8 * st_ie_to_set_func(wf_u8 * pbuf, int index, wf_u32 len, wf_u8 * source, wf_u32 * frlen);
-static void st_rsvd_page_chip_hw_construct_beacon(nic_info_st *pnic_info, wf_u8 *frame_index_ptr, wf_u32 *length_out);
-static void st_rsvd_page_chip_hw_construct_pspoll(nic_info_st *pnic_info, wf_u8 *frame_index_ptr, wf_u32 *length_out);
-static void st_rsvd_page_chip_hw_construct_nullfunctiondata(nic_info_st *pnic_info, wf_u8 *frame_index_ptr, wf_u32 *length_out,
-                                                            wf_u8 *addr_start_ptr, wf_bool b_qos, wf_u8 ac, wf_u8 eosp, wf_bool b_force_power_save);
-static void st_rsvd_page_mgntframe_attrib_update(nic_info_st * pnic_info, struct pkt_attrib *pattrib);
-static void st_fill_fake_txdesc(nic_info_st *pnic_info, wf_u8 *tx_des_start_addr, wf_u32 pkt_len,
-                                      wf_bool is_ps_poll, wf_bool is_bt_qos_null, wf_bool is_dataframe);
-static wf_s32 st_mgntframe_xmit(nic_info_st * pnic_info, struct xmit_frame *mgnt_frame_ptr);
-static wf_s32 st_chip_hw_mgnt_xmit(nic_info_st * pnic_info, struct xmit_frame * pmgntframe);
-static wf_s32 st_rsvd_page_h2c_loc_set(nic_info_st * nic_info, PRSVDPAGE_LOC rsvdpageloc);
-static void st_set_fw_power_mode(nic_info_st *pnic_info, wf_u8 lps_mode);
-static wf_bool st_mpdu_send_complete_cb(nic_info_st *nic_info, struct xmit_buf *pxmitbuf);
-static wf_bool st_mpdu_insert_sending_queue(nic_info_st *nic_info, struct xmit_frame *pxmitframe, wf_bool ack);
 
 /***************************************************************
     Function Declare
 ***************************************************************/
 
-wf_s32 wf_lps_init(nic_info_st *pnic_info);
-wf_s32 wf_lps_wakeup(nic_info_st *pnic_info, wf_u8 lps_ctrl_type, wf_bool enqueue);
-void wf_lps_deny(nic_info_st *pnic_info, PS_DENY_REASON reason);
-void wf_lps_deny_cancel(nic_info_st *pnic_info, PS_DENY_REASON reason);
-wf_s32 wf_lps_sleep(nic_info_st *pnic_info, wf_u8 lps_ctrl_type, wf_bool enqueue);
-void wf_lps_sleep_mlme_monitor(nic_info_st *pnic_info);
 void wf_lps_ctrl_wk_hdl(nic_info_st *pnic_info, wf_u8 lps_ctrl_type);
+wf_u32 wf_lps_wakeup(nic_info_st *pnic_info, wf_u8 lps_ctrl_type, wf_bool enqueue);
+wf_u32 wf_lps_sleep(nic_info_st *pnic_info, wf_u8 lps_ctrl_type, wf_bool enqueue);
+wf_pt_rst_t wf_lps_sleep_mlme_monitor(wf_pt_t *pt, nic_info_st *pnic_info);
+wf_u32 wf_lps_init(nic_info_st *pnic_info);
+wf_u32 wf_lps_term(nic_info_st *pnic_info);
+void wf_lps_ctrl_state_hdl(nic_info_st *pnic_info, wf_u8 lps_ctrl_type);
 
 #endif
 #endif

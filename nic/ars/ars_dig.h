@@ -54,15 +54,11 @@ typedef enum tag_PHYDM_Pause_Level
     PHYDM_PAUSE_LEVEL_7 = DM_DIG_MAX_PAUSE_TYPE     /* maximum level */
 } PHYDM_PAUSE_LEVEL;
 
-
-#define     DM_DIG_THRESH_HIGH          40
-#define     DM_DIG_THRESH_LOW           35
-
 #define     DM_FALSEALARM_THRESH_LOW    400
 #define     DM_FALSEALARM_THRESH_HIGH   1000
 
 #define     DM_DIG_MAX_NIC              0x3e
-#define     DM_DIG_MIN_NIC              0x1e //0x22//0x1c
+#define     DM_DIG_MIN_NIC              0x1c //0x22//0x1c//0x1e
 #define     DM_DIG_MAX_OF_MIN_NIC       0x3e
 
 #define     DM_DIG_MAX_AP                   0x3e
@@ -104,7 +100,7 @@ typedef enum tag_PHYDM_Pause_Level
 
 typedef struct dig_info_st_
 {
-    wf_bool    bDMInitialGainEnable;
+    wf_bool     bDMInitialGainEnable;
     wf_bool     bStopDIG;       // for debug
     wf_bool     bIgnoreDIG;
     wf_bool     bPSDInProgress;
@@ -112,9 +108,6 @@ typedef struct dig_info_st_
     wf_u8       Dig_Enable_Flag;
     wf_u8       Dig_Ext_Port_Stage;
     
-    int         RssiLowThresh;
-    int             RssiHighThresh;
-
     wf_u32      FALowThresh;
     wf_u32      FAHighThresh;
 
@@ -161,12 +154,12 @@ typedef struct dig_info_st_
     wf_u8       pause_dig_value[DM_DIG_MAX_PAUSE_TYPE + 1];
 }ars_dig_info_st;
 
-void ars_dig_init(void *ars);
+wf_s32 ars_dig_init(void *ars);
 
-void odm_CCKPacketDetectionThresh(void *ars    );
-void odm_FalseAlarmCounterStatistics(void *pars);
-void odm_DIGbyRSSI_LPS(void *ars);
-void odm_DIG(void *ars);
+wf_s32 odm_CCKPacketDetectionThresh(void *ars    );
+wf_s32 odm_FalseAlarmCounterStatistics(void *pars);
+wf_s32 odm_DIGbyRSSI_LPS(void *ars);
+wf_s32 odm_DIG(void *ars);
 
 
 #endif

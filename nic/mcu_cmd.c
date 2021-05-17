@@ -58,17 +58,76 @@
 
 #define RND4(x) (((x >> 2) + (((x & 3) == 0) ?  0: 1)) << 2)
 
-
-
-
-int wf_mcu_cmd_get_status(nic_info_st *nic_info)
+wf_s32 translate_percentage_to_dbm(wf_u32 SignalStrengthIndex)
 {
-    int ret;
+    wf_s32 SignalPower;
+
+#ifdef CONFIG_SIGNAL_SCALE_MAPPING
+    SignalPower = (char) ((SignalStrengthIndex + 1) >> 1);
+    SignalPower -= 95;
+#else
+    SignalPower = SignalStrengthIndex - 100;
+#endif
+
+    return SignalPower; /* in dBM.raw data */
+}
+
+
+wf_s32 signal_scale_mapping(wf_s32 current_sig)
+{
+    wf_s32 result_sig = 0;
+
+    if (current_sig >= 51 && current_sig <= 100)
+    {
+        result_sig = 100;
+    }
+    else if (current_sig >= 41 && current_sig <= 50)
+    {
+        result_sig = 80 + ((current_sig - 40) * 2);
+    }
+    else if (current_sig >= 31 && current_sig <= 40)
+    {
+        result_sig = 66 + (current_sig - 30);
+    }
+    else if (current_sig >= 21 && current_sig <= 30)
+    {
+        result_sig = 54 + (current_sig - 20);
+    }
+    else if (current_sig >= 10 && current_sig <= 20)
+    {
+        result_sig = 42 + (((current_sig - 10) * 2) / 3);
+    }
+    else if (current_sig >= 5 && current_sig <= 9)
+    {
+        result_sig = 22 + (((current_sig - 5) * 3) / 2);
+    }
+    else if (current_sig >= 1 && current_sig <= 4)
+    {
+        result_sig = 6 + (((current_sig - 1) * 3) / 2);
+    }
+    else
+    {
+        result_sig = current_sig;
+    }
+
+    return result_sig;
+
+}
+
+
+wf_s32 wf_mcu_cmd_get_status(nic_info_st *nic_info,wf_u32 cmd)
+{
+    wf_s32 ret;
     /*test base on hisilicon platform, it would need 25000*/
-    wf_u32 timeout = 25000; //2000->8000->15000(for GK7202 , get efuse, dw fw, )
+    wf_u32 timeout = 50000; //2000->8000->15000(for GK7202 , get efuse, dw fw, )
     wf_u32 data = 0;
     wf_u32 tryCnt = 0;
 
+    if( UMSG_OPS_HAL_DW_FW == cmd)
+    {
+        timeout = 150000;
+    }
+    
     // set mailbox int finish
     ret = wf_io_write32(nic_info, WF_MAILBOX_INT_FINISH, 0x12345678);
     if ( WF_RETURN_FAIL == ret)
@@ -87,14 +146,19 @@ int wf_mcu_cmd_get_status(nic_info_st *nic_info)
 
     while (timeout--)
     {
-        int err = 0;
-        if ( nic_info->is_surprise_removed)
-            return WF_RETURN_FAIL;
+        wf_s32 err = 0;
+        if ( nic_info->is_surprise_removed || nic_info->is_driver_stopped)
+            return WF_RETURN_REMOVED_FAIL;
 
         tryCnt++;
         data = wf_io_read32(nic_info, WF_MAILBOX_INT_FINISH,&err);
         if(err)
         {
+            if(WF_RETURN_REMOVED_FAIL == err)
+            {
+                LOG_W("[%s] deviced removed warning",__func__);
+                return WF_RETURN_REMOVED_FAIL;
+            }
             LOG_E("[%s] read failed,err:%d",__func__,err);
             break;
         }
@@ -129,24 +193,20 @@ int wf_mcu_cmd_get_status(nic_info_st *nic_info)
                   2. WF_RETURN_OK
  *************************************************/
 
-int wf_mcu_get_chip_version(nic_info_st *nic_info, wf_u32 *version)
+wf_s32 wf_mcu_get_chip_version(nic_info_st *nic_info, wf_u32 *version)
 {
+    wf_s32 ret   = 0;
 
-    int ret   = 0;
-
-    if (NIC_USB == nic_info->nic_type)
-    {
-        ret = mcu_cmd_communicate(nic_info, UMSG_OPS_READ_VERSION, NULL, 0, version, 1);
-    }
-    else
-    {
-        ret = mcu_cmd_communicate(nic_info, WLAN_OPS_DXX0_READ_VERSION, NULL, 0, version, 1);
-    }
-
+    ret = mcu_cmd_communicate(nic_info, UMSG_OPS_READ_VERSION, NULL, 0, version, 1);
     if (WF_RETURN_FAIL == ret)
     {
-        LOG_E("[%s] READ_VERSION failed,check!!!", __func__);
-        return WF_RETURN_FAIL;
+        LOG_E("[%s] failed", __func__);
+        return ret;
+    }
+    else if(WF_RETURN_CMD_BUSY == ret)
+    {
+        LOG_W("[%s] cmd busy,try again if need!",__func__);
+        return ret;
     }
 
     return WF_RETURN_OK;
@@ -161,30 +221,27 @@ int wf_mcu_get_chip_version(nic_info_st *nic_info, wf_u32 *version)
 * Return       : 1. WF_RETURN_FAIL, function work fail
                  2. WF_RETURN_OK, function work well
 *************************************************/
-int wf_mcu_set_concurrent_mode(nic_info_st *nic_info, wf_bool concur_mode)
+wf_s32 wf_mcu_set_concurrent_mode(nic_info_st *nic_info, wf_bool concur_mode)
 {
-    int ret = 0;
+    wf_s32 ret = 0;
 
-    int mode    = 0;
+    wf_s32 mode    = 0;
 
     if (concur_mode == wf_true)
     {
         mode = 1;
     }
 
-    if (NIC_USB == nic_info->nic_type)
-    {
-        ret = mcu_cmd_communicate(nic_info, UMSG_OPS_HAL_CONFIG_CONCURRENT_MODE, &mode, 1, NULL, 0);
-    }
-    else
-    {
-        ret = mcu_cmd_communicate(nic_info, WLAN_OPS_DXX0_HAL_CONFIG_CONCURRENT_MODE, &mode, 1, NULL, 0);
-
-    }
+    ret = mcu_cmd_communicate(nic_info, UMSG_OPS_HAL_CONFIG_CONCURRENT_MODE, &mode, 1, NULL, 0);
     if (WF_RETURN_FAIL == ret)
     {
-        LOG_E("UMSG_OPS_HAL_CONFIG_CONCURRENT_MODE error");
-        return WF_RETURN_FAIL;
+        LOG_E("[%s] failed", __func__);
+        return ret;
+    }
+    else if(WF_RETURN_CMD_BUSY == ret)
+    {
+        LOG_W("[%s] cmd busy,try again if need!",__func__);
+        return ret;
     }
 
     return WF_RETURN_OK;
@@ -198,9 +255,9 @@ int wf_mcu_set_concurrent_mode(nic_info_st *nic_info, wf_bool concur_mode)
 * Return       : 1. WF_RETURN_FAIL, function work fail
                  2. WF_RETURN_OK, function work well
 *************************************************/
-int wf_mcu_cmd_term(nic_info_st *nic_info)
+wf_s32 wf_mcu_cmd_term(nic_info_st *nic_info)
 {
-    int ret                 = 0;
+    wf_s32 ret                 = 0;
     LOG_I("[%s] %p", __func__, nic_info);
     if ( NIC_USB == nic_info->nic_type)
     {
@@ -211,11 +268,17 @@ int wf_mcu_cmd_term(nic_info_st *nic_info)
         //ret = mcu_cmd_communicate(nic_info,UMSG_OPS_HAL_DEINIT,NULL,0,NULL,0);
     }
 
-    if (WF_RETURN_FAIL == ret )
+    if (WF_RETURN_FAIL == ret)
     {
-        LOG_E("UMSG_OPS_HAL_DEINIT error");
-        return WF_RETURN_FAIL;
+        LOG_E("[%s] failed", __func__);
+        return ret;
     }
+    else if(WF_RETURN_CMD_BUSY == ret)
+    {
+        LOG_W("[%s] cmd busy,try again if need!",__func__);
+        return ret;
+    }
+
     return WF_RETURN_OK;
 }
 
@@ -228,9 +291,9 @@ int wf_mcu_cmd_term(nic_info_st *nic_info)
 * Return       : 1. WF_RETURN_FAIL, function work fail
                  2. WF_RETURN_OK, function work well
 *************************************************/
-int wf_mcu_init_hardware1(nic_info_st *nic_info)
+wf_s32 wf_mcu_init_hardware1(nic_info_st *nic_info)
 {
-    int ret = 0;
+    wf_s32 ret = 0;
 
     wf_u32 is_dw    = 1;
 
@@ -241,16 +304,22 @@ int wf_mcu_init_hardware1(nic_info_st *nic_info)
     else
     {
         wf_u32 u4Tmp[5] = { 0 };
-        ret = mcu_cmd_communicate(nic_info, WLAN_OPS_DXX0_HAL_GET_BCN_PAR, &is_dw, 1, u4Tmp, 5);
+        ret = mcu_cmd_communicate(nic_info, UMSG_OPS_HAL_GET_BCN_PAR, &is_dw, 1, u4Tmp, 5);
         LOG_I("[%s] BcnCtrlVal:%d ", __func__,u4Tmp[0]);
         LOG_I("[%s] TxPause:%d ", __func__,u4Tmp[1]);
         LOG_I("[%s] FwHwTxQCtrl:%d ", __func__,u4Tmp[2]);
         LOG_I("[%s] TbttR:%d ", __func__,u4Tmp[3]);
         LOG_I("[%s] CR_1:%d ", __func__,u4Tmp[4]);
     }
+    
     if (WF_RETURN_FAIL == ret)
     {
         LOG_E("[%s] failed", __func__);
+        return ret;
+    }
+    else if(WF_RETURN_CMD_BUSY == ret)
+    {
+        LOG_W("[%s] cmd busy,try again if need!",__func__);
         return ret;
     }
 
@@ -268,9 +337,9 @@ int wf_mcu_init_hardware1(nic_info_st *nic_info)
 * Return       : 1. WF_RETURN_FAIL, function work fail
                  2. WF_RETURN_OK, function work well
 *************************************************/
-int wf_mcu_burst_pktlen_init(nic_info_st *nic_info)
+wf_s32 wf_mcu_burst_pktlen_init(nic_info_st *nic_info)
 {
-    int ret = 0;
+    wf_s32 ret = 0;
 
     wf_u32 u4Tmp[2] = { 0 };
 
@@ -283,11 +352,16 @@ int wf_mcu_burst_pktlen_init(nic_info_st *nic_info)
     {
         u4Tmp[0] = 0;
         u4Tmp[1] = 1;//1. normal chip
-        ret = mcu_cmd_communicate(nic_info, WLAN_OPS_DXX0_HAL_INIT_PKT_LEN, u4Tmp, 2, NULL, 0);
+        ret = mcu_cmd_communicate(nic_info, UMSG_OPS_HAL_INIT_PKT_LEN, u4Tmp, 2, NULL, 0);
     }
     if (WF_RETURN_FAIL == ret)
     {
         LOG_E("[%s] failed", __func__);
+        return ret;
+    }
+    else if(WF_RETURN_CMD_BUSY == ret)
+    {
+        LOG_W("[%s] cmd busy,try again if need!",__func__);
         return ret;
     }
 
@@ -295,10 +369,9 @@ int wf_mcu_burst_pktlen_init(nic_info_st *nic_info)
 }
 
 
-int wf_mcu_ant_sel_init(nic_info_st *nic_info)
+wf_s32 wf_mcu_ant_sel_init(nic_info_st *nic_info)
 {
-    int ret = 0;
-    wf_u32  tmp = 0;
+    wf_s32 ret = 0;
 
     if (NIC_USB == nic_info->nic_type)
     {
@@ -306,7 +379,7 @@ int wf_mcu_ant_sel_init(nic_info_st *nic_info)
     }
     else
     {
-        ret = mcu_cmd_communicate(nic_info, WLAN_OPS_DXX0_HAL_INIT_ANT_SEL, NULL, 0, NULL, 0);
+        ret = mcu_cmd_communicate(nic_info, UMSG_OPS_HAL_INIT_ANT_SEL, NULL, 0, NULL, 0);
     }
 
     if (WF_RETURN_FAIL == ret)
@@ -314,35 +387,38 @@ int wf_mcu_ant_sel_init(nic_info_st *nic_info)
         LOG_E("[%s] failed", __func__);
         return ret;
     }
-
-    return WF_RETURN_OK;
-}
-
-
-int wf_mcu_update_tx_fifo(nic_info_st *nic_info)
-{
-    int ret = 0;
-    if (NIC_USB == nic_info->nic_type)
+    else if(WF_RETURN_CMD_BUSY == ret)
     {
-        ret =   mcu_cmd_communicate(nic_info, UMSG_OPS_HAL_UPDATE_TX_FIFO, NULL, 0, NULL, 0);
-    }
-    else
-    {
-        ret =   mcu_cmd_communicate(nic_info, WLAN_OPS_DXX0_HAL_GENXIN_TX_FIFO, NULL, 0, NULL, 0);
-    }
-
-    if (WF_RETURN_FAIL == ret )
-    {
-        LOG_E("[%s] UMSG_OPS_HAL_UPDATE_TX_FIFO failed", __func__);
-        return WF_RETURN_FAIL;
+        LOG_W("[%s] cmd busy,try again if need!",__func__);
+        return ret;
     }
 
     return WF_RETURN_OK;
 }
 
-int wf_mcu_update_thermal(nic_info_st *nic_info)
+
+wf_s32 wf_mcu_update_tx_fifo(nic_info_st *nic_info)
 {
-    int ret = 0;
+    wf_s32 ret = 0;
+
+    ret =   mcu_cmd_communicate(nic_info, UMSG_OPS_HAL_UPDATE_TX_FIFO, NULL, 0, NULL, 0);
+    if (WF_RETURN_FAIL == ret)
+    {
+        LOG_E("[%s] failed", __func__);
+        return ret;
+    }
+    else if(WF_RETURN_CMD_BUSY == ret)
+    {
+        LOG_W("[%s] cmd busy,try again if need!",__func__);
+        return ret;
+    }
+
+    return WF_RETURN_OK;
+}
+
+wf_s32 wf_mcu_update_thermal(nic_info_st *nic_info)
+{
+    wf_s32 ret = 0;
     if (NIC_USB == nic_info->nic_type)
     {
         ret = mcu_cmd_communicate(nic_info, UMSG_OPS_HAL_UPDATE_THERMAL, NULL, 0, NULL, 0);
@@ -352,17 +428,22 @@ int wf_mcu_update_thermal(nic_info_st *nic_info)
         // todo
     }
 
-    if (WF_RETURN_FAIL == ret )
+    if (WF_RETURN_FAIL == ret)
     {
-        LOG_E("[%s] UMSG_OPS_HAL_UPDATE_THERMAL failed", __func__);
-        return WF_RETURN_FAIL;
+        LOG_E("[%s] failed", __func__);
+        return ret;
+    }
+    else if(WF_RETURN_CMD_BUSY == ret)
+    {
+        LOG_W("[%s] cmd busy,try again if need!",__func__);
+        return ret;
     }
 
     return WF_RETURN_OK;
 }
 
 #ifdef CONFIG_CONCURRENT_MODE
-int wf_mcu_get_partner_fwstate(nic_info_st *pnic_info)
+wf_s32 wf_mcu_get_partner_fwstate(nic_info_st *pnic_info)
 {
 	nic_info_st *pvir_nic = pnic_info->vir_nic;
 	if(pnic_info == NULL)
@@ -379,36 +460,104 @@ int wf_mcu_get_partner_fwstate(nic_info_st *pnic_info)
 #endif
 
 #ifdef CONFIG_LPS
-void wf_mcu_lps_config(nic_info_st * pnic_info) 
+int wf_mcu_set_lps_opt(nic_info_st *pnic_info, wf_u32 data)
+{
+    wf_u32 arg[1];
+    wf_u32 val;
+    int ret = 0;
+
+    if(data == 0)
+    {
+        arg[0] = data;
+        ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_HAL_LPS_OPT, arg, 1, &val, 1);
+    }
+    else
+    {
+        arg[0] = data;
+        ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_HAL_LPS_OPT, arg, 1, NULL, 0);
+    }
+    
+    
+    if (WF_RETURN_FAIL == ret )
+    {
+        LOG_E("[%s] UMSG_OPS_HAL_LPS_OPT failed", __func__);
+        return WF_RETURN_FAIL;
+    }
+
+    return WF_RETURN_OK;
+
+}
+int wf_mcu_set_lps_config(nic_info_st *pnic_info) 
 {
     wf_u32 arg[2];
     pwr_info_st *pwr_info = pnic_info->pwr_info;
+    int ret = 0;
+    
     arg[0] = pwr_info->smart_lps;
     arg[1] = pwr_info->pwr_mgnt;
-    mcu_cmd_communicate(pnic_info, UMSG_OPS_HAL_LPS_CONFIG, arg, 2, NULL, 0);
+    
+    ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_HAL_LPS_CONFIG, arg, 2, NULL, 0);
+    if (WF_RETURN_FAIL == ret)
+    {
+        LOG_E("[%s] failed", __func__);
+        return ret;
+    }
+    else if(WF_RETURN_CMD_BUSY == ret)
+    {
+        LOG_W("[%s] cmd busy,try again if need!",__func__);
+        return ret;
+    }
+
+    return 0;
 }
 
-void wf_mcu_set_fw_lps_config(nic_info_st *pnic_info)
+int wf_mcu_set_fw_lps_config(nic_info_st *pnic_info)
 {
     wf_u32 aid = 0;
     wf_wlan_info_t *wlan_info = (wf_wlan_info_t *)pnic_info->wlan_info;
     wf_wlan_network_t *cur_network = &(wlan_info->cur_network);
+    int ret = 0;
 
     aid = (wf_u32)cur_network->aid;
 
-    mcu_cmd_communicate(pnic_info, UMSG_OPS_HAL_LPS_SET, &aid, 1, NULL, 0);
+    ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_HAL_LPS_SET, &aid, 1, NULL, 0);
+    if (WF_RETURN_FAIL == ret)
+    {
+        LOG_E("[%s] failed", __func__);
+        return ret;
+    }
+    else if(WF_RETURN_CMD_BUSY == ret)
+    {
+        LOG_W("[%s] cmd busy,try again if need!",__func__);
+        return ret;
+    }
+    
+    return 0;
+}
+
+int wf_mcu_set_fw_lps_get(nic_info_st *pnic_info)
+{
+    wf_s32 ret = WF_RETURN_OK;
+    wf_u32 arg[1];
+
+    arg[0] = wf_false;
+    
+    ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_HAL_LPS_GET, arg, 1, NULL, 0);
+    if (WF_RETURN_FAIL == ret)
+    {
+        LOG_E("[%s] UMSG_OPS_HAL_LPS_GET failed", __func__);
+        return WF_RETURN_FAIL;
+    }
+
+    return WF_RETURN_OK;
 }
 
 #endif
 
-int wf_mcu_set_op_mode(nic_info_st *nic_info, wf_u32 mode)
+wf_s32 wf_mcu_set_op_mode(nic_info_st *nic_info, wf_u32 mode)
 {
-    int ret = 0;
-
-    wf_u8 val8;
+    wf_s32 ret = 0;
     wf_u32 tmp[5] = { 0 };
-    wf_u32 hw_mode;
-    mlme_state_e state;
     wf_bool bConnect;
     wf_u32 mlmeState;
     wf_u32 fwState;
@@ -451,7 +600,11 @@ int wf_mcu_set_op_mode(nic_info_st *nic_info, wf_u32 mode)
         /* Sniffer mode */
         case WF_MONITOR_MODE:
             tmp[0] = _HW_STATE_MONITOR_;
-            tmp[4]  = BIT0|BIT1|BIT2|BIT3|BIT5|BIT8|BIT11|BIT12|BIT13;
+            tmp[4] = BIT1|BIT2|BIT3|BIT29|BIT13|BIT14|BIT30|BIT28;
+            
+
+            tmp[4] |= BIT8;
+
             break;
 
         case WF_REPEAT_MODE:
@@ -476,20 +629,16 @@ int wf_mcu_set_op_mode(nic_info_st *nic_info, wf_u32 mode)
     tmp[3] = fwState;    //get fw stste
 #endif
     tmp[4] = WF_BIT(0) | WF_BIT(2) | WF_BIT(31);
-    if (NIC_USB == nic_info->nic_type)
-    {
-        ret = mcu_cmd_communicate(nic_info, UMSG_OPS_HW_SET_OP_MODE, tmp, 5, NULL, 0);
-    }
-    else
-    {
-        tmp[4] = WF_BIT(0) | WF_BIT(2) | WF_BIT(31);
-        LOG_I("[%s] 0x%x,0x%x,0x%x,0x%x,0x%x",__func__,tmp[0],tmp[1],tmp[2],tmp[3],tmp[4]);
-        ret = mcu_cmd_communicate(nic_info, WLAN_OPS_DXX0_HW_SET_OP_MODE, tmp, 5, NULL, 0);
-    }
+    ret = mcu_cmd_communicate(nic_info, UMSG_OPS_HW_SET_OP_MODE, tmp, 5, NULL, 0);
     if (WF_RETURN_FAIL == ret)
     {
-        LOG_E("===>%s,fail!\n", __func__);
-        return WF_RETURN_FAIL;
+        LOG_E("[%s] failed", __func__);
+        return ret;
+    }
+    else if(WF_RETURN_CMD_BUSY == ret)
+    {
+        LOG_W("[%s] cmd busy,try again if need!",__func__);
+        return ret;
     }
 
     return WF_RETURN_OK;
@@ -497,23 +646,19 @@ int wf_mcu_set_op_mode(nic_info_st *nic_info, wf_u32 mode)
 }
 
 
-int wf_mcu_set_ch_bw(nic_info_st *nic_info, wf_u32 *args, wf_u32 arg_len)
+wf_s32 wf_mcu_set_ch_bw(nic_info_st *nic_info, wf_u32 *args, wf_u32 arg_len)
 {
-    int ret = 0;
-    wf_u32  tmp = 0;
+    wf_s32 ret = 0;
 
-    if (NIC_USB == nic_info->nic_type)
-    {
-        ret = mcu_cmd_communicate(nic_info, UMSG_OPS_HAL_CHNLBW_MODE, args, arg_len, NULL, 0);
-    }
-    else
-    {
-        ret = mcu_cmd_communicate(nic_info, WLAN_OPS_DXX0_HAL_CHNLBW_MODE, args, arg_len, NULL, 0);
-    }
-
+    ret = mcu_cmd_communicate(nic_info, UMSG_OPS_HAL_CHNLBW_MODE, args, arg_len, NULL, 0);
     if (WF_RETURN_FAIL == ret)
     {
         LOG_E("[%s] failed", __func__);
+        return ret;
+    }
+    else if(WF_RETURN_CMD_BUSY == ret)
+    {
+        LOG_W("[%s] cmd busy,try again if need!",__func__);
         return ret;
     }
 
@@ -526,38 +671,33 @@ int wf_mcu_set_ch_bw(nic_info_st *nic_info, wf_u32 *args, wf_u32 arg_len)
 }
 
 
-int  wf_mcu_set_hw_reg(nic_info_st *nic_info, wf_u32 *value, wf_u32 len)
+wf_s32  wf_mcu_set_hw_reg(nic_info_st *nic_info, wf_u32 *value, wf_u32 len)
 {
-    int  ret = WF_RETURN_OK;
+    wf_s32  ret = WF_RETURN_OK;
     if (len > MAILBOX_MAX_TXLEN)
     {
         LOG_E("%s len = %d is bigger than MAILBOX_MAX_TXLEN(%d), check!!!! ", __func__,  len, MAILBOX_MAX_TXLEN);
         return WF_RETURN_FAIL;
     }
 
-
-    if (NIC_USB == nic_info->nic_type)
+    ret = mcu_cmd_communicate(nic_info, UMSG_OPS_HAL_SET_HWREG, value, len, NULL, 0);
+    if (WF_RETURN_FAIL == ret)
     {
-        ret = mcu_cmd_communicate(nic_info, UMSG_OPS_HAL_SET_HWREG, value, len, NULL, 0);
+        LOG_E("[%s] failed", __func__);
+        return ret;
     }
-    else
+    else if(WF_RETURN_CMD_BUSY == ret)
     {
-        ret = mcu_cmd_communicate(nic_info, WLAN_OPS_DXX0_HAL_SET_HWREG, value, len, NULL, 0);
-    }
-
-    if (WF_RETURN_FAIL == ret )
-    {
-        LOG_E("[%s] UMSG_OPS_HAL_SET_HWREG[%d] failed, check!!!!", __func__, value[0]);
-        return WF_RETURN_FAIL;
+        LOG_W("[%s] cmd busy,try again if need!",__func__);
+        return ret;
     }
 
     return ret;
 }
 
 
-int wf_mcu_set_hw_invalid_all(nic_info_st *nic_info)
+wf_s32 wf_mcu_set_hw_invalid_all(nic_info_st *nic_info)
 {
-    int ret = 0;
     wf_u32 arg[2] = {0};
     hw_info_st *hw_info = (hw_info_st *)nic_info->hw_info;
     arg[0] = HW_VAR_CAM_INVALID_ALL;
@@ -568,10 +708,10 @@ int wf_mcu_set_hw_invalid_all(nic_info_st *nic_info)
 }
 
 
-int wf_mcu_set_config_xmit(nic_info_st *nic_info, int event, wf_u32 val)
+wf_s32 wf_mcu_set_config_xmit(nic_info_st *nic_info, wf_s32 event, wf_u32 val)
 {
     wf_u32 temp;
-    int ret = 0;
+    wf_s32 ret = 0;
     temp = wf_io_read32(nic_info, WF_XMIT_CTL,NULL);
 
     if (event & WF_XMIT_AGG_MAXNUMS)
@@ -608,39 +748,42 @@ int wf_mcu_set_config_xmit(nic_info_st *nic_info, int event, wf_u32 val)
     return WF_RETURN_OK;
 }
 
+// wf_s32  wf_mcu_set_no_filter(nic_info_st *nic_info)
+// {
+//     wf_s32 ret = 0;
+//     wf_s32 var;
 
+//     if (NIC_USB == nic_info->nic_type)
+//     {
+//         var = 1;
+//         ret = mcu_cmd_communicate(nic_info, UMSG_OPS_HAL_NOTCH_FILTER, &var, 1, NULL, 0);
+//     }
+//     else
+//     {
+//         //todo
+//     }
 
-int  wf_mcu_set_no_filter(nic_info_st *nic_info)
-{
-    int ret = 0;
-    int var;
+//     if (WF_RETURN_FAIL == ret)
+//     {
+//         LOG_E("[%s] failed", __func__);
+//         return ret;
+//     }
+//     else if(WF_RETURN_CMD_BUSY == ret)
+//     {
+//         LOG_W("[%s] cmd busy,try again if need!",__func__);
+//         return ret;
+//     }
 
-    if (NIC_USB == nic_info->nic_type)
-    {
-        var = 1;
-        ret = mcu_cmd_communicate(nic_info, UMSG_OPS_HAL_NOTCH_FILTER, &var, 1, NULL, 0);
-    }
-    else
-    {
-        //todo
-    }
-
-    if (WF_RETURN_FAIL == ret )
-    {
-        LOG_E("[%s] UMSG_OPS_HAL_PHY_IQ_CALIBRATE failed", __func__);
-        return WF_RETURN_FAIL;
-    }
-
-    return WF_RETURN_OK;
-}
+//     return WF_RETURN_OK;
+// }
 
 // use for control ODM
-int  wf_mcu_set_user_info(nic_info_st *nic_info, wf_bool state)
+wf_s32  wf_mcu_set_user_info(nic_info_st *nic_info, wf_bool state)
 {
-    int ret = 0;
-    int var;
-
-    #ifdef CONFIG_RICHV200_FPGA
+#ifdef CONFIG_RICHV200
+	
+	wf_s32 var;
+	wf_s32 ret = 0;
     if(state) {
         var = 0x000000001;
     } else {
@@ -663,46 +806,68 @@ int  wf_mcu_set_user_info(nic_info_st *nic_info, wf_bool state)
 
     ret = mcu_cmd_communicate(nic_info, UMSG_OPS_MP_USER_INFO, &var, 1, NULL, 0);
 
-    if (WF_RETURN_FAIL == ret )
+    if (WF_RETURN_FAIL == ret)
     {
-        LOG_E("[%s] UMSG_OPS_MP_USER_INFO failed", __func__);
-        return WF_RETURN_FAIL;
+        LOG_E("[%s] failed", __func__);
+        return ret;
     }
-    #else
+    else if(WF_RETURN_CMD_BUSY == ret)
+    {
+        LOG_W("[%s] cmd busy,try again if need!",__func__);
+        return ret;
+    }
+	
+#else
+    hw_info_st *phw_info = NULL;
+
+    if (nic_info->hw_info)
+    {
+        phw_info = nic_info->hw_info;
+    }
 
     if (state == wf_false)
     {
+        #if 0
         // ODM disable
-        wf_set_odm_dig(nic_info,wf_true,0x26);
-        wf_odm_set_ability(nic_info, ODM_FUNC_BACKUP, 0);
+        wf_mcu_dig_set(nic_info,wf_true,0x26);
+        wf_mcu_msg_body_set_ability(nic_info, ODM_FUNC_BACKUP, 0);
+        #else
+        phw_info->use_drv_odm = wf_false;
+        LOG_D("Diable ODM");
+        #endif
     }
     else
     {
         //ODM enable
-        wf_odm_set_ability(nic_info, ODM_FUNC_RESTORE, 0);
-        wf_set_odm_dig(nic_info,wf_true,0xff);
+        #if 0
+        wf_mcu_msg_body_set_ability(nic_info, ODM_FUNC_RESTORE, 0);
+        wf_mcu_dig_set(nic_info,wf_true,0xff);
+        #else
+        phw_info->use_drv_odm = wf_true;
+        LOG_D("Enable ODM");
+        #endif
     }
 
-    #endif
+#endif
 
     return WF_RETURN_OK;
 }
 
-int wf_mcu_enable_xmit(nic_info_st *nic_info)
+wf_s32 wf_mcu_enable_xmit(nic_info_st *nic_info)
 {
     return WF_RETURN_OK;
 }
 
 
-int wf_mcu_disable_xmit(nic_info_st *nic_info)
+wf_s32 wf_mcu_disable_xmit(nic_info_st *nic_info)
 {
     return WF_RETURN_OK;
 }
 
 
-int wf_mcu_init_hardware2(nic_info_st *nic_info, hw_param_st *param)
+wf_s32 wf_mcu_init_hardware2(nic_info_st *nic_info, hw_param_st *param)
 {
-    int ret = 0;   
+    wf_s32 ret = 0;   
 
     if (NIC_USB == nic_info->nic_type)
     {
@@ -711,7 +876,7 @@ int wf_mcu_init_hardware2(nic_info_st *nic_info, hw_param_st *param)
     else
     {
         hw_info_st *hwinfo = (hw_info_st *)nic_info->hw_info;
-        int i = 0;
+        wf_s32 i = 0;
         LOG_D("arg[0]:0x%x\n", param->send_msg[0]);
         for (i = 0; i < WF_ETH_ALEN; i++)
         {
@@ -719,12 +884,17 @@ int wf_mcu_init_hardware2(nic_info_st *nic_info, hw_param_st *param)
             LOG_D("mac[%d]= 0x%x\n", i + 1, param->send_msg[i + 1]);
         }
 
-        ret = mcu_cmd_communicate(nic_info, WLAN_OPS_DXX0_HAL_FW_INIT, param->send_msg, 7, param->recv_msg, 9);
+        ret = mcu_cmd_communicate(nic_info, UMSG_OPS_HAL_FW_INIT, param->send_msg, 7, param->recv_msg, 9);
     }
 
     if (WF_RETURN_FAIL == ret)
     {
-        LOG_E("hal fw init failed");
+        LOG_E("[%s] failed", __func__);
+        return ret;
+    }
+    else if(WF_RETURN_CMD_BUSY == ret)
+    {
+        LOG_W("[%s] cmd busy,try again if need!",__func__);
         return ret;
     }
 
@@ -732,9 +902,9 @@ int wf_mcu_init_hardware2(nic_info_st *nic_info, hw_param_st *param)
 }
 
 
-int wf_mcu_set_mlme_scan(nic_info_st *nic_info, wf_bool enable)
+wf_s32 wf_mcu_set_mlme_scan(nic_info_st *nic_info, wf_bool enable)
 {
-    int ret = 0;
+    wf_s32 ret = 0;
     wf_u32 arg[7] = {0};
     wf_bool bConnect;
     wf_u8 linkState;
@@ -753,6 +923,11 @@ int wf_mcu_set_mlme_scan(nic_info_st *nic_info, wf_bool enable)
     {
         fwState = WIFI_SITE_MONITOR;
     }
+	else
+	{
+		LOG_E("unknow fw state!!!");
+		return -1;
+	}
     
     wf_mlme_get_connect(nic_info, &bConnect);
     if (bConnect == wf_true)
@@ -783,18 +958,16 @@ int wf_mcu_set_mlme_scan(nic_info_st *nic_info, wf_bool enable)
 #endif
     arg[6] = 0;
 
-    if (NIC_USB == nic_info->nic_type)
-    {
-        ret = mcu_cmd_communicate(nic_info, UMSG_OPS_HW_SET_MLME_SITE, arg, 7, NULL, 0);
-    }
-    else
-    {
-        ret = mcu_cmd_communicate(nic_info, WLAN_OPS_DXX0_HW_SET_MLME_SITE, arg, 7, NULL, 0);
-    }
+    ret = mcu_cmd_communicate(nic_info, UMSG_OPS_HW_SET_MLME_SITE, arg, 7, NULL, 0);
     if (WF_RETURN_FAIL == ret)
     {
-        LOG_E("UMSG_OPS_HW_SET_MLME_SITE failed");
-        return -1;
+        LOG_E("[%s] failed", __func__);
+        return ret;
+    }
+    else if(WF_RETURN_CMD_BUSY == ret)
+    {
+        LOG_W("[%s] cmd busy,try again if need!",__func__);
+        return ret;
     }
 
     if (enable == wf_true)
@@ -812,10 +985,10 @@ int wf_mcu_set_mlme_scan(nic_info_st *nic_info, wf_bool enable)
 
 
 
-int wf_mcu_set_mlme_join(nic_info_st *nic_info, wf_u8 type)
+wf_s32 wf_mcu_set_mlme_join(nic_info_st *nic_info, wf_u8 type)
 {
     wf_u32 param[5] = { 0 };
-    int ret = 0;
+    wf_s32 ret = 0;
     wf_u32 mlmeState;
     wf_u32 fwState;
     sys_work_mode_e work_mode = wf_local_cfg_get_work_mode(nic_info);
@@ -831,6 +1004,11 @@ int wf_mcu_set_mlme_join(nic_info_st *nic_info, wf_u8 type)
         mlmeState = _HW_STATE_STATION_;
         fwState = WIFI_STATION_STATE;
     }
+	else
+	{
+		LOG_E("unknow fw state!!!");
+		return -1;
+	}
     
     param[0] = type;
 
@@ -852,18 +1030,22 @@ int wf_mcu_set_mlme_join(nic_info_st *nic_info, wf_u8 type)
     ret = mcu_cmd_communicate(nic_info, UMSG_OPS_HW_SET_MLME_JOIN, param, 5, NULL, 0);
     if (WF_RETURN_FAIL == ret)
     {
-        LOG_E("UMSG_OPS_HW_SET_MLME_JOIN failed");
-        return -1;
+        LOG_E("[%s] failed", __func__);
+        return ret;
+    }
+    else if(WF_RETURN_CMD_BUSY == ret)
+    {
+        LOG_W("[%s] cmd busy,try again if need!",__func__);
+        return ret;
     }
 
     return 0;
 }
 
-void wf_mcu_hw_var_set_macaddr(nic_info_st *nic_info, wf_u8 * val)
+wf_s32 wf_mcu_hw_var_set_macaddr(nic_info_st *nic_info, wf_u8 * val)
 {
     wf_u8 idx = 0;
-    wf_u32 reg_macid;
-    wf_u32 ret = 0;
+    wf_s32 ret = 0;
     wf_u32 var[7] = { 0 };
 
 #ifdef CONFIG_CONCURRENT_MODE
@@ -876,21 +1058,26 @@ void wf_mcu_hw_var_set_macaddr(nic_info_st *nic_info, wf_u8 * val)
 
     ret =
         mcu_cmd_communicate(nic_info, UMSG_OPS_HAL_SET_MAC, var, 7,NULL,0);
-        if (WF_RETURN_FAIL == ret)
+    if (WF_RETURN_FAIL == ret)
     {
-        LOG_E("UMSG_OPS_HAL_SET_BSSID failed");
-
+        LOG_E("[%s] failed", __func__);
+        return ret;
     }
+    else if(WF_RETURN_CMD_BUSY == ret)
+    {
+        LOG_W("[%s] cmd busy,try again if need!",__func__);
+        return ret;
+    }
+    return 0;
 }
 
 
 
-int wf_mcu_set_bssid(nic_info_st *nic_info, wf_u8 *bssid)
+wf_s32 wf_mcu_set_bssid(nic_info_st *nic_info, wf_u8 *bssid)
 {
     wf_u8 idx = 0;
-    wf_u32 reg_bssid;
     wf_u32 var[7] = { 0 };
-    int ret = 0;
+    wf_s32 ret = 0;
 
 #ifdef CONFIG_CONCURRENT_MODE
     if(nic_info->nic_num == 1){
@@ -916,8 +1103,13 @@ int wf_mcu_set_bssid(nic_info_st *nic_info, wf_u8 *bssid)
     ret = mcu_cmd_communicate(nic_info, UMSG_OPS_HAL_SET_BSSID, var, 7, NULL, 0);
     if (WF_RETURN_FAIL == ret)
     {
-        LOG_E("UMSG_OPS_HAL_SET_BSSID failed");
-        return -1;
+        LOG_E("[%s] failed", __func__);
+        return ret;
+    }
+    else if(WF_RETURN_CMD_BUSY == ret)
+    {
+        LOG_W("[%s] cmd busy,try again if need!",__func__);
+        return ret;
     }
 
     return 0;
@@ -925,9 +1117,9 @@ int wf_mcu_set_bssid(nic_info_st *nic_info, wf_u8 *bssid)
 
 
 
-int wf_mcu_set_sifs(nic_info_st *nic_info, wf_u32 value)
+wf_s32 wf_mcu_set_sifs(nic_info_st *nic_info, wf_u32 value)
 {
-    int i = 0;
+    wf_s32 i = 0;
     wf_u32 arg[5] = {0};
 
     arg[0] = HW_VAR_RESP_SIFS;
@@ -940,9 +1132,8 @@ int wf_mcu_set_sifs(nic_info_st *nic_info, wf_u32 value)
     return wf_mcu_set_hw_reg(nic_info, arg, 5);
 }
 
-int wf_mcu_set_macid_wakeup(nic_info_st *nic_info, wf_u32 wdn_id)
+wf_s32 wf_mcu_set_macid_wakeup(nic_info_st *nic_info, wf_u32 wdn_id)
 {
-    int ret = 0;
     wf_u32 arg[2] = {0};
 
     arg[0] = HW_VAR_MACID_WAKEUP;
@@ -951,9 +1142,9 @@ int wf_mcu_set_macid_wakeup(nic_info_st *nic_info, wf_u32 wdn_id)
     return wf_mcu_set_hw_reg(nic_info, arg, 2);
 }
 
-int wf_mcu_set_basic_rate (nic_info_st *nic_info, wf_u16 br_cfg)
+wf_s32 wf_mcu_set_basic_rate (nic_info_st *nic_info, wf_u16 br_cfg)
 {
-    int ret = 0;
+    wf_s32 ret = 0;
     wf_u32 BrateCfg;
     wf_u16 rrsr_2g_force_mask = WF_RATE_1M | WF_RATE_2M | WF_RATE_5_5M | WF_RATE_11M;
     wf_u16 rrsr_2g_allow_mask = WF_RATE_24M | WF_RATE_12M | WF_RATE_6M | rrsr_2g_force_mask;
@@ -964,17 +1155,21 @@ int wf_mcu_set_basic_rate (nic_info_st *nic_info, wf_u16 br_cfg)
     ret = mcu_cmd_communicate(nic_info, UMSG_OPS_HW_SET_BASIC_RATE, &BrateCfg, 1, NULL, 0);
     if (WF_RETURN_FAIL == ret)
     {
-        LOG_E("UMSG_OPS_HW_SET_BASIC_RATE failed");
-        return -1;
+        LOG_E("[%s] failed", __func__);
+        return ret;
+    }
+    else if(WF_RETURN_CMD_BUSY == ret)
+    {
+        LOG_W("[%s] cmd busy,try again if need!",__func__);
+        return ret;
     }
 
     return WF_RETURN_OK;
 }
 
 
-int wf_mcu_set_preamble(nic_info_st *nic_info, wf_u8 short_val)
+wf_s32 wf_mcu_set_preamble(nic_info_st *nic_info, wf_u8 short_val)
 {
-    int ret = 0;
     wf_u32 arg[2] = {0};
 
     arg[0] = HW_VAR_ACK_PREAMBLE;
@@ -983,12 +1178,11 @@ int wf_mcu_set_preamble(nic_info_st *nic_info, wf_u8 short_val)
     return wf_mcu_set_hw_reg(nic_info, arg, 2);
 }
 
-int wf_mcu_set_wmm_para_disable(nic_info_st *nic_info, wdn_net_info_st *wdn_info)
+wf_s32 wf_mcu_set_wmm_para_disable(nic_info_st *nic_info, wdn_net_info_st *wdn_info)
 {
-    wf_u8 ACI, ACM, AIFS, ECWMin, ECWMax, aSifsTime;
+    wf_u8 AIFS, ECWMin, ECWMax, aSifsTime;
     wf_u32 acParm;
     wf_u16 TXOP;
-    int ret = 0;
     wf_u32 arg[2] = {0};
 
     if(wdn_info->network_type & WIRELESS_11_24N)
@@ -1038,12 +1232,12 @@ int wf_mcu_set_wmm_para_disable(nic_info_st *nic_info, wdn_net_info_st *wdn_info
 
 }
 
-int wf_mcu_set_wmm_para_enable(nic_info_st *nic_info, wdn_net_info_st *wdn_info)
+wf_s32 wf_mcu_set_wmm_para_enable(nic_info_st *nic_info, wdn_net_info_st *wdn_info)
 {
     wf_u8 ACI, ACM, AIFS, ECWMin, ECWMax, aSifsTime;
     wf_u16 TXOP;
     wf_u32 acParm;
-    int i = 0;
+    wf_s32 i = 0;
     wf_wmm_para_st *wmm_info = &wdn_info->wmm_info;
     wf_u32 arg[2] = {0};
 
@@ -1104,7 +1298,7 @@ int wf_mcu_set_wmm_para_enable(nic_info_st *nic_info, wdn_net_info_st *wdn_info)
 }
 
 
-int wf_mcu_set_bcn_intv (nic_info_st *nic_info, wf_u16 val)
+wf_s32 wf_mcu_set_bcn_intv (nic_info_st *nic_info, wf_u16 val)
 {
     wf_u32 arg[2] = {0};
 
@@ -1114,9 +1308,8 @@ int wf_mcu_set_bcn_intv (nic_info_st *nic_info, wf_u16 val)
 }
 
 
-int wf_mcu_set_slot_time(nic_info_st *nic_info, wf_u32 slotTime)
+wf_s32 wf_mcu_set_slot_time(nic_info_st *nic_info, wf_u32 slotTime)
 {
-    int ret = 0;
     wf_u32 arg[2] = {0};
 
     arg[0] = HW_VAR_SLOT_TIME;
@@ -1126,11 +1319,10 @@ int wf_mcu_set_slot_time(nic_info_st *nic_info, wf_u32 slotTime)
 }
 
 
-int wf_mcu_set_correct_tsf(nic_info_st *nic_info, wf_u64 tsf)
+wf_s32 wf_mcu_set_correct_tsf(nic_info_st *nic_info, wf_u64 tsf)
 {
-    wf_wlan_info_t *pwlan_info;
     wf_u32 arg[6] = {0};
-    wf_u32 ret;
+    wf_s32 ret = WF_RETURN_OK;
 
     arg[0] = HW_VAR_CORRECT_TSF;
     arg[1] = (wf_u32)tsf;
@@ -1159,21 +1351,25 @@ int wf_mcu_set_correct_tsf(nic_info_st *nic_info, wf_u64 tsf)
     }
     else
     {
-//        ret = mcu_cmd_communicate(nic_info, WLAN_OPS_DXX0_HAL_SET_HWREG, value, len, NULL, 0);
+//        ret = mcu_cmd_communicate(nic_info, UMSG_OPS_HAL_SET_HWREG, value, len, NULL, 0);
     }
 
-    if (WF_RETURN_FAIL == ret )
+    if (WF_RETURN_FAIL == ret)
     {
-        LOG_E("[%s] UMSG_OPS_HW_SET_CORRECT_TSF failed, check!!!!", __func__);
-        return WF_RETURN_FAIL;
+        LOG_E("[%s] failed", __func__);
+        return ret;
+    }
+    else if(WF_RETURN_CMD_BUSY == ret)
+    {
+        LOG_W("[%s] cmd busy,try again if need!",__func__);
+        return ret;
     }
     return 0;
 }
 
 
-int wf_mcu_set_media_status(nic_info_st *nic_info, wf_u32 status)
+wf_s32 wf_mcu_set_media_status(nic_info_st *nic_info, wf_u32 status)
 {
-    int ret = 0;
     wf_u32 arg[2] = {0};
 #ifdef CONFIG_CONCURRENT_MODE
     if(nic_info->nic_num == 1)
@@ -1193,23 +1389,28 @@ int wf_mcu_set_media_status(nic_info_st *nic_info, wf_u32 status)
 }
 
 
-int wf_mcu_set_phy_config(nic_info_st *nic_info, phy_config_t *cfg)
+wf_s32 wf_mcu_set_phy_config(nic_info_st *nic_info, phy_config_t *cfg)
 {
-    int ret = 0;
+    wf_s32 ret = 0;
 
     ret = mcu_cmd_communicate(nic_info, UMSG_OPS_HAL_CONFIG_MSG, (wf_u32 *)cfg, sizeof(phy_config_t) / 4, NULL, 0);
     if (WF_RETURN_FAIL == ret)
     {
-        LOG_E("UMSG_OPS_HAL_CONFIG_MSG failed");
-        return -1;
+        LOG_E("[%s] failed", __func__);
+        return ret;
+    }
+    else if(WF_RETURN_CMD_BUSY == ret)
+    {
+        LOG_W("[%s] cmd busy,try again if need!",__func__);
+        return ret;
     }
 
     return 0;
 }
 
-int wf_mcu_mp_bb_rf_gain_offset(nic_info_st *nic_info)
+wf_s32 wf_mcu_mp_bb_rf_gain_offset(nic_info_st *nic_info)
 {
-    int ret = 0;
+    wf_s32 ret = 0;
 
     if (NIC_USB == nic_info->nic_type)
     {
@@ -1217,21 +1418,26 @@ int wf_mcu_mp_bb_rf_gain_offset(nic_info_st *nic_info)
     }
     else
     {
-        ret = mcu_cmd_communicate(nic_info, WLAN_OPS_DXX0_MP_BB_RF_GAIN_OFFSET, NULL, 0, NULL, 0);
+        ret = mcu_cmd_communicate(nic_info, UMSG_OPS_MP_BB_RF_GAIN_OFFSET, NULL, 0, NULL, 0);
     }
 
     if (WF_RETURN_FAIL == ret)
     {
-        LOG_E("[%s] WLAN_OPS_DXX0_MP_BB_RF_GAIN_OFFSET failed", __func__);
-        return WF_RETURN_FAIL;
+        LOG_E("[%s] failed", __func__);
+        return ret;
+    }
+    else if(WF_RETURN_CMD_BUSY == ret)
+    {
+        LOG_W("[%s] cmd busy,try again if need!",__func__);
+        return ret;
     }
 
     return WF_RETURN_OK;
 }
 
-int wf_mcu_mbox1_cmd(nic_info_st *nic_info, wf_u8 *cmd, wf_u32 cmd_len, wf_u8 ElementID )
+wf_s32 wf_mcu_mbox1_cmd(nic_info_st *nic_info, wf_u8 *cmd, wf_u32 cmd_len, wf_u8 ElementID )
 {
-    int ret     = 0;
+    wf_s32 ret     = 0;
     wf_u32 *tmp     = NULL;
     wf_u32 slen  = 0;
     wf_u32 status = 0;
@@ -1258,22 +1464,27 @@ int wf_mcu_mbox1_cmd(nic_info_st *nic_info, wf_u8 *cmd, wf_u32 cmd_len, wf_u8 El
             tmp[i + 2] = cmd[i];
             LOG_I("arg[%d]:0x%x", i + 2, tmp[i + 2]);
         }
-        ret = mcu_cmd_communicate(nic_info, WLAN_OPS_DXX0_HAL_wMBOX1_CMD, tmp, cmd_len + 2, &status, 1);
+        ret = mcu_cmd_communicate(nic_info, UMSG_OPS_HAL_H2C_CMD, tmp, cmd_len + 2, &status, 1);
         wf_kfree(tmp);
     }
 
     if (WF_RETURN_FAIL == ret)
     {
-        LOG_E("[%s] wf_mcu_mbox1_cmd failed", __func__);
-        return WF_RETURN_FAIL;
+        LOG_E("[%s] failed", __func__);
+        return ret;
+    }
+    else if(WF_RETURN_CMD_BUSY == ret)
+    {
+        LOG_W("[%s] cmd busy,try again if need!",__func__);
+        return ret;
     }
 
     return WF_RETURN_OK;
 }
 
-int wf_mcu_cca_config(nic_info_st *nic_info)
+wf_s32 wf_mcu_cca_config(nic_info_st *nic_info)
 {
-    int ret = 0;
+    wf_s32 ret = 0;
 
     if (NIC_USB == nic_info->nic_type)
     {
@@ -1281,42 +1492,45 @@ int wf_mcu_cca_config(nic_info_st *nic_info)
     }
     else
     {
-        ret = mcu_cmd_communicate(nic_info, WLAN_OPS_DXX0_HAL_CCA_CONFIG, NULL, 0, NULL, 0);
-    }
-
-    if (WF_RETURN_FAIL == ret)
-    {
-        LOG_E("[%s] WLAN_OPS_DXX0_HAL_CCA_CONFIG failed", __func__);
-        return WF_RETURN_FAIL;
-    }
-
-    return WF_RETURN_OK;
-}
-
-
-int wf_mcu_watchdog(nic_info_st *nic_info)
-{
-    int ret = 0;
-    if (NIC_USB == nic_info->nic_type)
-    {
-        ret = mcu_cmd_communicate(nic_info, UMSG_OPS_HAL_MSG_WDG, NULL, 0, NULL, 0);
-    }
-    else
-    {
-        ret = mcu_cmd_communicate(nic_info, WLAN_OPS_DXX0_HAL_MSG_WDG, NULL, 0, NULL, 0);
+        ret = mcu_cmd_communicate(nic_info, UMSG_OPS_HAL_CCA_CONFIG, NULL, 0, NULL, 0);
     }
 
     if (WF_RETURN_FAIL == ret)
     {
         LOG_E("[%s] failed", __func__);
-        return WF_RETURN_FAIL;
+        return ret;
+    }
+    else if(WF_RETURN_CMD_BUSY == ret)
+    {
+        LOG_W("[%s] cmd busy,try again if need!",__func__);
+        return ret;
+    }
+
+    return WF_RETURN_OK;
+}
+
+
+wf_s32 wf_mcu_watchdog(nic_info_st *nic_info)
+{
+    wf_s32 ret = 0;
+
+    ret = mcu_cmd_communicate(nic_info, UMSG_OPS_HAL_MSG_WDG, NULL, 0, NULL, 0);
+    if (WF_RETURN_FAIL == ret)
+    {
+        LOG_E("[%s] failed", __func__);
+        return ret;
+    }
+    else if(WF_RETURN_CMD_BUSY == ret)
+    {
+        LOG_W("[%s] cmd busy,try again if need!",__func__);
+        return ret;
     }
 
     return WF_RETURN_OK;
 
 }
 
-int wf_mcu_set_on_rcr_am (nic_info_st *nic_info, wf_bool on_off)
+wf_s32 wf_mcu_set_on_rcr_am (nic_info_st *nic_info, wf_bool on_off)
 {
     wf_u32 buf[2];
 
@@ -1327,18 +1541,28 @@ int wf_mcu_set_on_rcr_am (nic_info_st *nic_info, wf_bool on_off)
     return WF_RETURN_OK;
 }
 
-int wf_mcu_set_dk_cfg (nic_info_st *nic_info, wf_u32 auth_algrthm, wf_bool dk_en)
+wf_s32 wf_mcu_set_dk_cfg (nic_info_st *nic_info, wf_u32 auth_algrthm, wf_bool dk_en)
 {
     wf_u32 buf[2];
-
+    wf_s32 ret = 0;
     buf[0] = dk_en;
     buf[1] = auth_algrthm;
-    mcu_cmd_communicate(nic_info, UMSG_OPS_HW_SET_DK_CFG, buf, 2, NULL, 0);
-
+    ret = mcu_cmd_communicate(nic_info, UMSG_OPS_HW_SET_DK_CFG, buf, 2, NULL, 0);
+    if (WF_RETURN_FAIL == ret)
+    {
+        LOG_E("[%s] failed", __func__);
+        return ret;
+    }
+    else if(WF_RETURN_CMD_BUSY == ret)
+    {
+        LOG_W("[%s] cmd busy,try again if need!",__func__);
+        return ret;
+    }
+    
     return WF_RETURN_OK;
 }
 
-int wf_mcu_set_sec_cfg (nic_info_st *nic_info, wf_u8 val)
+wf_s32 wf_mcu_set_sec_cfg (nic_info_st *nic_info, wf_u8 val)
 {
     wf_u32 buf[5];
 
@@ -1352,11 +1576,11 @@ int wf_mcu_set_sec_cfg (nic_info_st *nic_info, wf_u8 val)
     return WF_RETURN_OK;
 }
 
-int wf_mcu_set_sec_cam (nic_info_st *nic_info,
+wf_s32 wf_mcu_set_sec_cam (nic_info_st *nic_info,
                         wf_u8 cam_id, wf_u16 ctrl, wf_u8 *mac, wf_u8 *key)
 {
-    int ret = 0;
-    int i   = 0;
+    wf_s32 ret = 0;
+    wf_s32 i   = 0;
     wf_u32 buff[WF_SECURITY_CAM_SIZE] = {0};
 
     buff[0] = cam_id;
@@ -1372,21 +1596,18 @@ int wf_mcu_set_sec_cam (nic_info_st *nic_info,
         buff[i + 2 + WF_ETH_ALEN] = key[i];
     }
 
-    if (NIC_USB == nic_info->nic_type)
-    {
-        ret = mcu_cmd_communicate(nic_info, UMSG_OPS_HAL_SEC_WRITE_CAM,
-                                  buff, WF_SECURITY_CAM_SIZE, NULL, 0);
-    }
-    else
-    {
-        ret = mcu_cmd_communicate(nic_info, WLAN_OPS_DXX0_HAL_SEC_WRITE_CAM,
-                                  buff, WF_SECURITY_CAM_SIZE, NULL, 0);
-    }
+    ret = mcu_cmd_communicate(nic_info, UMSG_OPS_HAL_SEC_WRITE_CAM,
+                              buff, WF_SECURITY_CAM_SIZE, NULL, 0);
 
     if (WF_RETURN_FAIL == ret)
     {
         LOG_E("[%s] failed", __func__);
-        return WF_RETURN_FAIL;
+        return ret;
+    }
+    else if(WF_RETURN_CMD_BUSY == ret)
+    {
+        LOG_W("[%s] cmd busy,try again if need!",__func__);
+        return ret;
     }
 
     return WF_RETURN_OK;
@@ -1397,11 +1618,11 @@ int wf_mcu_set_sec_cam (nic_info_st *nic_info,
 
 
 /**/
-int wf_mcu_fill_mbox1_fw(nic_info_st *nic_info, wf_u8 element_id, wf_u8 *cmd, wf_u32 cmd_len)
+wf_s32 wf_mcu_fill_mbox1_fw(nic_info_st *nic_info, wf_u8 element_id, wf_u8 *cmd, wf_u32 cmd_len)
 {
-    int  ret = 0;
+    wf_s32  ret = 0;
     wf_u32 *buf = NULL;
-    int i    = 0;
+    wf_s32 i    = 0;
 
     buf = (wf_u32 *) wf_kzalloc((cmd_len + 2) * 4);
     if (!buf)
@@ -1418,29 +1639,27 @@ int wf_mcu_fill_mbox1_fw(nic_info_st *nic_info, wf_u8 element_id, wf_u8 *cmd, wf
         buf[i + 2] = cmd[i];
         //LOG_D("[%s] 0x%x", __func__, buf[i + 2]);
     }
-    if (NIC_USB == nic_info->nic_type)
-    {
-        ret = mcu_cmd_communicate(nic_info, UMSG_OPS_HAL_wMBOX1_CMD, buf, cmd_len + 2, NULL, 0);
-    }
-    else
-    {
-        ret = mcu_cmd_communicate(nic_info, WLAN_OPS_DXX0_HAL_wMBOX1_CMD, buf, cmd_len + 2, NULL, 0);
-    }
+
+    ret = mcu_cmd_communicate(nic_info, UMSG_OPS_HAL_H2C_CMD, buf, cmd_len + 2, NULL, 0);
     wf_kfree(buf);
 
     if (WF_RETURN_FAIL == ret)
     {
         LOG_E("[%s] failed", __func__);
-        return WF_RETURN_FAIL;
+        return ret;
+    }
+    else if(WF_RETURN_CMD_BUSY == ret)
+    {
+        LOG_W("[%s] cmd busy,try again if need!",__func__);
+        return ret;
     }
 
     buf = NULL;
     return WF_RETURN_OK;
 }
 
-int wf_mcu_set_max_ampdu_len(nic_info_st *pnic_info, wf_u8 max_ampdu_len)
+wf_s32 wf_mcu_set_max_ampdu_len(nic_info_st *pnic_info, wf_u8 max_ampdu_len)
 {
-    int ret = 0;
     wf_u32 arg[2] = {0};
 
     arg[0] = HW_VAR_AMPDU_FACTOR;
@@ -1449,9 +1668,8 @@ int wf_mcu_set_max_ampdu_len(nic_info_st *pnic_info, wf_u8 max_ampdu_len)
     return wf_mcu_set_hw_reg(pnic_info, arg, 2);
 }
 
-int wf_mcu_set_min_ampdu_space(nic_info_st *pnic_info, wf_u8 min_space)
+wf_s32 wf_mcu_set_min_ampdu_space(nic_info_st *pnic_info, wf_u8 min_space)
 {
-    int ret = 0;
     wf_u32 arg[2] = {0};
 
     arg[0] = HW_VAR_AMPDU_MIN_SPACE;
@@ -1460,9 +1678,9 @@ int wf_mcu_set_min_ampdu_space(nic_info_st *pnic_info, wf_u8 min_space)
     return wf_mcu_set_hw_reg(pnic_info, arg, 2);
 }
 
-int wf_mcu_set_usb_agg_normal(nic_info_st *nic_info, wf_u8 cur_wireless_mode)
+wf_s32 wf_mcu_set_usb_agg_normal(nic_info_st *nic_info, wf_u8 cur_wireless_mode)
 {
-    int ret = WF_RETURN_FAIL;
+    wf_s32 ret = WF_RETURN_FAIL;
     wf_u32 mbox1[1] = { 0 };
 
     if(NIC_USB != nic_info->nic_type)
@@ -1516,14 +1734,19 @@ int wf_mcu_set_usb_agg_normal(nic_info_st *nic_info, wf_u8 cur_wireless_mode)
     ret =mcu_cmd_communicate(nic_info,UMSG_OPS_HAL_SET_USB_AGG_NORMAL,mbox1, 1,NULL, 0);
     if (WF_RETURN_FAIL == ret)
     {
-        LOG_E("[%s] failed \n", __func__);
+        LOG_E("[%s] failed", __func__);
+        return ret;
+    }
+    else if(WF_RETURN_CMD_BUSY == ret)
+    {
+        LOG_W("[%s] cmd busy,try again if need!",__func__);
         return ret;
     }
     return WF_RETURN_OK;
 #endif
 }
 
-int wf_mcu_check_tx_buff(nic_info_st *nic_info)
+wf_s32 wf_mcu_check_tx_buff(nic_info_st *nic_info)
 {
     wf_u32 arg[1] = {0};
 
@@ -1531,37 +1754,61 @@ int wf_mcu_check_tx_buff(nic_info_st *nic_info)
     return wf_mcu_set_hw_reg(nic_info, arg, 1);
 }
 
-int wf_mcu_check_rx_fifo(nic_info_st *nic_info)
+wf_s32 wf_mcu_check_rx_fifo(nic_info_st *nic_info)
 {
     wf_u32 arg[2] = { 0 };
-
+    wf_s32 ret = 0;
     if(NIC_SDIO == nic_info->nic_type)
     {
-        return mcu_cmd_communicate(nic_info, WLAN_OPS_DXX0_HAL_CHECK_RXFIFO_FULL, NULL,0,arg, 2);
+        ret = mcu_cmd_communicate(nic_info, UMSG_OPS_HAL_CHECK_RXFIFO_FULL, NULL,0,arg, 2);
     }
     else
     {
         return 0;
     }
+
+    if (WF_RETURN_FAIL == ret)
+    {
+        LOG_E("[%s] failed", __func__);
+        return ret;
+    }
+    else if(WF_RETURN_CMD_BUSY == ret)
+    {
+        LOG_W("[%s] cmd busy,try again if need!",__func__);
+        return ret;
+    }
+
+    return 0;
 }
 
-int wf_mcu_reset_chip(nic_info_st *nic_info)
+wf_s32 wf_mcu_reset_chip(nic_info_st *nic_info)
 {
-
+    wf_s32 ret = 0;
     if(NIC_USB == nic_info->nic_type)
     {
-        return mcu_cmd_communicate(nic_info, UMSG_OPS_RESET_CHIP, NULL,0,NULL, 0);
+        ret =  mcu_cmd_communicate(nic_info, UMSG_OPS_RESET_CHIP, NULL,0,NULL, 0);
     }
     else
     {
         return 0;
     }
 
+    if (WF_RETURN_FAIL == ret)
+    {
+        LOG_E("[%s] failed", __func__);
+        return ret;
+    }
+    else if(WF_RETURN_CMD_BUSY == ret)
+    {
+        LOG_W("[%s] cmd busy,try again if need!",__func__);
+        return ret;
+    }
+
+    return 0;
 }
 
-int wf_mcu_set_ac_vo(nic_info_st *pnic_info)
+wf_s32 wf_mcu_set_ac_vo(nic_info_st *pnic_info)
 {
-    int ret = 0;
     wf_u32 acparm;
     wf_u32 arg[2] = {0};
 
@@ -1577,9 +1824,8 @@ int wf_mcu_set_ac_vo(nic_info_st *pnic_info)
     return wf_mcu_set_hw_reg(pnic_info, arg, 2);
 }
 
-int wf_mcu_set_ac_vi(nic_info_st *pnic_info)
+wf_s32 wf_mcu_set_ac_vi(nic_info_st *pnic_info)
 {
-    int ret = 0;
     wf_u32 acparm;
     wf_u32 arg[2] = {0};
 
@@ -1590,9 +1836,8 @@ int wf_mcu_set_ac_vi(nic_info_st *pnic_info)
     return wf_mcu_set_hw_reg(pnic_info, arg, 2);
 }
 
-int wf_mcu_set_ac_be(nic_info_st *pnic_info)
+wf_s32 wf_mcu_set_ac_be(nic_info_st *pnic_info)
 {
-    int ret = 0;
     wf_u32 acparm;
     wf_u32 arg[2] = {0};
 
@@ -1603,9 +1848,8 @@ int wf_mcu_set_ac_be(nic_info_st *pnic_info)
     return wf_mcu_set_hw_reg(pnic_info, arg, 2);
 }
 
-int wf_mcu_set_ac_bk(nic_info_st *pnic_info)
+wf_s32 wf_mcu_set_ac_bk(nic_info_st *pnic_info)
 {
-    int ret = 0;
     wf_u32 acparm;
     wf_u32 arg[2] = {0};
 
@@ -1616,10 +1860,10 @@ int wf_mcu_set_ac_bk(nic_info_st *pnic_info)
     return wf_mcu_set_hw_reg(pnic_info, arg, 2);
 }
 
-int wf_mcu_set_bcn_valid(nic_info_st *pnic_info)
+wf_s32 wf_mcu_set_bcn_valid(nic_info_st *pnic_info)
 {
     wf_u32 arg[2] = {0};
-    int ret = 0;
+	
 #ifdef CONFIG_CONCURRENT_MODE
     if(pnic_info->nic_num == 1){
         arg[0] = HW_VAR_BCN_VALID1;
@@ -1631,14 +1875,12 @@ int wf_mcu_set_bcn_valid(nic_info_st *pnic_info)
 #endif
     arg[1] = 0;
 
-    ret = wf_mcu_set_hw_reg(pnic_info,arg,2);
-    return ret;
+    return  wf_mcu_set_hw_reg(pnic_info,arg,2);
 }
 
-int wf_mcu_get_bcn_valid(nic_info_st *pnic_info,wf_u32 *val32)
+wf_s32 wf_mcu_get_bcn_valid(nic_info_st *pnic_info,wf_u32 *val32)
 {
-    wf_u32 recv_buf;
-    int ret = 0;
+    wf_s32 ret = 0;
 
     wf_u32 arg[1] = {0};
 
@@ -1654,35 +1896,35 @@ int wf_mcu_get_bcn_valid(nic_info_st *pnic_info,wf_u32 *val32)
 
 
     ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_HAL_GET_HWREG, arg, 1, val32, 1);
-    if (ret == WF_RETURN_OK)
+    if (WF_RETURN_FAIL == ret)
     {
-        return 0;
+        LOG_E("[%s] failed", __func__);
+        return ret;
     }
-    else
+    else if(WF_RETURN_CMD_BUSY == ret)
     {
-        LOG_D("get bcn valid fail");
-        return -1;
+        LOG_W("[%s] cmd busy,try again if need!",__func__);
+        return ret;
     }
+
+    return 0;
 }
 
 
-int wf_mcu_set_bcn_sel(nic_info_st *pnic_info)
+wf_s32 wf_mcu_set_bcn_sel(nic_info_st *pnic_info)
 {
     wf_u32 arg[2] = {0};
-    int ret = 0;
 
     arg[0] = HW_VAR_DL_BCN_SEL;
     arg[1] = 0;
 
-    ret = wf_mcu_set_hw_reg(pnic_info,arg,2);
-    return ret;
+    return wf_mcu_set_hw_reg(pnic_info,arg,2);
 }
 
 #ifdef CFG_ENABLE_AP_MODE
 
-int wf_mcu_set_ap_mode(nic_info_st *pnic_info)
+wf_s32 wf_mcu_set_ap_mode(nic_info_st *pnic_info)
 {
-    int ret = 0;
     wf_u32 arg[2] = {0};
 
     LOG_D("[set AP role] %s", __func__);
@@ -1702,10 +1944,9 @@ int wf_mcu_set_ap_mode(nic_info_st *pnic_info)
     return wf_mcu_set_hw_reg(pnic_info, arg, 2);
 }
 
-int wf_mcu_set_sec(nic_info_st *pnic_info)
+wf_s32 wf_mcu_set_sec(nic_info_st *pnic_info)
 {
     sec_info_st *psec_info = pnic_info->sec_info;
-    int ret = 0;
     wf_u8 val8;
     wf_u32 arg[2] = {0};
     val8 = (psec_info->dot11AuthAlgrthm == dot11AuthAlgrthm_8021X) ? 0xcc : 0xcf;
@@ -1716,7 +1957,7 @@ int wf_mcu_set_sec(nic_info_st *pnic_info)
     return wf_mcu_set_hw_reg(pnic_info, arg, 2);
 }
 
-int wf_mcu_disable_rx_agg(nic_info_st * nic_info)
+wf_s32 wf_mcu_disable_rx_agg(nic_info_st * nic_info)
 {
     wf_u32 data;
     LOG_I("0x10c:0x%02x",wf_io_read32(nic_info,0x10c,NULL));
@@ -1730,11 +1971,11 @@ int wf_mcu_disable_rx_agg(nic_info_st * nic_info)
 
 #endif
 
-#ifdef CFG_ADHOC_MODE
-int wf_mcu_set_bcn_reg(nic_info_st *pnic_info)
+#ifdef CFG_ENABLE_ADHOC_MODE
+wf_s32 wf_mcu_set_bcn_reg(nic_info_st *pnic_info)
 {
     wf_u32 par[6] = {0};
-    int ret = 0;
+    wf_s32 ret = 0;
 
     par[0] = 0x40;
     par[1] = 0x64;
@@ -1744,14 +1985,618 @@ int wf_mcu_set_bcn_reg(nic_info_st *pnic_info)
     par[5] = 0x0550;
 
     ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_HAL_SET_BCN_REG, par, 6, NULL, 0);
-    if (ret == WF_RETURN_OK)
+    if (WF_RETURN_FAIL == ret)
     {
-        return 0;
+        LOG_E("[%s] failed", __func__);
+        return ret;
+    }
+    else if(WF_RETURN_CMD_BUSY == ret)
+    {
+        LOG_W("[%s] cmd busy,try again if need!",__func__);
+        return ret;
+    }
+
+    return 0;
+}
+
+#endif
+
+wf_s32 wf_close_fw_dbginfo(nic_info_st *pnic_info)
+{
+    wf_s32 ret = 0;
+    wf_u32 inbuff[2] = {0};
+
+    ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_HAL_DBGLOG_CONFIG, inbuff, 2, NULL, 0);
+    if (WF_RETURN_FAIL == ret)
+    {
+        LOG_E("[%s] failed", __func__);
+        return ret;
+    }
+    else if(WF_RETURN_CMD_BUSY == ret)
+    {
+        LOG_W("[%s] cmd busy,try again if need!",__func__);
+        return ret;
+    }
+
+    return 0;
+
+}
+
+wf_s32 wf_mcu_handle_bb_lccalibrate(nic_info_st *nic_info)
+{
+    wf_u32 timeout      = 2000;
+    wf_u32 timecount    = 0;
+    wf_s32 ret          = 0;
+    mcu_msg_body_st mcu_msg;
+
+    #if 1   
+
+    wf_mcu_msg_body_get(nic_info,&mcu_msg);
+    if (!(mcu_msg.ability & WF_BIT(26)))
+        return WF_RETURN_OK;
+
+    while (mcu_msg.bScanInProcess && timecount < timeout)
+    {
+        wf_mdelay(50);
+        timecount += 50;
+        wf_mcu_msg_body_get(nic_info,&mcu_msg);
+    }
+    #endif
+
+    ret = mcu_cmd_communicate(nic_info, UMSG_OPS_HAL_CALI_LLC, NULL, 0, NULL, 0);
+    if (WF_RETURN_FAIL == ret)
+    {
+        LOG_E("[%s] failed", __func__);
+        return ret;
+    }
+    else if(WF_RETURN_CMD_BUSY == ret)
+    {
+        LOG_W("[%s] cmd busy,try again if need!",__func__);
+        return ret;
+    }
+
+    return WF_RETURN_OK;
+}
+
+wf_s32  wf_mcu_handle_bb_iq_calibrate(nic_info_st *nic_info, wf_u8 channel)
+{
+    wf_s32 ret = 0;
+    wf_u32 buff[2] = { 0 };
+    wf_s32 len = 2;
+    mcu_msg_body_st mcu_msg;
+    
+    #if 1 
+    wf_mcu_msg_body_get(nic_info,&mcu_msg);
+    if (!(mcu_msg.ability & WF_BIT(26)))
+        return WF_RETURN_OK;
+    #endif
+
+#if WF_NEED_CHANGE_DEBUG
+    buff[0] = pMptCtx->MptRfPath;
+    buff[1] = (wf_u32) nic_info->hw_info.current_channel;
+#else
+    buff[0] = 0;
+    buff[1] = channel;
+#endif
+    ret = mcu_cmd_communicate(nic_info, UMSG_OPS_HAL_PHY_IQ_CALIBRATE, buff, len, NULL,  0);
+    if (WF_RETURN_FAIL == ret)
+    {
+        LOG_E("[%s] failed", __func__);
+        return ret;
+    }
+    else if(WF_RETURN_CMD_BUSY == ret)
+    {
+        LOG_W("[%s] cmd busy,try again if need!",__func__);
+        return ret;
+    }
+
+    return WF_RETURN_OK;
+}
+
+wf_s32 wf_mcu_msg_init_default(nic_info_st * nic_info)
+{
+    wf_s32 ret = 0;
+
+    ret = mcu_cmd_communicate(nic_info,UMSG_OPS_HAL_MSG_INIT_DEFAULT_VALUE,NULL,0,NULL,0);
+    if (WF_RETURN_FAIL == ret)
+    {
+        LOG_E("[%s] failed", __func__);
+        return ret;
+    }
+    else if(WF_RETURN_CMD_BUSY == ret)
+    {
+        LOG_W("[%s] cmd busy,try again if need!",__func__);
+        return ret;
+    }
+
+    return WF_RETURN_OK;
+}
+
+wf_s32 wf_mcu_msg_init(nic_info_st * nic_info)
+{
+    wf_s32 ret = 0;
+
+    ret =   mcu_cmd_communicate(nic_info, UMSG_OPS_HAL_INIT_MSG, NULL, 0, NULL, 0);
+    
+    if (WF_RETURN_FAIL == ret)
+    {
+        LOG_E("[%s] failed", __func__);
+        return ret;
+    }
+    else if(WF_RETURN_CMD_BUSY == ret)
+    {
+        LOG_W("[%s] cmd busy,try again if need!",__func__);
+        return ret;
+    }
+
+    return WF_RETURN_OK;
+}
+
+wf_s32 wf_mcu_msg_body_init(nic_info_st *nic_info, mcu_msg_body_st *msg)
+{
+    wf_s32 ret = 0;
+
+    ret = mcu_cmd_communicate(nic_info, UMSG_OPS_HAL_INIT_MSG_VAR, (wf_u32 *) msg, sizeof(mcu_msg_body_st) / 4, NULL, 0);
+    if (WF_RETURN_FAIL == ret)
+    {
+        LOG_E("[%s] failed", __func__);
+        return ret;
+    }
+    else if(WF_RETURN_CMD_BUSY == ret)
+    {
+        LOG_W("[%s] cmd busy,try again if need!",__func__);
+        return ret;
+    }
+
+    return 0;
+
+}
+
+wf_s32 wf_mcu_msg_body_get(nic_info_st *nic_info, mcu_msg_body_st *mcu_msg)
+{
+    int ret = 0;
+    ret = mcu_cmd_communicate(nic_info, UMSG_OPS_HAL_READVAR_MSG, NULL, 0,(wf_u32 *)mcu_msg, sizeof(mcu_msg_body_st) / 4);
+    if (WF_RETURN_FAIL == ret)
+    {
+        LOG_E("[%s] failed", __func__);
+        return ret;
+    }
+    else if(WF_RETURN_CMD_BUSY == ret)
+    {
+        LOG_W("[%s] cmd busy,try again if need!",__func__);
+        return ret;
+    }
+
+    //wf_display_odm_msg(&odm->odm_msg);
+
+    return WF_RETURN_OK;
+}
+
+wf_s32 wf_mcu_msg_body_set(nic_info_st *nic_info,mcu_msg_body_st *mcu_msg)
+{
+    wf_s32 ret = 0;
+    //wf_display_odm_msg(odm->odm_msg);
+
+    ret = mcu_cmd_communicate(nic_info, UMSG_OPS_HAL_WRITEVAR_MSG, (wf_u32 *) mcu_msg,sizeof(mcu_msg_body_st) / 4,NULL,0 );
+    if (WF_RETURN_FAIL == ret)
+    {
+        LOG_E("[%s] failed", __func__);
+        return ret;
+    }
+    else if(WF_RETURN_CMD_BUSY == ret)
+    {
+        LOG_W("[%s] cmd busy,try again if need!",__func__);
+        return ret;
+    }
+
+    return WF_RETURN_OK;
+}
+
+wf_s32 wf_mcu_msg_body_sync(nic_info_st *nic_info,MSG_BODY_VARIABLE ops,  wf_u32 val)
+{
+    mcu_msg_body_st mcu_msg;
+
+    wf_mcu_msg_body_get(nic_info,&mcu_msg);
+    switch (ops)
+    {
+        case HAL_MSG_STA_INFO:
+        {
+            break;
+        }
+        case HAL_MSG_P2P_STATE:
+        {
+            mcu_msg.wifi_direct = val;
+            break;
+        }
+        case HAL_MSG_WIFI_DISPLAY_STATE:
+        {
+            mcu_msg.wifi_display = val;
+            break;
+        }
+        default:
+        {
+            break;
+        }
+    }
+
+    wf_mcu_msg_body_set(nic_info,&mcu_msg);
+
+    return WF_RETURN_OK;
+}
+wf_s32 wf_mcu_msg_body_set_ability(nic_info_st *nic_info,MCU_MSG_BODY_ABILITY_OPS ops,  wf_u32 ability)
+{
+    mcu_msg_body_st mcu_msg;
+
+    wf_mcu_msg_body_get(nic_info,&mcu_msg);
+
+    //lock
+
+    switch (ops)
+    {
+        case ODM_DIS_ALL_FUNC:
+            mcu_msg.ability = ability;
+            break;
+        case ODM_FUNC_SET:
+            mcu_msg.ability |= ability;
+            break;
+        case ODM_FUNC_CLR:
+            mcu_msg.ability &= ~(ability);
+            break;
+        case ODM_FUNC_BACKUP:
+            //LOG_I("ability backup %x\r\n", odm->backup_ability);
+            //odm->backup_ability = mcu_msg.ability;
+            break;
+        case ODM_FUNC_RESTORE:
+            //LOG_I("ability restory %X\r\n", odm->backup_ability);
+            //mcu_msg.ability = odm->backup_ability;
+            break;
+    }
+
+    //unlock
+
+    wf_mcu_msg_body_set(nic_info,&mcu_msg);
+
+    return WF_RETURN_OK;
+}
+
+
+wf_s32 wf_mcu_dig_set(nic_info_st *nic_info, wf_bool init_gain, wf_u32 rx_gain)
+{
+    wf_s32 ret;
+    wf_u32 buf[3];
+
+    if (init_gain == wf_true)
+    {
+        buf[1] = 0;
+        buf[2] = rx_gain;
+
+        if (rx_gain == 0xff)
+        {
+            buf[0] = WF_BIT(1);
+        }
+        else
+        {
+            buf[0] = WF_BIT(0);
+        }
+
+        //LOG_I("[%s] %d,%d,%d",__func__,buf[0],buf[1],buf[2]);
+        ret = mcu_cmd_communicate(nic_info, UMSG_OPS_MSG_PAUSEIG, buf, 3, NULL, 0);
+        
+        if (WF_RETURN_FAIL == ret)
+        {
+            LOG_E("[%s] failed", __func__);
+            return ret;
+        }
+        else if(WF_RETURN_CMD_BUSY == ret)
+        {
+            LOG_W("[%s] cmd busy,try again if need!",__func__);
+            return ret;
+        }
     }
     else
     {
-        LOG_D("set bcn reg fail");
-        return -1;
+        //msg_var_req_t msg_var_req;
+
+        //msg_var_req.var = eVariable;
+        //msg_var_req.msg = (SIZE_T) pValue1;
+        //msg_var_req.set = (SIZE_T) bSet;
+        //Func_Set_Msg_Var_Req(Adapter, &msg_var_req);
     }
+
+    return WF_RETURN_OK;
+}
+
+wf_s32 wf_mcu_rfconfig_set(nic_info_st *nic_info, wf_u8 mac_id, wf_u8 raid, wf_u8 bw, wf_u8 sgi, wf_u32 mask)
+{
+    wf_u8 u1wMBOX1MacIdConfigParm[wMBOX1_MACID_CFG_LEN] = { 0 };
+    mcu_msg_body_st mcu_msg;
+    int ret = 0;
+
+    // LOG_I("[%s] mac_id:%d, raid:%d, bw:%d, sgi:%d,mask:0x%x",__func__, mac_id, raid, bw, sgi,mask);
+    SET_9086X_wMBOX1CMD_MACID_CFG_MACID(u1wMBOX1MacIdConfigParm, mac_id);
+    SET_9086X_wMBOX1CMD_MACID_CFG_RAID(u1wMBOX1MacIdConfigParm, raid);
+    SET_9086X_wMBOX1CMD_MACID_CFG_SGI_EN(u1wMBOX1MacIdConfigParm, (sgi) ? 1 : 0);
+    SET_9086X_wMBOX1CMD_MACID_CFG_BW(u1wMBOX1MacIdConfigParm, bw);
+
+    ret = wf_mcu_msg_body_get(nic_info,&mcu_msg);
+    if (mcu_msg.bDisablePowerTraining)
+    {
+        SET_9086X_wMBOX1CMD_MACID_CFG_DISPT(u1wMBOX1MacIdConfigParm, 1);
+    }
+
+    SET_9086X_wMBOX1CMD_MACID_CFG_RATE_MASK0(u1wMBOX1MacIdConfigParm,
+                                          (wf_u8) (mask & 0x000000ff));
+    SET_9086X_wMBOX1CMD_MACID_CFG_RATE_MASK1(u1wMBOX1MacIdConfigParm,
+                                          (wf_u8) ((mask & 0x0000ff00) >> 8));
+    SET_9086X_wMBOX1CMD_MACID_CFG_RATE_MASK2(u1wMBOX1MacIdConfigParm,
+                                          (wf_u8) ((mask & 0x00ff0000) >> 16));
+    SET_9086X_wMBOX1CMD_MACID_CFG_RATE_MASK3(u1wMBOX1MacIdConfigParm,
+                                          (wf_u8) ((mask & 0xff000000) >> 24));
+    
+    ret = wf_mcu_fill_mbox1_fw(nic_info, wMBOX1_9086X_MACID_CFG, u1wMBOX1MacIdConfigParm, wMBOX1_MACID_CFG_LEN);
+    
+    return ret;
+}
+
+static wf_s32 wf_mcu_media_status_set(nic_info_st *nic_info, wf_bool opmode,
+                                     wf_bool miracast, wf_bool miracast_sink, wf_u8 role,
+                                     wf_u8 macid,wf_bool macid_ind,wf_u8 macid_end)
+{
+    wf_u8 parm[wMBOX1_MEDIA_STATUS_RPT_LEN] = { 0 };
+    int ret = 0;
+
+    SET_wMBOX1CMD_MSRRPT_PARM_OPMODE(parm, opmode);
+    SET_wMBOX1CMD_MSRRPT_PARM_MACID_IND(parm, macid_ind);
+    SET_wMBOX1CMD_MSRRPT_PARM_MIRACAST(parm, miracast);
+    SET_wMBOX1CMD_MSRRPT_PARM_MIRACAST_SINK(parm, miracast_sink);
+    SET_wMBOX1CMD_MSRRPT_PARM_ROLE(parm, role);
+    SET_wMBOX1CMD_MSRRPT_PARM_MACID(parm, macid);
+    SET_wMBOX1CMD_MSRRPT_PARM_MACID_END(parm, macid_end);
+
+    ret = wf_mcu_fill_mbox1_fw(nic_info, wMBOX1_9086X_MEDIA_STATUS_RPT, parm ,wMBOX1_MEDIA_STATUS_RPT_LEN);
+    
+    return ret;
+}
+
+wf_s32 wf_odm_disconnect_media_status(nic_info_st *nic_info,wdn_net_info_st *wdn_net_info)
+{
+    wf_s32 ret = 0;
+
+    ret = wf_mcu_media_status_set(nic_info,wf_false,wf_false,wf_false,wMBOX1_MSR_ROLE_RSVD,wdn_net_info->wdn_id,0,0);
+    return ret;
+}
+
+#ifdef CFG_ENABLE_ADHOC_MODE
+wf_s32 wf_adhoc_odm_connect_media_status(nic_info_st *pnic_info, wdn_net_info_st *pwdn_info)
+{
+    wf_s32 ret = 0;
+
+    ret = wf_mcu_media_status_set(pnic_info,wf_true, wf_false, wf_false, wMBOX1_MSR_ROLE_ADHOC, pwdn_info->wdn_id, 0, 0);
+    return ret;
+}
+
+wf_s32 wf_adhoc_odm_disconnect_media_status(nic_info_st *pnic_info,wdn_net_info_st *pwdn_info)
+{
+    wf_s32 ret = 0;
+
+    ret = wf_mcu_media_status_set(pnic_info,wf_false, wf_false, wf_false, wMBOX1_MSR_ROLE_ADHOC, pwdn_info->wdn_id, 0, 0);
+    return ret;
 }
 #endif
+
+#ifdef CFG_ENABLE_AP_MODE
+wf_s32 wf_ap_odm_connect_media_status(nic_info_st *pnic_info, wdn_net_info_st *pwdn_info)
+{
+    wf_s32 ret = 0;
+
+    ret = wf_mcu_media_status_set(pnic_info,wf_true, wf_false, wf_false, wMBOX1_MSR_ROLE_STA, pwdn_info->wdn_id, 0, 0);
+    return ret;
+}
+
+wf_s32 wf_ap_odm_disconnect_media_status(nic_info_st *pnic_info,wdn_net_info_st *pwdn_info)
+{
+    wf_s32 ret = 0;
+
+    ret = wf_mcu_media_status_set(pnic_info,wf_false, wf_false, wf_false, wMBOX1_MSR_ROLE_STA, pwdn_info->wdn_id, 0, 0);
+    return ret;
+}
+#endif
+
+static wf_s32 wf_mcu_media_connect_set(nic_info_st *nic_info,wdn_net_info_st *wdn_net_info)
+{
+    wf_s32 ret = 0;
+
+    ret = wf_mcu_media_status_set(nic_info,wf_true,wf_false,wf_false,wMBOX1_MSR_ROLE_AP,wdn_net_info->wdn_id,0,0);
+    return ret;
+}
+
+wf_s32 wf_mcu_msg_sta_info_get(nic_info_st *nic_info, wf_u32 wdn_id,mcu_msg_sta_info_st *msg_sta)
+{
+    wf_s32 ret = 0;
+    int len = WF_RND4(sizeof(mcu_msg_sta_info_st));
+
+    ret = mcu_cmd_communicate(nic_info, UMSG_OPS_HAL_GET_MSG_STA_INFO, &wdn_id, 1, (wf_u32 *)&msg_sta, len / 4);
+    if (WF_RETURN_FAIL == ret)
+    {
+        LOG_E("[%s] failed", __func__);
+        return ret;
+    }
+    else if(WF_RETURN_CMD_BUSY == ret)
+    {
+        LOG_W("[%s] cmd busy,try again if need!",__func__);
+        return ret;
+    }
+
+    return ret;
+}
+
+
+static wf_s32 wf_mcu_msg_sta_info_set(nic_info_st *nic_info, mcu_msg_sta_info_st *msg_sta)
+{
+    wf_s32 ret = 0;
+    wf_u32 *pbuf  = NULL;
+    wf_s32 len = 0;
+
+    len = WF_RND4(sizeof(mcu_msg_sta_info_st));
+
+    pbuf = (wf_u32 *) wf_kzalloc(len);
+    if (!pbuf)
+    {
+        LOG_E("[%s] failed", __func__);
+        return WF_RETURN_FAIL;
+    }
+
+    wf_memcpy(pbuf, msg_sta, len);
+
+
+    ret = mcu_cmd_communicate(nic_info, UMSG_OPS_HAL_SYNC_MSG_STA_INFO, pbuf, len / 4, NULL, 0);
+    wf_kfree(pbuf);
+    if (WF_RETURN_FAIL == ret)
+    {
+        LOG_E("[%s] failed", __func__);
+        return ret;
+    }
+    else if(WF_RETURN_CMD_BUSY == ret)
+    {
+        LOG_W("[%s] cmd busy,try again if need!",__func__);
+        return ret;
+    }
+
+    return WF_RETURN_OK;
+}
+
+static wf_s32 bit_value_from_ieee_value_to_get_func(wf_u8 val, wf_u8 flag)
+{
+    wf_u8 dot11_rate_table[] ={ 2, 4, 11, 22, 12, 18, 24, 36, 48, 72, 96, 108, 0 };
+
+    wf_s32 i = 0;
+    if (flag)
+    {
+        while (dot11_rate_table[i] != 0)
+        {
+            if (dot11_rate_table[i] == val)
+                return BIT(i);
+            i++;
+        }
+    }
+    return 0;
+}
+
+wf_s32 wf_mcu_get_rate_bitmap(nic_info_st *nic_info, wdn_net_info_st *wdn_net_info,mcu_msg_sta_info_st *msg_sta, wf_u32 *rate_bitmap)
+{
+    wf_s32 ret = 0;
+    wf_u32 buf[3] = {0};
+    wf_u32 ra_mask = 0;
+    wf_s32 i = 0;
+
+    if (NULL == wdn_net_info)
+    {
+        LOG_E("[%s] param is null, check!!!", __func__);
+        return WF_RETURN_OK;
+    }
+
+    /*calc ra_mask*/
+    for (i = 0; i < wdn_net_info->datarate_len; i++)
+    {
+        if (wdn_net_info->datarate[i])
+            ra_mask |= bit_value_from_ieee_value_to_get_func(wdn_net_info->datarate[i] & 0x7f, 1);
+    }
+
+    for (i = 0; i < wdn_net_info->ext_datarate_len; i++)
+    {
+        if (wdn_net_info->ext_datarate[i])
+            ra_mask |= bit_value_from_ieee_value_to_get_func(wdn_net_info->ext_datarate[i] & 0x7f, 1);
+    }
+#define HT_MCS_SUPPORT_MCS_LIMIT (8)
+    for (i = 0; i < HT_MCS_SUPPORT_MCS_LIMIT; i++)
+    {
+        if (msg_sta->htpriv.ht_cap.supp_mcs_set[i / 8] & WF_BIT(i % 8))
+        {
+            ra_mask |= WF_BIT(i + 12);
+        }
+    }
+
+    // LOG_D("[%s] 0x%x", __func__, ra_mask);
+
+    buf[0] = wdn_net_info->wdn_id;
+    buf[1] = ra_mask;
+    buf[2] = msg_sta->rssi_level;
+    LOG_I("[%s] 0x%x,0x%x,0x%x", __func__, buf[0], buf[1], buf[2]);
+    ret = mcu_cmd_communicate(nic_info, UMSG_0PS_MSG_GET_RATE_BITMAP, buf, 3, rate_bitmap, 1);
+    if (WF_RETURN_FAIL == ret)
+    {
+        LOG_E("[%s] failed", __func__);
+        return ret;
+    }
+    else if(WF_RETURN_CMD_BUSY == ret)
+    {
+        LOG_W("[%s] cmd busy,try again if need!",__func__);
+        return ret;
+    }
+
+    return ra_mask;
+}
+
+wf_s32 mcu_msg_sta_info_pars(wdn_net_info_st *wdn_net_info, mcu_msg_sta_info_st *msg_sta)
+{
+    msg_sta->bUsed = wf_true;//???
+    msg_sta->mac_id = wdn_net_info->wdn_id;
+
+    wf_memcpy(msg_sta->hwaddr,wdn_net_info->mac,WF_ETH_ALEN);
+    msg_sta->ra_rpt_linked   = wf_false;
+    msg_sta->wireless_mode   = wdn_net_info->network_type;
+    msg_sta->rssi_level      = 0;
+    msg_sta->ra_change       = wf_false;
+    msg_sta->htpriv.ht_option           = wdn_net_info->htpriv.ht_option;
+    msg_sta->htpriv.ampdu_enable        = wdn_net_info->htpriv.ampdu_enable;
+    msg_sta->htpriv.tx_amsdu_enable     = wdn_net_info->htpriv.tx_amsdu_enable;
+    msg_sta->htpriv.bss_coexist         = wdn_net_info->htpriv.bss_coexist;
+    msg_sta->htpriv.tx_amsdu_maxlen     = wdn_net_info->htpriv.tx_amsdu_maxlen;
+    msg_sta->htpriv.rx_ampdu_maxlen     = wdn_net_info->htpriv.rx_ampdu_maxlen;
+    msg_sta->htpriv.rx_ampdu_min_spacing= wdn_net_info->htpriv.rx_ampdu_min_spacing;
+    msg_sta->htpriv.ch_offset           = wdn_net_info->htpriv.ch_offset;
+    msg_sta->htpriv.sgi_20m             = wdn_net_info->htpriv.sgi_20m;
+    msg_sta->htpriv.sgi_40m             = wdn_net_info->htpriv.sgi_40m;
+    msg_sta->htpriv.agg_enable_bitmap   = wdn_net_info->htpriv.agg_enable_bitmap;
+    msg_sta->htpriv.candidate_tid_bitmap= wdn_net_info->htpriv.candidate_tid_bitmap;
+    msg_sta->htpriv.ldpc_cap            = wdn_net_info->htpriv.ldpc;
+    msg_sta->htpriv.stbc_cap            = wdn_net_info->htpriv.tx_stbc;//??rx_stbc
+    msg_sta->htpriv.smps_cap            = wdn_net_info->htpriv.smps;
+    wf_memcpy(&msg_sta->htpriv.ht_cap,&wdn_net_info->ht_cap,sizeof(wdn_net_info->ht_cap));
+
+    return 0;
+}
+wf_s32 wf_mcu_wdn_update(nic_info_st *nic_info, wdn_net_info_st *wdn_net_info)
+{
+    wf_u32 rate_bitmap = 0;
+    wf_u32 macid = wdn_net_info->wdn_id;
+    wf_u8 sgi = 0;
+    wf_s32 ret = 0;
+    mcu_msg_sta_info_st msg_sta;
+
+    ret = mcu_msg_sta_info_pars(wdn_net_info,&msg_sta);
+   
+    ret = wf_mcu_msg_sta_info_set(nic_info, &msg_sta);
+    if (ret == WF_RETURN_FAIL)
+    {
+        return ret;
+    }
+
+    ret = wf_mcu_get_rate_bitmap(nic_info, wdn_net_info,&msg_sta, &rate_bitmap);
+    if (ret == WF_RETURN_FAIL)
+        return ret;
+
+    sgi = wf_ra_sGI_get(wdn_net_info, 1);
+    LOG_D("macid=%d raid=%d bw=%d sgi=%d rate_bitmap=0x%08x", macid, wdn_net_info->raid, wdn_net_info->bw_mode, sgi, rate_bitmap);
+
+    ret = wf_mcu_rfconfig_set(nic_info, macid, wdn_net_info->raid, wdn_net_info->bw_mode, sgi, rate_bitmap);
+    if (ret == WF_RETURN_FAIL)
+        return ret;
+
+    ret = wf_mcu_media_connect_set(nic_info, wdn_net_info);
+    if (ret == WF_RETURN_FAIL)
+        return ret;
+
+    return WF_RETURN_OK;
+}
+

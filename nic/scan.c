@@ -4,18 +4,18 @@
 
 /* macro */
 #if 0
-#define SCAN_DBG(fmt, ...)      LOG_D("[%s]"fmt, __func__, ##__VA_ARGS__)
+#define SCAN_DBG(fmt, ...)      LOG_D("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
 #define SCAN_ARRAY(data, len)   log_array(data, len)
 #else
 #define SCAN_DBG(fmt, ...)
 #define SCAN_ARRAY(data, len)
 #endif
-#define SCAN_INFO(fmt, ...)     LOG_I("[%s]"fmt, __func__, ##__VA_ARGS__)
-#define SCAN_WARN(fmt, ...)     LOG_W("[%s]"fmt, __func__, ##__VA_ARGS__)
-#define SCAN_ERROR(fmt, ...)    LOG_E("[%s]"fmt, __func__, ##__VA_ARGS__)
+#define SCAN_INFO(fmt, ...)     LOG_I("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
+#define SCAN_WARN(fmt, ...)     LOG_W("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
+#define SCAN_ERROR(fmt, ...)    LOG_E("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
 
 #define SCAN_CH_TIMEOUT             30
-#define SCAN_PROBE_RESEND_TIMES     3
+#define SCAN_PROBE_RESEND_TIMES     5
 
 /* function declaration */
 
@@ -23,6 +23,7 @@ wf_inline static
 int scan_setting (nic_info_st *pnic_info)
 {
     wf_scan_info_t *pscan_info = pnic_info->scan_info;
+    wf_bool bch_spec = !!pscan_info->preq->ch_num;
 
     if (wf_mcu_set_user_info(pnic_info, wf_false) == WF_RETURN_FAIL)
     {
@@ -68,13 +69,13 @@ int scan_setting (nic_info_st *pnic_info)
             if (rst == WF_WLAN_SCANNED_EACH_RET_FAIL)
             {
                 SCAN_WARN("get semphone fail!!!!!!!!!!!!!!!!!!!!!!!!!");
-                return -4;
+//                return -4;
             }
 
             if (rst == WF_WLAN_SCANNED_EACH_RET_BREAK)
             {
                 /* if channel map be specified, check if valid */
-                if (pscan_info->preq->ch_num)
+                if (bch_spec)
                 {
                     wf_u8 i;
                     for (i = 0; i < pscan_info->preq->ch_num; i++)
@@ -119,12 +120,36 @@ int scan_setting (nic_info_st *pnic_info)
         }
     }
 
-    if (pscan_info->preq->ch_num)
+    if (pscan_info->preq->ch_num == 0)
+    {
+        /* channel no specify so channel setting reference to local
+        hardware support */
+        hw_info_st *phw_info = (hw_info_st *)pnic_info->hw_info;
+        wf_u8 i;
+        pscan_info->preq->ch_num = phw_info->max_chan_nums;
+        for (i = 0; i < phw_info->max_chan_nums; i++)
+        {
+            pscan_info->preq->ch_map[i] = phw_info->channel_set[i].channel_num;
+        }
+    }
+
+    if (bch_spec)
     {
         /* clearup scan queue, avoid queue contain invalid channel information */
         wf_notify_send(pnic_info, WF_WLAN_MSG_TAG_NTFY_SCANNED_FLUSH);
     }
 
+#ifdef CONFIG_LPS
+    {
+        wf_bool bConnected = wf_false;
+        wf_mlme_get_connect(pnic_info, &bConnected);
+
+        if(bConnected == wf_true)
+        {
+            wf_lps_wakeup(pnic_info, LPS_CTRL_SCAN, 0);
+        }
+    }
+#endif
     return 0;
 }
 
@@ -242,7 +267,7 @@ int wf_scan_probe_send (nic_info_st *pnic_info)
     /* frame send */
     pxmit_buf->pkt_len =
         WF_OFFSETOF(wf_80211_mgmt_t, probe_req.variable) + var_len;
-    if (wf_nic_mgmt_frame_xmit_with_ack(pnic_info, NULL, pxmit_buf, pxmit_buf->pkt_len))
+    if (wf_nic_mgmt_frame_xmit(pnic_info, NULL, pxmit_buf, pxmit_buf->pkt_len))
     {
         SCAN_WARN("probe frame send fail");
     }
@@ -326,6 +351,67 @@ int check_channel (wf_scan_info_t *pscan_info, wf_u8 *pies, wf_u16 ies_len)
     return 0;
 }
 
+#ifdef CONFIG_P2P
+static void p2p_scan_response_entry(nic_info_st *nic_info,wf_80211_mgmt_t *pmgmt, wf_u16 mgmt_len)
+{
+    p2p_info_st *p2p_info = nic_info->p2p;
+    struct wifidirect_info *pwdinfo = &p2p_info->wdinfo;
+    
+    SCAN_INFO("[%s,%d] start",__func__,__LINE__);
+    if ( pwdinfo->p2p_state == P2P_STATE_TX_PROVISION_DIS_REQ ) 
+    {
+        if (wf_true == pwdinfo->tx_prov_disc_info.benable) 
+        {
+            if (0 == wf_memcmp(pwdinfo->tx_prov_disc_info.peerIFAddr, GetAddr2Ptr(pmgmt),WF_ETH_ALEN)) 
+            {
+                if (pwdinfo->role == P2P_ROLE_CLIENT) 
+                {
+                    pwdinfo->tx_prov_disc_info.benable = wf_false;
+                    p2p_provision_request_to_issue_func(nic_info,
+                                                        pwdinfo->tx_prov_disc_info.ssid,
+                                                        pwdinfo->tx_prov_disc_info.ssidlen,
+                                                        pwdinfo->tx_prov_disc_info.peerDevAddr, 1);
+                } 
+                else if (pwdinfo->role == P2P_ROLE_DEVICE || pwdinfo->role == P2P_ROLE_GO) 
+                {
+                    pwdinfo->tx_prov_disc_info.benable = wf_false;
+                    p2p_provision_request_to_issue_func(nic_info,
+                                                        NULL,
+                                                        0,
+                                                        pwdinfo->tx_prov_disc_info.peerDevAddr, 1);
+                }
+            }
+        }
+        return;
+    } 
+    else if (pwdinfo->p2p_state == P2P_STATE_GONEGO_ING) 
+    {
+        if (pwdinfo->nego_req_info.benable) 
+        {
+            SCAN_INFO("[%s] P2P State is GONEGO ING!\n", __FUNCTION__);
+            if (0 == wf_memcmp(pwdinfo->nego_req_info.peerDevAddr, GetAddr2Ptr(pmgmt),WF_ETH_ALEN)) 
+            {
+                pwdinfo->nego_req_info.benable = wf_false;
+                p2p_GO_request_to_issue_func(nic_info,pwdinfo->nego_req_info.peerDevAddr, 1);
+            }
+        }
+    } 
+    else if (pwdinfo->p2p_state == P2P_STATE_TX_INVITE_REQ) 
+    {
+        if ( pwdinfo->invitereq_info.benable) 
+        {
+            SCAN_INFO("[%s] P2P_STATE_TX_INVITE_REQ!\n", __FUNCTION__);
+            if (0 == wf_memcmp(pwdinfo->invitereq_info.peer_macaddr, GetAddr2Ptr(pmgmt),WF_ETH_ALEN)) 
+            {
+                pwdinfo->invitereq_info.benable = wf_false;
+                p2p_invitation_request_to_issue_func(nic_info, pwdinfo->invitereq_info.peer_macaddr, 1);
+            }
+        }
+    }
+}
+#endif
+
+
 int wf_scan_filter (nic_info_st *pnic_info,
                     wf_80211_mgmt_t *pmgmt, wf_u16 mgmt_len)
 {
@@ -354,6 +440,11 @@ int wf_scan_filter (nic_info_st *pnic_info,
         return 0;
     }
 
+
+    #ifdef CONFIG_P2P
+    p2p_scan_response_entry(pnic_info,pmgmt,mgmt_len);
+    #endif
+
     /* check frame if legality */
     {
         wf_u8 *pies = &pmgmt->probe_resp.variable[0];
@@ -381,8 +472,8 @@ int wf_scan_filter (nic_info_st *pnic_info,
     }
 
     SCAN_DBG("%s", wf_80211_get_frame_type(pmgmt->frame_control) ==
-                   WF_80211_FRM_PROBE_RESP ?
-                   "probersp" : "beacon");
+             WF_80211_FRM_PROBE_RESP ?
+             "probersp" : "beacon");
 
     /* if match probe respone frame, send nofity message */
     if (pscan_info->preq->type == SCAN_TYPE_ACTIVE &&
@@ -391,7 +482,7 @@ int wf_scan_filter (nic_info_st *pnic_info,
     {
         mlme_state_e state;
         wf_mlme_get_state(pnic_info, &state);
-        if (state == MLME_STATE_CONN_SCAN)
+        if (state == MLME_STATE_CONN_SCAN || state == MLME_STATE_IBSS_CONN_SCAN)
         {
             wf_mlme_conn_scan_rsp(pnic_info, pmgmt, mgmt_len);
         }
@@ -407,8 +498,13 @@ wf_pt_rst_t wf_scan_thrd (wf_pt_t *pt, nic_info_st *pnic_info, int *prsn)
     wf_scan_info_t *pscan_info;
     wf_msg_que_t *pmsg_que;
     wf_msg_t *pmsg;
-    int reason;
+    int reason = WF_SCAN_TAG_DONE;
     int rst;
+#ifdef CONFIG_P2P
+    p2p_info_st *p2p_info = pnic_info->p2p;
+    struct wifidirect_info *pwdinfo = NULL;
+    pwdinfo = &p2p_info->wdinfo;
+#endif
 
     if (pt == NULL || pnic_info == NULL || prsn == NULL)
     {
@@ -511,15 +607,24 @@ wf_pt_rst_t wf_scan_thrd (wf_pt_t *pt, nic_info_st *pnic_info, int *prsn)
                  pscan_info->retry_cnt++)
             {
                 /* send probe request */
-                rst = wf_scan_probe_send(pnic_info);
+#ifdef CONFIG_P2P
+                LOG_D("[%s,%d] p2p_state:%s",__func__,__LINE__,p2p_state_to_str(pwdinfo->p2p_state));
+                if( pwdinfo->p2p_state == P2P_STATE_SCAN || pwdinfo->p2p_state == P2P_STATE_FIND_PHASE_SEARCH )
+                {
+                    rst =  probereq_p2p_to_pre_issue_func(pnic_info,NULL);
+                }
+                else
+#endif
+                    rst = wf_scan_probe_send(pnic_info);
                 if (rst)
                 {
                     SCAN_WARN("wf_scan_probe_send failed, error code: %d", rst);
                     reason = -6;
                     goto exit;
                 }
+
                 /* wait until channel scan timeout */
-                wf_timer_set(&pscan_info->timer, 20);
+                wf_timer_set(&pscan_info->timer, 50);
                 do
                 {
                     PT_WAIT_UNTIL(pt, !wf_msg_pop(pmsg_que, &pmsg) ||
@@ -527,6 +632,7 @@ wf_pt_rst_t wf_scan_thrd (wf_pt_t *pt, nic_info_st *pnic_info, int *prsn)
                     if (pmsg == NULL)
                     {
                         /* timeout */
+                        wf_timer_reset(&pscan_info->timer);
                         break;
                     }
                     if (pmsg->tag == WF_SCAN_TAG_ABORT)
@@ -602,6 +708,7 @@ int wf_scan_start (nic_info_st *pnic_info, scan_type_e type,
     wf_msg_t *pmsg;
     wf_scan_req_t *pscan_req;
     int rst;
+    SCAN_DBG();
 
     if (pnic_info == NULL || WF_CANNOT_RUN(pnic_info))
     {
@@ -646,7 +753,7 @@ int wf_scan_start (nic_info_st *pnic_info, scan_type_e type,
         for (i = 0; i < ch_num; i++)
         {
             char tmp[5];
-            sprintf(tmp, "%d", chs[i]);
+            sprintf(tmp, "%02d ", chs[i]);
             strncat(ch_str, tmp, 3);
         }
         if (i == 0)
@@ -695,21 +802,10 @@ int wf_scan_start (nic_info_st *pnic_info, scan_type_e type,
                   pscan_req->ssid_num * sizeof(pscan_req->ssids[0]));
     }
     /* set scanning channels */
-    if (ch_num && chs)
+    pscan_req->ch_num = WF_MIN(ch_num, WF_ARRAY_SIZE(pscan_req->ch_map));
+    if (chs && ch_num)
     {
-        pscan_req->ch_num = WF_MIN(ch_num, WF_ARRAY_SIZE(pscan_req->ch_map));
         wf_memcpy(pscan_req->ch_map, chs, ch_num);
-    }
-    else
-    {
-        /* channel reference to local hardware support */
-        hw_info_st *phw_info = (hw_info_st *)pnic_info->hw_info;
-        wf_u8 i;
-        pscan_req->ch_num = phw_info->max_chan_nums;
-        for (i = 0; i < phw_info->max_chan_nums; i++)
-        {
-            pscan_req->ch_map[i] = phw_info->channel_set[i].channel_num;
-        }
     }
 
     rst = wf_msg_push(pmsg_que, pmsg);
@@ -783,7 +879,7 @@ int wf_scan_wait_done (nic_info_st *pnic_info, wf_bool babort, wf_u16 to_ms)
     wf_timer_set(&timer, to_ms);
     do
     {
-        wf_yield();
+        wf_msleep(1);
         if (wf_timer_expired(&timer))
         {
             return -2;

@@ -205,8 +205,8 @@ static wf_s32 handler_find_phase_func(nic_info_st * nic_info)
 
     _func_exit_;
     #else
-    p2p_info_st *p2p_info = nic_info->p2p;
-    struct wifidirect_info *pwdinfo = &p2p_info->wdinfo;
+    //p2p_info_st *p2p_info = nic_info->p2p;
+    //struct wifidirect_info *pwdinfo = &p2p_info->wdinfo;
     
     //wf_scan_start(nic_info,SCAN_TYPE_ACTIVE,NULL,pwdinfo->p2p_wildcard_ssid,1,);
     #endif

@@ -51,6 +51,8 @@
 #define WF_MAC_FMT     "%02x:%02x:%02x:%02x:%02x:%02x"
 #define WF_MAC_ARG(x)  ((wf_u8*)(x))[0],((wf_u8*)(x))[1],((wf_u8*)(x))[2],((wf_u8*)(x))[3],((wf_u8*)(x))[4],((wf_u8*)(x))[5]
 
+#define MAX_SUBFRAME_COUNT  64
+
 
 /*
  * ieee802.11 MAC frame type define
@@ -181,7 +183,7 @@ typedef enum
 #define MASK_QC_A_MSDU_PRESENT                  BIT(7)
 
 
-#define HT_CTRL_LEN		                        4
+#define HT_CTRL_LEN                             4
 
 /* HT Control field */
 #define HT_CTRL_LINK_ADAPTATION_CTRL            BITS(0, 15)
@@ -320,7 +322,7 @@ typedef wf_u16 wf_80211_mgmt_capab_t;
  */
 #define WF_80211_CAPAB_IS_MESH_STA_BSS(cap)  \
     (!((cap) & (WF_80211_MGMT_CAPAB_ESS | WF_80211_MGMT_CAPAB_IBSS)))
-    
+
 #define WF_80211_CAPAB_IS_IBSS(cap)  \
     (!((cap) & WF_80211_MGMT_CAPAB_ESS) && ((cap) & WF_80211_MGMT_CAPAB_IBSS))
 
@@ -659,7 +661,7 @@ typedef enum
     WF_80211_CATEGORY_UNPROT_DMG                    = 20,
     WF_80211_CATEGORY_VHT                           = 21,
     WF_80211_CATEGORY_VENDOR_SPECIFIC_PROTECTED     = 126,
-    WF_80211_CATEGORY_VENDOR_SPECIFIC               = 127,
+    WF_80211_CATEGORY_P2P                           = 127,
 } wf_80211_category_e;
 
 /* SPECTRUM_MGMT action code */
@@ -921,9 +923,20 @@ typedef enum
     WF_80211_AUTH_SEQ_4,
 } wf_80211_auth_seq_e;
 
+typedef enum
+{
+	WF_80211_HIDDEN_SSID_NOT_IN_USE = 0,
+	WF_80211_HIDDEN_SSID_ZERO_LEN,
+	WF_80211_HIDDEN_SSID_ZERO_CONTENTS,
+} wf_80211_hidden_ssid_e;
+
 #define WF_80211_AUTH_CHALLENGE_LEN             128
 
+wf_u8 *wf_wlan_get_ie(wf_u8 * pbuf, wf_s32 index, wf_s32 * len, wf_s32 limit);
 wf_u8 *wf_wlan_get_wps_ie(wf_u8 *temp_ie, wf_u32 temp_len, wf_u8 *wps_ie, wf_u32 *ie_len);
+wf_u8 *wf_wlan_get_wps_attr(wf_u8 * wps_ie, uint wps_ielen, wf_u16 target_attr_id, wf_u8 * buf_attr, wf_u32 * len_attr, wf_u8 flag);
+wf_u8 *wf_wlan_get_wps_attr_content(wf_u8 flag, wf_u8 * wps_ie, uint wps_ielen, wf_u16 target_attr_id, wf_u8 * buf_content, uint * len_content);
+
 
 static wf_inline
 wf_80211_frame_e wf_80211_get_frame_type (wf_80211_frame_ctrl_t fc)
@@ -956,7 +969,7 @@ void wf_80211_set_protected (wf_80211_frame_ctrl_t *pfc)
 static wf_inline
 wf_bool wf_80211_has_order (wf_80211_frame_ctrl_t pfc)
 {
-	return !!(pfc & wf_cpu_to_le16(WF_80211_FCTL_ORDER));
+    return !!(pfc & wf_cpu_to_le16(WF_80211_FCTL_ORDER));
 }
 
 int wf_80211_mgmt_ies_search (void *pies, wf_u16 ies_len, wf_u8 cmp_id,
@@ -968,7 +981,7 @@ int wf_80211_mgmt_ies_search_with_oui (void *pies, wf_u16 ies_len,
                                        wf_80211_mgmt_ie_t **ppie);
 
 
-wf_u8 *wf_80211_set_fixed_ie(wf_u8 *pbuf, wf_u32 len, wf_u8 *source, wf_u32 *frlen);
+wf_u8 *wf_80211_set_fixed_ie(wf_u8 *pbuf, wf_u32 len, wf_u8 *source, wf_u16 *frlen);
 
 
 
@@ -1101,7 +1114,7 @@ enum
 #define SEC_LEVEL_2_CKIP 3
 #define SEC_LEVEL_3      4
 
-#define WEP_KEYS 4  /* WEP只有4组秘钥 */
+#define WEP_KEYS 4  /* WEP只有4组秘�?*/
 #define WEP_KEY_LEN 13
 
 #define IEEE_CRYPT_ALG_NAME_LEN         16
@@ -1414,7 +1427,7 @@ typedef struct
             wf_u16 status_code;
             /* possibly followed Challenge text */
             wf_u8 variable[WF_OFFSETOF(wf_80211_mgmt_ie_t, data) +
-                    WF_80211_AUTH_CHALLENGE_LEN];
+                                                           WF_80211_AUTH_CHALLENGE_LEN];
             wf_u32 icv;
         } wf_packed auth_seq3;
         struct deauth_ie

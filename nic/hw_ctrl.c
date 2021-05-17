@@ -11,7 +11,7 @@ int wf_hw_mcu_disable(nic_info_st *nic_info)
     int ret;
 
 	LOG_I("[%s] begin",__func__);
-#ifndef CONFIG_RICHV200_FPGA
+#ifndef CONFIG_RICHV200
     ret = wf_io_write32(nic_info,WF_EN_ADDR,0);
     if (WF_RETURN_FAIL == ret )
     {
@@ -46,7 +46,7 @@ int wf_hw_mcu_enable(nic_info_st *nic_info)
         return WF_RETURN_FAIL;
     }
 
-#ifndef CONFIG_RICHV200_FPGA
+#ifndef CONFIG_RICHV200
     wf_io_read32(nic_info,WF_EN_ADDR,NULL);
 
     ret = wf_io_write32(nic_info,WF_EN_ADDR,0x1);
@@ -65,7 +65,7 @@ int wf_hw_mcu_startup(nic_info_st *nic_info)
 {
     int ret;
 
-#ifndef CONFIG_RICHV200_FPGA
+#ifndef CONFIG_RICHV200
     ret = wf_io_write32(nic_info,WF_EN_ADDR,0x2);
     if (WF_RETURN_FAIL == ret)
     {

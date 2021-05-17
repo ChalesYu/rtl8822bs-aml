@@ -27,6 +27,7 @@ static void rx_data_reorder_process(rx_pkt_t *pkt,struct net_device *ndev);
 
 wf_bool is_snap_pkt(struct sk_buff * pskb)
 {
+    #if 0
     u16 eth_type;
     WF_ASSERT(pskb);
     eth_type = WF_PCHAR_2_BE16(pskb->data+6);
@@ -39,6 +40,9 @@ wf_bool is_snap_pkt(struct sk_buff * pskb)
     }
 
     return wf_false;
+    #else
+    return is_snap_hdr(pskb->data);
+    #endif
 }
 
 inline int create_skb(prx_pkt_t prx_pkt,wf_u8 * pbuf,wf_u32 pkt_len)
@@ -333,7 +337,7 @@ int process_amsdu(struct net_device *ndev, prx_pkt_t ppkt)
     wf_u8 *pdata;
     wf_u8 *sa;
     wf_u8 *da;
-    wf_u8 nr_subframes;
+    wf_u8 nr_subframes = 0;
     struct sk_buff_head amsdu_skb_list;
     struct sk_buff * pskb;
     wf_u32 frame_type;
@@ -511,12 +515,9 @@ static void rx_data_upload_process(rx_pkt_t *pkt,struct net_device *ndev)
 static void rx_data_reorder_process(rx_pkt_t *pkt,struct net_device *ndev)
 {
     wdn_net_info_st *pwdn_info = pkt->wdn_info;
-    hw_info_st      *phw_info  = NULL;
     wf_s32 hdr_tansfer_ret = 0;
-    wf_s32 ret     = 0;
     wf_s32 prio    = 0;
     wf_s32 seq_num = 0;
-    wf_s32 timeout = 0;
     
 
     prio = pkt->pkt_info.qos_pri;
@@ -529,8 +530,7 @@ static void rx_data_reorder_process(rx_pkt_t *pkt,struct net_device *ndev)
             wf_free_skb(pkt->pskb);
         }
 
-        if (prio > 15)
-            LOG_E("pri error:%d",prio);
+        LOG_E("[%s]:pri error:%d , drop packet",__func__, prio);
         return;
     }
 
@@ -543,15 +543,17 @@ static void rx_data_reorder_process(rx_pkt_t *pkt,struct net_device *ndev)
         }
         return;
     }
-
+    
     if(0 == pkt->pkt_info.qos_flag)
     {
         upload_skb(ndev, pkt->pskb);
         return;
     }
 
-    if(wf_false == pwdn_info->ba_ctl[prio].enable)
+    if(NULL == pwdn_info->ba_ctl ||  wf_false == pwdn_info->ba_ctl[prio].enable)
     {
+        //LOG_W("[%s]：pwdn_info->ba_ctl->%p, pwdn_info->ba_ctl[%d].enable->%d", 
+        //      __func__, pwdn_info->ba_ctl, prio, pwdn_info->ba_ctl[prio].enable);
         upload_skb(ndev, pkt->pskb);
         //rx_do_update_expect_seq(seq_num,&pwdn_info->ba_ctl[prio]);
         return;
@@ -590,7 +592,7 @@ void mpdu_process(struct net_device *ndev, wf_u32 tot_len, wf_u32 remain_len, wf
     ndev_priv_st *pndev_priv = netdev_priv(ndev);
     nic_info_st *nic_info = pndev_priv->nic;
     hw_info_st *hw_info = NULL;
-    rx_info_t *rx_info;
+    rx_info_t *rx_info = NULL;
     recv_phy_status_st phyStatus;
 
     if ( NULL == nic_info )
@@ -645,7 +647,7 @@ void mpdu_process(struct net_device *ndev, wf_u32 tot_len, wf_u32 remain_len, wf
     {
         hw_info_st *hw_info = nic_info->hw_info;
 
-        wf_odm_calc_str_and_qual(nic_info, (wf_u8 *)&phyStatus, pkt.pdata, &pkt);
+        wf_rx_calc_str_and_qual(nic_info, (wf_u8 *)&phyStatus, pkt.pdata, &pkt);
 
         if(hw_info && hw_info->use_drv_odm)
         {

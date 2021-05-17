@@ -4,16 +4,16 @@
 #include "mp.h"
 #include "wf_os_api.h"
 
-#if 1
-#define IW_FUNC_DBG(fmt, ...)       LOG_D("[%s]"fmt, __func__, ##__VA_ARGS__)
+#if 0
+#define IW_FUNC_DBG(fmt, ...)       LOG_D("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
 #define IW_FUNC_ARRAY(data, len)    log_array(data, len)
 #else
 #define IW_FUNC_DBG(...)
 #define IW_FUNC_ARRAY(...)
 #endif
-#define IW_FUNC_INFO(fmt, ...)      LOG_I("[%s]"fmt, __func__, ##__VA_ARGS__)
-#define IW_FUNC_WARN(fmt, ...)      LOG_W("[%s]"fmt, __func__, ##__VA_ARGS__)
-#define IW_FUNC_ERROR(fmt, ...)     LOG_E("[%s]"fmt, __func__, ##__VA_ARGS__)
+#define IW_FUNC_INFO(fmt, ...)      LOG_I("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
+#define IW_FUNC_WARN(fmt, ...)      LOG_W("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
+#define IW_FUNC_ERROR(fmt, ...)     LOG_E("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
 
 #define MIN_FRAG_THRESHOLD     256U
 #define MAX_FRAG_THRESHOLD     2346U
@@ -129,7 +129,6 @@ static int sta_hw_set_group_key(nic_info_st *pnic_info, wdn_net_info_st *pwdn_in
     sec_info_st *psec_info = pnic_info->sec_info;
     wf_u8 cam_id;
     wf_u16 ctrl;
-    wf_u32 buf[2];
     int ret;
 
     cam_id = psec_info->dot118021XGrpKeyid & 0x03; /* cam_id0~3 8021x group key */
@@ -147,7 +146,7 @@ static int sta_hw_set_group_key(nic_info_st *pnic_info, wdn_net_info_st *pwdn_in
 static int set_encryption(struct net_device *dev,
                    ieee_param *param, wf_u32 param_len)
 {
-    wf_u32 wep_key_idx, wep_key_len, wep_total_len;
+    wf_u32 wep_key_idx, wep_key_len;
     ndev_priv_st *pndev_priv = netdev_priv(dev);
     nic_info_st *pnic_info = pndev_priv->nic;
     sec_info_st *psec_info = pnic_info->sec_info;
@@ -299,7 +298,7 @@ static char *translate_scan_info(nic_info_st *pnic_info,
     char *pstart_last = pstart;
     struct iw_event *piwe;
     wf_u16 max_rate = 0, rate;
-    wf_u16 i;
+    wf_u16 i = 0;
     wf_u8 ch;
     wf_u8 *p;
     wf_80211_mgmt_ie_t *pie;
@@ -555,11 +554,11 @@ int wf_iw_setCommit(struct net_device *ndev, struct iw_request_info *info, union
 int wf_iw_getName(struct net_device *ndev, struct iw_request_info *info,
                   union iwreq_data *wrqu, char *extra)
 {
-    ndev_priv_st *pndev_priv = netdev_priv(ndev);
-    wf_wlan_bss_info_t *pbss_info;
-    wf_80211_mgmt_ie_t *pele;
-    wf_bool ht_support, cck_support, ofdm_support;
-    wf_u8 i;
+//    ndev_priv_st *pndev_priv = netdev_priv(ndev);
+//    wf_wlan_bss_info_t *pbss_info;
+//    wf_80211_mgmt_ie_t *pele;
+//    wf_bool ht_support, cck_support, ofdm_support;
+//    wf_u8 i;
 
     IW_FUNC_DBG();
 
@@ -642,8 +641,6 @@ int wf_iw_setFrequency(struct net_device *ndev, struct iw_request_info *info, un
     ndev_priv_st *pndev_priv = netdev_priv(ndev);
     nic_info_st *pnic_info = pndev_priv->nic;
     hw_info_st *phw_info = pnic_info->hw_info;
-    wf_wlan_info_t *pwirl = pnic_info->wlan_info;
-    hw_info_st *freq_priv = pnic_info->hw_info;
     int exp = 1, freq = 0, div = 0;
     wf_u8 channel;
 
@@ -712,7 +709,6 @@ int wf_iw_getFrequency(struct net_device *ndev, struct iw_request_info *info, un
     ndev_priv_st *pndev_priv = netdev_priv(ndev);
     nic_info_st *pnic_info = pndev_priv->nic;
     local_info_st *local_info = pnic_info->local_info;
-    wf_wlan_info_t *wlan_info = pnic_info->wlan_info;
     wf_bool is_connected = wf_false;
     wf_u8 cur_channel;
 
@@ -748,10 +744,12 @@ int wf_iw_setOperationMode(struct net_device *ndev, struct iw_request_info *info
 {
     ndev_priv_st *pndev_priv = netdev_priv(ndev);
     nic_info_st *pnic_info = pndev_priv->nic;
-    wf_wlan_info_t *wlan_info = pnic_info->wlan_info;
-    wf_wlan_network_t *cur_network = &wlan_info->cur_network;
     local_info_st * plocal = (local_info_st *)pnic_info->local_info;
     wf_bool bConnect = wf_false;
+#ifdef CFG_ENABLE_AP_MODE
+        wf_wlan_info_t *wlan_info = pnic_info->wlan_info;
+        wf_wlan_network_t *cur_network = &wlan_info->cur_network;
+#endif
 
     IW_FUNC_DBG("OpMode:%d", wrqu->mode);
     IW_FUNC_DBG("[wf_iw_setOperationMode]:mac:"WF_MAC_FMT,WF_MAC_ARG(ndev->dev_addr));
@@ -772,8 +770,7 @@ int wf_iw_setOperationMode(struct net_device *ndev, struct iw_request_info *info
     wf_mlme_get_connect(pnic_info, &bConnect);
     if(bConnect)
     {
-        wf_mlme_deauth(pnic_info);
-		wf_mlme_set_connect(pnic_info,wf_false);
+        wf_mlme_deauth(pnic_info, wf_true);
     }
 
     wf_mcu_set_op_mode(pnic_info, wrqu->mode);
@@ -783,12 +780,14 @@ int wf_iw_setOperationMode(struct net_device *ndev, struct iw_request_info *info
         case WF_MASTER_MODE :
 #ifdef CFG_ENABLE_AP_MODE
             cur_network->join_res = -1;
+            wf_mlme_abort(pnic_info);
             break;
 #endif
 
         case WF_MONITOR_MODE :
 #ifdef CFG_ENABLE_MONITOR_MODE
             ndev->type = ARPHRD_IEEE80211_RADIOTAP;
+            wf_mlme_abort(pnic_info);
             IW_FUNC_DBG("WF_MONITOR_MODE");
             break;
 #endif
@@ -854,14 +853,10 @@ int wf_iw_getRange(struct net_device *ndev, struct iw_request_info *info,
                    union iwreq_data *wrqu, char *extra)
 {
     struct iw_range *range = (struct iw_range *)extra;
-    ndev_priv_st *pndev_priv = netdev_priv(ndev);
-    wireless_info_st *pwirl;
+    wireless_info_st *pwirl = NULL;
     int i;
 
-    if (wf_hw_info_get_wireless_info(pndev_priv->nic, pwirl) < 0)
-    {
-        pwirl = &def_wireless_info;
-    }
+    pwirl = &def_wireless_info;
 
     IW_FUNC_DBG();
 
@@ -925,7 +920,6 @@ int wf_iw_setPriv(struct net_device *ndev, struct iw_request_info *info, union i
 
     int res = 0, len = 0;
     char *ext;
-    int i;
     struct iw_point *dwrq = (struct iw_point *)wrqu;
 
     IW_FUNC_DBG();
@@ -950,11 +944,12 @@ int wf_iw_setPriv(struct net_device *ndev, struct iw_request_info *info, union i
         wf_wlan_info_t *wps_priv = pnic_info->wlan_info;
         wf_wlan_remote_t *probe_priv = &wps_priv->remote;
         wf_u8 *probereq_wpsie = ext;
-        int probereq_wpsie_len = len;
+        wf_u32 probereq_wpsie_len = len;
         wf_u8 wps_oui[4] = {0x0, 0x50, 0xf2, 0x04};
 
         if ((_VENDOR_SPECIFIC_IE_ == probereq_wpsie[0]) && (!wf_memcmp(&probereq_wpsie[2], wps_oui, 4)))
         {
+            cp_sz = probereq_wpsie_len > WF_MAX_WPS_IE_LEN ? WF_MAX_WPS_IE_LEN : probereq_wpsie_len;
             probe_priv->security.wps_probe_req_ie_len = 0;
             wf_kfree(probe_priv->security.wps_probe_req_ie);
             probe_priv->security.wps_probe_req_ie = NULL;
@@ -1060,8 +1055,6 @@ int wf_iw_setWap (struct net_device *ndev, struct iw_request_info *info,
 {
     ndev_priv_st *pndev_priv = netdev_priv(ndev);
     nic_info_st *pnic_info = pndev_priv->nic;
-    sec_info_st *psec_info = pnic_info->sec_info;
-    wf_bool bconnect;
     struct sockaddr *awrq = (struct sockaddr *)wrqu;
 #ifdef CONFIG_CONCURRENT_MODE
 	nic_info_st *pvir_nic = pnic_info->vir_nic;
@@ -1091,18 +1084,22 @@ int wf_iw_setWap (struct net_device *ndev, struct iw_request_info *info,
 
         /* retrive bssid */
         wf_memcpy(bssid, awrq->sa_data, sizeof(wf_80211_bssid_t));
-        IW_FUNC_DBG("bssid: "WF_MAC_FMT, WF_MAC_ARG(bssid));
 
         if (wf_80211_is_valid_bssid(bssid))
         {
+            IW_FUNC_DBG("bssid: "WF_MAC_FMT, WF_MAC_ARG(bssid));
             /* start connect */
-            wf_mlme_conn_start(pnic_info, bssid, pssid, WF_MLME_FRAMEWORK_WEXT);
+            wf_mlme_conn_start(pnic_info, bssid, NULL,
+                               WF_MLME_FRAMEWORK_WEXT, wf_true);
         }
         else
         {
             IW_FUNC_DBG("clear bssid");
-            wf_mlme_conn_abort(pnic_info);
+            wf_mlme_conn_abort(pnic_info, wf_false);
         }
+
+        /* clearup ssid */
+        pssid->length = 0;
     }
 
     return 0;
@@ -1151,20 +1148,19 @@ int wf_iw_setMlme(struct net_device *ndev, struct iw_request_info *info, union i
     struct iw_mlme *mlme = (struct iw_mlme *)extra;
     ndev_priv_st *pndev_priv = netdev_priv(ndev);
     nic_info_st *pnic_info = pndev_priv->nic;
-    u16 reason;
-    int res;
 
     if (mlme == NULL)
+    {
         return -1;
+    }
 
-    IW_FUNC_DBG();
-
-    reason = cpu_to_le16(mlme->reason_code);
-
-    IW_FUNC_DBG("cmd=%d, reason=%d", mlme->cmd, reason);
+    IW_FUNC_DBG("cmd=%d, reason=%d", mlme->cmd, cpu_to_le16(mlme->reason_code));
 
     /* cleap up iw connection parametes setting */
     wf_memset(&pndev_priv->iw_conn_setting, 0x0, sizeof(pndev_priv->iw_conn_setting));
+
+    /* cleap up sec info */
+    wf_memset(pnic_info->sec_info, 0x0, sizeof(sec_info_st));
 
 #ifdef CONFIG_LPS
     if(WF_RETURN_FAIL == wf_lps_wakeup(pnic_info, LPS_CTRL_SCAN, 0))
@@ -1177,12 +1173,12 @@ int wf_iw_setMlme(struct net_device *ndev, struct iw_request_info *info, union i
     {
         case IW_MLME_DEAUTH:
             IW_FUNC_DBG("IW_MLME_DEAUTH");
-            wf_mlme_conn_abort(pnic_info);
+            wf_mlme_conn_abort(pnic_info, wf_false);
             break;
 
         case IW_MLME_DISASSOC:
             IW_FUNC_DBG("IW_MLME_DISASSOC");
-            wf_mlme_conn_abort(pnic_info);
+            wf_mlme_conn_abort(pnic_info, wf_false);
             break;
 
         default:
@@ -1246,7 +1242,6 @@ int wf_iw_setScan(struct net_device *ndev, struct iw_request_info *info, union i
 
 int wf_iw_getScan(struct net_device *ndev, struct iw_request_info *info, union iwreq_data *wrqu, char *extra)
 {
-    struct iw_event iwe;
     ndev_priv_st *pndev_priv = netdev_priv(ndev);
     nic_info_st *pnic_info = pndev_priv->nic;
     wf_wlan_scanned_info_t *pscanned_info;
@@ -1272,8 +1267,15 @@ int wf_iw_getScan(struct net_device *ndev, struct iw_request_info *info, union i
     wrqu->data.length = ev - extra;
     wrqu->data.flags = 0;
 
-    IW_FUNC_DBG("<ap count = %d / scaned_list count=%d>", apCount,
-                ((wf_wlan_info_t *)pnic_info->wlan_info)->scanned.que.count);
+    if (scanned_ret == WF_WLAN_SCANNED_EACH_RET_FAIL)
+    {
+        res = -EAGAIN;
+    }
+    else
+    {
+        IW_FUNC_DBG("<ap count = %d / scaned_list count=%d>", apCount,
+                    ((wf_wlan_info_t *)pnic_info->wlan_info)->scanned.que.count);
+    }
 
     return res;
 }
@@ -1283,7 +1285,6 @@ int wf_iw_setEssid (struct net_device *ndev, struct iw_request_info *info,
 {
     ndev_priv_st *pndev_priv = netdev_priv(ndev);
     nic_info_st *pnic_info = pndev_priv->nic;
-    sec_info_st *psec_info = pnic_info->sec_info;
     wf_u8 len;
 #ifdef CONFIG_CONCURRENT_MODE
 	nic_info_st *pvir_nic = pnic_info->vir_nic;
@@ -1328,8 +1329,6 @@ int wf_iw_setEssid (struct net_device *ndev, struct iw_request_info *info,
         /* retrive ssid */
         pssid->length = WF_MIN(sizeof(wf_80211_mgmt_ssid_t), len);
         wf_memcpy(pssid->data, extra, pssid->length);
-        pssid->data[pssid->length] = '\0'; /* string end symbol */
-        IW_FUNC_DBG("essid: %s", pssid->data);
 
         wf_mlme_get_connect(pnic_info, &is_connected);
         if (is_connected)
@@ -1339,20 +1338,27 @@ int wf_iw_setEssid (struct net_device *ndev, struct iw_request_info *info,
                 !wf_memcmp(pcur_ssid->data, pssid->data, pssid->length))
             {
                 IW_FUNC_DBG("the essid as same as the current associate ssid");
-                return 0;
+                goto clearup_bssid;
             }
             /* current connection break */
-            wf_mlme_deauth(pnic_info);
+            wf_mlme_deauth(pnic_info, wf_true);
         }
 
         if (len < IW_ESSID_MAX_SIZE)
         {
-            wf_mlme_conn_start(pnic_info, bssid, pssid, WF_MLME_FRAMEWORK_WEXT);
+            pssid->data[pssid->length] = '\0'; /* string end symbol */
+            IW_FUNC_DBG("essid: %s", pssid->data);
+            wf_mlme_conn_start(pnic_info, bssid, pssid,
+                               WF_MLME_FRAMEWORK_WEXT, wf_true);
         }
         else
         {
             IW_FUNC_DBG("clear essid");
         }
+
+clearup_bssid:
+        /* cleapup bssid */
+        wf_memset(bssid, 0x0, sizeof(wf_80211_bssid_t));
     }
 
     return 0;
@@ -1362,7 +1368,6 @@ int wf_iw_getEssid(struct net_device *ndev, struct iw_request_info *info, union 
 {
     ndev_priv_st *pndev_priv = netdev_priv(ndev);
     nic_info_st *pnic_info = pndev_priv->nic;
-    wf_wlan_info_t *wlan_info = pnic_info->wlan_info;
     wf_bool is_connected = wf_false;
     wf_wlan_ssid_t *curSsid;
     wf_u8 *curBssid;
@@ -1409,12 +1414,8 @@ int wf_iw_getEssid(struct net_device *ndev, struct iw_request_info *info, union 
     return 0;
 }
 
-
-
 int wf_iw_getNick(struct net_device *ndev, struct iw_request_info *info, union iwreq_data *wrqu, char *extra)
 {
-    ndev_priv_st *pndev_priv = netdev_priv(ndev);
-
     if(extra)
     {
         wrqu->data.length = 12;
@@ -1449,8 +1450,6 @@ int wf_iw_setNick(struct net_device *ndev, struct iw_request_info *info, union i
 
 int wf_iw_setRate(struct net_device *ndev, struct iw_request_info *info, union iwreq_data *wrqu, char *extra)
 {
-    ndev_priv_st *pndev_priv = netdev_priv(ndev);
-    nic_info_st *pnic_info = pndev_priv->nic;
     wf_u8 datarates[13];
     wf_u32 target_rate = wrqu->bitrate.value;
     wf_u32 fixed = wrqu->bitrate.fixed;
@@ -1667,7 +1666,7 @@ int wf_iw_getRetry(struct net_device *ndev, struct iw_request_info *info, union 
 
 int wf_iw_setEnc(struct net_device *ndev, struct iw_request_info *info, union iwreq_data *wrqu, char *extra)
 {
-    wf_u32 key, res = 0;
+    wf_u32 key;
     wf_u32 keyindex_provided;
     signed int keyid;
     wl_ndis_802_11_wep_st wep;
@@ -1821,7 +1820,7 @@ int wf_iw_setEnc(struct net_device *ndev, struct iw_request_info *info, union iw
 
 int wf_iw_getEnc(struct net_device *ndev, struct iw_request_info *info, union iwreq_data *wrqu, char *extra)
 {
-    uint key, res = 0;
+    wf_u32 key;
     ndev_priv_st *pndev_priv = netdev_priv(ndev);
     nic_info_st *pnic_info = pndev_priv->nic;
     struct iw_point *erq = &(wrqu->encoding);
@@ -1923,9 +1922,7 @@ int wf_iw_set_wpa_ie (nic_info_st *pnic_info, wf_u8 *pie, size_t ielen)
 {
     sec_info_st *sec_info = pnic_info->sec_info;
     wf_u8 *buf = NULL;
-    wf_u32 left;
     int group_cipher = 0, pairwise_cipher = 0;
-    wf_u32 null_addr[] = { 0, 0, 0, 0, 0, 0 };
     u16 cnt = 0;
     wf_u8 eid, wps_oui[4] = { 0x0, 0x50, 0xf2, 0x04 };
     int res = 0;
@@ -2043,7 +2040,6 @@ int wf_iw_setGenIe(struct net_device *ndev, struct iw_request_info *info,
 {
     ndev_priv_st *pndev_priv = netdev_priv(ndev);
     nic_info_st *pnic_info = pndev_priv->nic;
-    sec_info_st *sec_info = pnic_info->sec_info;
     int res = 0;
 
     res= wf_iw_set_wpa_ie(pnic_info, extra, wrqu->data.length);
@@ -2196,7 +2192,6 @@ int wf_iw_setAuth(struct net_device *ndev, struct iw_request_info *info, union i
             res = -EOPNOTSUPP;
     }
 
-exit :
     return res;
 }
 
