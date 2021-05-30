@@ -11,7 +11,9 @@ modprobe cfg80211
 insmod 88x2bs.ko rtw_drv_log_level=4
 ```
 
-a seems useful commit for rtw88 can be found at [here](https://github.com/xdarklight/linux/commit/dd44e08220266eea579bd08c6bb54c92943920fd)
+a seems useful commit for rtw88 can be found at [here](https://github.com/xdarklight/linux/commit/80154847ef5ff284624a8abb2e66b690e41fb678)
+
+this repo will deprecated while rtw88 driver support sdio interface.
 
 ### Possible exist Issues
 
