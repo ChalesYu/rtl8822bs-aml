@@ -46,6 +46,7 @@ CONFIG_PCI_HCI = n
 CONFIG_SDIO_HCI = y
 CONFIG_GSPI_HCI = n
 ########################## Features ###########################
+CONFIG_NET_NS = y
 CONFIG_MP_INCLUDED = y
 CONFIG_POWER_SAVING = y
 CONFIG_USB_AUTOSUSPEND = n
@@ -795,6 +796,10 @@ ifeq ($(CONFIG_USB_HCI), y)
 ifeq ($(CONFIG_USB_AUTOSUSPEND), y)
 EXTRA_CFLAGS += -DCONFIG_USB_AUTOSUSPEND
 endif
+endif
+
+ifeq ($(CONFIG_NET_NS), y)
+EXTRA_CFLAGS += -DCONFIG_NET_NS
 endif
 
 ifeq ($(CONFIG_MP_INCLUDED), y)

@@ -7330,6 +7330,12 @@ static void rtw_cfg80211_preinit_wiphy(_adapter *adapter, struct wiphy *wiphy)
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 2, 0))
 	/* wiphy->flags |= WIPHY_FLAG_SUPPORTS_FW_ROAM; */
 #endif
+
+
+#ifdef CONFIG_NET_NS
+    wiphy->flags |= WIPHY_FLAG_NETNS_OK;
+#endif // NETNS
+
 }
 
 #ifdef CONFIG_RFKILL_POLL
