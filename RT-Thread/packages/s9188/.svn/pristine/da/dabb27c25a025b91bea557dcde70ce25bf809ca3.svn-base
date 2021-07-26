@@ -1,0 +1,659 @@
+#include "wf_debug.h"
+#include "hif.h"
+
+#if 0
+#define PWR_DBG(fmt, ...)      LOG_D("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
+#define PWR_ARRAY(data, len)   log_array(data, len)
+#else
+#define PWR_DBG(fmt, ...)
+#define PWR_ARRAY(data, len)
+#endif
+#define PWR_INFO(fmt, ...)     LOG_I("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
+#define PWR_WARN(fmt, ...)     LOG_W("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
+#define PWR_ERROR(fmt, ...)    LOG_E("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
+
+#define DXX0_EN_ADDR            0x00E4
+#define DXX0_START_ADDR         0x00E8
+#define DXX0_CLOCK_EN           0x0094
+
+int power_off(struct hif_node_ *node);
+
+
+int side_road_cfg(struct hif_node_ *node)
+{
+    int ret         = 0;
+    wf_u8  value8   = 0;
+
+    /************************func configure*****************************/
+    
+    /* enable reg r/w */
+    LOG_I("old:0xac---0x%x",hif_io_read8(node, 0xac,NULL));
+    value8 = hif_io_read8(node, 0xac,NULL);
+    value8 |= 0x02;
+    ret = hif_io_write8(node, 0xac, value8);
+    LOG_I("new:0xac---0x%x",hif_io_read8(node, 0xac,NULL));
+
+    /* M0 Uart/Fw_type select */
+    LOG_I("old:0xf8---0x%x",hif_io_read8(node, 0xf8,NULL));
+    value8 = hif_io_read8(node, 0xf8,NULL);
+    value8 |= 0x10;      // special write for all
+    value8 |= 0x40;      // 开M0的串口
+
+#ifdef CONFIG_FW_ENCRYPT
+    value8 |= 0x80;      // 加密固件
+#else
+    value8 &= 0x7F;      // 非加密固件
+#endif
+    ret = hif_io_write8(node, 0xf8, value8);
+    LOG_I("new:0xf8---0x%x",hif_io_read8(node, 0xf8,NULL));
+
+    LOG_I("old:0x98---0x%x",hif_io_read8(node, 0x98,NULL));
+    hif_io_write8(node,0x98,0xff);
+    LOG_I("new:0x98---0x%x",hif_io_read8(node, 0x98,NULL));
+
+
+    /*  For Bluk transport */
+    #if 1
+    ret=hif_io_write32(node, 0x200, 0x00100000);
+    LOG_I("0x200---0x%x",hif_io_read32(node, 0x200,NULL));
+    ret=hif_io_write32(node, 0x200, 0x80100000);
+    LOG_I("0x200---0x%x",hif_io_read32(node, 0x200,NULL));
+    #endif
+
+    LOG_I("[%s] cfg sucess",__func__);
+
+    return 0;
+}
+
+int power_on(struct hif_node_ *node)
+{
+    int ret = 0;
+    wf_bool initSuccess=wf_false;
+    wf_u8  value8 = 0;
+    wf_u16 value16 = 0;
+    
+    LOG_I("[%s] start",__func__);
+
+    if(HIF_SDIO == node->hif_type)
+    {
+        // clear sdio suspend
+        value8 = hif_io_read8(node, 0x903a,NULL);
+        value8 &= 0xFE;
+        ret = hif_io_write8(node, 0x903a, value8);
+        if( WF_RETURN_FAIL == ret)
+        {
+            LOG_E("[%s] 0x903a failed, check!!!",__func__);
+            return ret;
+        }
+        
+        value16 = 0;
+        while(1) {
+            value8 = hif_io_read8(node, 0x903a,NULL);
+            if(value8 & WF_BIT(1)) {
+                break;
+            }
+            wf_msleep(1);
+            value16++;
+            if(value16 > 100) {
+                break;
+            }
+        }
+        if(value16 > 100) {
+            LOG_E("[%s] failed!!!",__func__);
+            return WF_RETURN_FAIL;
+        }
+        LOG_I("[%s]  sdio clear suspend ",__func__);
+    }
+    
+    // check 0x_00AC status
+    value8 = hif_io_read8(node, 0xac,NULL);
+    if(value8 & 0x10) 
+    {
+        LOG_D("[%s] check 0xac status, need power off first ",__func__);
+        power_off(node);
+    }
+
+    //set 0x_00AC  bit 4 写0
+    value8 = hif_io_read8(node, 0xac,NULL);
+    value8 &= 0xEF;
+    ret = hif_io_write8(node, 0xac, value8);
+    if( WF_RETURN_FAIL == ret)
+    {
+        LOG_E("[%s] 0xac failed, check!!!",__func__);
+        return ret;
+    }
+    //set 0x_00AC  bit 0 写0
+    value8 &= 0xFE;
+    ret = hif_io_write8(node, 0xac, value8);
+    if( WF_RETURN_FAIL == ret)
+    {
+        LOG_E("[%s] 0xac failed, check!!!",__func__);
+        return ret;
+    }
+    //set 0x_00AC  bit 0 写1
+    value8 |= 0x01;
+    ret = hif_io_write8(node, 0xac, value8);
+    if( WF_RETURN_FAIL == ret)
+    {
+        LOG_E("[%s] 0xac failed, check!!!",__func__);
+        return ret;
+    }
+    wf_msleep(10);
+    // waiting for power on
+    value16 = 0;
+  
+    while(1){
+        value8 = hif_io_read8(node, 0xac,NULL);
+        if(value8 & 0x10) {
+            initSuccess = wf_true;
+            break;
+        }
+        value16++;
+        if(value16 > 1000) {
+            break;
+        }
+    }
+
+    // enable mcu-bus clk
+    hif_io_read32(node,0x94,NULL);       
+    ret = hif_io_write32(node,0x94,0x6);
+    if (WF_RETURN_FAIL == ret)
+    {
+        LOG_E("[%s] WF_CLK_ADDR failed,check!!!",__func__);
+        return WF_RETURN_FAIL;
+    }
+
+    if(initSuccess == wf_false) 
+    {
+        LOG_E("[%s] failed!!!",__func__);
+        return WF_RETURN_FAIL;
+    }
+
+    LOG_I("[%s] success",__func__);
+    
+    return WF_RETURN_OK;
+
+}
+
+
+
+int power_off(struct hif_node_ *node)
+{
+    int ret = 0;
+    if(hm_get_mod_removed() == wf_false && node->dev_removed == wf_true)
+    {
+        return 0;
+    }
+
+    // disable mcu-bus clk
+    hif_io_read32(node,0x94,NULL);
+    ret = hif_io_write32(node,0x94,0);
+    if (WF_RETURN_FAIL == ret)
+    {
+        LOG_E("[%s] WF_CLK_ADDR failed,check!!!",__func__);
+        return WF_RETURN_FAIL;
+    }
+    
+    switch(node->hif_type)
+    {
+        case HIF_USB:
+        {
+            wf_u16 value16 = 0;
+            wf_u32 value32 = 0;
+
+            // 0x00ac  bit 22 write 1, reset dsp
+            value32 = hif_io_read32(node, 0xac,NULL);
+            value32 |= WF_BIT(22);
+            ret = hif_io_write32(node, 0xac, value32);
+            if( WF_RETURN_FAIL == ret)
+            {
+                LOG_E("[%s] 0xac failed, check!!!",__func__);
+                return ret;
+            }
+
+            // clear the power off bit
+            value32 &= ~((wf_u32)WF_BIT(11)); 
+            ret = hif_io_write32(node, 0xac, value32);
+            if( WF_RETURN_FAIL == ret)
+            {
+                LOG_E("[%s] 0xac failed, check!!!",__func__);
+                return ret;
+            }
+
+            // 配置下电起始条件为：0x00AC[10] 先配0再配1，上升沿使能硬件下电状态机
+            value32 &= ~((wf_u32)WF_BIT(10));  
+            ret = hif_io_write32(node, 0xac, value32);
+            if( WF_RETURN_FAIL == ret)
+            {
+                LOG_E("[%s] 0xac failed, check!!!",__func__);
+                return ret;
+            }
+            value32 |= WF_BIT(10);  
+            ret = hif_io_write32(node, 0xac, value32);
+            if( WF_RETURN_FAIL == ret)
+            {
+                LOG_E("[%s] 0xac failed, check!!!",__func__);
+                return ret;
+            }
+
+            wf_msleep(10);
+            // waiting for power off
+            value16 = 0;
+            while(1) {
+                value32 = hif_io_read32(node, 0xac,NULL);
+                if(value32 & WF_BIT(11)) {
+                    break;
+                }
+                wf_msleep(1);
+                value16++;
+                if(value16 > 10) {
+                    break;
+                }
+            }
+            if(value16 > 10) {
+                LOG_E("[%s] failed!!!",__func__);
+                return WF_RETURN_FAIL;
+            }
+            return WF_RETURN_OK;
+        }
+        case HIF_SDIO:
+        {
+            wf_u8  value8 = 0;
+            wf_u16 value16 = 0;
+
+            // 0x00ac  bit 22 write 1, reset dsp
+            value8 = hif_io_read8(node, 0xac+2,NULL);
+            value8 |= WF_BIT(6);
+            ret = hif_io_write8(node, 0xac+2, value8);
+            if( WF_RETURN_FAIL == ret)
+            {
+                LOG_E("[%s] 0xac failed, check!!!",__func__);
+                return ret;
+            }
+
+            // clear the power off bit
+            value8 = hif_io_read8(node, 0x9094,NULL);
+            value8 &= 0xFE;
+            ret = hif_io_write8(node, 0x9094, value8);
+            if( WF_RETURN_FAIL == ret)
+            {
+                LOG_E("[%s] 0x9094 failed, check!!!",__func__);
+                return ret;
+            }
+
+            // 配置下电起始条件为：0x00AC[10] 先配0再配1，上升沿使能硬件下电状态机
+            value8 = hif_io_read8(node, 0xac+1,NULL);
+            value8 &= ~(WF_BIT(2));
+            ret = hif_io_write8(node, 0xac+1, value8);
+            if( WF_RETURN_FAIL == ret)
+            {
+                LOG_E("[%s] 0xac failed, check!!!",__func__);
+                return ret;
+            }
+            value8 |= WF_BIT(2);
+            ret = hif_io_write8(node, 0xac+1, value8);
+            if( WF_RETURN_FAIL == ret)
+            {
+                LOG_E("[%s] 0xac failed, check!!!",__func__);
+                return ret;
+            }
+            wf_msleep(10);
+            // waiting for power off
+            value16 = 0;
+            while(1) {
+                value8 = hif_io_read8(node, 0x9094,NULL);
+                if(value8 & WF_BIT(0)) {
+                    break;
+                }
+                wf_msleep(1);
+                value16++;
+                if(value16 > 100) {
+                    break;
+                }
+            }
+            if(value16 > 100) {
+                LOG_E("[%s] failed!!!",__func__);
+                return WF_RETURN_FAIL;
+            }
+
+            return WF_RETURN_OK;
+        }
+
+        default:
+        {
+            LOG_E("Error Nic type");
+            return WF_RETURN_FAIL;
+        }
+    }
+
+    return WF_RETURN_OK;
+}
+
+static int pwr_suspend_free_assoc_resource(nic_info_st *pnic_info)
+{
+    wf_bool is_connected;
+
+    PWR_DBG();
+    
+    wf_mlme_get_connect(pnic_info, &is_connected);
+    if (is_connected)
+    {
+        if(wf_local_cfg_get_work_mode(pnic_info) == WF_INFRA_MODE)
+        {
+            wf_mlme_abort(pnic_info);
+        }
+    }
+
+    wf_os_api_disable_all_data_queue(pnic_info->ndev);
+    wf_scan_stop(pnic_info);
+
+    return 0;
+}
+
+static int pwr_suspend_normal(nic_info_st *pnic_info)
+{
+    struct net_device *pnetdev = pnic_info->ndev;
+
+	PWR_DBG();
+
+    if(pnetdev)
+    {
+        wf_os_api_disable_all_data_queue(pnetdev);
+    }
+
+    pwr_suspend_free_assoc_resource(pnic_info);
+
+    if(pnic_info->is_up == wf_true)
+    {
+        pnic_info->is_up = wf_false;
+        pnic_info->is_driver_stopped = wf_true;
+//        pnic_info->is_surprise_removed = wf_true;
+    }
+
+    {
+        hif_io_write32(pnic_info->hif_node, 0x4, 0x20030a02);
+        PWR_DBG("reg 0x4(%x)", hif_io_read32(pnic_info->hif_node, 0x4, NULL));
+    }
+    return 0;
+}
+
+static void cancel_all_timer(nic_info_st *pnic_info)
+{
+    rx_info_t *rx_info = NULL;
+    recv_ba_ctrl_st *ba_ctl = NULL;
+    wf_u8 tid = 0;
+    
+    PWR_DBG();
+
+    rx_info = pnic_info->rx_info;
+    for (tid  = 0; tid  < TID_NUM; tid++)
+    {
+        ba_ctl = &rx_info->ba_ctl[tid];
+        wf_os_api_timer_unreg(&ba_ctl->reordering_ctrl_timer);
+    }
+}
+
+int wf_pwr_suspend_common(nic_info_st *pnic_info)
+{
+    pwr_info_st *pwr_info = pnic_info->pwr_info;
+    mlme_info_t *pmlme_info = pnic_info->mlme_info;
+    wf_wlan_mgmt_info_t *pwlan_mgmt_info = pnic_info->wlan_mgmt_info;
+//    odm_mgnt_st *odm = wf_os_api_get_odm(pnic_info);
+#ifdef CFG_ENABLE_AP_MODE
+//    wf_wlan_network_t *pcur_network = &pwlan_mgmt_info->cur_network;
+#endif
+#if RX_REORDER_THREAD_EN
+    rx_info_t *rx_info = pnic_info->rx_info;
+#endif
+
+    PWR_DBG();
+    pwr_info->bInSuspend = wf_true;
+
+#if 0
+    while (pwr_info->bips_processing == wf_true)
+    {
+        wf_msleep(1);
+    }
+#endif
+
+    if (WF_CANNOT_RUN(pnic_info))
+    {
+        PWR_WARN("is_driver_stopped=%s is_surprise_removed = %s\n",
+                 pnic_info->is_driver_stopped ? "True" : "False",
+                 pnic_info->is_surprise_removed ? "True" : "False");
+        return 0;
+    }
+
+    cancel_all_timer(pnic_info);
+
+    /* destory mlme thread */
+    {
+        wf_mlme_abort(pnic_info);
+        
+        PWR_DBG("pmlme_info->tid = %s", pmlme_info->tid != NULL ? "TRUE" : "FALSE");
+
+        if (pmlme_info->tid)
+        {
+            wf_os_api_thread_destory(pmlme_info->tid);
+            pmlme_info->tid = 0;
+        }
+    }
+
+    /* destory wlan_mgmt thread */
+    {
+        wf_msg_que_t *pmsg_que = &pwlan_mgmt_info->msg_que;
+        wf_msg_t *pnew_msg;
+        int rst;
+
+        rst = wf_msg_new(pmsg_que, WF_WLAN_MGMT_TAG_UNINSTALL, &pnew_msg);
+        if (rst)
+        {
+            PWR_ERROR("new message fail, error code: %d", rst);
+        }
+        wf_msg_push(pmsg_que, pnew_msg);
+        
+        /* destory thread */
+        if (pwlan_mgmt_info->tid)
+        {
+            wf_os_api_thread_destory(pwlan_mgmt_info->tid);
+            pwlan_mgmt_info->tid = 0;
+        }
+    }
+
+#ifdef CFG_ENABLE_AP_MODE
+    if (wf_ap_work_stop(pnic_info) < 0)
+    {
+        PWR_ERROR("===>wf_ap_work_stop error");
+        return -1;
+    }
+#endif
+
+    /* rx term */
+    if (wf_rx_term(pnic_info) < 0)
+    {
+        PWR_ERROR("===>wf_rx_term error");
+        return WF_RETURN_FAIL;
+    }
+
+    /* tx term */
+    if (wf_tx_info_term(pnic_info) < 0)
+    {
+        PWR_ERROR("===>wf_tx_info_term error");
+        return WF_RETURN_FAIL;
+    }
+
+    pwr_suspend_normal(pnic_info);
+
+    PWR_DBG("suspend success!!");
+
+    return 0;
+}
+
+int pwr_dev_insert(hif_node_st *hif_info)
+{
+    int ret = 0;
+
+    hif_info->dev_removed = wf_false;
+
+    /* power on */
+    LOG_D("************HIF DEV INSERT*************");
+    LOG_D("<< Power on >>");
+    if (power_on(hif_info) < 0)
+    {
+        PWR_ERROR("===>power_on error, exit!!");
+        return WF_RETURN_FAIL;
+    }
+    else
+    {
+        PWR_DBG("wf_power_on success");
+
+#ifdef CONFIG_RICHV200
+        side_road_cfg(hif_info);
+#endif
+
+        if(HIF_SDIO ==hif_info->hif_type)
+        {
+            // cmd53 is ok, next for side-road configue
+            #ifndef CONFIG_USB_FLAG
+            wf_sdioh_config(hif_info);
+            wf_sdioh_interrupt_enable(hif_info);
+            #endif
+        }
+    }
+
+    /*create hif trx func*/
+    PWR_DBG("<< create hif tx/rx queue >>");
+    wf_data_queue_mngt_init(hif_info);
+
+#ifdef CONFIG_RICHV200
+    ret = wf_hif_bulk_enable(hif_info);
+    if(WF_RETURN_FAIL == ret)
+    {
+        PWR_ERROR("[%s] wf_hif_bulk_enable failed",__func__);
+        return -1;
+    }
+#endif
+
+    ret = wf_hif_queue_enable(hif_info);
+    if(WF_RETURN_FAIL == ret)
+    {
+        PWR_ERROR("[%s] wf_hif_queue_enable failed",__func__);
+        return -1;
+    }
+
+    /*ndev reg*/
+    PWR_DBG("<< add nic to hif_node >>");
+    PWR_DBG("   node_id    :%d",hif_info->node_id);
+    PWR_DBG("   hif_type   :%d  [1:usb  2:sdio]",hif_info->hif_type);
+
+    return 0;
+}
+
+int wf_pwr_resume_common (nic_info_st *pnic_info)
+{
+#if 0
+    return 0;
+#else
+    pwr_info_st *pwr_info = pnic_info->pwr_info;
+
+    PWR_WARN("resume start\n");
+
+    if (pwr_info->bInSuspend != wf_false)
+    {
+        pwr_info->bInSuspend = wf_false;
+    }
+    else
+    {
+        return 0;
+    }
+
+    pwr_dev_insert(pnic_info->hif_node);
+
+    if(pnic_info->is_up == wf_false)
+    {
+        pnic_info->is_up = wf_true;
+        pnic_info->is_driver_stopped = wf_false;
+        pnic_info->is_surprise_removed = wf_false;
+    }
+
+    /* tx  init */
+    if (wf_tx_info_init(pnic_info) < 0)
+    {
+        PWR_ERROR("===>wf_tx_info_init error");
+        return WF_RETURN_FAIL;
+    }
+
+    /* rx  init */
+    if (wf_rx_init(pnic_info))
+    {
+        PWR_ERROR("===>wf_rx_init error");
+        return WF_RETURN_FAIL;
+    }
+
+#if 1
+    {
+        int i = 0;
+
+        while(wf_fw_download(pnic_info) < 0)
+        {
+            i++;
+            if(i == 3);
+            {
+                return WF_RETURN_FAIL;
+            }
+            PWR_INFO("===>wf_fw_download error, try again!!!");
+        };
+    }
+#else
+	wf_io_write32(pnic_info, 0x94, 0x1f);
+#endif
+
+    /* init hardware by default cfg */
+    if (wf_hw_info_set_default_cfg(pnic_info) < 0)
+    {
+        PWR_ERROR("===>wf_hw_info_set_default_cfg error");
+        return WF_RETURN_FAIL;
+    }
+
+    /* configure */
+    if (wf_local_cfg_set_default(pnic_info) < 0)
+    {
+        PWR_ERROR("===>wf_local_cfg_set_default error");
+        return WF_RETURN_FAIL;
+    }
+
+    pnic_info->ndev_num++;
+
+    /* create thread for rx frame handle */
+    if(wf_auth_init(pnic_info) < 0)
+    {
+        PWR_ERROR("===>wf_auth_init error");
+        return -1;
+    }
+    /* wlan init */
+    if (wf_wlan_mgmt_init(pnic_info) < 0)
+    {
+        PWR_ERROR("===>wf_wlan_init error");
+        return -1;
+    }
+    /* mlme init */
+    if (wf_mlme_init(pnic_info) < 0)
+    {
+        PWR_ERROR("===>wf_mlme_init error");
+        return -1;
+    }
+
+#ifdef CFG_ENABLE_AP_MODE
+    if (wf_ap_init(pnic_info) < 0)
+    {
+        PWR_ERROR("===>wf_ap_work_start error");
+        return -1;
+    }
+#endif
+
+    wf_os_api_enable_all_data_queue(pnic_info->ndev);
+
+    return 0;
+#endif
+}
+

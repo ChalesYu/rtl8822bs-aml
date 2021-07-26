@@ -1,0 +1,92 @@
+/*++
+
+Copyright (c) SCICS Co., Ltd. All rights reserved.
+
+Module Name:
+    wf_oids_adapt.c
+
+Abstract:
+    Functions to adapt the OIDs interfaces.
+    
+Revision History:
+      When        What
+    ----------    ----------------------------------------------
+    03-06-2021    Created
+Notes:
+
+--*/
+
+#include "wf_debug.h"
+#include "pcomp.h"
+
+VOID Mp11CompletePendedRequest(PADAPTER           pAdapter, NDIS_STATUS ndisStatus)
+{
+
+}
+
+
+wf_u64 wf_get_speed_by_raid(wf_u8 raid)
+{
+
+}
+
+
+NDIS_STATUS wf_submit_scan_complete(PADAPTER pAdapter)
+{
+
+}
+
+VOID wf_submit_disassoc_complete(PADAPTER pAdapter, ULONG Reason)
+{
+
+}
+
+NDIS_STATUS wf_submit_assoc_complete(PADAPTER padapter, ULONG status)
+{
+
+}
+
+NDIS_STATUS wf_submit_connect_complete(PADAPTER pAdapter, ULONG status)
+{
+
+}
+
+void wf_submit_link_speed(PADAPTER padapter, ULONG64  linkSpeed)    
+{
+
+}
+
+VOID
+secSetCipherSuite (
+    IN PADAPTER prAdapter,
+    IN wf_u32     u4CipherSuitesFlags
+    )
+{
+	// TODO:  2021/06/03
+	return;
+}
+
+ENUM_PARAM_MEDIA_STATE_T
+kalGetMediaStateIndicated(
+	IN P_GLUE_INFO_T	prGlueInfo
+	)
+{
+	ASSERT(prGlueInfo);
+
+	return prGlueInfo->eParamMediaStateIndicated;
+}
+
+NDIS_STATUS
+wf_set_scan(PADAPTER prAdapter)
+{
+	// TODD: Finish the scan interface.      2021/06/04
+	return NDIS_STATUS_SUCCESS;
+}
+
+NDIS_STATUS
+wf_get_bss_list(PADAPTER prAdapter)
+{
+	// TODO: Finish it.      2021/06/04
+	return NDIS_STATUS_SUCCESS;
+}
+

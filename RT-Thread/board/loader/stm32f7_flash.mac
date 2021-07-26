@@ -1,0 +1,35 @@
+setup()
+{
+  // 设置中断向量表
+  __writeMemory32(0x08000000, 0xE000ED08, "Memory");
+}
+
+/* Called once before the flash loader is downloaded to RAM. Implement this macro 
+typically for setting up the memory map required by the flash loader. This macro is only 
+called when you are programming flash, and it should only be used for flash loader 
+functionality. */
+execUserFlashInit()  
+{
+  //__message "----- Prepare hardware for Flashloader -----\n";
+  //setup();
+}
+
+execUserPreload()  // Called after communication with the target system is established but before downloading the target application. 
+
+{
+  //__message "----- Prepare hardware for debug -----\n";
+  //setup();
+}
+
+execUserSetup()  // Called once after the target application is downloaded
+{
+  __message "----- Called once after the target application is downloaded-----\n";
+  setup();
+}
+
+execUserReset()  // Called each time just after the reset command is issued
+{
+  __message "----- Called once after the target application is downloaded-----\n";
+  setup();
+}
+

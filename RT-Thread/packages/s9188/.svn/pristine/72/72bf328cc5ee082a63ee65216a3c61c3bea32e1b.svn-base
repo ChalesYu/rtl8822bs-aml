@@ -1,0 +1,56 @@
+#ifndef __WF_OIDS_ADAPT_H__
+#define __WF_OIDS_ADAPT_H__
+
+
+typedef struct wf_ap_info_s{
+	wf_wlan_mgmt_scan_que_node_t *scan_info;
+
+	// TODO: We don't need these data for NDIS5. Delete them and modify
+	// the related rx dispatch and NDIS indication.   2021/06/11
+	wf_u8 beacon[1536];
+	wf_u8 assoc_req[1536];
+	wf_u8 assoc_resp[1536];
+	
+	wf_u32 bcn_len;
+	wf_u32 assoc_req_len;
+	wf_u32 assoc_resp_len;
+}wf_ap_info_t;
+
+
+
+/**
+* This routine will enable/disable the cipher suite.
+*/
+VOID
+secSetCipherSuite (
+    IN PADAPTER prAdapter,
+    IN wf_u32     u4CipherSuitesFlags
+);
+
+/** 
+* This routine is to get indicated media state.
+*/
+ENUM_PARAM_MEDIA_STATE_T
+kalGetMediaStateIndicated(
+	IN P_GLUE_INFO_T	prGlueInfo
+);
+
+void wf_submit_link_speed(PADAPTER padapter, ULONG64  linkSpeed);    
+/** 
+* This routine is to start a scan operation.
+*/
+NDIS_STATUS
+wf_set_scan(PADAPTER prAdapter);
+
+/** 
+* Call NIC to start the scan operation.
+*/
+NDIS_STATUS wf_set_start_scan(void *nic_info);
+
+NDIS_STATUS wf_submit_scan_complete(PADAPTER pAdapter);
+
+NDIS_STATUS wf_oids_adapt_init(void *adapter);
+
+VOID wf_submit_disassoc_complete();
+
+#endif 

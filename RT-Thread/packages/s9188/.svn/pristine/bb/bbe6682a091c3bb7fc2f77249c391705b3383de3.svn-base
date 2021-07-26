@@ -1,0 +1,14 @@
+channelplan=12
+work_mode=sta
+ssid=SCI9083
+channel=1
+bw=20M
+#tx_power=100
+#becaon_period=100
+ba_func=1
+#adaptivity_en=0
+#antenna_diversity=0
+#beamforming_support=0
+#force_igi=0
+#adaptivity_mode=0
+#adaptivity_dml=0

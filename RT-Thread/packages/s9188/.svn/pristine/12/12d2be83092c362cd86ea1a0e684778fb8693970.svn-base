@@ -1,0 +1,1957 @@
+
+#include "pcomp.h"
+//#include "wf_debug.h"
+#define LOG_D(fmt,...) DbgPrint("[%s,%d] "fmt"\n",__FUNCTION__,__LINE__,##__VA_ARGS__);
+#define LOG_N(fmt,...) DbgPrint("[%s,%d] "fmt"\n",__FUNCTION__,__LINE__,##__VA_ARGS__);
+#define LOG_I(fmt,...) DbgPrint("[%s,%d] "fmt"\n",__FUNCTION__,__LINE__,##__VA_ARGS__);
+#define LOG_W(fmt,...) DbgPrint("[%s,%d] "fmt"\n",__FUNCTION__,__LINE__,##__VA_ARGS__);
+#define LOG_E(fmt,...) DbgPrint("[%s,%d] "fmt"\n",__FUNCTION__,__LINE__,##__VA_ARGS__);
+
+#define NUM_SUPPORTED_OIDS      (sizeof(arWlanOidReqTable) / sizeof(WLAN_REQ_ENTRY))
+
+NDIS_STATUS wf_oids_test(void *prAdapter, void *pvBuf, wf_u32 u4BufLen, wf_u32 *pu4OutInfoLen) 
+{
+	return NDIS_STATUS_SUCCESS;
+}
+
+
+/*******************************************************************************
+*                        P U B L I C   D A T A
+********************************************************************************
+*/
+
+
+/*******************************************************************************
+*                       P R I V A T E   D A T A
+********************************************************************************
+*/
+/* OID processing table */
+/* Order is important here because the OIDs should be in order of
+   increasing value for binary searching. */
+// TODO: Check
+WLAN_REQ_ENTRY arWlanOidReqTable[] = {
+    /* General Operational Characteristics */
+    /* (NDIS_OID)rOid,                          (wf_u8*)pucOidName,                 fgQryBufLenChecking, fgSetBufLenChecking, eOidMethod, u4InfoBufLen,                                pfOidQueryHandler,                  pfOidSetHandler} */
+    { OID_GEN_SUPPORTED_LIST,                   DISP_STRING("OID_GEN_SUPPORTED_LIST"),              FALSE,  FALSE,  ENUM_OID_GLUE_ONLY,   0,                                          reqQuerySupportedList,              NULL },
+    { OID_GEN_HARDWARE_STATUS,                  DISP_STRING("OID_GEN_HARDWARE_STATUS"),             TRUE,   FALSE,  ENUM_OID_GLUE_ONLY,   sizeof(NDIS_HARDWARE_STATUS),               wf_oids_test,/*reqQueryHardwareStatus,*/             NULL },
+    { OID_GEN_MEDIA_SUPPORTED,                  DISP_STRING("OID_GEN_MEDIA_SUPPORTED"),             TRUE,   FALSE,  ENUM_OID_GLUE_ONLY,   sizeof(NDIS_MEDIUM),                        wf_oids_test,/*reqQueryMedia,*/                      NULL },
+    { OID_GEN_MEDIA_IN_USE,                     DISP_STRING("OID_GEN_MEDIA_IN_USE"),                TRUE,   FALSE,  ENUM_OID_GLUE_ONLY,   sizeof(NDIS_MEDIUM),                        wf_oids_test,/*reqQueryMedia,*/                      NULL },
+    { OID_GEN_MAXIMUM_LOOKAHEAD,                DISP_STRING("OID_GEN_MAXIMUM_LOOKAHEAD"),           TRUE,   FALSE,  ENUM_OID_GLUE_ONLY,   4,                                          reqQueryMaxFrameSize,               NULL },
+    { OID_GEN_MAXIMUM_FRAME_SIZE,               DISP_STRING("OID_GEN_MAXIMUM_FRAME_SIZE"),          TRUE,   FALSE,  ENUM_OID_GLUE_ONLY,   4,                                          reqQueryMaxFrameSize,               NULL },
+    { OID_GEN_LINK_SPEED,                       DISP_STRING("OID_GEN_LINK_SPEED"),                  TRUE,   FALSE,  ENUM_OID_DRIVER_CORE, 4,                                          wlanoidQueryLinkSpeed,              NULL },
+    { OID_GEN_TRANSMIT_BUFFER_SPACE,            DISP_STRING("OID_GEN_TRANSMIT_BUFFER_SPACE"),       TRUE,   FALSE,  ENUM_OID_GLUE_ONLY,   4,                                          wf_oids_test,/*reqQueryTxBufferSpace,*/              NULL },
+    { OID_GEN_RECEIVE_BUFFER_SPACE,             DISP_STRING("OID_GEN_RECEIVE_BUFFER_SPACE"),        TRUE,   FALSE,  ENUM_OID_GLUE_ONLY,   4,                                          wf_oids_test,/*reqQueryRxBufferSpace,*/              NULL },
+    { OID_GEN_TRANSMIT_BLOCK_SIZE,              DISP_STRING("OID_GEN_TRANSMIT_BLOCK_SIZE"),         TRUE,   FALSE,  ENUM_OID_GLUE_ONLY,   4,                                          wf_oids_test,/*reqQueryMaxTotalSize,*/               NULL },
+    { OID_GEN_RECEIVE_BLOCK_SIZE,               DISP_STRING("OID_GEN_RECEIVE_BLOCK_SIZE"),          TRUE,   FALSE,  ENUM_OID_GLUE_ONLY,   4,                                          wf_oids_test,/*reqQueryMaxTotalSize,*/               NULL },
+    { OID_GEN_VENDOR_ID,                        DISP_STRING("OID_GEN_VENDOR_ID"),                   TRUE,   FALSE,  ENUM_OID_GLUE_EXTENSION,4,                                        wf_oids_test,/*wlanoidQueryVendorId,*/               NULL },
+    { OID_GEN_VENDOR_DESCRIPTION,               DISP_STRING("OID_GEN_VENDOR_DESCRIPTION"),          FALSE,  FALSE,  ENUM_OID_GLUE_ONLY,   0,                                          wf_oids_test,/*reqQueryVendorDescription,*/          NULL },
+    { OID_GEN_CURRENT_PACKET_FILTER,            DISP_STRING("OID_GEN_CURRENT_PACKET_FILTER"),       TRUE,   TRUE,   ENUM_OID_DRIVER_CORE, 4,                                          wf_oids_test,/*wlanoidQueryCurrentPacketFilter,*/    wf_oids_test,/*wlanoidSetCurrentPacketFilter*/ },
+    { OID_GEN_CURRENT_LOOKAHEAD,                DISP_STRING("OID_GEN_CURRENT_LOOKAHEAD"),           TRUE,   TRUE,   ENUM_OID_GLUE_ONLY,   4,                                          wf_oids_test,/*reqQueryMaxFrameSize,*/               wf_oids_test,/*reqSetCurrentLookahead*/ },
+    { OID_GEN_DRIVER_VERSION,                   DISP_STRING("OID_GEN_DRIVER_VERSION"),              TRUE,   FALSE,  ENUM_OID_GLUE_ONLY,   2,                                          wf_oids_test,/*reqQueryDriverVersion,*/              NULL },
+    { OID_GEN_MAXIMUM_TOTAL_SIZE,               DISP_STRING("OID_GEN_MAXIMUM_TOTAL_SIZE"),          TRUE,   FALSE,  ENUM_OID_GLUE_ONLY,   4,                                          reqQueryMaxTotalSize,               NULL },
+    { OID_GEN_MAC_OPTIONS,                      DISP_STRING("OID_GEN_MAC_OPTIONS"),                 TRUE,   FALSE,  ENUM_OID_GLUE_ONLY,   4,                                          reqQueryMacOptions,                 NULL },
+    { OID_GEN_MEDIA_CONNECT_STATUS,             DISP_STRING("OID_GEN_MEDIA_CONNECT_STATUS"),        TRUE,   FALSE,  ENUM_OID_GLUE_ONLY,   sizeof(NDIS_MEDIA_STATE),                   reqQueryMediaConnectStatus,         NULL },
+    { OID_GEN_MAXIMUM_SEND_PACKETS,             DISP_STRING("OID_GEN_MAXIMUM_SEND_PACKETS"),        TRUE,   FALSE,  ENUM_OID_GLUE_ONLY,   4,                                          reqQueryMaxSendPackets,             NULL },
+    { OID_GEN_VENDOR_DRIVER_VERSION,            DISP_STRING("OID_GEN_VENDOR_DRIVER_VERSION"),       TRUE,   FALSE,  ENUM_OID_GLUE_ONLY,   4,                                          wf_oids_test,/*reqQueryVendorDriverVersion,*/        NULL },
+    { OID_GEN_NETWORK_LAYER_ADDRESSES,          DISP_STRING("OID_GEN_NETWORK_LAYER_ADDRESSES"),     FALSE,  FALSE,  ENUM_OID_DRIVER_CORE, 0,                                          NULL,                               wf_oids_test,/*wlanoidSetNetworkAddress*/},
+    { OID_GEN_PHYSICAL_MEDIUM,                  DISP_STRING("OID_GEN_PHYSICAL_MEDIUM"),             TRUE,   FALSE,  ENUM_OID_GLUE_ONLY,   sizeof(NDIS_PHYSICAL_MEDIUM),               reqQueryPhysicalMedium,             NULL },
+    /* General Statistics */
+    { OID_GEN_XMIT_OK,                          DISP_STRING("OID_GEN_XMIT_OK"),                     FALSE,  FALSE,  ENUM_OID_DRIVER_CORE,  0,                                          wlanoidQueryXmitOk,                 NULL },
+    { OID_GEN_RCV_OK,                           DISP_STRING("OID_GEN_RCV_OK"),                      FALSE,  FALSE,  ENUM_OID_DRIVER_CORE,  0,                                          wlanoidQueryRcvOk,                  NULL },
+    { OID_GEN_XMIT_ERROR,                       DISP_STRING("OID_GEN_XMIT_ERROR"),                  FALSE,  FALSE,  ENUM_OID_DRIVER_CORE,  0,                                          wlanoidQueryXmitError,              NULL },
+    { OID_GEN_RCV_ERROR,                        DISP_STRING("OID_GEN_RCV_ERROR"),                   FALSE,  FALSE,  ENUM_OID_DRIVER_CORE,  0,                                          wlanoidQueryRcvError,               NULL },
+    { OID_GEN_RCV_NO_BUFFER,                    DISP_STRING("OID_GEN_RCV_NO_BUFFER"),               FALSE,  FALSE,  ENUM_OID_DRIVER_CORE,  0,                                          wf_oids_test,/*wlanoidQueryRcvNoBuffer,*/            NULL },
+    { OID_GEN_RCV_CRC_ERROR,                    DISP_STRING("OID_GEN_RCV_CRC_ERROR"),               FALSE,  FALSE,  ENUM_OID_DRIVER_CORE,  0,                                          wf_oids_test,/*wlanoidQueryRcvCrcError,*/            NULL },
+
+    /* Ethernet Operational Characteristics */
+    { OID_802_3_PERMANENT_ADDRESS,              DISP_STRING("OID_802_3_PERMANENT_ADDRESS"),         TRUE,   TRUE,   ENUM_OID_DRIVER_CORE,  6,                                          wf_oids_test,/*wlanoidQueryPermanentAddr,*/          NULL },
+    { OID_802_3_CURRENT_ADDRESS,                DISP_STRING("OID_802_3_CURRENT_ADDRESS"),           TRUE,   TRUE,   ENUM_OID_DRIVER_CORE,  6,                                          wlanoidQueryCurrentAddr,            NULL },
+    { OID_802_3_MULTICAST_LIST,                 DISP_STRING("OID_802_3_MULTICAST_LIST"),            FALSE,  FALSE,  ENUM_OID_DRIVER_CORE,  0,                                          wf_oids_test,/*wlanoidQueryMulticastList, */         wf_oids_test,/*wlanoidSetMulticastList*/},
+    { OID_802_3_MAXIMUM_LIST_SIZE,              DISP_STRING("OID_802_3_MAXIMUM_LIST_SIZE"),         FALSE,  FALSE,  ENUM_OID_GLUE_ONLY,   4,                                           reqQueryMaxListSize,                NULL },
+
+    /* Ethernet Statistics */
+    { OID_802_3_RCV_ERROR_ALIGNMENT,            DISP_STRING("OID_802_3_RCV_ERROR_ALIGNMENT"),       TRUE,   FALSE,  ENUM_OID_GLUE_ONLY,   4,                                           wf_oids_test,/*reqQueryRcvErrorAlignment,*/          NULL },
+    { OID_802_3_XMIT_ONE_COLLISION,             DISP_STRING("OID_802_3_XMIT_ONE_COLLISION"),        TRUE,   FALSE,  ENUM_OID_DRIVER_CORE,  4,                                          wf_oids_test,/*wlanoidQueryXmitOneCollision,*/       NULL },
+    { OID_802_3_XMIT_MORE_COLLISIONS,           DISP_STRING("OID_802_3_XMIT_MORE_COLLISIONS"),      TRUE,   FALSE,  ENUM_OID_DRIVER_CORE,  4,                                          wf_oids_test,/*wlanoidQueryXmitMoreCollisions,*/     NULL },
+    { OID_802_3_XMIT_MAX_COLLISIONS,            DISP_STRING("OID_802_3_XMIT_MAX_COLLISIONS"),       TRUE,   FALSE,  ENUM_OID_DRIVER_CORE,  4,                                          wf_oids_test,/*wlanoidQueryXmitMaxCollisions,*/      NULL },
+
+    /* NDIS 802.11 Wireless LAN OIDs */
+    { OID_802_11_BSSID,                         DISP_STRING("OID_802_11_BSSID"),                    TRUE,   TRUE,   ENUM_OID_DRIVER_CORE,  sizeof(NDIS_802_11_MAC_ADDRESS),            wlanoidQueryBssid,                  wlanoidSetBssid},
+    { OID_802_11_SSID,                          DISP_STRING("OID_802_11_SSID"),                     TRUE,   TRUE,   ENUM_OID_DRIVER_CORE,  sizeof(NDIS_802_11_SSID),                   wlanoidQuerySsid,                   wlanoidSetSsid },
+    { OID_802_11_INFRASTRUCTURE_MODE,           DISP_STRING("OID_802_11_INFRASTRUCTURE_MODE"),      TRUE,   TRUE,   ENUM_OID_DRIVER_CORE,  sizeof(NDIS_802_11_NETWORK_INFRASTRUCTURE), wlanoidQueryInfrastructureMode,     wlanoidSetInfrastructureMode },
+    { OID_802_11_ADD_WEP,                       DISP_STRING("OID_802_11_ADD_WEP"),                  FALSE,  FALSE,  ENUM_OID_DRIVER_CORE,  0,                                          NULL,                               wf_oids_test,/*wlanoidSetAddWep*/ },
+    { OID_802_11_REMOVE_WEP,                    DISP_STRING("OID_802_11_REMOVE_WEP"),               FALSE,  TRUE,   ENUM_OID_DRIVER_CORE,  sizeof(NDIS_802_11_KEY_INDEX),              NULL,                               wf_oids_test,/*wlanoidSetRemoveWep*/ },
+    { OID_802_11_DISASSOCIATE,                  DISP_STRING("OID_802_11_DISASSOCIATE"),             FALSE,  FALSE,  ENUM_OID_DRIVER_CORE,  0,                                          NULL,                               wf_oids_test,/*wlanoidSetDisassociate*/},
+    { OID_802_11_AUTHENTICATION_MODE,           DISP_STRING("OID_802_11_AUTHENTICATION_MODE"),      TRUE,   TRUE,   ENUM_OID_DRIVER_CORE,  sizeof(NDIS_802_11_AUTHENTICATION_MODE),    wlanoidQueryAuthMode,               wlanoidSetAuthMode },
+//    { OID_802_11_PRIVACY_FILTER,              DISP_STRING("OID_802_11_PRIVACY_FILTER"),           TRUE,   TRUE,   ENUM_OID_DRIVER_CORE,  sizeof(NDIS_802_11_PRIVACY_FILTER),         wf_oids_test,/*wlanoidQueryPrivacyFilter,*/          wlanoidSetPirvacyFilter },
+    { OID_802_11_BSSID_LIST_SCAN,               DISP_STRING("OID_802_11_BSSID_LIST_SCAN"),          FALSE,  FALSE,  ENUM_OID_DRIVER_CORE,  0,                                          NULL,                               wlanoidSetBssidListScan },
+    { OID_802_11_ENCRYPTION_STATUS,             DISP_STRING("OID_802_11_ENCRYPTION_STATUS"),        TRUE,   TRUE,   ENUM_OID_DRIVER_CORE,  sizeof(NDIS_802_11_ENCRYPTION_STATUS),      wlanoidQueryEncryptionStatus,       wlanoidSetEncryptionStatus },
+    { OID_802_11_RELOAD_DEFAULTS,               DISP_STRING("OID_802_11_RELOAD_DEFAULTS"),          FALSE,  TRUE,   ENUM_OID_DRIVER_CORE,  sizeof(NDIS_802_11_RELOAD_DEFAULTS),        NULL,                               wf_oids_test,/*wlanoidSetReloadDefaults*/ },
+    { OID_802_11_ADD_KEY,                       DISP_STRING("OID_802_11_ADD_KEY"),                  FALSE,  FALSE,  ENUM_OID_DRIVER_CORE,  0,                                          NULL,                               wlanoidSetAddKey },
+    { OID_802_11_REMOVE_KEY,                    DISP_STRING("OID_802_11_REMOVE_KEY"),               FALSE,  TRUE,   ENUM_OID_DRIVER_CORE,  sizeof(NDIS_802_11_REMOVE_KEY),             NULL,                               wf_oids_test,/*wlanoidSetRemoveKey*/ },
+    { OID_802_11_ASSOCIATION_INFORMATION,       DISP_STRING("OID_802_11_ASSOCIATION_INFORMATION"),  FALSE,  FALSE,  ENUM_OID_GLUE_ONLY,   0,                                           wf_oids_test,/*reqQueryAssocInfo,*/                  NULL },
+    { OID_802_11_TEST,                          DISP_STRING("OID_802_11_TEST"),                     FALSE,  FALSE,  ENUM_OID_DRIVER_CORE,  0,                                          NULL,                               wf_oids_test,/*wlanoidSetTest*/},
+    { OID_802_11_MEDIA_STREAM_MODE,             DISP_STRING("OID_802_11_MEDIA_STREAM_MODE"),        TRUE,   TRUE,   ENUM_OID_DRIVER_CORE,  sizeof(NDIS_802_11_MEDIA_STREAM_MODE),      wf_oids_test,/*wlanoidQueryMediaStreamMode,*/        wf_oids_test,/*wlanoidSetMediaStreamMode*/ },
+    { OID_802_11_CAPABILITY,                    DISP_STRING("OID_802_11_CAPABILITY"),               TRUE,   FALSE,  ENUM_OID_DRIVER_CORE,  4*sizeof(ULONG)+14*sizeof(NDIS_802_11_AUTHENTICATION_ENCRYPTION),       wlanoidQueryCapability,     NULL },
+    { OID_802_11_PMKID,                         DISP_STRING("OID_802_11_PMKID"),                    FALSE,  FALSE,  ENUM_OID_DRIVER_CORE,  0,                                          wf_oids_test,/*wlanoidQueryPmkid,*/                  wf_oids_test,/*wlanoidSetPmkid*/ },
+    { OID_802_11_NETWORK_TYPES_SUPPORTED,       DISP_STRING("OID_802_11_NETWORK_TYPES_SUPPORTED"),  FALSE,  FALSE,  ENUM_OID_DRIVER_CORE,  0,                                          wf_oids_test,/*wlanoidQueryNetworkTypesSupported,*/  NULL },
+    { OID_802_11_NETWORK_TYPE_IN_USE,           DISP_STRING("OID_802_11_NETWORK_TYPE_IN_USE"),      TRUE,   TRUE,   ENUM_OID_DRIVER_CORE,  sizeof(NDIS_802_11_NETWORK_TYPE),           wf_oids_test,/*wlanoidQueryNetworkTypeInUse,*/       wf_oids_test,/*wlanoidSetNetworkTypeInUse*/ },
+    { OID_802_11_RSSI,                          DISP_STRING("OID_802_11_RSSI"),                     TRUE,   FALSE,  ENUM_OID_DRIVER_CORE,  sizeof(NDIS_802_11_RSSI),                   wf_oids_test,/*wlanoidQueryRssi,*/                   NULL },
+    { OID_802_11_RSSI_TRIGGER,                  DISP_STRING("OID_802_11_RSSI_TRIGGER"),             TRUE,   TRUE,   ENUM_OID_DRIVER_CORE,  sizeof(NDIS_802_11_RSSI),                   wf_oids_test,/*wlanoidQueryRssiTrigger,*/            wf_oids_test,/*wlanoidSetRssiTrigger*/ },
+    { OID_802_11_FRAGMENTATION_THRESHOLD,       DISP_STRING("OID_802_11_FRAGMENTATION_THRESHOLD"),  TRUE,   TRUE,   ENUM_OID_DRIVER_CORE,  sizeof(NDIS_802_11_FRAGMENTATION_THRESHOLD),wf_oids_test,/*wlanoidQueryFragThreshold,*/          wf_oids_test,/*wlanoidSetFragThreshold*/ },
+    { OID_802_11_RTS_THRESHOLD,                 DISP_STRING("OID_802_11_RTS_THRESHOLD"),            TRUE,   TRUE,   ENUM_OID_DRIVER_CORE,  sizeof(NDIS_802_11_RTS_THRESHOLD),          wf_oids_test,/*wlanoidQueryRtsThreshold,*/           wf_oids_test,/*wlanoidSetRtsThreshold*/ },
+    { OID_802_11_SUPPORTED_RATES,               DISP_STRING("OID_802_11_SUPPORTED_RATES"),          TRUE,   FALSE,  ENUM_OID_DRIVER_CORE,  sizeof(NDIS_802_11_RATES),                  wf_oids_test,/*wlanoidQuerySupportedRates,*/         NULL },
+    { OID_802_11_DESIRED_RATES,                 DISP_STRING("OID_802_11_DESIRED_RATES"),            FALSE,  FALSE,  ENUM_OID_DRIVER_CORE,  sizeof(NDIS_802_11_RATES),                  wf_oids_test,/*wlanoidQueryDesiredRates,*/           wf_oids_test,/*wlanoidSetDesiredRates*/ },
+    { OID_802_11_CONFIGURATION,                 DISP_STRING("OID_802_11_CONFIGURATION"),            TRUE,   TRUE,   ENUM_OID_GLUE_EXTENSION,  sizeof(NDIS_802_11_CONFIGURATION),          wf_oids_test,/*reqExtQueryConfiguration,*/          wf_oids_test,/*reqExtSetConfiguration*/ },
+    { OID_802_11_POWER_MODE,                    DISP_STRING("OID_802_11_POWER_MODE"),               TRUE,   TRUE,   ENUM_OID_DRIVER_CORE,  sizeof(NDIS_802_11_POWER_MODE),             wf_oids_test,/*wlanoidQuery802dot11PowerSaveProfile,*/              wf_oids_test,/*wlanoidSet802dot11PowerSaveProfile*/ },
+    { OID_802_11_BSSID_LIST,                    DISP_STRING("OID_802_11_BSSID_LIST"),               FALSE,  FALSE,  ENUM_OID_DRIVER_CORE,  0,                                          wlanoidQueryBssidList,              NULL },
+    { OID_802_11_STATISTICS,                    DISP_STRING("OID_802_11_STATISTICS"),               TRUE,   FALSE,  ENUM_OID_DRIVER_CORE,  sizeof(NDIS_802_11_STATISTICS),             wf_oids_test,/*wlanoidQueryStatistics,*/             NULL },
+#if CFG_TCP_IP_CHKSUM_OFFLOAD
+    { OID_TCP_TASK_OFFLOAD,                     DISP_STRING("OID_TCP_TASK_OFFLOAD"),                FALSE,  FALSE,  ENUM_OID_GLUE_EXTENSION,  sizeof(NDIS_TASK_OFFLOAD),                  wf_oids_test,/*reqQueryTaskOffload,*/               wf_oids_test,/*reqExtSetTaskOffload*/ },
+#endif
+    { OID_PNP_CAPABILITIES,                     DISP_STRING("OID_PNP_CAPABILITIES"),                TRUE,   FALSE,  ENUM_OID_GLUE_ONLY,   sizeof(NDIS_PNP_CAPABILITIES),               reqQueryPnPCapabilities,            NULL },
+    { OID_PNP_SET_POWER,                        DISP_STRING("OID_PNP_SET_POWER"),                   TRUE,   FALSE,  ENUM_OID_DRIVER_CORE,  sizeof(NDIS_DEVICE_POWER_STATE),            NULL,                               wf_oids_test,/*wlanoidSetAcpiDevicePowerState*/},
+    { OID_PNP_QUERY_POWER,                      DISP_STRING("OID_PNP_QUERY_POWER"),                 TRUE,   TRUE,   ENUM_OID_DRIVER_CORE,  sizeof(NDIS_DEVICE_POWER_STATE),            wf_oids_test,/*wlanoidQueryAcpiDevicePowerState,*/                  NULL },
+#if CFG_ENABLE_WAKEUP_ON_LAN
+    { OID_PNP_ADD_WAKE_UP_PATTERN,              DISP_STRING("OID_PNP_ADD_WAKE_UP_PATTERN"),         FALSE,  FALSE,  ENUM_OID_GLUE_EXTENSION,0,                                      NULL,                               wf_oids_test,/*wlanoidSetAddWakeupPattern*/ },
+    { OID_PNP_REMOVE_WAKE_UP_PATTERN,           DISP_STRING("OID_PNP_REMOVE_WAKE_UP_PATTERN"),      FALSE,  FALSE,  ENUM_OID_GLUE_EXTENSION 0,                                      NULL,                               wf_oids_test,/*wlanoidSetRemoveWakeupPattern*/ },
+    { OID_PNP_ENABLE_WAKE_UP,                   DISP_STRING("OID_PNP_ENABLE_WAKE_UP"),              TRUE,   TRUE,   ENUM_OID_DRIVER_CORE,  sizeof(wf_u32),                         wf_oids_test,/*wlanoidQueryEnableWakeup,*/           wf_oids_test,/*wlanoidSetEnableWakeup*/ },
+#endif
+    { OID_CUSTOM_OID_INTERFACE_VERSION,         DISP_STRING("OID_CUSTOM_OID_INTERFACE_VERSION"),    TRUE,   FALSE,  ENUM_OID_DRIVER_CORE,  4,                                          wf_oids_test,/*wlanoidQueryOidInterfaceVersion,*/    NULL },
+
+#if CFG_SLT_SUPPORT
+    { OID_CUSTOM_SLT,                               DISP_STRING("OID_CUSTOM_SLT"),    FALSE,   FALSE,  ENUM_OID_DRIVER_CORE,  sizeof(PARAM_MTK_SLT_TEST_STRUC_T),                                          wf_oids_test,/*wlanoidQuerySLTStatus,*/    wf_oids_test,/*wlanoidUpdateSLTMode*/ },
+#endif
+    { OID_CUSTOM_WMM_PS_TEST,                   DISP_STRING("OID_CUSTOM_WMM_PS_TEST"),              TRUE,   TRUE,   ENUM_OID_DRIVER_CORE,  4,                                          NULL,                               wf_oids_test,/*wlanoidSetWiFiWmmPsTest*/ },
+    { OID_CUSTOM_MCR_RW,                        DISP_STRING("OID_CUSTOM_MCR_RW"),                   TRUE,   TRUE,   ENUM_OID_DRIVER_CORE,  sizeof(PARAM_CUSTOM_MCR_RW_STRUC_T),        wf_oids_test,/*wlanoidQueryMcrRead,*/                wf_oids_test,/*wlanoidSetMcrWrite*/ },
+    { OID_CUSTOM_EEPROM_RW,                     DISP_STRING("OID_CUSTOM_EEPROM_RW"),                TRUE,   TRUE,   ENUM_OID_DRIVER_CORE,  sizeof(PARAM_CUSTOM_EEPROM_RW_STRUC_T),     wf_oids_test,/*wlanoidQueryEepromRead,*/             wf_oids_test,/*wlanoidSetEepromWrite*/ },
+    { OID_CUSTOM_SW_CTRL,                        DISP_STRING("OID_CUSTOM_SW_CTRL"),                   TRUE,   TRUE,   ENUM_OID_DRIVER_CORE,  sizeof(PARAM_CUSTOM_SW_CTRL_STRUC_T),        wf_oids_test,/*wlanoidQuerySwCtrlRead,*/                wf_oids_test,/*wlanoidSetSwCtrlWrite*/ },
+    { OID_CUSTOM_TEST_MODE,                     DISP_STRING("OID_CUSTOM_TEST_MODE"),                FALSE,  FALSE,  ENUM_OID_DRIVER_CORE,  0,                                          NULL,                               wf_oids_test,/*wlanoidRftestSetTestMode*/ },
+    { OID_CUSTOM_ABORT_TEST_MODE,               DISP_STRING("OID_CUSTOM_ABORT_TEST_MODE"),          FALSE,  FALSE,  ENUM_OID_DRIVER_CORE,  0,                                          NULL,                               wf_oids_test,/*wlanoidRftestSetAbortTestMode*/ },
+    { OID_CUSTOM_MTK_WIFI_TEST,                 DISP_STRING("OID_CUSTOM_MTK_WIFI_TEST"),            TRUE,   TRUE,   ENUM_OID_DRIVER_CORE,  sizeof(PARAM_MTK_WIFI_TEST_STRUC_T),        wf_oids_test,/*wlanoidRftestQueryAutoTest,*/         wf_oids_test,/*wlanoidRftestSetAutoTest*/ },
+    { OID_CUSTOM_TEST_ICAP_MODE,                DISP_STRING("OID_CUSTOM_TEST_ICAP_MODE"),           FALSE,   FALSE,   ENUM_OID_DRIVER_CORE, 0,                                          NULL,                              wf_oids_test,/*wlanoidRftestSetTestIcapMode*/},
+//    { OID_CUSTOM_TEST_RX_STATUS,                DISP_STRING("OID_CUSTOM_TEST_RX_STATUS"),           TRUE,   FALSE,  ENUM_OID_DRIVER_CORE,  sizeof(PARAM_CUSTOM_RFTEST_RX_STATUS_STRUC_T),   wlanoidQueryRfTestRxStatus,    NULL },
+//    { OID_CUSTOM_TEST_TX_STATUS,                DISP_STRING("OID_CUSTOM_TEST_TX_STATUS"),           TRUE,   FALSE,  ENUM_OID_DRIVER_CORE,  sizeof(PARAM_CUSTOM_RFTEST_TX_STATUS_STRUC_T),   wlanoidQueryRfTestTxStatus,    NULL },
+    /* (NDIS_OID)rOid,                          (wf_u8*)pucOidName,                 fgQryBufLenChecking, fgSetBufLenChecking, fgIsHandleInGlueLayerOnly, u4InfoBufLen, pfOidQueryHandler,                  pfOidSetHandler} */
+#if 0
+    { OID_CUSTOM_MTK_NVRAM_RW,                  DISP_STRING("OID_CUSTOM_MTK_NVRAM_RW"),             TRUE,   TRUE,   ENUM_OID_DRIVER_CORE,   sizeof(PARAM_CUSTOM_NVRAM_RW_STRUCT_T),    wlanoidQueryNvramRead,              wlanoidSetNvramWrite },
+    { OID_CUSTOM_CFG_SRC_TYPE,                  DISP_STRING("OID_CUSTOM_CFG_SRC_TYPE"),             FALSE,  FALSE,  ENUM_OID_DRIVER_CORE,   sizeof(ENUM_CFG_SRC_TYPE_T),               wlanoidQueryCfgSrcType,             NULL },
+#endif
+#if CFG_SUPPORT_WAPI
+    { OID_802_11_WAPI_MODE,                     DISP_STRING("OID_802_11_WAPI_MODE"),                FALSE,  TRUE,   ENUM_OID_DRIVER_CORE,   4,                                          NULL,                               wf_oids_test,/*wlanoidSetWapiMode*/ },
+    { OID_802_11_WAPI_ASSOC_INFO,               DISP_STRING("OID_802_11_WAPI_ASSOC_INFO"),          FALSE,  FALSE,  ENUM_OID_DRIVER_CORE,   0,                                          NULL,                               wf_oids_test,/*wlanoidSetWapiAssocInfo*/ },
+    { OID_802_11_SET_WAPI_KEY,                  DISP_STRING("OID_802_11_SET_WAPI_KEY"),             FALSE,  FALSE,  ENUM_OID_DRIVER_CORE,   4,/*sizeof(PARAM_WPI_KEY_T),*/                    NULL,                               wf_oids_test,/*wlanoidSetWapiKey*/ },
+#endif
+};
+
+ULONG DSSS_Freq_Channel[] = {
+	0,
+	2412,
+	2417,
+	2422,
+	2427,
+	2432,
+	2437,
+	2442,
+	2447,
+	2452,
+	2457,
+	2462,
+	2467,
+	2472,
+	2484
+};
+
+
+BOOLEAN
+reqSearchSupportedOidEntry (
+    IN  NDIS_OID            rOid,
+    OUT P_WLAN_REQ_ENTRY    *ppWlanReqEntry
+    )
+{
+    INT i, j, k;
+
+    i = 0;
+    j = NUM_SUPPORTED_OIDS - 1;
+
+    while (i <= j) {
+        k = (i + j) / 2;
+
+        if (rOid == arWlanOidReqTable[k].rOid) {
+            *ppWlanReqEntry = &arWlanOidReqTable[k];
+            return TRUE;
+        } else if (rOid < arWlanOidReqTable[k].rOid) {
+            j = k - 1;
+        } else {
+            i = k + 1;
+        }
+    }
+
+    return FALSE;
+}   /* reqSearchSupportedOidEntry */
+
+static wf_wlan_mgmt_scan_que_node_t *wf_find_scan_info_by_bssid(PADAPTER adapter, wf_u8* destBssid)
+{
+	nic_info_st *pnic_info = adapter->nic_info;
+	wf_wlan_mgmt_scan_que_node_t *pscanned_info = NULL;
+	wf_wlan_mgmt_scan_que_node_t *srch_end = NULL;
+	wf_wlan_mgmt_scan_que_for_rst_e scanned_ret;
+	/* Check if there is space for one more entry */
+	wf_wlan_mgmt_scan_que_for_begin(pnic_info, pscanned_info)
+	{
+		if(wf_memcmp(pscanned_info->bssid, destBssid, MAC_ADDR_LEN) == 0) {
+			srch_end = pscanned_info;
+			break;
+		}
+	}
+	wf_wlan_mgmt_scan_que_for_end(scanned_ret);
+
+	return srch_end;
+}
+
+
+/* Query */
+
+NDIS_STATUS
+reqQueryVendorDriverVersion (
+	IN P_GLUE_INFO_T prGlueInfo,
+	OUT PVOID pvQryBuf,
+	IN wf_u32 u4QryBufLen,
+	OUT wf_u32* pu4QryInfoLen
+	)
+{
+	NDIS_STATUS ndisStatus = NDIS_STATUS_SUCCESS;
+
+	LOG_D("Driver version: %d . %d", DRIVER_VERSION_MAJOR, DRIVER_VERSION_MINOR);
+
+	*(wf_u32 *)pvQryBuf = ((wf_u16) DRIVER_VERSION_MAJOR << 16) +
+                           (wf_u16) DRIVER_VERSION_MINOR;
+
+	return ndisStatus;
+}
+
+NDIS_STATUS
+reqQueryMaxFrameSize (
+	IN P_GLUE_INFO_T prGlueInfo,
+	OUT PVOID	 pvQueryBuf,
+	IN	wf_u32  u4QueryBufLen,
+	OUT wf_u32* pu4QueryInfoLen
+	)
+{
+	*pu4QueryInfoLen = sizeof(wf_u32);
+
+	if (u4QueryBufLen < sizeof(wf_u32)) {
+		return NDIS_STATUS_INVALID_LENGTH;
+	}
+
+	*(wf_u32*) pvQueryBuf = MP_802_11_MAX_FRAME_SIZE;
+
+	return NDIS_STATUS_SUCCESS;
+
+}
+
+NDIS_STATUS
+reqQueryMacOptions (
+	IN P_GLUE_INFO_T prGlueInfo,
+	OUT PVOID pvQryBuf,
+	IN wf_u32 u4QryBufLen,
+	OUT wf_u32* pu4QryInfoLen
+	)
+{
+	*pu4QryInfoLen = sizeof(wf_u32);
+
+	if (u4QryBufLen < sizeof(wf_u32)) {
+		return NDIS_STATUS_INVALID_LENGTH;
+	}
+
+
+	/* NDIS_MAC_OPTION_COPY_LOOKAHEAD_DATA is set to indicate to the
+	   protocol that it can access the lookahead data by any means that
+	   it wishes.  On some systems there are fast copy routines that
+	   may have trouble accessing shared memory.  Netcard drivers that
+	   indicate data out of shared memory, should not have this flag
+	   set on these troublesome systems  For the time being this driver
+	   will set this flag.	This should be safe because the data area
+	   of the RFDs is contained in uncached memory. */
+
+	/* NOTE: Don't set NDIS_MAC_OPTION_RECEIVE_SERIALIZED if we are
+			 doing multipacket (ndis4) style receives. */
+
+
+	*(wf_u32*) pvQryBuf = (wf_u32) (NDIS_MAC_OPTION_TRANSFERS_NOT_PEND  |
+									  NDIS_MAC_OPTION_COPY_LOOKAHEAD_DATA |
+									  NDIS_MAC_OPTION_NO_LOOPBACK);
+	// TODO: Decide whether to add some optional properties.    2021/05/31
+	
+	return NDIS_STATUS_SUCCESS;
+
+} /* end of reqQueryMacOptions() */
+
+NDIS_STATUS
+reqQueryMaxSendPackets(
+	IN P_GLUE_INFO_T prGlueInfo,
+	OUT PVOID pvQueryBuf,
+	IN wf_u32 u4QueryBufLen,
+	OUT wf_u32* pu4QueryInfoLen
+	)
+{
+	*pu4QueryInfoLen = sizeof(wf_u32);
+
+	if (u4QueryBufLen < sizeof(wf_u32)) {
+		return NDIS_STATUS_INVALID_LENGTH;
+	}
+	
+	*(wf_u32*) pvQueryBuf = MAX_ARRAY_SEND_PACKETS;
+
+	return NDIS_STATUS_SUCCESS;
+}
+
+NDIS_STATUS
+reqQueryMaxListSize (
+	IN P_GLUE_INFO_T prGlueInfo,
+	OUT PVOID pvQryBuf,
+	IN wf_u32 u4QryBufLen,
+	OUT wf_u32* pu4QryInfoLen
+	)
+{
+	*pu4QryInfoLen = sizeof(wf_u32);
+
+	if (u4QryBufLen < sizeof(wf_u32)) {
+		return NDIS_STATUS_INVALID_LENGTH;
+	}
+
+
+	*(wf_u32*) pvQryBuf = MAX_NUM_GROUP_ADDR;
+
+	return NDIS_STATUS_SUCCESS;
+
+}
+
+NDIS_STATUS
+wlanoidQueryCurrentAddr (
+	IN  PADAPTER	pAdapter,
+	IN	PVOID	 pvQueryBuffer,
+	IN	wf_u32  u4QueryBufferLen,
+	OUT wf_u32* pu4QueryInfoLen
+	)
+{
+
+	if (u4QueryBufferLen < MAC_ADDR_LEN) {
+		return NDIS_STATUS_INVALID_LENGTH;
+	}
+	NdisMoveMemory(pvQueryBuffer, pAdapter->PermanentAddress, MAC_ADDR_LEN);
+	*pu4QueryInfoLen = MAC_ADDR_LEN;
+
+	return NDIS_STATUS_SUCCESS;
+}
+
+NDIS_STATUS
+reqQueryPhysicalMedium (
+	IN P_GLUE_INFO_T prGlueInfo,
+	OUT PVOID pvQryBuf,
+	IN wf_u32 u4QryBufLen,
+	OUT wf_u32* pu4QryInfoLen
+	)
+{
+    ASSERT(prGlueInfo);
+    ASSERT(pu4QryInfoLen);
+
+    *pu4QryInfoLen = sizeof(NDIS_PHYSICAL_MEDIUM);
+
+    if (u4QryBufLen < sizeof(NDIS_PHYSICAL_MEDIUM)) {
+        return NDIS_STATUS_BUFFER_TOO_SHORT;
+    }
+
+    ASSERT(pvQryBuf);
+
+    *(PNDIS_PHYSICAL_MEDIUM) pvQryBuf = NdisPhysicalMediumWirelessLan;
+
+    return NDIS_STATUS_SUCCESS;
+
+}
+
+NDIS_STATUS
+reqQueryPnPCapabilities(
+	IN P_GLUE_INFO_T prGlueInfo,
+	IN PVOID		pvQueryBuf,
+	IN wf_u32		u4QueryBufLen,
+	OUT wf_u32*	pu4QueryInfoLen
+	)
+{
+	PNDIS_PNP_CAPABILITIES prPwrMgtCap = (PNDIS_PNP_CAPABILITIES) pvQueryBuf;
+
+	ASSERT(prGlueInfo);
+	ASSERT(pu4QueryInfoLen);
+
+	*pu4QueryInfoLen = sizeof(NDIS_PNP_CAPABILITIES);
+
+	if (u4QueryBufLen < sizeof(NDIS_PNP_CAPABILITIES)) {
+		return NDIS_STATUS_BUFFER_TOO_SHORT;
+	}
+
+	ASSERT(pvQueryBuf);
+
+#if CFG_ENABLE_WAKEUP_ON_LAN
+	prPwrMgtCap->Flags = PARAM_DEVICE_WAKE_UP_ENABLE;
+
+	prPwrMgtCap->WakeUpCapabilities.MinMagicPacketWakeUp =
+		NdisDeviceStateD2;
+
+	prPwrMgtCap->WakeUpCapabilities.MinPatternWakeUp =
+		NdisDeviceStateD2;
+#else
+	prPwrMgtCap->Flags = 0;
+
+	prPwrMgtCap->WakeUpCapabilities.MinMagicPacketWakeUp =
+		ParamDeviceStateUnspecified;
+
+	prPwrMgtCap->WakeUpCapabilities.MinPatternWakeUp =
+		ParamDeviceStateUnspecified;
+#endif
+
+	prPwrMgtCap->WakeUpCapabilities.MinLinkChangeWakeUp =
+		ParamDeviceStateUnspecified;
+
+	return NDIS_STATUS_SUCCESS;
+
+}
+
+NDIS_STATUS
+reqQuerySupportedList (
+	IN P_GLUE_INFO_T	prGlueInfo,
+	OUT PVOID			pvQryBuf,
+	IN wf_u32			u4QryBufLen,
+	OUT wf_u32*		pu4QryInfoLen
+	)
+{
+	UINT	i;
+
+	*pu4QryInfoLen = NUM_SUPPORTED_OIDS * sizeof(NDIS_OID);
+
+	LOG_D("buf_len=%d, need=%d", u4QryBufLen, *pu4QryInfoLen);
+
+	/* Check if the query buffer is large enough to hold all the query
+	   information. */
+	if (u4QryBufLen < *pu4QryInfoLen) {
+		/* Not enough room for the query information. */
+		LOG_D("qry buffer length error! len=%d", u4QryBufLen);
+		return NDIS_STATUS_INVALID_LENGTH;
+	}
+
+	for (i = 0; i < NUM_SUPPORTED_OIDS; i++) {
+		*((PNDIS_OID) pvQryBuf + i) = arWlanOidReqTable[i].rOid;
+	}
+
+	return NDIS_STATUS_SUCCESS;
+}	/* reqQuerySupportedList */
+
+NDIS_STATUS
+reqQueryMaxTotalSize (
+	IN P_GLUE_INFO_T prGlueInfo,
+	OUT PVOID pvQueryBuf,
+	IN wf_u32 u4QueryBufLen,
+	OUT wf_u32* pu4QueryInfoLen
+	)
+{
+
+	ASSERT(prGlueInfo);
+	ASSERT(pu4QueryInfoLen);
+
+	*pu4QueryInfoLen = sizeof(wf_u32);
+
+	if (u4QueryBufLen < sizeof(wf_u32)) {
+		return NDIS_STATUS_INVALID_LENGTH;
+	}
+
+	ASSERT(pvQueryBuf);
+
+	*(wf_u32*) pvQueryBuf = DOT11_MAX_PDU_SIZE;
+
+	return NDIS_STATUS_SUCCESS;
+
+} 
+
+NDIS_STATUS
+wlanoidQueryLinkSpeed(
+	IN  PADAPTER	prAdapter,
+	IN	PVOID	 pvQueryBuffer,
+	IN	wf_u32  u4QueryBufferLen,
+	OUT wf_u32* pu4QueryInfoLen
+	)
+{
+	NDIS_STATUS ndisStatus = NDIS_STATUS_SUCCESS;
+
+	*(wf_u32*)pvQueryBuffer = 54000;
+	*pu4QueryInfoLen = sizeof(wf_u32);
+	
+	// TODO: 1. Check the connection state. 2. Fill the link speed.  2021/06/01
+	return ndisStatus;
+} 
+
+NDIS_STATUS
+reqQueryMediaConnectStatus (
+	IN P_GLUE_INFO_T	 prGlueInfo,
+	OUT PVOID			 pvQryBuf,
+	IN wf_u32			 u4QryBufLen,
+	OUT wf_u32*		 pu4QryInfoLen
+	)
+{
+	PADAPTER prAdapter;
+	nic_info_st *pnic_info;
+	
+	*pu4QryInfoLen = sizeof(ENUM_PARAM_MEDIA_STATE_T);
+	if (u4QryBufLen < sizeof(ENUM_PARAM_MEDIA_STATE_T)) {
+		return NDIS_STATUS_BUFFER_TOO_SHORT;
+	}
+
+	/* Now we simply return our status (NdisMediaState[Dis]Connected) */
+
+	/*if(prGlueInfo->eParamMediaStateIndicated == PARAM_MEDIA_STATE_CONNECTED){
+		LOG_D("---ZY_TEST---CONNECTED");
+		
+	}else{
+		LOG_D("---ZY_TEST---DISCONNECTED");		
+	}*/
+	
+	*(P_ENUM_PARAM_MEDIA_STATE_T)pvQryBuf =
+		prGlueInfo->eParamMediaStateIndicated;
+
+	return NDIS_STATUS_SUCCESS;
+
+}
+
+NDIS_STATUS
+wlanoidQueryXmitOk (
+	IN	PADAPTER prAdapter,
+	IN	PVOID		pvQueryBuffer,
+	IN	wf_u32 	u4QueryBufferLen,
+	OUT wf_u32*	pu4QueryInfoLen
+	)
+{
+	wf_mib_info_t *mib_info = prAdapter->mib_info;
+	ASSERT(prAdapter);
+	if (u4QueryBufferLen) {
+		ASSERT(pvQueryBuffer);
+	}
+	ASSERT(pu4QueryInfoLen);
+
+	if (prAdapter->dev_state != WF_DEV_STATE_RUN) {
+		LOG_D("Fail in query receive error! (Adapter not ready).");
+		*pu4QueryInfoLen = sizeof(wf_u32);
+		return NDIS_STATUS_ADAPTER_NOT_READY;
+	}
+	else if (u4QueryBufferLen < sizeof(wf_u32)
+			|| (u4QueryBufferLen > sizeof(wf_u32) && u4QueryBufferLen < sizeof(wf_u64))) {
+		LOG_D("Fail in query receive error! (Invalid length).");
+		*pu4QueryInfoLen = sizeof(wf_u64);
+		return NDIS_STATUS_INVALID_LENGTH;
+	}
+
+	if(u4QueryBufferLen == sizeof(wf_u32)){
+		*pu4QueryInfoLen = sizeof(wf_u32);
+        *(wf_u32*) pvQueryBuffer = (wf_u32)mib_info->num_xmit_ok.LowPart;
+	}else{
+		*pu4QueryInfoLen = sizeof(wf_u64);
+		*(wf_u64*) pvQueryBuffer = (wf_u64) mib_info->num_xmit_ok.QuadPart;
+	}
+	//LOG_D("---ZY_TEST---Xmit NUM:%d", mib_info->num_xmit_ok.LowPart);
+	return NDIS_STATUS_SUCCESS;
+} 
+
+NDIS_STATUS
+wlanoidQueryXmitError (
+	IN	PADAPTER 	prAdapter,
+	IN	PVOID			pvQueryBuffer,
+	IN	wf_u32 		u4QueryBufferLen,
+	OUT wf_u32*		pu4QueryInfoLen
+	)
+{
+	ASSERT(prAdapter);
+	if (u4QueryBufferLen) {
+		ASSERT(pvQueryBuffer);
+	}
+	ASSERT(pu4QueryInfoLen);
+
+	if (prAdapter->dev_state != WF_DEV_STATE_RUN) {
+		LOG_D("Fail in query receive error! (Adapter not ready).");
+		*pu4QueryInfoLen = sizeof(wf_u32);
+		return NDIS_STATUS_ADAPTER_NOT_READY;
+	}
+	else if (u4QueryBufferLen < sizeof(wf_u32)
+			|| (u4QueryBufferLen > sizeof(wf_u32) && u4QueryBufferLen < sizeof(wf_u64))) {
+		LOG_D("Fail in query receive error! (Invalid length).");
+		*pu4QueryInfoLen = sizeof(wf_u64);
+		return NDIS_STATUS_INVALID_LENGTH;
+	}
+
+	// TODO: Report the true value. 
+	if(u4QueryBufferLen == sizeof(wf_u32)){
+		*pu4QueryInfoLen = sizeof(wf_u32);
+	}else{
+		*pu4QueryInfoLen = sizeof(wf_u64);
+	}
+	*(wf_u32*) pvQueryBuffer = 0;
+#if 0
+	wf_mib_info_t *mib_info = prAdapter->mib_info;
+	if(u4QueryBufferLen == sizeof(wf_u32)){
+		*pu4QueryInfoLen = sizeof(wf_u32);
+		*(wf_u32*) pvQueryBuffer = (wf_u32) prAdapter->rStatStruct.rTransmittedFragmentCount.QuadPart;
+	}else{
+		*pu4QueryInfoLen = sizeof(wf_u64);
+		*(wf_u64*) pvQueryBuffer = (wf_u64) mib_info.num_xmit_error.QuadPart;
+	}
+#endif		
+	return NDIS_STATUS_SUCCESS;
+} 
+
+
+NDIS_STATUS
+wlanoidQueryRcvOk (
+	IN	PADAPTER 	prAdapter,
+	IN	PVOID			pvQueryBuffer,
+	IN	wf_u32 		u4QueryBufferLen,
+	OUT wf_u32*		pu4QueryInfoLen
+	)
+{
+	wf_mib_info_t *mib_info = prAdapter->mib_info;
+
+	ASSERT(prAdapter);
+	if (u4QueryBufferLen) {
+		ASSERT(pvQueryBuffer);
+	}
+	ASSERT(pu4QueryInfoLen);
+
+	if (prAdapter->dev_state != WF_DEV_STATE_RUN) {
+		LOG_D("Fail in query receive error! (Adapter not ready).");
+		*pu4QueryInfoLen = sizeof(wf_u32);
+		return NDIS_STATUS_ADAPTER_NOT_READY;
+	}
+	else if (u4QueryBufferLen < sizeof(wf_u32)
+			|| (u4QueryBufferLen > sizeof(wf_u32) && u4QueryBufferLen < sizeof(wf_u64))) {
+		LOG_D("Fail in query receive error! (Invalid length).");
+		*pu4QueryInfoLen = sizeof(wf_u64);
+		return NDIS_STATUS_INVALID_LENGTH;
+	}
+			
+	if(u4QueryBufferLen == sizeof(wf_u32)){
+		*pu4QueryInfoLen = sizeof(wf_u32);
+		*(wf_u32*) pvQueryBuffer = (wf_u32)mib_info->num_recv_ok.LowPart;
+	}else{
+		*pu4QueryInfoLen = sizeof(wf_u64);
+		*(wf_u64*) pvQueryBuffer = (wf_u64) mib_info->num_recv_ok.QuadPart;
+	}
+	//LOG_D("---ZY_TEST---Recv NUM:%d", mib_info->num_recv_ok.LowPart);
+	return NDIS_STATUS_SUCCESS;
+} 
+
+
+NDIS_STATUS
+wlanoidQueryRcvError (
+	IN	PADAPTER 	prAdapter,
+	IN	PVOID			pvQueryBuffer,
+	IN	wf_u32 		u4QueryBufferLen,
+	OUT wf_u32*		pu4QueryInfoLen
+	)
+{
+	ASSERT(prAdapter);
+	if (u4QueryBufferLen) {
+		ASSERT(pvQueryBuffer);
+	}
+	ASSERT(pu4QueryInfoLen);
+
+	if (prAdapter->dev_state != WF_DEV_STATE_RUN) {
+		LOG_D("Fail in query receive error! (Adapter not ready).");
+		*pu4QueryInfoLen = sizeof(wf_u32);
+		return NDIS_STATUS_ADAPTER_NOT_READY;
+	}
+	else if (u4QueryBufferLen < sizeof(wf_u32)
+			|| (u4QueryBufferLen > sizeof(wf_u32) && u4QueryBufferLen < sizeof(wf_u64))) {
+		LOG_D("Fail in query receive error! (Invalid length).");
+		*pu4QueryInfoLen = sizeof(wf_u64);
+		return NDIS_STATUS_INVALID_LENGTH;
+	}
+
+	// TODO: Report the true value. 
+	if(u4QueryBufferLen == sizeof(wf_u32)){
+		*pu4QueryInfoLen = sizeof(wf_u32);
+	}else{
+		*pu4QueryInfoLen = sizeof(wf_u64);
+	}
+	*(wf_u32*) pvQueryBuffer = 0;
+#if 0
+	wf_mib_info_t *mib_info = prAdapter->mib_info;
+	if(u4QueryBufferLen == sizeof(wf_u32)){
+		*pu4QueryInfoLen = sizeof(wf_u32);
+		*(wf_u32*) pvQueryBuffer = (wf_u32) prAdapter->rStatStruct.rTransmittedFragmentCount.QuadPart;
+	}else{
+		*pu4QueryInfoLen = sizeof(wf_u64);
+		*(wf_u64*) pvQueryBuffer = (wf_u64) mib_info.num_recv_error.QuadPart;
+	}
+#endif		
+	return NDIS_STATUS_SUCCESS;
+} 
+
+NDIS_STATUS
+wlanoidQueryAuthMode (
+	IN	PADAPTER 	  prAdapter,
+	OUT PVOID			  pvQueryBuffer,
+	IN	wf_u32 		  u4QueryBufferLen,
+	OUT wf_u32*		  pu4QueryInfoLen
+	)
+{
+	wf_mib_info_t* mib_info = prAdapter->mib_info;
+	ASSERT(prAdapter);
+	if (u4QueryBufferLen) {
+		ASSERT(pvQueryBuffer);
+	}
+	ASSERT(pu4QueryInfoLen);
+
+	*pu4QueryInfoLen = sizeof(ENUM_PARAM_AUTH_MODE_T);
+
+	if (u4QueryBufferLen < sizeof(ENUM_PARAM_AUTH_MODE_T)) {
+		return NDIS_STATUS_BUFFER_TOO_SHORT;
+	}
+
+	*(P_ENUM_PARAM_AUTH_MODE_T)pvQueryBuffer = mib_info->auth_mode;
+
+#if DBG
+	switch (*(P_ENUM_PARAM_AUTH_MODE_T)pvQueryBuffer) {
+	case AUTH_MODE_OPEN:
+		LOG_D("Current auth mode: Open");
+		break;
+
+	case AUTH_MODE_SHARED:
+		LOG_D("Current auth mode: Shared");
+		break;
+
+	case AUTH_MODE_AUTO_SWITCH:
+		LOG_D("Current auth mode: Auto-switch");
+		break;
+
+	case AUTH_MODE_WPA:
+		LOG_D("Current auth mode: WPA");
+		break;
+
+	case AUTH_MODE_WPA_PSK:
+		LOG_D("Current auth mode: WPA PSK");
+		break;
+
+	case AUTH_MODE_WPA_NONE:
+		LOG_D("Current auth mode: WPA None");
+		break;
+
+	case AUTH_MODE_WPA2:
+		LOG_D("Current auth mode: WPA2");
+		break;
+
+	case AUTH_MODE_WPA2_PSK:
+		LOG_D("Current auth mode: WPA2 PSK");
+		break;
+
+	default:
+		LOG_D("Current auth mode: %d",
+			*(P_ENUM_PARAM_AUTH_MODE_T)pvQueryBuffer);
+	}
+#endif
+	return NDIS_STATUS_SUCCESS;
+} /* wlanoidQueryAuthMode */
+
+NDIS_STATUS
+wlanoidQueryInfrastructureMode (
+	IN	PADAPTER 	  prAdapter,
+	OUT PVOID			  pvQueryBuffer,
+	IN	wf_u32 		  u4QueryBufferLen,
+	OUT wf_u32*		  pu4QueryInfoLen
+	)
+{
+	ASSERT(prAdapter);
+	ASSERT(pu4QueryInfoLen);
+
+	*pu4QueryInfoLen = sizeof(ENUM_PARAM_OP_MODE_T);
+
+	if (u4QueryBufferLen < sizeof(ENUM_PARAM_OP_MODE_T)) {
+		return NDIS_STATUS_BUFFER_TOO_SHORT;
+	}
+
+	if (u4QueryBufferLen) {
+		ASSERT(pvQueryBuffer);
+	}
+
+	*(P_ENUM_PARAM_OP_MODE_T)pvQueryBuffer = prAdapter->Dot11RunningMode;
+	if(prAdapter->Dot11RunningMode == NET_TYPE_INFRA)
+	LOG_D("Running infrastructure.");
+	if(prAdapter->Dot11RunningMode == NET_TYPE_IBSS)
+	LOG_D("Running AdHoc.");
+	return NDIS_STATUS_SUCCESS;
+}	/* wlanoidQueryInfrastructureMode */
+
+NDIS_STATUS
+wlanoidQueryEncryptionStatus (
+	IN	PADAPTER 	  prAdapter,
+	IN	PVOID			  pvQueryBuffer,
+	IN	wf_u32 		  u4QueryBufferLen,
+	OUT wf_u32*		  pu4QueryInfoLen
+	)
+{
+	BOOLEAN 			  fgTransmitKeyAvailable = TRUE;
+	ENUM_PARAM_ENCRYPTION_STATUS_T eEncStatus = 0;
+	wf_mib_info_t* mib_info = prAdapter->mib_info;
+
+	ASSERT(prAdapter);
+	ASSERT(pu4QueryInfoLen);
+	if (u4QueryBufferLen) {
+		ASSERT(pvQueryBuffer);
+	}
+
+	*pu4QueryInfoLen = sizeof(ENUM_PARAM_ENCRYPTION_STATUS_T);
+	
+
+	fgTransmitKeyAvailable = mib_info->fgTxBcKeyExist;
+
+	// TODO: Set the default encryption status.   2021/06/03
+	switch (mib_info->eEncStatus) {
+	case ENUM_ENCRYPTION3_ENABLED:
+		if (fgTransmitKeyAvailable) {
+			eEncStatus = ENUM_ENCRYPTION3_ENABLED;
+		}
+		else {
+			eEncStatus = ENUM_ENCRYPTION3_KEY_ABSENT;
+		}
+		break;
+
+	case ENUM_ENCRYPTION2_ENABLED:
+		if (fgTransmitKeyAvailable) {
+			eEncStatus = ENUM_ENCRYPTION2_ENABLED;
+			break;
+		}
+		else {
+			eEncStatus = ENUM_ENCRYPTION2_KEY_ABSENT;
+		}
+		break;
+
+	case ENUM_ENCRYPTION1_ENABLED:
+		if (fgTransmitKeyAvailable) {
+			eEncStatus = ENUM_ENCRYPTION1_ENABLED;
+		}
+		else {
+			eEncStatus = ENUM_ENCRYPTION1_KEY_ABSENT;
+		}
+		break;
+
+	case ENUM_ENCRYPTION_DISABLED:
+		eEncStatus = ENUM_ENCRYPTION_DISABLED;
+		break;
+
+	default:
+		LOG_D("Unknown Encryption Status Setting:%d",
+			mib_info->eEncStatus);
+	}
+
+#if DBG
+	LOG_D("Encryption status: %d Return:%d",
+		mib_info->eEncStatus, eEncStatus);
+#endif
+
+	*(P_ENUM_PARAM_ENCRYPTION_STATUS_T)pvQueryBuffer = eEncStatus;
+
+	return NDIS_STATUS_SUCCESS;
+} /* wlanoidQueryEncryptionStatus */
+
+NDIS_STATUS
+wlanoidQuerySsid (
+	IN	PADAPTER 	  prAdapter,
+	OUT PVOID			  pvQueryBuffer,
+	IN	wf_u32 		  u4QueryBufferLen,
+	OUT wf_u32*		  pu4QueryInfoLen
+	)
+{
+	P_PARAM_SSID_T prAssociatedSsid;
+	wf_mib_info_t* mib_info = prAdapter->mib_info;
+	P_GLUE_INFO_T prGlueInfo = prAdapter->parent;
+
+	ASSERT(prAdapter);
+	ASSERT(pu4QueryInfoLen);
+
+	if (u4QueryBufferLen) {
+		ASSERT(pvQueryBuffer);
+	}
+
+	*pu4QueryInfoLen = sizeof(PARAM_SSID_T);
+
+	/* Check for query buffer length */
+	if (u4QueryBufferLen < *pu4QueryInfoLen) {
+		LOG_D("Invalid length %lu", u4QueryBufferLen);
+		return NDIS_STATUS_INVALID_LENGTH;
+	}
+
+	prAssociatedSsid = (P_PARAM_SSID_T)pvQueryBuffer;
+
+	NdisZeroMemory(prAssociatedSsid->aucSsid, sizeof(prAssociatedSsid->aucSsid));
+	
+
+	// TODO: Initialize NIC module.
+	
+	if (kalGetMediaStateIndicated(prGlueInfo) == PARAM_MEDIA_STATE_CONNECTED) {
+		prAssociatedSsid->u4SsidLen = mib_info->curApInfo->rSsid.u4SsidLen;
+
+		if (prAssociatedSsid->u4SsidLen) {
+			NdisMoveMemory(prAssociatedSsid->aucSsid,
+				mib_info->curApInfo->rSsid.aucSsid,
+				prAssociatedSsid->u4SsidLen);
+		}
+	}
+	else {
+		prAssociatedSsid->u4SsidLen = 0;
+
+		LOG_D("Null SSID");
+	}
+
+	return NDIS_STATUS_SUCCESS;
+} /* wlanoidQuerySsid */
+
+NDIS_STATUS
+wlanoidQueryCapability (
+	IN	PADAPTER 	  prAdapter,
+	OUT PVOID			  pvQueryBuffer,
+	IN	wf_u32 		  u4QueryBufferLen,
+	OUT wf_u32*		  pu4QueryInfoLen
+	)
+{
+	P_PARAM_CAPABILITY_T  prCap;
+	P_PARAM_AUTH_ENCRYPTION_T prAuthenticationEncryptionSupported;
+
+	ASSERT(prAdapter);
+	ASSERT(pu4QueryInfoLen);
+	if (u4QueryBufferLen) {
+		ASSERT(pvQueryBuffer);
+	}
+
+	*pu4QueryInfoLen = 4 * sizeof(wf_u32) + 14 * sizeof(PARAM_AUTH_ENCRYPTION_T);
+
+	if (u4QueryBufferLen < *pu4QueryInfoLen) {
+		return NDIS_STATUS_INVALID_LENGTH;
+	}
+
+	prCap = (P_PARAM_CAPABILITY_T)pvQueryBuffer;
+
+	prCap->u4Length = *pu4QueryInfoLen;
+	prCap->u4Version = 2; /* WPA2 */
+	prCap->u4NoOfPMKIDs = CFG_MAX_PMKID_CACHE;
+	prCap->u4NoOfAuthEncryptPairsSupported = 14;
+
+	prAuthenticationEncryptionSupported =
+		&prCap->arAuthenticationEncryptionSupported[0];
+
+	// fill 14 entries of supported settings
+	prAuthenticationEncryptionSupported[0].eAuthModeSupported =
+		AUTH_MODE_OPEN;
+
+	prAuthenticationEncryptionSupported[0].eEncryptStatusSupported =
+		ENUM_ENCRYPTION_DISABLED;
+
+	prAuthenticationEncryptionSupported[1].eAuthModeSupported =
+		AUTH_MODE_OPEN;
+	prAuthenticationEncryptionSupported[1].eEncryptStatusSupported =
+		ENUM_ENCRYPTION1_ENABLED;
+
+	prAuthenticationEncryptionSupported[2].eAuthModeSupported =
+		AUTH_MODE_SHARED;
+	prAuthenticationEncryptionSupported[2].eEncryptStatusSupported =
+		ENUM_ENCRYPTION_DISABLED;
+
+	prAuthenticationEncryptionSupported[3].eAuthModeSupported =
+		AUTH_MODE_SHARED;
+	prAuthenticationEncryptionSupported[3].eEncryptStatusSupported =
+		ENUM_ENCRYPTION1_ENABLED;
+
+	prAuthenticationEncryptionSupported[4].eAuthModeSupported =
+		AUTH_MODE_WPA;
+	prAuthenticationEncryptionSupported[4].eEncryptStatusSupported =
+		ENUM_ENCRYPTION2_ENABLED;
+
+	prAuthenticationEncryptionSupported[5].eAuthModeSupported =
+		AUTH_MODE_WPA;
+	prAuthenticationEncryptionSupported[5].eEncryptStatusSupported =
+		ENUM_ENCRYPTION3_ENABLED;
+
+	prAuthenticationEncryptionSupported[6].eAuthModeSupported =
+		AUTH_MODE_WPA_PSK;
+	prAuthenticationEncryptionSupported[6].eEncryptStatusSupported =
+		ENUM_ENCRYPTION2_ENABLED;
+
+	prAuthenticationEncryptionSupported[7].eAuthModeSupported =
+		AUTH_MODE_WPA_PSK;
+	prAuthenticationEncryptionSupported[7].eEncryptStatusSupported =
+		ENUM_ENCRYPTION3_ENABLED;
+
+	prAuthenticationEncryptionSupported[8].eAuthModeSupported =
+		AUTH_MODE_WPA_NONE;
+	prAuthenticationEncryptionSupported[8].eEncryptStatusSupported =
+		ENUM_ENCRYPTION2_ENABLED;
+
+	prAuthenticationEncryptionSupported[9].eAuthModeSupported =
+		AUTH_MODE_WPA_NONE;
+	prAuthenticationEncryptionSupported[9].eEncryptStatusSupported =
+		ENUM_ENCRYPTION3_ENABLED;
+
+	prAuthenticationEncryptionSupported[10].eAuthModeSupported =
+		AUTH_MODE_WPA2;
+	prAuthenticationEncryptionSupported[10].eEncryptStatusSupported =
+		ENUM_ENCRYPTION2_ENABLED;
+
+	prAuthenticationEncryptionSupported[11].eAuthModeSupported =
+		AUTH_MODE_WPA2;
+	prAuthenticationEncryptionSupported[11].eEncryptStatusSupported =
+		ENUM_ENCRYPTION3_ENABLED;
+
+	prAuthenticationEncryptionSupported[12].eAuthModeSupported =
+		AUTH_MODE_WPA2_PSK;
+	prAuthenticationEncryptionSupported[12].eEncryptStatusSupported =
+		ENUM_ENCRYPTION2_ENABLED;
+
+	prAuthenticationEncryptionSupported[13].eAuthModeSupported =
+		AUTH_MODE_WPA2_PSK;
+	prAuthenticationEncryptionSupported[13].eEncryptStatusSupported =
+		ENUM_ENCRYPTION3_ENABLED;
+
+	return NDIS_STATUS_SUCCESS;
+
+} /* wlanoidQueryCapability */
+
+NDIS_STATUS
+wlanoidQueryBssidList (
+	IN	PADAPTER	  prAdapter,
+	OUT PVOID			  pvQueryBuffer,
+	IN	wf_u32		  u4QueryBufferLen,
+	OUT wf_u32* 	  pu4QueryInfoLen
+	)
+{
+	P_GLUE_INFO_T prGlueInfo;
+	wf_u32 u4BssidListExLen;
+	P_PARAM_BSSID_LIST_EX_T prList;
+	P_PARAM_BSSID_EX_T prBssidEx;
+	wf_u8* cp;
+	wf_u32 idx;
+	wf_wlan_mgmt_scan_que_node_t *pscanned_info;
+	wf_mib_info_t* mib_info = prAdapter->mib_info;
+	
+	ASSERT(prAdapter);
+	ASSERT(pu4QueryInfoLen);
+
+	if (u4QueryBufferLen) {
+		ASSERT(pvQueryBuffer);
+
+		if(!pvQueryBuffer) {
+			return NDIS_STATUS_INVALID_DATA;
+		}
+	}
+	prGlueInfo = (P_GLUE_INFO_T)prAdapter->parent;
+
+	if (prAdapter->dev_state != WF_DEV_STATE_RUN) {
+		LOG_D("Fail in set Authentication mode! (Adapter not ready). ");
+		return NDIS_STATUS_ADAPTER_NOT_READY;
+	}
+
+	WdfSpinLockAcquire(mib_info->bss_lock);
+
+	u4BssidListExLen = 0;
+	for(idx=0; idx < mib_info->bss_cnt; idx++)
+	{
+		pscanned_info = (wf_wlan_mgmt_scan_que_node_t*) mib_info->bss_node[idx];
+		u4BssidListExLen += (sizeof(PARAM_BSSID_EX_T) + pscanned_info->ie_len - 13);// Minus (12 + 1)
+	}	
+	if(u4BssidListExLen) {
+		u4BssidListExLen += 4; // u4NumberOfItems.
+	}
+	else {
+		u4BssidListExLen = sizeof(PARAM_BSSID_LIST_EX_T);
+	}
+	*pu4QueryInfoLen = u4BssidListExLen;
+	if (u4QueryBufferLen < *pu4QueryInfoLen) {
+        return NDIS_STATUS_INVALID_LENGTH;
+    }
+
+	prList = (P_PARAM_BSSID_LIST_EX_T) pvQueryBuffer;
+	cp = (wf_u8*)&prList->arBssid[0];
+	for(idx=0; idx < mib_info->bss_cnt; idx++) {
+		pscanned_info = (wf_wlan_mgmt_scan_que_node_t*) mib_info->bss_node[idx];
+		prBssidEx = (P_PARAM_BSSID_EX_T)cp;	
+
+		wf_memcpy(prBssidEx->arMacAddress, pscanned_info->bssid, MAC_ADDR_LEN);
+		prBssidEx->rSsid.u4SsidLen = pscanned_info->ssid.length;
+		wf_memcpy(prBssidEx->rSsid.aucSsid, pscanned_info->ssid.data , pscanned_info->ssid.length);
+		prBssidEx->u4Privacy = pscanned_info->privacy;
+		prBssidEx->rRssi = pscanned_info->signal_strength - 100;
+		prBssidEx->eNetworkTypeInUse = PARAM_NETWORK_TYPE_AUTOMODE;
+		prBssidEx->rConfiguration.u4Length = sizeof(PARAM_802_11_CONFIG_T);
+		prBssidEx->rConfiguration.u4DSConfig = DSSS_Freq_Channel[pscanned_info->channel];
+		prBssidEx->eOpMode = pscanned_info->opr_mode == WF_WLAN_OPR_MODE_ADHOC ? 
+			NET_TYPE_IBSS : NET_TYPE_INFRA;
+		wf_memcpy(prBssidEx->rSupportedRates, prBssidEx->rSupportedRates, PARAM_MAX_LEN_RATES_EX);
+		prBssidEx->u4IELength = pscanned_info->ie_len - 12;
+		wf_memcpy(prBssidEx->aucIEs, pscanned_info->ies + 12, prBssidEx->u4IELength);
+		prBssidEx->u4Length = sizeof(PARAM_BSSID_EX_T) - 1 + prBssidEx->u4IELength;
+		
+		if(prBssidEx->rRssi > PARAM_WHQL_RSSI_MAX_DBM) {
+			prBssidEx->rRssi = PARAM_WHQL_RSSI_MAX_DBM;
+		}
+		cp += prBssidEx->u4Length;
+		prList->u4NumberOfItems++;
+	}
+	WdfSpinLockRelease(mib_info->bss_lock);
+
+	return NDIS_STATUS_SUCCESS;
+} /* wlanoidQueryBssidList */
+
+NDIS_STATUS
+wlanoidQueryBssid (
+	IN	PADAPTER 	  prAdapter,
+	OUT PVOID			  pvQueryBuffer,
+	IN	wf_u32 		  u4QueryBufferLen,
+	OUT wf_u32*		  pu4QueryInfoLen
+	)
+{
+	P_GLUE_INFO_T prGlueInfo;
+	wf_mib_info_t* mib_info;
+	P_PARAM_BSSID_EX_T 			curApInfo;
+	
+	NDIS_STATUS rStatus = NDIS_STATUS_SUCCESS;
+
+	prGlueInfo = (P_GLUE_INFO_T)prAdapter->parent;
+	mib_info = (wf_mib_info_t*) prAdapter->mib_info;
+	curApInfo = (P_PARAM_BSSID_EX_T)mib_info->curApInfo;
+
+	if (u4QueryBufferLen < MAC_ADDR_LEN) {
+		ASSERT(pu4QueryInfoLen);
+		*pu4QueryInfoLen = MAC_ADDR_LEN;
+		return NDIS_STATUS_BUFFER_TOO_SHORT;
+	}
+
+	ASSERT(u4QueryBufferLen >= MAC_ADDR_LEN);
+	if (u4QueryBufferLen) {
+		ASSERT(pvQueryBuffer);
+	}
+	ASSERT(pu4QueryInfoLen);
+
+	if(kalGetMediaStateIndicated(prGlueInfo) == PARAM_MEDIA_STATE_CONNECTED) {
+		wf_memcmp(pvQueryBuffer, curApInfo->arMacAddress, MAC_ADDR_LEN);
+	}
+	else {
+		rStatus = NDIS_STATUS_ADAPTER_NOT_READY;
+	}
+
+	*pu4QueryInfoLen = MAC_ADDR_LEN;
+	return rStatus;
+} /* wlanoidQueryBssid */
+
+
+/* Set */
+	
+NDIS_STATUS
+wlanoidSetAuthMode (
+	IN	PADAPTER 	  prAdapter,
+	IN	PVOID			  pvSetBuffer,
+	IN	wf_u32 		  u4SetBufferLen,
+	OUT wf_u32*		  pu4SetInfoLen
+	)
+{
+	P_GLUE_INFO_T prGlueInfo;
+
+	wf_mib_info_t* mib_info = prAdapter->mib_info;
+
+	prGlueInfo = (P_GLUE_INFO_T)prAdapter->parent;
+
+	*pu4SetInfoLen = sizeof(ENUM_PARAM_AUTH_MODE_T);
+
+	if (u4SetBufferLen < sizeof(ENUM_PARAM_AUTH_MODE_T)) {
+		return NDIS_STATUS_INVALID_LENGTH;
+	}
+
+	/* RF Test */
+	//if (IS_ARB_IN_RFTEST_STATE(prAdapter)) {
+	//	return NDIS_STATUS_SUCCESS;
+	//}
+
+	if (prAdapter->dev_state != WF_DEV_STATE_RUN) {
+		LOG_D("Fail in set Authentication mode! (Adapter not ready). ");
+		return NDIS_STATUS_ADAPTER_NOT_READY;
+	}
+
+	/* Check if the new authentication mode is valid. */
+	if (*(P_ENUM_PARAM_AUTH_MODE_T)pvSetBuffer >= AUTH_MODE_NUM) {
+		LOG_D("Invalid auth mode %d", *(P_ENUM_PARAM_AUTH_MODE_T)pvSetBuffer);
+		return NDIS_STATUS_INVALID_DATA;
+	}
+
+	switch (*(P_ENUM_PARAM_AUTH_MODE_T)pvSetBuffer) {
+	case AUTH_MODE_WPA:
+	case AUTH_MODE_WPA_PSK:
+	case AUTH_MODE_WPA2:
+	case AUTH_MODE_WPA2_PSK:
+		/* infrastructure mode only */
+		if (prAdapter->Dot11RunningMode != NET_TYPE_INFRA) {
+			return NDIS_STATUS_NOT_ACCEPTED;
+		}
+		break;
+
+	case AUTH_MODE_WPA_NONE:
+		/* ad hoc mode only */
+		if (prAdapter->Dot11RunningMode != NET_TYPE_IBSS) {
+			return NDIS_STATUS_NOT_ACCEPTED;
+		}
+		break;
+
+	default:
+		;
+	}
+
+	/* Save the new authentication mode. */
+	mib_info->auth_mode = *(P_ENUM_PARAM_AUTH_MODE_T)pvSetBuffer;
+
+#if DBG
+	switch (mib_info->auth_mode) {
+	case AUTH_MODE_OPEN:
+		LOG_D("New auth mode: open");
+		break;
+
+	case AUTH_MODE_SHARED:
+		LOG_D("New auth mode: shared");
+		break;
+
+	case AUTH_MODE_AUTO_SWITCH:
+		LOG_D("New auth mode: auto-switch");
+		break;
+
+	case AUTH_MODE_WPA:
+		LOG_D("New auth mode: WPA");
+		break;
+
+	case AUTH_MODE_WPA_PSK:
+		LOG_D("New auth mode: WPA PSK");
+		break;
+
+	case AUTH_MODE_WPA_NONE:
+		LOG_D("New auth mode: WPA None");
+		break;
+
+	case AUTH_MODE_WPA2:
+		LOG_D("New auth mode: WPA2");
+		break;
+
+	case AUTH_MODE_WPA2_PSK:
+		LOG_D("New auth mode: WPA2 PSK");
+		break;
+
+	default:
+		LOG_D("New auth mode: unknown (%d)",
+			mib_info->auth_mode);
+	}
+#endif
+
+
+	return NDIS_STATUS_SUCCESS;
+
+} /* wlanoidSetAuthMode */
+
+NDIS_STATUS
+wlanoidSetInfrastructureMode (
+	IN	PADAPTER 	  prAdapter,
+	IN	PVOID			  pvSetBuffer,
+	IN	wf_u32 		  u4SetBufferLen,
+	OUT wf_u32*		  pu4SetInfoLen
+	)
+{
+	ASSERT(prAdapter);
+	ASSERT(pvSetBuffer);
+	ASSERT(pu4SetInfoLen);
+
+	if (u4SetBufferLen < sizeof(ENUM_PARAM_OP_MODE_T))
+		return NDIS_STATUS_BUFFER_TOO_SHORT;
+
+	*pu4SetInfoLen = sizeof(ENUM_PARAM_OP_MODE_T);
+
+
+	if (prAdapter->dev_state != WF_DEV_STATE_RUN) {
+		LOG_D("Fail in set Infrastructure mode! (Adapter not ready). ");
+		return NDIS_STATUS_ADAPTER_NOT_READY;
+	}
+	
+	prAdapter->Dot11RunningMode = *(P_ENUM_PARAM_OP_MODE_T)pvSetBuffer;;
+
+	// TODO: Reset work.    2021/06/03
+
+	return NDIS_STATUS_SUCCESS;
+}  
+
+NDIS_STATUS
+wlanoidSetEncryptionStatus (
+	IN	PADAPTER 	  prAdapter,
+	IN	PVOID			  pvSetBuffer,
+	IN	wf_u32 		  u4SetBufferLen,
+	OUT wf_u32*		  pu4SetInfoLen
+	)
+{
+	P_GLUE_INFO_T		  prGlueInfo;
+	NDIS_STATUS 		  rStatus = NDIS_STATUS_SUCCESS;
+	ENUM_PARAM_ENCRYPTION_STATUS_T eEewEncrypt;
+
+	ASSERT(prAdapter);
+	ASSERT(pvSetBuffer);
+	ASSERT(pu4SetInfoLen);
+
+	prGlueInfo = (P_GLUE_INFO_T)prAdapter->parent;
+
+	*pu4SetInfoLen = sizeof(ENUM_PARAM_ENCRYPTION_STATUS_T);
+
+	if (prAdapter->dev_state != WF_DEV_STATE_RUN) {
+		LOG_D("Fail in set Authentication mode! (Adapter not ready). ");
+		return NDIS_STATUS_ADAPTER_NOT_READY;
+	}
+
+	eEewEncrypt = *(P_ENUM_PARAM_ENCRYPTION_STATUS_T)pvSetBuffer;
+	LOG_D("ENCRYPTION_STATUS %d", eEewEncrypt);
+
+	switch (eEewEncrypt) {
+	case ENUM_ENCRYPTION_DISABLED: /* Disable WEP, TKIP, AES */
+		LOG_D("Disable Encryption");
+		secSetCipherSuite(prAdapter,
+			CIPHER_FLAG_WEP40  |
+			CIPHER_FLAG_WEP104 |
+			CIPHER_FLAG_WEP128);
+		break;
+
+	case ENUM_ENCRYPTION1_ENABLED: /* Enable WEP. Disable TKIP, AES */
+		LOG_D("Enable Encryption1");
+		secSetCipherSuite(prAdapter,
+			CIPHER_FLAG_WEP40  |
+			CIPHER_FLAG_WEP104 |
+			CIPHER_FLAG_WEP128);
+		break;
+
+	case ENUM_ENCRYPTION2_ENABLED: /* Enable WEP, TKIP. Disable AES */
+		secSetCipherSuite(prAdapter,
+			CIPHER_FLAG_WEP40  |
+			CIPHER_FLAG_WEP104 |
+			CIPHER_FLAG_WEP128 |
+			CIPHER_FLAG_TKIP);
+		LOG_D("Enable Encryption2");
+		break;
+
+	case ENUM_ENCRYPTION3_ENABLED: /* Enable WEP, TKIP, AES */
+		secSetCipherSuite(prAdapter,
+			CIPHER_FLAG_WEP40  |
+			CIPHER_FLAG_WEP104 |
+			CIPHER_FLAG_WEP128 |
+			CIPHER_FLAG_TKIP |
+			CIPHER_FLAG_CCMP);
+		LOG_D("Enable Encryption3");
+		break;
+
+	default:
+		LOG_D("Unacceptible encryption status: %d",
+			*(P_ENUM_PARAM_ENCRYPTION_STATUS_T)pvSetBuffer);
+
+		rStatus = NDIS_STATUS_NOT_SUPPORTED;
+	}
+
+	if (rStatus == NDIS_STATUS_SUCCESS) {
+		/* Save the new encryption status. */
+		wf_mib_info_t* mib_info = prAdapter->mib_info;
+		mib_info->eEncStatus =
+			*(P_ENUM_PARAM_ENCRYPTION_STATUS_T)pvSetBuffer;
+	}
+
+	return rStatus;
+} 
+
+NDIS_STATUS
+wlanoidSetSsid (
+	IN	PADAPTER 	  prAdapter,
+	IN	PVOID			  pvSetBuffer,
+	IN	wf_u32 		  u4SetBufferLen,
+	OUT wf_u32*		  pu4SetInfoLen
+	)
+{
+	P_GLUE_INFO_T prGlueInfo;
+	P_PARAM_SSID_T pParamSsid;
+	wf_mib_info_t *mib_info;
+	P_PARAM_BSSID_EX_T curApInfo;
+	NDIS_STATUS  ndisStatus = NDIS_STATUS_SUCCESS;	
+	prGlueInfo = (P_GLUE_INFO_T)prAdapter->parent;
+	mib_info = prAdapter->mib_info;
+	curApInfo = mib_info->curApInfo;
+	
+	if(u4SetBufferLen < sizeof(PARAM_SSID_T) || u4SetBufferLen > sizeof(PARAM_SSID_T)) {
+        return NDIS_STATUS_INVALID_LENGTH;
+    }
+	if (prAdapter->dev_state != WF_DEV_STATE_RUN) {
+		LOG_D("Fail in set SSID! (Adapter not ready). ");
+		return NDIS_STATUS_ADAPTER_NOT_READY;
+	}
+	pParamSsid = (P_PARAM_SSID_T) pvSetBuffer;
+    if (pParamSsid->u4SsidLen > 32) {
+        return NDIS_STATUS_INVALID_LENGTH;
+    }
+	if(kalGetMediaStateIndicated(prGlueInfo) == PARAM_MEDIA_STATE_CONNECTED) {
+		if(!(EQUAL_SSID(curApInfo->rSsid.aucSsid,
+                    curApInfo->rSsid.u4SsidLen,
+                    pParamSsid->aucSsid,
+                    pParamSsid->u4SsidLen)))
+        {
+			wf_set_start_deassoc(prAdapter);
+		 	ndisStatus = wf_set_start_assoc(prAdapter, pParamSsid);
+			if ((ndisStatus == NDIS_STATUS_SUCCESS))
+		    {
+				curApInfo->rSsid.u4SsidLen = pParamSsid->u4SsidLen;
+				wf_memcmp(curApInfo->rSsid.aucSsid, pParamSsid->aucSsid, pParamSsid->u4SsidLen);
+		    }
+		}
+	}
+	else{
+		ndisStatus = wf_set_start_assoc(prAdapter, pParamSsid);
+		if ((ndisStatus == NDIS_STATUS_SUCCESS))
+	    {
+			curApInfo->rSsid.u4SsidLen = pParamSsid->u4SsidLen;
+			wf_memcmp(curApInfo->rSsid.aucSsid, pParamSsid->aucSsid, pParamSsid->u4SsidLen);
+	    }
+	}
+	return NDIS_STATUS_SUCCESS;
+} /* end of wlanoidSetSsid() */
+
+NDIS_STATUS
+wlanoidSetBssidListScan (
+	IN	PADAPTER 	  prAdapter,
+	IN	PVOID			  pvSetBuffer,
+	IN	wf_u32 		  u4SetBufferLen,
+	OUT wf_u32*		  pu4SetInfoLen
+	)
+{
+	nic_info_st *nic_info = prAdapter->nic_info;
+	mlme_state_e state;
+	NDIS_STATUS  ndisStatus = NDIS_STATUS_SUCCESS;
+
+	wf_mlme_get_state(nic_info, &state);
+
+	if(state == MLME_STATE_SCAN){
+		LOG_D("Another scan request is processing.");
+		return ndisStatus;
+	}
+
+	if (prAdapter->dev_state != WF_DEV_STATE_RUN) {
+		LOG_D("Fail in set Authentication mode! (Adapter not ready). ");
+		return NDIS_STATUS_ADAPTER_NOT_READY;
+	}
+
+	ASSERT(pu4SetInfoLen);
+	*pu4SetInfoLen = 0;
+
+	LOG_D("********* SCANNING FOR BSS **********");
+    if(prAdapter->bRequestedScan == TRUE) {
+		LOG_D("Another scan request is processing.");
+		return ndisStatus;
+	}
+	prAdapter->bRequestedScan = TRUE;
+	//prAdapter->CurrentRequestID_Scan = prAdapter->PendedRequest;
+    
+	ndisStatus = wf_set_scan(prAdapter);
+
+	return ndisStatus;
+} /* wlanoidSetBssidListScan */
+
+NDIS_STATUS
+wlanoidSetBssid (
+	IN	PADAPTER 	  prAdapter,
+	IN	PVOID			  pvSetBuffer,
+	IN	wf_u32 		  u4SetBufferLen,
+	OUT wf_u32*		  pu4SetInfoLen
+	)
+{
+	P_GLUE_INFO_T prGlueInfo;
+	wf_u8* pAddr;
+	wf_mib_info_t* mib_info;
+	P_PARAM_BSSID_EX_T curApInfo;
+	wf_wlan_mgmt_scan_que_node_t *scan_info;
+	P_PARAM_SSID_T pParamSsid;
+	NDIS_STATUS ndisStatus = NDIS_STATUS_SUCCESS;
+	*pu4SetInfoLen = MAC_ADDR_LEN;;
+	if (u4SetBufferLen != MAC_ADDR_LEN){
+		*pu4SetInfoLen = MAC_ADDR_LEN;
+		return NDIS_STATUS_INVALID_LENGTH;
+	}
+	else if (prAdapter->dev_state != WF_DEV_STATE_RUN) {
+		LOG_D("Fail in setting BSSID! (Adapter not ready).");
+		return NDIS_STATUS_ADAPTER_NOT_READY;
+	}
+	
+	prGlueInfo = prAdapter->parent;
+	mib_info = prAdapter->mib_info;
+	curApInfo = mib_info->curApInfo;
+	pAddr = (wf_u8*)pvSetBuffer;
+
+	if(wf_is_broadcast(pAddr) == TRUE){
+		prAdapter->bBssidLocked = FALSE;
+		return NDIS_STATUS_SUCCESS;
+	}
+	else
+	{
+		prAdapter->bBssidLocked = TRUE;
+		wf_memcpy(prAdapter->SpecifiedMacAddr, pAddr, MAC_ADDR_LEN);
+	}
+
+	scan_info = wf_find_scan_info_by_bssid(prAdapter, pAddr);
+	if(scan_info == NULL) {
+		LOG_E("wf_find_scan_info_by_ssid fail\n");
+ 		return NDIS_STATUS_FAILURE; 
+	}
+	pParamSsid = &scan_info->ssid;
+	
+	if(kalGetMediaStateIndicated(prGlueInfo) == PARAM_MEDIA_STATE_CONNECTED) {
+		if(!(EQUAL_SSID(curApInfo->rSsid.aucSsid,
+                    curApInfo->rSsid.u4SsidLen,
+                    pParamSsid->aucSsid,
+                    pParamSsid->u4SsidLen)))
+        {
+			wf_set_start_deassoc(prAdapter);
+
+		 	ndisStatus = wf_set_start_assoc(prAdapter, pParamSsid);
+			if ((ndisStatus == NDIS_STATUS_SUCCESS))
+		    {
+				curApInfo->rSsid.u4SsidLen = pParamSsid->u4SsidLen;
+				wf_memcmp(curApInfo->rSsid.aucSsid, pParamSsid->aucSsid, pParamSsid->u4SsidLen);
+		    }
+		}
+	}
+	else{
+		ndisStatus = wf_set_start_assoc(prAdapter, pParamSsid);
+		if ((ndisStatus == NDIS_STATUS_SUCCESS))
+	    {
+			curApInfo->rSsid.u4SsidLen = pParamSsid->u4SsidLen;
+			wf_memcmp(curApInfo->rSsid.aucSsid, pParamSsid->aucSsid, pParamSsid->u4SsidLen);
+	    }
+	}
+
+	return ndisStatus;
+} /* end of wlanoidSetBssid() */
+
+
+NDIS_STATUS
+wlanoidSetAddKey (
+	IN	PADAPTER 	  prAdapter,
+	IN	PVOID	 pvSetBuffer,
+	IN	wf_u32  u4SetBufferLen,
+	OUT wf_u32* pu4SetInfoLen
+	)
+{
+
+#if 0
+	P_GLUE_INFO_T		  prGlueInfo;
+	P_CMD_INFO_T		  prCmdInfo;
+	P_WIFI_CMD_T		  prWifiCmd;
+	P_PARAM_KEY_T		  prNewKey;
+	P_CMD_802_11_KEY	  prCmdKey;
+	UINT_8 ucCmdSeqNum;
+	P_BSS_INFO_T		  prBssInfo;
+	P_AIS_SPECIFIC_BSS_INFO_T prAisSpecBssInfo;
+	P_WLAN_TABLE_T		  prWlanTable;
+	P_STA_RECORD_T		  prStaRec;
+	BOOL				  fgAddTxBcKey = FALSE;
+
+	DEBUGFUNC("wlanoidSetAddKey");
+	DBGLOG(REQ, LOUD, ("\n"));
+
+	ASSERT(prAdapter);
+	ASSERT(pvSetBuffer);
+	ASSERT(pu4SetInfoLen);
+
+	DBGLOG(RSN, TRACE, ("wlanoidSetAddKey\n"));
+
+	if (prAdapter->rAcpiState == ACPI_STATE_D3) {
+		DBGLOG(RSN, WARN, ("Fail in set add key! (Adapter not ready). ACPI=D%d, Radio=%d\n",
+					prAdapter->rAcpiState, prAdapter->fgIsRadioOff));
+		return WLAN_STATUS_ADAPTER_NOT_READY;
+	}
+
+	prNewKey = (P_PARAM_KEY_T) pvSetBuffer;
+
+	/* Verify the key structure length. */
+	if (prNewKey->u4Length > u4SetBufferLen) {
+		DBGLOG(RSN, WARN, ("Invalid key structure length (%d) greater than total buffer length (%d)\n",
+						  (UINT_8)prNewKey->u4Length,
+						  (UINT_8)u4SetBufferLen));
+
+		*pu4SetInfoLen = u4SetBufferLen;
+		return WLAN_STATUS_INVALID_LENGTH;
+	}
+
+	/* Verify the key material length for key material buffer */
+	if (prNewKey->u4KeyLength > prNewKey->u4Length - OFFSET_OF(PARAM_KEY_T, aucKeyMaterial)) {
+		DBGLOG(RSN, WARN, ("Invalid key material length (%d)\n", (UINT_8)prNewKey->u4KeyLength));
+		*pu4SetInfoLen = u4SetBufferLen;
+		return WLAN_STATUS_INVALID_DATA;
+	}
+
+	/* Exception check */
+	if (prNewKey->u4KeyIndex & 0x0fffff00) {
+		return WLAN_STATUS_INVALID_DATA;
+	}
+
+   /* Exception check, pairwise key must with transmit bit enabled */
+	if ((prNewKey->u4KeyIndex & BITS(30,31)) == IS_UNICAST_KEY) {
+		return WLAN_STATUS_INVALID_DATA;
+	}
+
+	if (!(prNewKey->u4KeyLength == WEP_40_LEN || prNewKey->u4KeyLength == WEP_104_LEN ||
+		  prNewKey->u4KeyLength == CCMP_KEY_LEN || prNewKey->u4KeyLength == TKIP_KEY_LEN))
+	{
+		return WLAN_STATUS_INVALID_DATA;
+	}
+
+	/* Exception check, pairwise key must with transmit bit enabled */
+	if ((prNewKey->u4KeyIndex & BITS(30,31)) == BITS(30,31)) {
+		if (((prNewKey->u4KeyIndex & 0xff) != 0) ||
+			((prNewKey->arBSSID[0] == 0xff) && (prNewKey->arBSSID[1] == 0xff) && (prNewKey->arBSSID[2] == 0xff) &&
+			 (prNewKey->arBSSID[3] == 0xff) && (prNewKey->arBSSID[4] == 0xff) && (prNewKey->arBSSID[5] == 0xff))) {
+			return WLAN_STATUS_INVALID_DATA;
+		}
+	}
+
+	*pu4SetInfoLen = u4SetBufferLen;
+
+	/* Dump PARAM_KEY content. */
+	DBGLOG(RSN, TRACE, ("Set: Dump PARAM_KEY content\n"));
+	DBGLOG(RSN, TRACE, ("Length    : 0x%08lx\n", prNewKey->u4Length));
+	DBGLOG(RSN, TRACE, ("Key Index : 0x%08lx\n", prNewKey->u4KeyIndex));
+	DBGLOG(RSN, TRACE, ("Key Length: 0x%08lx\n", prNewKey->u4KeyLength));
+	DBGLOG(RSN, TRACE, ("BSSID:\n"));
+	DBGLOG(RSN, TRACE, (MACSTR"\n", MAC2STR(prNewKey->arBSSID)));
+	DBGLOG(RSN, TRACE, ("Key RSC:\n"));
+	DBGLOG_MEM8(RSN, TRACE, &prNewKey->rKeyRSC, sizeof(PARAM_KEY_RSC));
+	DBGLOG(RSN, TRACE, ("Key Material:\n"));
+	DBGLOG_MEM8(RSN, TRACE, prNewKey->aucKeyMaterial, prNewKey->u4KeyLength);
+
+	prAisSpecBssInfo = &prAdapter->rWifiVar.rAisSpecificBssInfo;
+	prBssInfo = prAdapter->prAisBssInfo;
+
+	prWlanTable = prAdapter->rWifiVar.arWtbl;
+
+	prGlueInfo = prAdapter->prGlueInfo;
+	prCmdInfo = cmdBufAllocateCmdInfo(prAdapter, (CMD_HDR_SIZE + sizeof(CMD_802_11_KEY)));
+
+	if (!prCmdInfo) {
+		DBGLOG(INIT, ERROR, ("Allocate CMD_INFO_T ==> FAILED.\n"));
+		return WLAN_STATUS_FAILURE;
+	}
+
+	// increase command sequence number
+	ucCmdSeqNum = nicIncreaseCmdSeqNum(prAdapter);
+	DBGLOG(REQ, INFO, ("ucCmdSeqNum = %d\n", ucCmdSeqNum));
+
+	// compose CMD_802_11_KEY cmd pkt
+	prCmdInfo->eCmdType = COMMAND_TYPE_NETWORK_IOCTL;
+	prCmdInfo->ucBssIndex = prBssInfo->ucBssIndex;
+	prCmdInfo->u2InfoBufLen = CMD_HDR_SIZE + sizeof(CMD_802_11_KEY);
+	prCmdInfo->pfCmdDoneHandler = nicCmdEventSetCommon;
+	prCmdInfo->pfCmdTimeoutHandler = nicOidCmdTimeoutCommon;
+	prCmdInfo->fgIsOid = TRUE;
+	prCmdInfo->ucCID = CMD_ID_ADD_REMOVE_KEY;
+	prCmdInfo->fgSetQuery = TRUE;
+	prCmdInfo->fgNeedResp = FALSE;
+	prCmdInfo->fgDriverDomainMCR = FALSE;
+	prCmdInfo->ucCmdSeqNum = ucCmdSeqNum;
+	prCmdInfo->u4SetInfoLen = u4SetBufferLen;
+	prCmdInfo->pvInformationBuffer = pvSetBuffer;
+	prCmdInfo->u4InformationBufferLength = u4SetBufferLen;
+
+	// Setup WIFI_CMD_T
+	prWifiCmd = (P_WIFI_CMD_T)(prCmdInfo->pucInfoBuffer);
+	prWifiCmd->u2TxByteCount = prCmdInfo->u2InfoBufLen;
+	prWifiCmd->u2PQ_ID = CMD_PQ_ID;
+	prWifiCmd->ucPktTypeID = CMD_PACKET_TYPE_ID;
+	prWifiCmd->ucCID = prCmdInfo->ucCID;
+	prWifiCmd->ucSetQuery = prCmdInfo->fgSetQuery;
+	prWifiCmd->ucSeqNum = prCmdInfo->ucCmdSeqNum;
+
+	prCmdKey = (P_CMD_802_11_KEY)(prWifiCmd->aucBuffer);
+
+	kalMemZero(prCmdKey, sizeof(CMD_802_11_KEY));
+
+	prCmdKey->ucAddRemove = 1; /* Add */
+
+	prCmdKey->ucTxKey = ((prNewKey->u4KeyIndex & IS_TRANSMIT_KEY) == IS_TRANSMIT_KEY) ? 1 : 0;
+	prCmdKey->ucKeyType = ((prNewKey->u4KeyIndex & IS_UNICAST_KEY) == IS_UNICAST_KEY) ? 1 : 0;
+	prCmdKey->ucIsAuthenticator = ((prNewKey->u4KeyIndex & IS_AUTHENTICATOR) == IS_AUTHENTICATOR) ? 1 : 0;
+
+	kalMemCopy(prCmdKey->aucPeerAddr, (PUINT_8)prNewKey->arBSSID, MAC_ADDR_LEN);
+
+	prCmdKey->ucBssIdx = prBssInfo->ucBssIndex; /* AIS BSS */
+
+	prCmdKey->ucKeyId = (UINT_8)(prNewKey->u4KeyIndex & 0xff);
+
+	/* Note: adjust the key length for WPA-None */
+	prCmdKey->ucKeyLen = (UINT_8)prNewKey->u4KeyLength;
+
+	kalMemCopy(prCmdKey->aucKeyMaterial, (PUINT_8)prNewKey->aucKeyMaterial, prCmdKey->ucKeyLen);
+
+	if (prNewKey->u4KeyLength == 5) {
+		prCmdKey->ucAlgorithmId = CIPHER_SUITE_WEP40;
+	}
+	else if (prNewKey->u4KeyLength == 13) {
+		prCmdKey->ucAlgorithmId = CIPHER_SUITE_WEP104;
+	}
+	else if (prNewKey->u4KeyLength == 16) {
+		if (prAdapter->rWifiVar.rConnSettings.eAuthMode < AUTH_MODE_WPA)
+			prCmdKey->ucAlgorithmId = CIPHER_SUITE_WEP128;
+		else {
+#if CFG_SUPPORT_802_11W
+			if (prCmdKey->ucKeyId >= 4) {
+				P_AIS_SPECIFIC_BSS_INFO_T  prAisSpecBssInfo;
+				prCmdKey->ucAlgorithmId = CIPHER_SUITE_BIP;
+			
+				prAisSpecBssInfo = &prAdapter->rWifiVar.rAisSpecificBssInfo;
+				prAisSpecBssInfo->fgBipKeyInstalled = TRUE;
+			}
+			else
+#endif
+			{
+				prCmdKey->ucAlgorithmId = CIPHER_SUITE_CCMP;
+				if (rsnCheckPmkidCandicate(prAdapter)) {
+
+					DBGLOG(RSN, TRACE, ("Add key: Prepare a timer to indicate candidate PMKID Candidate\n"));
+					cnmTimerStopTimer(prAdapter, &prAisSpecBssInfo->rPreauthenticationTimer);
+					cnmTimerStartTimer(prAdapter, &prAisSpecBssInfo->rPreauthenticationTimer,
+						SEC_TO_MSEC(WAIT_TIME_IND_PMKID_CANDICATE_SEC));
+				}
+			}
+		}
+
+	}
+	else if (prNewKey->u4KeyLength == 32) {
+		if (prAdapter->rWifiVar.rConnSettings.eAuthMode == AUTH_MODE_WPA_NONE) {
+			if (prAdapter->rWifiVar.rConnSettings.eEncStatus == ENUM_ENCRYPTION2_ENABLED) {
+				prCmdKey->ucAlgorithmId = CIPHER_SUITE_TKIP;
+			}
+			else if (prAdapter->rWifiVar.rConnSettings.eEncStatus == ENUM_ENCRYPTION3_ENABLED) {
+				prCmdKey->ucAlgorithmId = CIPHER_SUITE_CCMP;
+				prCmdKey->ucKeyLen = CCMP_KEY_LEN;
+			}
+		}
+		else {
+			prCmdKey->ucAlgorithmId = CIPHER_SUITE_TKIP;
+			kalMemCopy(prAdapter->rWifiVar.rAisSpecificBssInfo.aucRxMicKey, &prCmdKey->aucKeyMaterial[16], MIC_KEY_LEN);
+			kalMemCopy(prAdapter->rWifiVar.rAisSpecificBssInfo.aucTxMicKey, &prCmdKey->aucKeyMaterial[24], MIC_KEY_LEN);
+			if (0 /* Todo::GCMP & GCMP-BIP ? */) {
+				if (rsnCheckPmkidCandicate(prAdapter)) {
+
+					DBGLOG(RSN, TRACE, ("Add key: Prepare a timer to indicate candidate PMKID Candidate\n"));
+					cnmTimerStopTimer(prAdapter, &prAisSpecBssInfo->rPreauthenticationTimer);
+					cnmTimerStartTimer(prAdapter, &prAisSpecBssInfo->rPreauthenticationTimer,
+							SEC_TO_MSEC(WAIT_TIME_IND_PMKID_CANDICATE_SEC));
+				}
+			}
+			else {
+				prCmdKey->ucAlgorithmId = CIPHER_SUITE_TKIP;
+			}
+		}
+	}
+
+	{
+		if ((prCmdKey->aucPeerAddr[0] & prCmdKey->aucPeerAddr[1] & prCmdKey->aucPeerAddr[2] &
+			 prCmdKey->aucPeerAddr[3] & prCmdKey->aucPeerAddr[4] & prCmdKey->aucPeerAddr[5]) == 0xFF) {
+			if (prAdapter->rWifiVar.rConnSettings.eAuthMode >= AUTH_MODE_WPA &&
+				prAdapter->rWifiVar.rConnSettings.eAuthMode != AUTH_MODE_WPA_NONE && 1 /* Connected */) {
+				prStaRec = cnmGetStaRecByAddress(prAdapter, prBssInfo->ucBssIndex, prBssInfo->aucBSSID);
+				ASSERT(prStaRec); /* AIS RSN Group key, addr is BC addr */
+				kalMemCopy(prCmdKey->aucPeerAddr, prStaRec->aucMacAddr, MAC_ADDR_LEN);
+			}
+			else {
+				prStaRec = NULL;
+			}
+		}
+		else {
+			prStaRec = cnmGetStaRecByAddress(prAdapter, prBssInfo->ucBssIndex, prCmdKey->aucPeerAddr);
+		}
+
+#if CFG_SUPPORT_802_11W
+		if (prCmdKey->ucAlgorithmId == CIPHER_SUITE_BIP) {
+			ASSERT(prStaRec);
+			prCmdKey->ucWlanIndex = prStaRec->ucBMCWlanIndex;
+			//prCmdKey->ucKeyId;
+		}
+		else
+#endif
+		if (prCmdKey->ucTxKey) {
+			if (prStaRec) {
+				if (prCmdKey->ucKeyType) { /* AIS RSN STA */
+					prCmdKey->ucWlanIndex = prStaRec->ucWlanIndex;
+					prStaRec->fgTransmitKeyExist = TRUE; /* wait for CMD Done ? */
+				}
+				else {
+					ASSERT(FALSE);
+					//prCmdKey->ucWlanIndex = secPrivacySeekForBcEntry(prAdapter, prBssInfo->ucBssIndex,
+					//		  NETWORK_TYPE_AIS, prCmdKey->aucPeerAddr, prCmdKey->ucAlgorithmId, prCmdKey->ucKeyId,
+					//		  prStaRec->ucCurrentGtkId, BIT(1));
+					/* Todo:: Check the prCmdKey->ucKeyType */
+					/* for some case, like wep, add bc wep key before sta create, so use the rAisSpecificBssInfo to save key setting*/
+					fgAddTxBcKey = TRUE;
+				}
+			}
+			if (fgAddTxBcKey || !prStaRec) {
+
+				if ((prCmdKey->aucPeerAddr[0] & prCmdKey->aucPeerAddr[1] & prCmdKey->aucPeerAddr[2] &
+					 prCmdKey->aucPeerAddr[3] & prCmdKey->aucPeerAddr[4] & prCmdKey->aucPeerAddr[5]) == 0xFF) {
+					 prCmdKey->ucWlanIndex = 255; /* AIS WEP Tx key */
+				}
+				else { /* Exist this case ? */
+					ASSERT(FALSE);
+					//prCmdKey->ucWlanIndex = secPrivacySeekForBcEntry(prAdapter, prBssInfo->ucBssIndex,
+					//		  NETWORK_TYPE_AIS, prCmdKey->aucPeerAddr, prCmdKey->ucAlgorithmId, prCmdKey->ucKeyId,
+					//		  prBssInfo->ucCurrentGtkId, BIT(1));
+				}
+
+				prBssInfo->fgTxBcKeyExist = TRUE;
+				prBssInfo->ucBMCWlanIndex = prCmdKey->ucWlanIndex; /* Saved for AIS WEP */
+				prBssInfo->ucTxDefaultKeyID = prCmdKey->ucKeyId;
+
+			}
+		}
+		else {
+			/* Including IBSS RSN Rx BC key ? */
+			if ((prCmdKey->aucPeerAddr[0] & prCmdKey->aucPeerAddr[1] & prCmdKey->aucPeerAddr[2] &
+				 prCmdKey->aucPeerAddr[3] & prCmdKey->aucPeerAddr[4] & prCmdKey->aucPeerAddr[5]) == 0xFF) {
+					 prCmdKey->ucWlanIndex = 255; /* AIS WEP */
+			}
+			else {
+				if (prStaRec) { /* AIS RSN Group key but addr is BSSID */
+					ASSERT(prStaRec->ucBMCWlanIndex < WTBL_SIZE)
+					prCmdKey->ucWlanIndex = secPrivacySeekForBcEntry(prAdapter, prStaRec->ucBssIndex,
+								  prStaRec->aucMacAddr, prStaRec->ucIndex, prCmdKey->ucAlgorithmId, prCmdKey->ucKeyId,
+									prStaRec->ucCurrentGtkId, BIT(0));
+					prStaRec->ucBMCWlanIndex = prCmdKey->ucWlanIndex;
+				}
+				else { /* Exist this case ? */
+					ASSERT(FALSE);
+					//prCmdKey->ucWlanIndex = secPrivacySeekForBcEntry(prAdapter, prBssInfo->ucBssIndex,
+					//		  NETWORK_TYPE_AIS, prCmdKey->aucPeerAddr, prCmdKey->ucAlgorithmId, prCmdKey->ucKeyId,
+					//		  prBssInfo->ucCurrentGtkId, BIT(0));
+				}
+			}
+		}
+
+		/* Update Group Key Id after Seek Bc entry */
+#if CFG_SUPPORT_802_11W
+		if (prCmdKey->ucAlgorithmId == CIPHER_SUITE_BIP) {
+		}
+		else 
+#endif
+		if (!prCmdKey->ucKeyType) {
+			if (prStaRec) {
+				prStaRec->ucCurrentGtkId = prCmdKey->ucKeyId;
+			}
+			else {
+				//AIS WEP
+				prBssInfo->ucCurrentGtkId = prCmdKey->ucKeyId;
+			}
+		}
+
+#if DBG && 0     
+		if (prCmdKey->ucWlanIndex < WTBL_SIZE) {
+			UINT_8 entry = prCmdKey->ucWlanIndex;
+			P_HAL_WTBL_SEC_CONFIG_T prWtblCfg;
+			BOOLEAN fgOneTb3 = FALSE;
+
+			//ASSERT(prWlanTable[prCmdKey->ucWlanIndex].ucUsed == TRUE);
+			//prWlanTable[prCmdKey->ucWlanIndex].ucBssIndex = prCmdKey->ucBssIdx;
+			//prWlanTable[prCmdKey->ucWlanIndex].ucKeyId = prCmdKey->ucKeyId;
+			//kalMemCopy(prWlanTable[prCmdKey->ucWlanIndex].aucMacAddr, prCmdKey->aucPeerAddr, MAC_ADDR_LEN);
+
+			prWtblCfg = prAdapter->rWifiVar.arWtblCfg;
+
+			if (prCmdKey->ucAlgorithmId == CIPHER_SUITE_WEP40 || prCmdKey->ucAlgorithmId == CIPHER_SUITE_WEP104 ||
+				prCmdKey->ucAlgorithmId == CIPHER_SUITE_WEP128 || prCmdKey->ucAlgorithmId == CIPHER_SUITE_WPI)
+				fgOneTb3 = TRUE;
+
+			if (prCmdKey->ucTxKey) {
+				if (prStaRec) {
+					prWtblCfg[entry].fgRCA2 = 1;
+					prWtblCfg[entry].fgRV = 1;
+					prWtblCfg[entry].fgIKV = 0;
+					prWtblCfg[entry].fgRKV = 1;
+					if (fgOneTb3)
+						prWtblCfg[entry].fgRCID = 0;
+					else
+						prWtblCfg[entry].fgRCID = 1;
+					prWtblCfg[entry].ucKeyID = prCmdKey->ucKeyId;
+					prWtblCfg[entry].fgRCA1 = 1;
+                #if 0
+					if (prCmdKey->ucIsAuthenticator)
+						prWtblCfg[entry].fgEvenPN = 0;
+					else
+                #endif
+						prWtblCfg[entry].fgEvenPN = 1;
+					prWtblCfg[entry].ucMUARIdx = 0x00; /* Omac */
+				}
+				else {
+                #if 0
+					if (prCmdKey->ucIsAuthenticator) {
+						prWtblCfg[entry].fgRCA2 = 0;
+						prWtblCfg[entry].fgRV = 0;
+						prWtblCfg[entry].fgIKV = 0;
+						prWtblCfg[entry].fgRKV = 0;
+						prWtblCfg[entry].fgRCID = 0;
+						prWtblCfg[entry].ucKeyID = prCmdKey->ucKeyId;
+						prWtblCfg[entry].fgRCA1 = 0;
+						prWtblCfg[entry].fgEvenPN = 0;
+					}
+					else
+                #endif
+					{
+						prWtblCfg[entry].fgRCA2 = 1;
+						prWtblCfg[entry].fgRV = 1;
+						prWtblCfg[entry].fgIKV = 0;
+						prWtblCfg[entry].fgRKV = 1;
+						if (fgOneTb3)
+							prWtblCfg[entry].fgRCID = 0;
+						else
+							prWtblCfg[entry].fgRCID = 1;
+						prWtblCfg[entry].ucKeyID = prCmdKey->ucKeyId;
+						prWtblCfg[entry].fgRCA1 = 0;
+						prWtblCfg[entry].fgEvenPN = 1;
+					}
+				}
+			}
+			else {
+				prWtblCfg[entry].fgRCA2 = 1;
+				prWtblCfg[entry].fgRV = 1;
+				prWtblCfg[entry].fgIKV = 0;
+				prWtblCfg[entry].fgRKV = 1;
+				if (fgOneTb3)
+					prWtblCfg[entry].fgRCID = 0;
+				else
+					prWtblCfg[entry].fgRCID = 1;
+				prWtblCfg[entry].ucKeyID = prCmdKey->ucKeyId;
+				prWtblCfg[entry].fgRCA1 = 1;
+				prWtblCfg[entry].ucMUARIdx = 0x30;
+            #if 0
+				if (prCmdKey->ucIsAuthenticator)
+					prWtblCfg[entry].fgEvenPN = 0;
+				else
+            #endif
+					prWtblCfg[entry].fgEvenPN = 1;
+			}
+			secPrivacyDumpWTBL3(prAdapter, entry);
+		}
+#endif
+	}
+
+	// insert into prCmdQueue
+	kalEnqueueCommand(prGlueInfo, (P_QUE_ENTRY_T)prCmdInfo);
+
+	// wakeup txServiceThread later
+	GLUE_SET_EVENT(prGlueInfo);
+
+	return WLAN_STATUS_PENDING;
+#endif
+	return NDIS_STATUS_SUCCESS;	
+} /* wlanoidSetAddKey */
+
+

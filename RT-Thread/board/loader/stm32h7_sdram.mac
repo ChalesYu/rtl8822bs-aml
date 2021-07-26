@@ -1,0 +1,225 @@
+/****************************************Copyright (c)****************************************************
+**                             		成 都 世 纪 华 宁 科 技 有 限 公 司
+**                               	  http://www.huaning-iot.com
+**                             		   http://hichard.taobao.com
+**
+**
+**--------------File Info--------------------------------------------------------------------------------
+** File Name:           	stm32f4_sdram.mac
+** Last modified Date:  2014-12-23
+** Last Version:        	v1.00
+** Description:         	仿真器仿真环境初始化实现
+**-------------------------------------------------------------------------------------------------------
+** Created By:          	Renhaibo
+** Created date:        	2014-12-23
+** Version:             	v1.00
+** Descriptions:        	
+**-------------------------------------------------------------------------------------------------------
+** Modified by:         	
+** Modified date:       	
+** Version:             	
+** Description:         	
+*********************************************************************************************************/
+
+__setup()
+{
+  __var  Reg;
+  
+  // 配置允许工作在最大主频
+  Reg = __readMemory32(0x40023800 + 0x0040, "Memory"); 
+  Reg |= 0x10000000;
+  __writeMemory32(Reg, 0x40023800 + 0x0040, "Memory");
+  
+  Reg = __readMemory32(0x40007000 + 0x0000, "Memory"); 
+  Reg |= (3 << 14);
+  __writeMemory32(Reg, 0x40007000 + 0x0000, "Memory");
+    
+  // 设置Flash等待周期
+  __writeMemory32((1<<8) | (1<<9) | (1<<10) | 0x05, 0x40023C00 + 0x0000, "Memory");
+  
+  // 开启HSE时钟
+  Reg = __readMemory32(0x40023800 + 0x0000, "Memory"); 
+  Reg &= ~((1<<16) | (1<<18));
+  __writeMemory32(Reg, 0x40023800 + 0x0000, "Memory");
+  Reg |= ((1<<16));
+  __writeMemory32(Reg, 0x40023800 + 0x0000, "Memory");
+ while(!(__readMemory32(0x40023800, "Memory") & (1 << 17)));
+  
+  // 先开启AHB APB的分频系数
+  __writeMemory32(0x00009400, 0x40023808, "Memory");
+  
+  // 配置PLL
+   __writeMemory32((25 | (384 << 6) | (8<<24) | (1<<22)), 0x40023804, "Memory");
+  // 使能PLL
+  Reg = __readMemory32(0x40023800 + 0x0000, "Memory"); 
+  Reg |= (1 << 24);
+  __writeMemory32(Reg, 0x40023800 + 0x0000, "Memory");
+  while(!(__readMemory32(0x40023800, "Memory") & (1 << 25)));
+  
+  // 选择PLL输出作为系统时钟源
+  __writeMemory32(0x00009402, 0x40023808, "Memory");
+  
+  while(!((__readMemory32(0x40023800 + 0x0008, "Memory") & 0x0000000C) == 0x00000008));
+  
+  // 设置地址重映射，将SDRAM地址映射到0x80000000
+  // 开启SYSCFG时钟，实现映射
+  Reg = __readMemory32(0x40023800 + 0x0044, "Memory"); 
+  Reg |= 0x00004000;
+  __writeMemory32(Reg, 0x40023800 + 0x0044, "Memory");
+  
+  Reg = __readMemory32(0x40013800 + 0x0000, "Memory"); 
+  Reg |= 0x00000400;
+  __writeMemory32(Reg, 0x40013800 + 0x0000, "Memory");
+  
+  __delay(2);
+  
+  
+  // 使能SDRAM占用的GPIO时钟，GPIOC,GPIOD,GPIOE,GPIOF,GPIOG
+  Reg = __readMemory32(0x40023800 + 0x0030, "Memory"); 
+  Reg |= 0x0000007C;
+  __writeMemory32(Reg, 0x40023800 + 0x0030, "Memory");
+  // 开启FMC时钟
+  Reg = __readMemory32(0x40023800 + 0x0038, "Memory"); 
+  Reg |= 0x00000001;
+  __writeMemory32(Reg, 0x40023800 + 0x0038, "Memory");
+  
+  // 配置PC0、PC2、PC3为FMC功能引脚
+  Reg = __readMemory32(0x40020800 + 0x0020, "Memory"); 
+  //Reg &= 0xFFFF00F0;
+  Reg |= 0x0000CC0C;
+  __writeMemory32(Reg, 0x40020800 + 0x0020, "Memory");
+  // 配置PD0、PD1、PD8、PD9、PD10、PD14、PD15为FMC功能引脚
+  Reg = __readMemory32(0x40020C00 + 0x0020, "Memory"); 
+  Reg |= 0x000000CC;
+  __writeMemory32(Reg, 0x40020C00 + 0x0020, "Memory");
+  Reg = __readMemory32(0x40020C00 + 0x0024, "Memory"); 
+  Reg |= 0xCC000CCC;
+  __writeMemory32(Reg, 0x40020C00 + 0x0024, "Memory");
+  // 配置PE0、PE1、PE7、PE8、PE9、PE10、PE11、PE12、PE13、PE14、PE15为FMC功能引脚
+  Reg = __readMemory32(0x40021000 + 0x0020, "Memory"); 
+  Reg |= 0xC00000CC;
+  __writeMemory32(Reg, 0x40021000 + 0x0020, "Memory");
+  Reg = __readMemory32(0x40021000 + 0x0024, "Memory"); 
+  Reg |= 0xCCCCCCCC;
+  __writeMemory32(Reg, 0x40021000 + 0x0024, "Memory");
+  // 配置PF0、PF1、PF2、PF3、PF4、PF5、PF11、PF12、PF13、PF14、PF15为FMC功能引脚
+  Reg = __readMemory32(0x40021400 + 0x0020, "Memory"); 
+  Reg |= 0x00CCCCCC;
+  __writeMemory32(Reg, 0x40021400 + 0x0020, "Memory");
+  Reg = __readMemory32(0x40021400 + 0x0024, "Memory"); 
+  Reg |= 0xCCCCC000;
+  __writeMemory32(Reg, 0x40021400 + 0x0024, "Memory");
+  // 配置PG0、PG1、PG2、PG4、PG5、PG8、PG15为FMC功能引脚
+  Reg = __readMemory32(0x40021800 + 0x0020, "Memory"); 
+  Reg |= 0x00CC0CCC;
+  __writeMemory32(Reg, 0x40021800 + 0x0020, "Memory");
+  Reg = __readMemory32(0x40021800 + 0x0024, "Memory"); 
+  Reg |= 0xC000000C;
+  __writeMemory32(Reg, 0x40021800 + 0x0024, "Memory");
+  
+  // 配置PC0、PC2、PC3
+  //GPIOx_MODER寄存器为复用模式
+  Reg = __readMemory32(0x40020800 + 0x0000, "Memory"); 
+  Reg |= 0x000000A2;
+  __writeMemory32(Reg, 0x40020800 + 0x0000, "Memory");
+  // GPIOx_OTYPER寄存器配置， push pull
+  __writeMemory32(0x00000000, 0x40020800 + 0x0004, "Memory");
+  // GPIOx_OSPEEDR寄存器配置, 最高速度
+  __writeMemory32(0x000000F3, 0x40020800 + 0x0008, "Memory");
+  //GPIOx_PUPDR采用默认配置
+  // 配置PD0、PD1、PD8、PD9、PD10、PD14、PD15
+  //GPIOx_MODER寄存器为复用模式
+  Reg = __readMemory32(0x40020C00 + 0x0000, "Memory"); 
+  Reg |= 0xA02A000A;
+  __writeMemory32(Reg, 0x40020C00 + 0x0000, "Memory");
+  // GPIOx_OTYPER寄存器配置， push pull
+  __writeMemory32(0x00000000, 0x40020C00 + 0x0004, "Memory");
+  // GPIOx_OSPEEDR寄存器配置, 最高速度
+  __writeMemory32(0xF03F000F, 0x40020C00 + 0x0008, "Memory");
+  //GPIOx_PUPDR采用默认配置
+  // 配置PE0、PE1、PE7、PE8、PE9、PE10、PE11、PE12、PE13、PE14、PE15的GPIOx_MODER寄存器为复用模式
+  Reg = __readMemory32(0x40021000 + 0x0000, "Memory"); 
+  Reg |= 0xAAAA800A;
+  __writeMemory32(Reg, 0x40021000 + 0x0000, "Memory");
+  // GPIOx_OTYPER寄存器配置， push pull
+  __writeMemory32(0x00000000, 0x40021000 + 0x0004, "Memory");
+  // GPIOx_OSPEEDR寄存器配置, 最高速度
+  __writeMemory32(0xFFFFC00F, 0x40021000 + 0x0008, "Memory");
+  //GPIOx_PUPDR采用默认配置
+  // 配置PF0、PF1、PF2、PF3、PF4、PF5、PF11、PF12、PF13、PF14、PF15的GPIOx_MODER寄存器为复用模式
+  Reg = __readMemory32(0x40021400 + 0x0000, "Memory"); 
+  Reg |= 0xAA800AAA;
+  __writeMemory32(Reg, 0x40021400 + 0x0000, "Memory");
+  // GPIOx_OTYPER寄存器配置， push pull
+  __writeMemory32(0x00000000, 0x40021400 + 0x0004, "Memory");
+  // GPIOx_OSPEEDR寄存器配置, 最高速度
+  __writeMemory32(0xFFC00FFF, 0x40021400 + 0x0008, "Memory");
+  //GPIOx_PUPDR采用默认配置
+  // 配置PG0、PG1、PG2、PG4、PG5、PG8、PG15为的GPIOx_MODER寄存器为复用模式
+  Reg = __readMemory32(0x40021800 + 0x0000, "Memory"); 
+  Reg |= 0x80020A2A;
+  __writeMemory32(Reg, 0x40021800 + 0x0000, "Memory");
+  // GPIOx_OTYPER寄存器配置， push pull
+  __writeMemory32(0x00000000, 0x40021800 + 0x0004, "Memory");
+  // GPIOx_OSPEEDR寄存器配置, 最高速度
+  __writeMemory32(0xC0030F3F, 0x40021800 + 0x0008, "Memory");
+  //GPIOx_PUPDR采用默认配置
+  
+  // 192M的配置，SDRAM时钟为96M
+  __writeMemory32(0x000009D9, 0xA0000000 + 0x0140, "Memory");
+  __writeMemory32(0x01115561, 0xA0000000 + 0x0148, "Memory");
+  
+  /* SDRAM initialization sequence */
+  /* Clock enable command */
+  __writeMemory32(0x00000011, 0xA0000000 + 0x0150, "Memory");
+  while(( __readMemory32(0xA0000000 + 0x0158, "Memory") & 0x00000020) != 0);
+  /* 延时至少200us */
+  __delay(2);
+  
+  /* PALL command */
+  __writeMemory32(0x00000012, 0xA0000000 + 0x0150, "Memory");
+  while(( __readMemory32(0xA0000000 + 0x0158, "Memory") & 0x00000020) != 0);
+  
+  /* Auto refresh command */
+  __writeMemory32(0x00000113, 0xA0000000 + 0x0150, "Memory");
+  while(( __readMemory32(0xA0000000 + 0x0158, "Memory") & 0x00000020) != 0);
+  __writeMemory32(0x00000113, 0xA0000000 + 0x0150, "Memory");
+  while(( __readMemory32(0xA0000000 + 0x0158, "Memory") & 0x00000020) != 0);
+  
+  /* MRD register program */
+  __writeMemory32(0x00046614, 0xA0000000 + 0x0150, "Memory");
+  while(( __readMemory32(0xA0000000 + 0x0158, "Memory") & 0x00000020) != 0);
+  
+  /* Set refresh count */
+  __writeMemory32((730<<1), 0xA0000000 + 0x0154, "Memory");
+  
+  __delay(2);
+}
+
+execUserPreload()  // Called after communication with the target system is established but before downloading the target application. 
+{
+   __message "----- Prepare hardware for debug -----\n";
+   __setup();
+}
+
+execUserSetup()  // Called once after the target application is downloaded
+{
+  __message "----- execUserSetup Start-----\n";
+  // 设置中断向量表
+  __writeMemory32(0x80000000, 0xE000ED08, "Memory");
+  __message "----- execUserSetup End-----\n";
+}
+
+execUserReset()  // Called each time just after the reset command is issued
+{
+  __message "----- execUserReset Start-----\n";
+  //__setup();
+  // 设置中断向量表
+  __writeMemory32(0x80000000, 0xE000ED08, "Memory");
+  __message "----- execUserReset End-----\n";
+}
+
+/*********************************************************************************************************
+END FILE
+*********************************************************************************************************/
+

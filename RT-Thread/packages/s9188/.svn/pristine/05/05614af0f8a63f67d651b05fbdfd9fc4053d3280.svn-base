@@ -1,0 +1,40 @@
+#ifndef __P2P_PROTO_MGT_H__
+#define __P2P_PROTO_MGT_H__
+
+typedef enum  
+{
+    P2P_FIND_PHASE_WK = 0,
+    P2P_RESTORE_STATE_WK = 1,
+    P2P_PRE_TX_PROVDISC_PROCESS_WK = 2,
+    P2P_PRE_TX_NEGOREQ_PROCESS_WK = 3,
+    P2P_PRE_TX_INVITEREQ_PROCESS_WK = 4,
+    
+#ifdef CONFIG_CONCURRENT_MODE
+    P2P_AP_P2P_CH_SWITCH_PROCESS_WK = 5,
+#endif
+    P2P_RO_CH_WK,
+}P2P_PROTO_WK_ID;
+
+
+typedef struct p2p_proto_node_st_
+{
+    P2P_PROTO_WK_ID id;
+    wf_que_list_t list_node;
+}p2p_proto_node_st;
+
+#define THD_NAME_LEN    (32)
+
+typedef struct p2p_proto_mgt_st_
+{
+    wf_que_t  proto_queue; //mcu cmd handle queue
+    wf_os_api_sema_t   proto_sema;
+    wf_s8 proto_name[THD_NAME_LEN];
+    void *proto_tid;
+}p2p_proto_mgt_st;
+
+void p2p_protocol_dispatch_entry(nic_info_st *nic_info, int proto_id);
+wf_s32 p2p_proto_queue_insert(p2p_proto_mgt_st *proto_mgt, P2P_PROTO_WK_ID proto_id);
+wf_s32 p2p_proto_mgt_init(void *p2p);
+wf_s32 p2p_proto_mgt_term(void *p2p);
+
+#endif

@@ -1,0 +1,105 @@
+
+/* include */
+#include "wf_typedef.h"
+#include "wf_os_api.h"
+//#include "hif.h"
+#include "wf_debug.h"
+
+/* macro */
+
+/* type */
+
+/* function declaration */
+
+void wf_os_api_ind_scan_done (void *arg, wf_bool arg1, wf_u8 arg2)
+{
+    LOG_W("[%s]: enter", __func__);
+}
+
+void wf_os_api_ind_connect (void *arg, wf_u8 arg1)
+{
+    LOG_W("[%s]: enter", __func__);
+}
+
+void wf_os_api_ind_disconnect (void *arg, wf_u8 arg1)
+{
+    LOG_W("[%s]: enter", __func__);
+}
+
+#ifdef CFG_ENABLE_ADHOC_MODE
+void wf_os_api_cfg80211_unlink_ibss(void *arg)
+{
+    LOG_W("[%s]: enter", __func__);
+}
+#endif
+
+
+#ifdef CFG_ENABLE_AP_MODE
+void wf_os_api_ap_ind_assoc (void *arg, void *arg1, void *arg2, wf_u8 arg3)
+{
+  LOG_W("[%s]: enter", __func__);
+}
+
+void wf_os_api_ap_ind_disassoc (void *arg, void *arg1, wf_u8 arg2)
+{
+    LOG_W("[%s]: enter", __func__);
+}
+#endif
+
+
+void wf_os_api_enable_all_data_queue (void *arg)
+{
+    LOG_W("The netif link up");
+}
+
+void wf_os_api_disable_all_data_queue (void *arg)
+{
+    LOG_W("The netif link down");
+}
+
+wf_u32 wf_os_api_rand32 (void)
+{
+   time_t t;
+   
+   srand((unsigned) time(&t));
+   
+   return rand();
+}
+
+//void *wf_os_api_get_ars(void *nic_info)
+//{
+//    nic_info_st * ni        = nic_info;
+//    hif_node_st *hif_info   = ni->hif_node;
+//    return hif_info->ars;
+//}
+//void  wf_os_api_set_ars(void *nic_info,void *ars)
+//{
+//    nic_info_st * ni        = nic_info;
+//    hif_node_st *hif_info   = ni->hif_node;
+//    hif_info->ars           = ars;
+//}
+//
+//
+//void *wf_os_api_get_odm(void *nic_info)
+//{
+//    nic_info_st * ni        = nic_info;
+//    hif_node_st *hif_info   = ni->hif_node;
+//    return hif_info->odm;
+//}
+//void  wf_os_api_set_odm(void *nic_info,void *odm)
+//{
+//    nic_info_st * ni        = nic_info;
+//    hif_node_st *hif_info   = ni->hif_node;
+//    hif_info->odm           = odm;
+//}
+
+
+wf_s32 wf_os_api_get_cpu_id(void)
+{
+#ifdef RT_USING_SMP
+    return rt_hw_cpu_id();
+#else 
+    return 0;
+#endif
+}
+

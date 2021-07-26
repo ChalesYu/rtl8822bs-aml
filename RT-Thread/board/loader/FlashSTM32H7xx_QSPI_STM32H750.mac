@@ -1,0 +1,115 @@
+setup_hardware()
+{
+__var Reg;
+
+  __message "---- Set default clock source (HSI) ----";
+
+  /* Setup system clocks to use default clock source HSI - 64MHz */
+  __writeMemory32(0x00000001, 0x58024400, "Memory");  // RCC.CR
+  __writeMemory32(0x00000000, 0x58024410, "Memory");  // RCC.CFGR
+  __writeMemory32(0x00000000, 0x58024460, "Memory");  // RCC.CIER
+
+  __message "---- Setup GPIO for QUADSPI ----";
+
+  /* Enable GPIOB, GPIOC, GPIOD, GPIOE, GPIOF, GPIOG and GPIOH AHB4 clock */
+  Reg = __readMemory32(0x580244E0, "Memory");  // RCC.AHB4ENR
+  Reg |= 0x000000FF;
+  __writeMemory32(Reg, 0x580244E0, "Memory");
+
+ /* QUADSPI_CLK      PB2, AF9  */
+  /* QUADSPI_BK1_NCS  PB10, AF9 */
+  Reg = __readMemory32(0x58020420, "Memory");  // GPIOB.AFRL
+  Reg &= ~(0x0FUL << 8);
+  Reg |=  (0x09UL << 8);
+  __writeMemory32(Reg, 0x58020420, "Memory");
+  
+  Reg = __readMemory32(0x58020424, "Memory");  // GPIOB.AFRH
+  Reg &= ~(0x0FUL << 8);
+  Reg |=  (0x09UL << 8);
+  __writeMemory32(Reg, 0x58020424, "Memory");
+
+  Reg = __readMemory32(0x58020400, "Memory");  // GPIOB.MODER
+  Reg &= ~((0x03UL << 4) | (0x03UL << 20));
+  Reg |=  ((0x02UL << 4) | (0x02UL << 20));
+  __writeMemory32(Reg, 0x58020400, "Memory");
+
+  Reg = __readMemory32(0x58020408, "Memory");  // GPIOB.OSPEEDR
+  Reg |=  ((0x03UL << 4) | (0x03UL << 20));
+  __writeMemory32(Reg, 0x58020408, "Memory");
+
+  Reg = __readMemory32(0x58020404, "Memory");  // GPIOB.OTYPER
+  Reg &= ~((0x01UL << 2) | (0x01UL << 10));
+  __writeMemory32(Reg, 0x58020404, "Memory");
+
+  Reg = __readMemory32(0x5802040C, "Memory");  // GPIOB.PUPDR
+  Reg &= ~((0x03UL << 4) | (0x03UL << 20));
+  __writeMemory32(Reg, 0x5802040C, "Memory");
+
+  /* QUADSPI_BK1_IO0  PD11, AF9 */
+  /* QUADSPI_BK1_IO1  PD12, AF9 */
+  /* QUADSPI_BK1_IO3  PD13, AF9 */
+  Reg = __readMemory32(0x58020C24, "Memory");  // GPIOD.AFRH
+  Reg &= ~((0x0FUL << 12) | (0x0FUL << 16) | (0x0FUL << 20));
+  Reg |=  ((0x09UL << 12) | (0x09UL << 16) | (0x09UL << 20));
+  __writeMemory32(Reg, 0x58020C24, "Memory");
+
+  Reg = __readMemory32(0x58020C00, "Memory");  // GPIOd.MODER
+  Reg &= ~((0x03UL << 22) | (0x03UL << 24) | (0x03UL << 26));
+  Reg |=  ((0x02UL << 22) | (0x02UL << 24) | (0x02UL << 26));
+  __writeMemory32(Reg, 0x58020C00, "Memory");
+
+  Reg = __readMemory32(0x58020C08, "Memory");  // GPIOD.OSPEEDR
+  Reg |=  ((0x03UL << 22) | (0x03UL << 24) | (0x03UL << 26));
+  __writeMemory32(Reg, 0x58020C08, "Memory");
+
+  Reg = __readMemory32(0x58020C04, "Memory");  // GPIOd.OTYPER
+  Reg &= ~((0x01UL << 11) | (0x01UL << 12) | (0x01UL << 13));
+  __writeMemory32(Reg, 0x58020C04, "Memory");
+
+  Reg = __readMemory32(0x58020C0C, "Memory");  // GPIOD.PUPDR
+  Reg &= ~((0x03UL << 22) | (0x03UL << 24) | (0x03UL << 26));
+  __writeMemory32(Reg, 0x58020C0C, "Memory");
+  
+  /* QUADSPI_BK1_IO2  PE2, AF9 */
+  Reg = __readMemory32(0x58021020, "Memory");  // GPIOE.AFRL
+  Reg &= ~((0x0FUL << 8));
+  Reg |=  ((0x09UL << 8));
+  __writeMemory32(Reg, 0x58021020, "Memory");
+  
+  Reg = __readMemory32(0x58021000, "Memory");  // GPIOE.MODER
+  Reg &= ~((0x03UL << 4));
+  Reg |=  ((0x02UL << 4));
+  __writeMemory32(Reg, 0x58021000, "Memory");
+  
+  Reg = __readMemory32(0x58021008, "Memory");  // GPIOE.OSPEEDR
+  Reg |=  ((0x03UL << 4));
+  __writeMemory32(Reg, 0x58021008, "Memory");
+  
+  Reg = __readMemory32(0x58021004, "Memory");  // GPIOE.OTYPER
+  Reg &= ~((0x01UL << 2));
+  __writeMemory32(Reg, 0x58021004, "Memory");
+  
+  Reg = __readMemory32(0x5802100C, "Memory");  // GPIOE.PUPDR
+  Reg &= ~((0x03UL << 4));
+  __writeMemory32(Reg, 0x5802100C, "Memory");
+
+  __message "---- Setup QUADSPI Peripheral ----";
+
+  /* Enable QUADSPI Clock */
+  Reg = __readMemory32(0x580244D4, "Memory");  // RCC.AHB3ENR
+  Reg |= 0x00004000;
+  __writeMemory32(Reg, 0x580244D4, "Memory");
+
+  /* Reset QUADSPI peripheral */
+  Reg = __readMemory32(0x5802447C, "Memory");  // RCC.AHB3RSTR
+  Reg |= 0x00004000;
+  __writeMemory32(Reg, 0x5802447C, "Memory");
+  Reg &= ~0x00004000;
+  __writeMemory32(Reg, 0x5802447C, "Memory");
+}
+
+execUserFlashInit()
+{
+  __message"---- Prepare hardware for the flashloader ----";
+  setup_hardware();
+}

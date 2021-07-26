@@ -1,0 +1,25 @@
+#ifndef __P2P_FRAME_MGT_H__
+#define __P2P_FRAME_MGT_H__
+
+#define MAX_IE_SZ	768
+#define PROBE_REQUEST_IE_SSID       0
+#define PROBE_REQUEST_IE_RATE       1
+#define WF_GET_BE16(a) ((wf_u16) (((a)[0] << 8) | (a)[1]))
+
+wf_u8 *p2p_ie_to_get_func(wf_u8 * in_ie, wf_s32 in_len, wf_u8 * p2p_ie, wf_u32 * p2p_ielen);
+wf_s32 p2p_provision_request_to_issue_func(nic_info_st *nic_info, wf_u8 * pssid, wf_u8 ussidlen,wf_u8 * pdev_raddr, wf_u8 flag);
+wf_s32 p2p_GO_request_to_issue_func(nic_info_st *nic_info, wf_u8 *raddr, wf_u8 flag);
+wf_s32 p2p_invitation_request_to_issue_func(nic_info_st *nic_info, wf_u8 * raddr, wf_u8 flag);
+wf_s32 probereq_p2p_to_pre_issue_func(nic_info_st *nic_info, wf_u8 * da);
+wf_u8 *p2p_attr_content_to_get_func(wf_u8 * p2p_ie, wf_u32 p2p_ielen, wf_u8 target_attr_id, wf_u8 * buf_content, wf_u32 * len_content);
+wf_s32 wf_p2p_probereq_process(nic_info_st *pnic_info,wf_80211_mgmt_t *pframe, wf_u16 frame_len);
+wf_s32 p2p_frames_to_check_func(nic_info_st *nic_info, const wf_u8 * buf, wf_u32 len, wf_u8 tx,wf_u8 flag);
+wf_s32 wf_p2p_action_public_proc(nic_info_st *pnic_info, wf_u8 *pframe, wf_u16 frame_len);
+wf_s32 p2p_presence_req_process_func(nic_info_st *pnic_info, wf_u8 * pframe,wf_s32 len, wf_u8 flag);
+wf_s32 p2p_assoc_rsp_frame_fill(nic_info_st *pnic_info, wf_u8 *pframe, wf_u16 *pkt_len);
+wf_u8* p2p_assoc_frame_fill(nic_info_st *pnic_info, wf_u8 *pframe, wf_u32 *pkt_len);
+wf_s32 wf_remove_ie(wf_u8 * ies, wf_u32 * ies_len, wf_u32 offset, wf_u8 eid, wf_u8 * oui, wf_u8 oui_len, wf_u8 flag);
+wf_s32 wf_80211_mgmt_p2p_parse(nic_info_st *pnic_info, void *p2p, wf_u16 len);
+wf_s32 assoc_req_p2p_ie_process_func(nic_info_st *pnic_info, wf_u8 * p2p_ie,wf_u32 p2p_ielen, wdn_net_info_st *pwdn_info, wf_u8 flag);
+
+#endif

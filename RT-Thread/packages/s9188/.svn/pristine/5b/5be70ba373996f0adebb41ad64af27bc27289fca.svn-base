@@ -1,0 +1,427 @@
+/*++
+
+Copyright (c) SCICS Co., Ltd. All rights reserved.
+
+Module Name:
+    wf_oids_adapt.c
+
+Abstract:
+    Functions to adapt the OIDs interfaces.
+    
+Revision History:
+      When        What
+    ----------    ----------------------------------------------
+    03-06-2021    Created
+Notes:
+
+--*/
+
+#include "wf_debug.h"
+#include "pcomp.h"
+
+static void wf_update_bss_list(void* adapter)
+{
+	PADAPTER padapter = adapter;
+	nic_info_st* pnic_info = (nic_info_st*)padapter->nic_info;
+	wf_wlan_mgmt_scan_que_for_rst_e scanned_ret;
+	wf_wlan_mgmt_scan_que_node_t* pscanned_info = NULL;
+	wf_mib_info_t* mib_info = padapter->mib_info;
+
+	WdfSpinLockAcquire(mib_info->bss_lock);
+
+	mib_info->bss_cnt = 0;
+	wf_wlan_mgmt_scan_que_for_begin(pnic_info, pscanned_info) {
+		mib_info->bss_node[mib_info->bss_cnt++] = pscanned_info;
+	}
+	wf_wlan_mgmt_scan_que_for_end(scanned_ret);
+
+
+	//LOG_D("scan_ret=%d, bss_cnt=%d", scanned_ret, mib->bss_cnt);
+	WdfSpinLockRelease(mib_info->bss_lock);
+}
+
+VOID Mp11CompletePendedRequest(PADAPTER           pAdapter, NDIS_STATUS ndisStatus)
+{
+	return;
+}
+
+
+wf_u64 wf_get_speed_by_raid(wf_u8 raid)
+{
+
+}
+
+VOID wf_submit_disassoc_complete(PADAPTER pAdapter, ULONG Reason)
+{
+	P_GLUE_INFO_T     prGlueInfo;
+	prGlueInfo = (P_GLUE_INFO_T)pAdapter->parent;
+	prGlueInfo->eParamMediaStateIndicated = PARAM_MEDIA_STATE_DISCONNECTED;
+	wf_indicate_StatusAndComplete(prGlueInfo, NDIS_STATUS_MEDIA_DISCONNECT, NULL, 0);
+	return;
+}
+
+NDIS_STATUS wf_submit_assoc_complete(PADAPTER padapter, ULONG status)
+{
+	LOG_D("association complete.");
+	return NDIS_STATUS_SUCCESS;
+}
+
+NDIS_STATUS wf_submit_connect_complete(PADAPTER prAdapter, ULONG status)
+{
+	P_GLUE_INFO_T prGlueInfo = (P_GLUE_INFO_T)prAdapter->parent;
+    prAdapter->State = OP_STATE;
+    prAdapter->Dot11RunningMode = NET_TYPE_INFRA;
+	prGlueInfo->eParamMediaStateIndicated = PARAM_MEDIA_STATE_CONNECTED;
+    wf_indicate_StatusAndComplete(prGlueInfo,
+        NDIS_STATUS_MEDIA_CONNECT, NULL, 0);
+	return NDIS_STATUS_SUCCESS;
+}
+
+void wf_submit_link_speed(PADAPTER padapter, ULONG64  linkSpeed)    
+{
+
+}
+
+VOID
+secSetCipherSuite (
+    IN PADAPTER prAdapter,
+    IN wf_u32     u4CipherSuitesFlags
+    )
+{
+	// TODO:  2021/06/03
+	return;
+}
+
+ENUM_PARAM_MEDIA_STATE_T
+kalGetMediaStateIndicated(
+	IN P_GLUE_INFO_T	prGlueInfo
+	)
+{
+	ASSERT(prGlueInfo);
+
+	return prGlueInfo->eParamMediaStateIndicated;
+}
+
+NDIS_STATUS
+wf_set_scan(PADAPTER prAdapter)
+{
+	NDIS_STATUS ndisStatus = wf_set_start_scan(prAdapter->nic_info);
+	return ndisStatus;
+}
+
+
+NDIS_STATUS wf_set_start_scan(void *nic_info)
+{
+	nic_info_st *pnic_info = nic_info;
+	wf_bool is_connected, is_busy;
+	int ret;
+#ifdef CONFIG_CONCURRENT_MODE
+	nic_info_st *pvir_nic = pnic_info->vir_nic;
+	mlme_state_e state;
+#endif
+
+	pnic_info->is_up = 1;
+
+#ifdef CONFIG_CONCURRENT_MODE
+	wf_mlme_get_state(pvir_nic, &state);
+	if(state <= MLME_STATE_ASSOC) {
+		LOG_D("another nic is scanning");
+		wf_os_api_ind_scan_done(pnic_info, wf_true);
+		return 0;
+	}
+#endif
+    
+	wf_mlme_get_connect(pnic_info, &is_connected);
+	if (is_connected) {
+        wf_mlme_get_traffic_busy(pnic_info, &is_busy);
+        if (is_busy) {
+            wf_os_api_ind_scan_done(pnic_info, wf_true, 0);
+
+            return 0;
+        }
+        ret = wf_mlme_scan_start(pnic_info, SCAN_TYPE_PASSIVE,
+                           NULL, 0, NULL, 0, WF_MLME_FRAMEWORK_NDIS);
+    } else {
+        ret = wf_mlme_scan_start(pnic_info, SCAN_TYPE_ACTIVE,
+                           NULL, 0, NULL, 0, WF_MLME_FRAMEWORK_NDIS);
+    }
+
+	if(ret != 0) {
+		LOG_D("[%s-%d] scan start failed! ret=%d\n", __FUNCTION__, __LINE__, ret);
+		ret = NDIS_STATUS_FAILURE;
+	} else {
+		ret = NDIS_STATUS_SUCCESS;
+	}
+
+	return ret;
+
+}
+
+NDIS_STATUS wf_submit_scan_complete(PADAPTER pAdapter)
+{
+	NDIS_STATUS ndis_status = NDIS_STATUS_SUCCESS;
+	wf_update_bss_list(pAdapter);
+	if(pAdapter->bRequestedScan == TRUE)
+	{
+		pAdapter->bRequestedScan = FALSE;
+		pAdapter->CurrentRequestID_Scan = NULL;
+	}
+
+	LOG_D("NDIS scan complete. BSS list is updated.");
+	return NDIS_STATUS_SUCCESS;
+}
+
+NDIS_STATUS wf_oids_adapt_init(void *adapter)
+{
+	PADAPTER padapter = adapter;
+	wf_mib_info_t *mib_info = padapter->mib_info;
+	WDF_OBJECT_ATTRIBUTES   attributes;
+	NTSTATUS                ntStatus;
+	NDIS_STATUS				ndisStatus;
+	ndisStatus = NDIS_STATUS_SUCCESS;
+	WDF_OBJECT_ATTRIBUTES_INIT(&attributes);
+    attributes.ParentObject = padapter->WdfDevice;
+
+    ntStatus = WdfSpinLockCreate(&attributes, &mib_info->bss_lock);
+    if (ntStatus != STATUS_SUCCESS) {
+        LOG_D("create bss lock failed");
+		NT_STATUS_TO_NDIS_STATUS(ntStatus, &ndisStatus);
+		goto out;
+    }
+	
+	padapter->ap_info = wf_malloc(sizeof(wf_ap_info_t));
+	
+	if(padapter->ap_info == NULL){
+		LOG_E("malloc ap info failed!!!\n");
+		NT_STATUS_TO_NDIS_STATUS(ntStatus, &ndisStatus);
+		goto out;
+	}
+	memset(padapter->ap_info, 0, sizeof(wf_ap_info_t));
+out:
+	
+	return ndisStatus;
+}
+
+NDIS_STATUS wf_set_start_deassoc(void *adapter)
+{
+	NDIS_STATUS ndisStatus = NDIS_STATUS_SUCCESS;
+	P_GLUE_INFO_T prGlueInfo;
+    PADAPTER pAdapter = adapter;
+	nic_info_st *nic_info = pAdapter->nic_info;
+	prGlueInfo = (P_GLUE_INFO_T)pAdapter->parent;
+	prGlueInfo->eParamMediaStateIndicated = PARAM_MEDIA_STATE_DISCONNECTED;
+#ifdef CONFIG_LPS
+    if(WF_RETURN_FAIL == wf_lps_wakeup(nic_info, LPS_CTRL_SCAN, 0))
+    {
+        return wf_false;
+    }
+#endif
+
+	if(!wf_mlme_deauth(nic_info, wf_true)) return ndisStatus;
+	return NDIS_STATUS_FAILURE;
+
+}
+
+NDIS_STATUS wf_set_start_assoc (PADAPTER adapter, P_PARAM_SSID_T pDot11SSID)
+{
+    
+    nic_info_st *pnic_info = adapter->nic_info;
+	P_GLUE_INFO_T prGlueInfo = adapter->parent;
+    //sec_info_st *psec_info = pnic_info->sec_info;
+	wf_wlan_mgmt_scan_que_node_t *scan_info;
+	//wf_ap_info_t *ap_info;
+	wf_u8 *mac_addr;
+	//char ssid[64] = {0};
+    wf_bool bconnect = wf_false;
+	wf_mib_info_t *mib_info = adapter->mib_info;
+	P_PARAM_BSSID_EX_T 			curApInfo = mib_info->curApInfo;
+	int i;
+#ifdef CONFIG_CONCURRENT_MODE
+	nic_info_st *pvir_nic = pnic_info->vir_nic;
+	mlme_state_e state;
+
+	wf_mlme_get_state(pvir_nic, &state);
+	if(state == MLME_STATE_ASSOC || state == MLME_STATE_AUTH || state == MLME_STATE_SCAN) {
+		LOG_E("another nic is scanning");
+		return NDIS_STATUS_FAILURE;
+	}
+#endif
+	LOG_D("start");
+	prGlueInfo->eParamMediaStateIndicated = PARAM_MEDIA_STATE_DISCONNECTED; 
+	scan_info = wf_find_scan_info_by_ssid(adapter, pDot11SSID);
+	if(scan_info == NULL) {
+		LOG_E("wf_find_scan_info_by_ssid fail\n");
+ 		return NDIS_STATUS_FAILURE; 
+	}
+	mib_info->rRssi = scan_info->signal_strength;
+	
+	if(adapter->bBssidLocked == TRUE)
+	{
+		if(!wf_memcmp(adapter->SpecifiedMacAddr, scan_info->bssid, MAC_ADDR_LEN))
+	    {
+	    	LOG_D("This SSID matches the specified BSSID.");
+		}
+		else{
+			LOG_D("This SSID doesn't match the specified BSSID.");
+			return NDIS_STATUS_FAILURE;
+		}
+	}	
+	mac_addr = scan_info->bssid;
+	wf_memcpy(curApInfo->arMacAddress, mac_addr, MAC_ADDR_LEN);
+
+    wf_mlme_get_connect(pnic_info, &bconnect);
+
+    if (is_bcast_addr(mac_addr) || is_zero_addr(mac_addr)) {
+        LOG_D("clear current connection");
+        if (bconnect) {
+            wf_mlme_deauth(pnic_info, wf_true);
+        }
+        return NDIS_STATUS_FAILURE;
+    }
+
+    if (mac_addr_equal(mac_addr, wf_wlan_get_cur_bssid(pnic_info))) {
+        if (bconnect) {
+            LOG_D("it's has already connected");
+            return NDIS_STATUS_SUCCESS;
+        }
+    }
+
+    /* retrive bssid */
+    wf_wlan_set_cur_bssid(pnic_info, mac_addr);
+	wf_wlan_set_cur_ssid(pnic_info, &scan_info->ssid);
+
+	wf_set_auth(adapter);
+	wf_set_wpa_ie(adapter);
+    wf_set_auth_cipher(adapter);
+
+    // probe and connect
+    LOG_D("connect bss: ssid(%s), bssid("WF_MAC_FMT")",
+                wf_wlan_get_cur_ssid(pnic_info)->data,
+                WF_MAC_ARG(wf_wlan_get_cur_bssid(pnic_info)));
+    wf_mlme_conn_start(pnic_info,
+                       wf_wlan_get_cur_bssid(pnic_info),
+                       wf_wlan_get_cur_ssid(pnic_info),
+					   WF_MLME_FRAMEWORK_NDIS, wf_true);
+		
+	// If the media state is not set immediatly, NDIS may send another OID_802_11_SSID.
+	prGlueInfo->eParamMediaStateIndicated = PARAM_MEDIA_STATE_CONNECTED;	
+	return NDIS_STATUS_SUCCESS;
+}
+
+
+static wf_wlan_mgmt_scan_que_node_t *wf_find_scan_info_by_ssid(PADAPTER adapter, P_PARAM_SSID_T pDot11SSID)
+{
+	nic_info_st *pnic_info = adapter->nic_info;
+    wf_wlan_mgmt_scan_que_node_t *pscanned_info = NULL;
+	wf_wlan_mgmt_scan_que_node_t *srch_end = NULL;
+
+    //wf_u32 res = 0;
+    wf_wlan_mgmt_scan_que_for_rst_e scanned_ret;
+    //wf_u16 apCount = 0;
+    /* Check if there is space for one more entry */
+    wf_wlan_mgmt_scan_que_for_begin(pnic_info, pscanned_info)
+    {
+        if(wf_memcmp(pscanned_info->ssid.data, pDot11SSID->aucSsid, pDot11SSID->u4SsidLen) == 0) {
+			srch_end = pscanned_info;
+			break;
+		}
+    }
+    wf_wlan_mgmt_scan_que_for_end(scanned_ret);
+
+    return srch_end;
+}
+
+VOID wf_set_auth(PADAPTER pAdapter)
+{
+	
+	return;
+}
+
+VOID wf_set_wpa_ie(PADAPTER pAdapter)
+{
+	/**
+	*	TODO: Decide where to put this function.    2021/06/17
+	*/
+
+	return;
+}
+
+VOID wf_set_auth_cipher(PADAPTER pAdapter)
+{
+	UNREFERENCED_PARAMETER(pAdapter);
+	return;
+}
+
+VOID
+wf_indicate_StatusAndComplete(
+    IN P_GLUE_INFO_T prGlueInfo,
+    IN NDIS_STATUS eStatus,
+    IN PVOID       pvBuf,
+    IN wf_u32     u4BufLen
+    )
+{
+    ASSERT(prGlueInfo);
+
+    /* Indicate the protocol that the media state was changed. */
+    NdisMIndicateStatus(prGlueInfo->rMiniportAdapterHandle,
+                        (NDIS_STATUS) eStatus,
+                        (PVOID) pvBuf,
+                        u4BufLen);
+
+    /* NOTE: have to indicate status complete every time you indicate status */
+    NdisMIndicateStatusComplete(prGlueInfo->rMiniportAdapterHandle);
+
+    if (eStatus == NDIS_STATUS_MEDIA_CONNECT || eStatus == NDIS_STATUS_MEDIA_DISCONNECT) {
+
+        if (eStatus == NDIS_STATUS_MEDIA_CONNECT) {
+            prGlueInfo->eParamMediaStateIndicated = PARAM_MEDIA_STATE_CONNECTED;
+        }
+        else if (eStatus == NDIS_STATUS_MEDIA_DISCONNECT) {
+            prGlueInfo->eParamMediaStateIndicated = PARAM_MEDIA_STATE_DISCONNECTED;
+        }
+
+        if(wf_reset_media_stream_mode(prGlueInfo->prAdapter) == TRUE) {
+            MEDIA_STREAMING_INDICATIONS_T rMediaStreamIndication;
+
+            // following MSDN for Media Streaming Indication
+            rMediaStreamIndication.StatusType = Ndis802_11StatusType_MediaStreamMode;
+            rMediaStreamIndication.MediaStreamMode = Ndis802_11MediaStreamOff;
+			LOG_D("---ZY_TEST---Indicate connection success!");
+            NdisMIndicateStatus(prGlueInfo->rMiniportAdapterHandle,
+                    NDIS_STATUS_MEDIA_SPECIFIC_INDICATION,
+                    (PVOID) &rMediaStreamIndication,
+                    sizeof(MEDIA_STREAMING_INDICATIONS_T));
+        }
+    }
+} /* kalIndicateStatusAndComplete */
+
+BOOLEAN
+wf_reset_media_stream_mode(
+	IN PADAPTER prAdapter
+	)
+{
+	wf_mib_info_t *mib_info;
+	ASSERT(prAdapter);
+	mib_info = prAdapter->mib_info;
+	if(mib_info->eLinkAttr.ucMediaStreamMode != 0) {
+		mib_info->eLinkAttr.ucMediaStreamMode = 0;
+		return TRUE;
+	}
+	else {
+		return FALSE;
+	}
+}
+
+BOOLEAN
+wf_is_broadcast(wf_u8* inputAddr)
+{
+	wf_u8 bc_addr[MAC_ADDR_LEN] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
+	if(!wf_memcmp(inputAddr, bc_addr, MAC_ADDR_LEN)){
+		return TRUE;
+	}
+	else{
+		return FALSE;
+	}
+	return FALSE;
+}
+

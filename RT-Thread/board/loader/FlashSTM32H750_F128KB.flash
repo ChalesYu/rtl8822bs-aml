@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+
+<flash_device>
+  <exe>$PROJ_DIR$\RT-Thread\board\loader\FlashSTM32H7xxx_512kB.out</exe>
+  <page>32</page>
+  <block>1 0x20000</block>
+  <flash_base>0x08000000</flash_base>
+  <aggregate>1</aggregate>
+  <online>1</online>
+  <macro>$PROJ_DIR$\RT-Thread\board\loader\FlashSTM32H7xxx.mac</macro>
+  <args_doc>Programming parallelism is selected by the following arguments:
+  "--x8"  8  bits programming parallelism
+  "--x16" 16 bits programming parallelism
+  "--x32" 32 bits programming parallelism
+  "--x64" 64 bits programming parallelism
+  The different programming modes makes certain requirements on the supply voltage to the 
+  flash controller, see ST's flash programming manual for details. 
+  If no mode is selected, x32 parallelism is chosen.</args_doc>
+</flash_device>

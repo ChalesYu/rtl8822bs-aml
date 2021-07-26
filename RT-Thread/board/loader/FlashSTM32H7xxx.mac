@@ -1,0 +1,110 @@
+__var RCC_CFGR;
+__var RCC_CR;
+__var RCC_CIER;
+__var IWDG_PR;
+__var IWDG_RLR;
+__var IWDG_WINR;
+
+execUserFlashInit()
+{
+
+  //Stop WWDG1 when CPU is halted (DBGMCU_APB3FZ1)
+  __writeMemory32(0x00000040, 0xE00E1034, "Memory");
+
+  //Set WDGLSD1: LS watchdog for D1 stop in debug (DBGMCU_APB4FZ1)
+  __writeMemory32(0x00040000, 0xE00E104C, "Memory");
+
+  //Check if hardware watchdog is enabled
+  if(!(0x10 & __readMemory32(0x5200201C,"Memory")))
+  {
+    // wait PVU reset
+    while(0x1 & __readMemory32(0x5800480C,"Memory"));
+    IWDG_PR  = __readMemory32(0x58004804, "Memory");
+    // wait RVU reset
+    while(0x2 & __readMemory32(0x5800480C,"Memory"));
+    IWDG_RLR = __readMemory32(0x58004808, "Memory");
+    // wait WVU reset
+    while(0x4 & __readMemory32(0x5800480C,"Memory"));
+    IWDG_WINR = __readMemory32(0x58004810, "Memory");
+    // Set IWDG1 timeout to the max possible
+    setup_iwdg();
+  }
+
+  if ((0x0000FF00 & __readMemory32(0x5200201C,"Memory")) != 0xAA00)
+  {
+
+    if (!__messageBoxYesCancel("Do you want to perform mass erase to unlock the device?", "Unlocking device"))
+    {
+      __abortLaunch("Unlock cancelled. Debug session cannot continue.");
+    }
+
+    __writeMemory32(0x45670123, 0x52002004, "Memory"); // FLASH->FKEYR = FLASH_KEY1;
+    __writeMemory32(0xCDEF89AB, 0x52002004, "Memory"); // FLASH->FKEYR = FLASH_KEY2;
+
+    __writeMemory32(0x08192A3B, 0x52002008, "Memory"); // FLASH->OPTKEYR = FLASH_OPTKEY1;
+    __writeMemory32(0x4C5D6E7F, 0x52002008, "Memory"); // FLASH->OPTKEYR = FLASH_OPTKEY2;
+
+    __message "Setting FLASH readout protection level 0 (disabled) ...";
+
+    __var temp_opt;
+
+    temp_opt = 0xFFFF00FF & __readMemory32(0x5200201C,"Memory");
+    temp_opt |= 0xAA00;
+
+    __writeMemory32(temp_opt , 0x52002020, "Memory"); // Set RDP bits in PRG register
+
+     temp_opt = __readMemory32(0x52002018,"Memory");
+    __writeMemory32(0x2 | temp_opt , 0x52002018, "Memory"); // Set OPTSTRT
+
+    // Wait while FLASH busy
+    while(0x1 & __readMemory32(0x5200201C,"Memory"))
+    {
+      __delay(200);
+    }
+
+    //Check if hardware watchdog is enabled
+    if(!(0x10 & __readMemory32(0x5200201C,"Memory")))
+    {
+      setup_iwdg();
+    }
+  }
+
+  RCC_CFGR  = __readMemory32(0x58024408, "Memory");
+  RCC_CR    = __readMemory32(0x58024400, "Memory");
+  RCC_CIER  = __readMemory32(0x5802440C, "Memory");
+
+  __writeMemory32(0x00000000, 0x58024410, "Memory"); // RCC_CFGR = 0;
+  __writeMemory32(0x00000001, 0x58024400, "Memory"); // RCC_CR   = 0x1
+  __writeMemory32(0x00000000, 0x58024460, "Memory"); // RCC_CIER = 0;
+
+}
+
+setup_iwdg()
+{
+  // unlock WDT registers
+  __writeMemory32(0x5555,0x58004800,"Memory");
+  // Prescaler
+  __writeMemory32(0x7,0x58004804,"Memory");
+  // Reload
+  __writeMemory32(0xFFF,0x58004808,"Memory");
+  // Window
+  __writeMemory32(0xFFF,0x58004810,"Memory");
+  // Writing the Window will automatically refresh counter to Reload value
+}
+
+execUserFlashExit()
+{
+  //Restore registers modified earlier
+
+  if(!(0x10 & __readMemory32(0x5200201C,"Memory")))
+  {
+    __writeMemory32(0x5555,0x58004800,"Memory");
+    __writeMemory32(IWDG_PR,0x58004804,"Memory");
+    __writeMemory32(IWDG_RLR,0x58004808,"Memory");
+    __writeMemory32(IWDG_WINR,0x58004810,"Memory");
+  }
+
+  __writeMemory32(RCC_CFGR, 0x40023808, "Memory");
+  __writeMemory32(RCC_CR, 0x40023800, "Memory");
+  __writeMemory32(RCC_CIER, 0x4002380C, "Memory");
+}

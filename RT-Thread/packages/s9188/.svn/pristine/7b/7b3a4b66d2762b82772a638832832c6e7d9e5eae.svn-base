@@ -1,0 +1,65 @@
+#include <rtthread.h>
+#include <rtdevice.h>
+
+#include "wf_debug.h"
+
+static rt_int32_t wf_wlan_probe(struct rt_sdio_function *func, struct rt_sdio_device_id *id)
+{
+  LOG_I("Found s9188 wlan card.\n");
+  LOG_I("Class=%x",func->func_code);
+  LOG_I("Vendor ID:0x%04x",func->manufacturer);
+  LOG_I("Device ID:0x%04x",func->product);
+  LOG_I("Function#:%d",func->num);
+  
+  sdio_claim_host(func);
+  sdio_enable_func(func);
+  sdio_release_host(func);
+  
+//  rt_wifi_probe(func);
+  return 0;
+}
+
+static rt_int32_t wf_wlan_remove(struct rt_sdio_function *func)
+{
+  LOG_I("Remove s9188 wlan card.\n");
+  
+  sdio_claim_host(func);
+  sdio_disable_func(func);
+  sdio_release_host(func);
+  
+//  rt_wifi_remove();
+  return 0;
+}
+
+struct rt_sdio_device_id s9188_id =
+{
+    SDIO_FUNC_CODE_WLAN,
+    0x02e7,    // 厂商ID
+    0x9086,    // 芯片id
+};
+
+struct rt_sdio_driver wf_wlan_sdio_driver =
+{
+    "s9188",
+    wf_wlan_probe,
+    wf_wlan_remove,
+    &s9188_id
+};
+
+
+int wf_wlan_sdio_init(void)
+{
+  sdio_register_driver(&wf_wlan_sdio_driver);
+  
+  return 0;
+}
+
+/*********************************************************************************************************
+** 加入自动初始化序列
+*********************************************************************************************************/
+INIT_APP_EXPORT(wf_wlan_sdio_init);
+
+/*********************************************************************************************************
+END FILE
+*********************************************************************************************************/
+

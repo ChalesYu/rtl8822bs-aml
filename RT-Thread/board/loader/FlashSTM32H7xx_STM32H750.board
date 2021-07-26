@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flash_board>
+    <pass>
+        <loader>$PROJ_DIR$\RT-Thread\board\loader\FlashSTM32H750_F128KB.flash</loader>
+        <range>CODE 0x8000000 0x801ffff</range>
+    </pass>
+    <pass>
+        <loader>$PROJ_DIR$\RT-Thread\board\loader\FlashSTM32H7xx_QSPI_STM32H750.flash</loader>
+        <range>CODE 0x90000000 0x97ffffff</range>
+        <rel_offset>0x70000000</rel_offset>
+    </pass>
+</flash_board>

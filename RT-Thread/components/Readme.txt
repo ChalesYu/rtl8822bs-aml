@@ -1,0 +1,1 @@
+本目录直接拷贝rt-thread的components目录，垃圾的CMSIS库永远不会用，直接删除驱去掉

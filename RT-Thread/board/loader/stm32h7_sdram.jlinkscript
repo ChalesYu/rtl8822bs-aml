@@ -1,0 +1,240 @@
+/*********************************************************************
+*              SEGGER MICROCONTROLLER GmbH & Co. K.G.                *
+*        Solutions for real time microcontroller applications        *
+**********************************************************************
+*                                                                    *
+*        (c) 2011-2015 SEGGER Microcontroller GmbH & Co. KG          *
+*                                                                    *
+* Internet: www.segger.com Support: support@segger.com               *
+*                                                                    *
+**********************************************************************
+----------------------------------------------------------------------
+Purpose : 
+---------------------------END-OF-HEADER------------------------------
+*/
+
+
+void Clock_Init() 
+{
+    unsigned int Reg;
+
+    // 配置允许工作在最大主频
+    Reg = MEM_ReadU32(0x40023800 + 0x0040);
+    Reg |= 0x10000000;
+    MEM_WriteU32(0x40023800 + 0x0040, Reg);
+
+    Reg = MEM_ReadU32(0x40007000 + 0x0000);
+    Reg |= (3 << 14);
+    MEM_WriteU32(0x40007000 + 0x0000, Reg);
+
+    // 开启HSE时钟
+    Reg = MEM_ReadU32(0x40023800 + 0x0000);
+    Reg &= ~((1<<16) | (1<<18));
+    MEM_WriteU32(0x40023800 + 0x0000, Reg);
+    Reg |= ((1<<16));
+    MEM_WriteU32(0x40023800 + 0x0000, Reg);
+    while((MEM_ReadU32(0x40023800) & (1 << 17)) == 0);
+
+    // 先开启AHB APB的分频系数
+    MEM_WriteU32(0x40023808, 0x00009400);
+
+    // 配置PLL
+    MEM_WriteU32(0x40023804, (25 | (384 << 6) | (8<<24) | (1<<22)));
+    // 使能PLL
+    Reg = MEM_ReadU32(0x40023800 + 0x0000);
+    Reg |= (1 << 24);
+    MEM_WriteU32(0x40023800 + 0x0000, Reg);
+    while((MEM_ReadU32(0x40023800) & (1 << 25)) == 0);
+
+    // 选择PLL输出作为系统时钟源
+    MEM_WriteU32(0x40023808, 0x00009402);
+
+    while(((MEM_ReadU32(0x40023800 + 0x0008) & 0x0000000C) == 0x00000008) == 0);
+
+    Report("Clock Init Done");
+}
+
+void SDRAM_Init() 
+{
+    unsigned int Reg;
+
+    // 设置地址重映射，将SDRAM地址映射到0x80000000
+    // 开启SYSCFG时钟，实现映射
+    Reg = MEM_ReadU32(0x40023800 + 0x0044);
+    Reg |= 0x00004000;
+    MEM_WriteU32(0x40023800 + 0x0044, Reg);
+
+    Reg = MEM_ReadU32(0x40013800 + 0x0000);
+    Reg |= 0x00000400;
+    MEM_WriteU32(0x40013800 + 0x0000, Reg);
+
+    //__delay(1);
+    Reg = 1000;
+    do {
+    Reg = Reg - 1;
+    } while(Reg != 0);
+
+    // 使能SDRAM占用的GPIO时钟，GPIOC,GPIOD,GPIOE,GPIOF,GPIOG
+    Reg = MEM_ReadU32(0x40023800 + 0x0030);
+    Reg |= 0x0000007C;
+    MEM_WriteU32(0x40023800 + 0x0030, Reg);
+    // 开启FMC时钟
+    Reg = MEM_ReadU32(0x40023800 + 0x0038);
+    Reg |= 0x00000001;
+    MEM_WriteU32(0x40023800 + 0x0038, Reg);
+
+    // 配置PC0、PC2、PC3为FMC功能引脚
+    Reg = MEM_ReadU32(0x40020800 + 0x0020);
+    //Reg &= 0xFFFF00F0;
+    Reg |= 0x0000CC0C;
+    MEM_WriteU32(0x40020800 + 0x0020, Reg);
+    // 配置PD0、PD1、PD8、PD9、PD10、PD14、PD15为FMC功能引脚
+    Reg = MEM_ReadU32(0x40020C00 + 0x0020);
+    Reg |= 0x000000CC;
+    MEM_WriteU32(0x40020C00 + 0x0020, Reg);
+    Reg = MEM_ReadU32(0x40020C00 + 0x0024);
+    Reg |= 0xCC000CCC;
+    MEM_WriteU32(0x40020C00 + 0x0024, Reg);
+    // 配置PE0、PE1、PE7、PE8、PE9、PE10、PE11、PE12、PE13、PE14、PE15为FMC功能引脚
+    Reg = MEM_ReadU32(0x40021000 + 0x0020);
+    Reg |= 0xC00000CC;
+    MEM_WriteU32(0x40021000 + 0x0020, Reg);
+    Reg = MEM_ReadU32(0x40021000 + 0x0024);
+    Reg |= 0xCCCCCCCC;
+    MEM_WriteU32(0x40021000 + 0x0024, Reg);
+    // 配置PF0、PF1、PF2、PF3、PF4、PF5、PF11、PF12、PF13、PF14、PF15为FMC功能引脚
+    Reg = MEM_ReadU32(0x40021400 + 0x0020);
+    Reg |= 0x00CCCCCC;
+    MEM_WriteU32(0x40021400 + 0x0020, Reg);
+    Reg = MEM_ReadU32(0x40021400 + 0x0024);
+    Reg |= 0xCCCCC000;
+    MEM_WriteU32(0x40021400 + 0x0024, Reg);
+    // 配置PG0、PG1、PG2、PG4、PG5、PG8、PG15为FMC功能引脚
+    Reg = MEM_ReadU32(0x40021800 + 0x0020);
+    Reg |= 0x00CC0CCC;
+    MEM_WriteU32(0x40021800 + 0x0020, Reg);
+    Reg = MEM_ReadU32(0x40021800 + 0x0024);
+    Reg |= 0xC000000C;
+    MEM_WriteU32(0x40021800 + 0x0024, Reg);
+
+    // 配置PC0、PC2、PC3
+    //GPIOx_MODER寄存器为复用模式
+    Reg = MEM_ReadU32(0x40020800 + 0x0000);
+    Reg |= 0x000000A2;
+    MEM_WriteU32(0x40020800 + 0x0000, Reg);
+    // GPIOx_OTYPER寄存器配置， push pull
+    MEM_WriteU32(0x40020800 + 0x0004, 0x00000000);
+    // GPIOx_OSPEEDR寄存器配置, 最高速度
+    MEM_WriteU32(0x40020800 + 0x0008, 0x000000F3);
+    //GPIOx_PUPDR采用默认配置
+    // 配置PD0、PD1、PD8、PD9、PD10、PD14、PD15
+    //GPIOx_MODER寄存器为复用模式
+    Reg = MEM_ReadU32(0x40020C00 + 0x0000);
+    Reg |= 0xA02A000A;
+    MEM_WriteU32(0x40020C00 + 0x0000, Reg);
+    // GPIOx_OTYPER寄存器配置， push pull
+    MEM_WriteU32(0x40020C00 + 0x0004, 0x00000000);
+    // GPIOx_OSPEEDR寄存器配置, 最高速度
+    MEM_WriteU32(0x40020C00 + 0x0008, 0xF03F000F);
+    //GPIOx_PUPDR采用默认配置
+    // 配置PE0、PE1、PE7、PE8、PE9、PE10、PE11、PE12、PE13、PE14、PE15的GPIOx_MODER寄存器为复用模式
+    Reg = MEM_ReadU32(0x40021000 + 0x0000);
+    Reg |= 0xAAAA800A;
+    MEM_WriteU32(0x40021000 + 0x0000, Reg);
+    // GPIOx_OTYPER寄存器配置， push pull
+    MEM_WriteU32(0x40021000 + 0x0004, 0x00000000);
+    // GPIOx_OSPEEDR寄存器配置, 最高速度
+    MEM_WriteU32(0x40021000 + 0x0008, 0xFFFFC00F);
+    //GPIOx_PUPDR采用默认配置
+    // 配置PF0、PF1、PF2、PF3、PF4、PF5、PF11、PF12、PF13、PF14、PF15的GPIOx_MODER寄存器为复用模式
+    Reg = MEM_ReadU32(0x40021400 + 0x0000);
+    Reg |= 0xAA800AAA;
+    MEM_WriteU32(0x40021400 + 0x0000, Reg);
+    // GPIOx_OTYPER寄存器配置， push pull
+    MEM_WriteU32(0x40021400 + 0x0004, 0x00000000);
+    // GPIOx_OSPEEDR寄存器配置, 最高速度
+    MEM_WriteU32(0x40021400 + 0x0008, 0xFFC00FFF);
+    //GPIOx_PUPDR采用默认配置
+    // 配置PG0、PG1、PG2、PG4、PG5、PG8、PG15为的GPIOx_MODER寄存器为复用模式
+    Reg = MEM_ReadU32(0x40021800 + 0x0000);
+    Reg |= 0x80020A2A;
+    MEM_WriteU32(0x40021800 + 0x0000, Reg);
+    // GPIOx_OTYPER寄存器配置， push pull
+    MEM_WriteU32(0x40021800 + 0x0004, 0x00000000);
+    // GPIOx_OSPEEDR寄存器配置, 最高速度
+    MEM_WriteU32(0x40021800 + 0x0008, 0xC0030F3F);
+    //GPIOx_PUPDR采用默认配置
+
+    // 192M的配置，SDRAM时钟为96M
+    MEM_WriteU32(0xA0000000 + 0x0140, 0x00001BD9);
+    MEM_WriteU32(0xA0000000 + 0x0148, 0x01115561);
+
+    /* SDRAM initialization sequence */
+    /* Clock enable command */
+    MEM_WriteU32(0xA0000000 + 0x0150, 0x00000011);
+    while(( MEM_ReadU32(0xA0000000 + 0x0158) & 0x00000020) != 0);
+    /* 延时至少200us */
+    // __delay(1);
+    Reg = 2000;
+    do {
+    Reg = Reg - 1;
+    } while(Reg != 0);
+
+    /* PALL command */
+    MEM_WriteU32(0xA0000000 + 0x0150, 0x00000012);
+    while(( MEM_ReadU32(0xA0000000 + 0x0158) & 0x00000020) != 0);
+
+    /* Auto refresh command */
+    MEM_WriteU32( 0xA0000000 + 0x0150, 0x00000113);
+    while(( MEM_ReadU32(0xA0000000 + 0x0158) & 0x00000020) != 0);
+    MEM_WriteU32(0xA0000000 + 0x0150, 0x00000113);
+    while(( MEM_ReadU32(0xA0000000 + 0x0158) & 0x00000020) != 0);
+
+    /* MRD register program */
+    MEM_WriteU32(0xA0000000 + 0x0150, 0x00046614);
+    while(( MEM_ReadU32(0xA0000000 + 0x0158) & 0x00000020) != 0);
+    
+    Reg = 3000;
+    do {
+    Reg = Reg - 1;
+    } while(Reg != 0);
+
+    Report("SDRAM Init Done");
+}
+
+
+/* ConfigTarget */
+void ConfigTargetSettings(void)
+{
+    Report("Config JTAG Speed to 4000kHz");
+    JTAG_Speed = 4000;
+}
+
+/* SetupTarget */
+void SetupTarget(void)
+{
+    Report("Enabling STM32F429 SDRAM");
+    Clock_Init();
+    SDRAM_Init();
+}
+
+/* ResetTarget */
+void ResetTarget(void) {
+    unsigned int v;
+    unsigned int Tmp;
+    //
+    // J-Link DLL expects CPU to be reset and halted when leaving this function
+    //
+    Report("J-Link script: ResetTarget()");
+    // Read IDCODE
+    v=JLINK_CORESIGHT_ReadDP(0);
+    Report1("DP0: ", v);
+
+    // Power up Debugger
+    JLINK_CORESIGHT_WriteDP(1, 0x50000000);
+    v=JLINK_CORESIGHT_ReadDP(1);
+    Report1("DP1: ", v);
+
+    Clock_Init();
+    SDRAM_Init();
+}

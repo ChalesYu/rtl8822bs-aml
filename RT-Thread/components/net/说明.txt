@@ -1,0 +1,5 @@
+lwip版本：lwip_git版本，2020-06-24日下载
+
+对lwip的sockets层做了稍微修改，以适应posix的映射
+lwip增加nat功能
+lwip增加naptpt功能

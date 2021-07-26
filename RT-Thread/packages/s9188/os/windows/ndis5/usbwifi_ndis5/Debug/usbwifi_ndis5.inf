@@ -1,0 +1,141 @@
+; /****************************************************************************
+; ** DEVELOPED BY MICROSOFT AND SCI SEMICONDUCTOR CORP                   **
+; ****************************************************************************/
+
+[version]
+Signature   = "$Windows NT$"
+Class       = Net
+ClassGUID   = {4d36e972-e325-11ce-bfc1-08002be10318}
+;Provider    = %SCI% 
+Provider    = %SCI%
+LayoutFile  = layout.inf
+CatalogFile = usbwifi_ndis5.cat
+DriverVer = 05/26/2021,17.13.6.320
+
+
+[Manufacturer]
+%SCI%     = SCI, NTx86
+
+
+;[ControlFlags]
+;ExcludeFromSelect = *
+
+
+
+[SCI.NTx86]
+; DisplayName                   Section         DeviceID
+; -----------                   -------         --------
+%SCI.DeviceDesc_9086%       = SCI.ndi,  USB\VID_2310&PID_9086
+
+[SCI.ndi.NTx86]
+Characteristics = 0x84
+BusType         = 5
+AddReg          = SCI.reg
+CopyFiles       = SCI.CopyFiles
+
+
+[SCI.ndi.NTx86.Services]
+AddService = usbwifi_ndis5, 2, SCI.Service, SCI.EventLog
+
+
+[SCI.reg]
+HKR, Ndi,                         Service,    0, "usbwifi_ndis5"
+
+HKR, Ndi\Interfaces,              UpperRange, 0, "ndis5"
+HKR, Ndi\Interfaces,              LowerRange, 0, "wlan,ethernet"
+
+HKR, Ndi\params\*ReceiveBuffers,  ParamDesc,  0, "%ReceiveBuffers%"
+HKR, Ndi\params\*ReceiveBuffers,  default,    0, "64"
+HKR, Ndi\params\*ReceiveBuffers,  min,        0, "1"
+HKR, Ndi\params\*ReceiveBuffers,  max,        0, "00000128"
+HKR, Ndi\params\*ReceiveBuffers,  step,       0, "1"
+HKR, Ndi\params\*ReceiveBuffers,  Base,       0, "10"
+HKR, Ndi\params\*ReceiveBuffers,  type,       0, "int"
+
+HKR, Ndi\params\*TransmitBuffers, ParamDesc,  0, "%TransmitBuffers%"
+HKR, Ndi\params\*TransmitBuffers, default,    0, "20"
+HKR, Ndi\params\*TransmitBuffers, min,        0, "1"
+HKR, Ndi\params\*TransmitBuffers, max,        0, "00000020"
+HKR, Ndi\params\*TransmitBuffers, step,       0, "1"
+HKR, Ndi\params\*TransmitBuffers, Base,       0, "10"
+HKR, Ndi\params\*TransmitBuffers, type,       0, "int"
+
+
+[SCI.Service]
+DisplayName     = %SCI.Service.DispName%
+ServiceType     = 1             ;SERVICE_KERNEL_DRIVER
+StartType       = 3             ;SERVICE_DEMAND_START
+ErrorControl    = 1             ;SERVICE_ERROR_NORMAL
+ServiceBinary   = %12%\usbwifi_ndis5.sys
+LoadOrderGroup  = NDIS
+
+
+
+[SCI.EventLog]
+AddReg = SCI.AddEventLog.reg
+
+[SCI.AddEventLog.reg]
+HKR, , EventMessageFile, 0x00020000, "%%SystemRoot%%\System32\netevent.dll"
+HKR, , TypesSupported,   0x00010001, 7
+
+
+[SCI.CopyFiles]
+usbwifi_ndis5.sys,,,2
+
+[SourceDisksNames]
+;1 = %DiskDescription%,usbnwifi_new.sys,,
+1 = %DiskDescription%,usbwifi_ndis5.sys,,
+
+[SourceDisksFiles]
+usbwifi_ndis5.sys = 1,,
+;wdfcoinstaller01009.dll=1
+
+[DestinationDirs]
+SCI.CopyFiles          = 12
+DefaultDestDirs            = 12
+;CoInstaller_CopyFiles	   = 12
+
+;-------------- WDF Coinstaller installation
+
+[DestinationDirs]
+CoInstaller_CopyFiles = 11
+
+[SCI.ndi.NTx86.CoInstallers]
+AddReg=CoInstaller_AddReg
+CopyFiles=CoInstaller_CopyFiles
+
+;[SCI.ndi.NTAMD64.CoInstallers]
+;AddReg=CoInstaller_AddReg
+;CopyFiles=CoInstaller_CopyFiles
+
+;[SCI.ndi.NTIA64.CoInstallers]
+;AddReg=CoInstaller_AddReg
+;CopyFiles=CoInstaller_CopyFiles
+
+;[CoInstaller_CopyFiles]
+;wdfcoinstaller01009.dll
+
+;[SourceDisksFiles]
+;wdfcoinstaller$KMDFCOINSTALLERVERSION$.dll=1 ; make sure the number matches with SourceDisksNames
+
+;[CoInstaller_AddReg]
+;HKR,,CoInstallers32,0x00010000, "wdfcoinstaller01009.dll,WdfCoInstaller"
+
+;[SCI.ndi.NTAMD64.Wdf]
+;KmdfService = usbwifi_ndis5, realtek_wdfsect
+
+;[realtek_wdfsect]
+;KmdfLibraryVersion = 1.9
+
+;---------------------------------------------------------------;
+
+
+[Strings]
+Msft                         = "SCIS"
+SCI                          = "SCI Semiconductor Corp"
+SCI.DeviceDesc_9086          = "SCI 9188 USB 802.11 bgn Wireless Device"
+SCI.Service.DispName         = "SCI 9188 802.11 Wireless Device Driver"
+DiskDescription              = "SCI Driver Disk 1"
+TransmitBuffers              = "Transmit Buffers"
+ReceiveBuffers               = "Receive Buffers"
+

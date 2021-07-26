@@ -1,0 +1,256 @@
+#ifndef __OS_PRIV_H__
+#define __OS_PRIV_H__
+
+#include "stddef.h"
+#include "string.h"
+#include "stdio.h"
+
+typedef wf_ptr 	rt_size_t;
+typedef rt_size_t  SIZE_T;
+//typedef __kernel_ssize_t        SSIZE_T;
+//typedef unsigned char      wf_u8;
+
+typedef wf_u32	loff_t;
+typedef wf_ptr 	rt_ubase_t;
+typedef union {
+    unsigned long slock;
+    struct __arch_tickets {
+        unsigned short owner;
+        unsigned short next;
+    } tickets;
+}spinlock_t;
+
+
+
+typedef unsigned long           wf_irq;
+typedef struct tasklet_struct   wf_tasklet;
+#define wf_tasklet_hi_sched        tasklet_hi_schedule
+#define wf_tasklet_sched           tasklet_schedule
+#define wf_tasklet_init            tasklet_init
+
+#define WF_OFFSETOF(type, field)            offsetof(type, field)
+//#define WF_FIELD_SIZEOF(type, field)        FIELD_SIZEOF(type, field)
+#define WF_FIELD_SIZEOF(t, f) (sizeof(((t*)0)->f))
+//#define offsetof(type, field) ((size_t) &((type *)0)->field)
+#define WF_CONTAINER_OF(ptr, type, field)   container_of(ptr, type, field)
+
+#define container_of(ptr, type, field)         ({ \
+    (type *)((char *)ptr - ((size_t)&((type *)0)->field));})
+
+#if (!defined(CONFIG_LITTLE_ENDIAN) && !defined(CONFIG_BIG_ENDIAN))
+#define CONFIG_LITTLE_ENDIAN
+#endif
+#define le64_to_cpu     __le64_to_cpu
+#define cpu_to_le32     __cpu_to_le32
+#define le32_to_cpu     __le32_to_cpu
+#define cpu_to_le16     __cpu_to_le16
+#define le16_to_cpu     __le16_to_cpu
+#define cpu_to_be64     __cpu_to_be64
+#define be64_to_cpu     __be64_to_cpu
+#define cpu_to_be32     __cpu_to_be32
+#define be32_to_cpu     __be32_to_cpu
+#define cpu_to_be16     __cpu_to_be16
+#define be16_to_cpu     __be16_to_cpu
+#define ___constant_swab16(x) ((wf_u16)(				\
+	(((wf_u16)(x) & (wf_u16)0x00ffU) << 8) |			\
+	(((wf_u16)(x) & (wf_u16)0xff00U) >> 8)))
+
+#define ___constant_swab32(x) ((wf_u32)(				\
+	(((wf_u32)(x) & (wf_u32)0x000000ffUL) << 24) |		\
+	(((wf_u32)(x) & (wf_u32)0x0000ff00UL) <<  8) |		\
+	(((wf_u32)(x) & (wf_u32)0x00ff0000UL) >>  8) |		\
+	(((wf_u32)(x) & (wf_u32)0xff000000UL) >> 24)))
+
+#define ___constant_swab64(x) ((wf_u64)(				\
+	(((wf_u64)(x) & (wf_u64)0x00000000000000ffULL) << 56) |	\
+	(((wf_u64)(x) & (wf_u64)0x000000000000ff00ULL) << 40) |	\
+	(((wf_u64)(x) & (wf_u64)0x0000000000ff0000ULL) << 24) |	\
+	(((wf_u64)(x) & (wf_u64)0x00000000ff000000ULL) <<  8) |	\
+	(((wf_u64)(x) & (wf_u64)0x000000ff00000000ULL) >>  8) |	\
+	(((wf_u64)(x) & (wf_u64)0x0000ff0000000000ULL) >> 24) |	\
+	(((wf_u64)(x) & (wf_u64)0x00ff000000000000ULL) >> 40) |	\
+	(((wf_u64)(x) & (wf_u64)0xff00000000000000ULL) >> 56)))
+
+#define ___constant_swahw32(x) ((wf_u32)(			\
+	(((wf_u32)(x) & (wf_u32)0x0000ffffUL) << 16) |		\
+	(((wf_u32)(x) & (wf_u32)0xffff0000UL) >> 16)))
+
+#define ___constant_swahb32(x) ((wf_u32)(			\
+	(((wf_u32)(x) & (wf_u32)0x00ff00ffUL) << 8) |		\
+	(((wf_u32)(x) & (wf_u32)0xff00ff00UL) >> 8)))
+
+#ifdef CONFIG_LITTLE_ENDIAN
+#define __cpu_to_le64(x)        ((  wf_u64)(wf_u64)(x))
+#define __le64_to_cpu(x)        ((  wf_u64)(wf_u64)(x))
+#define __cpu_to_le32(x)        ((  wf_u32)(wf_u32)(x))
+#define __le32_to_cpu(x)        ((  wf_u32)(wf_u32)(x))
+#define __cpu_to_le16(x)        ((  wf_u16)(wf_u16)(x))
+#define __le16_to_cpu(x)        ((  wf_u16)(wf_u16)(x))
+#define __cpu_to_be64(x)        ((  wf_u64)___constant_swab64((x)))
+#define __be64_to_cpu(x)        ___constant_swab64((  wf_u64)(wf_u64)(x))
+#define __cpu_to_be32(x)        ((  wf_u32)___constant_swab32((x)))
+#define __be32_to_cpu(x)        ___constant_swab32((  wf_u32)(wf_u32)(x))
+#define __cpu_to_be16(x)        ((  wf_u16)___constant_swab16((x)))
+#define __be16_to_cpu(x)        ___constant_swab16((  wf_u16)(wf_u16)(x))
+
+#ifndef htonl
+#define htonl(x)        __cpu_to_be32(x)
+#endif
+#ifndef ntohl
+#define ntohl(x)        __be32_to_cpu(x)
+#endif
+#ifndef htons
+#define htons(x)        __cpu_to_be16(x)
+#endif
+#ifndef ntohs
+#define ntohs(x)        __be16_to_cpu(x)
+#endif
+#endif
+
+#define WF_HZ                      HZ
+#define wf_os_api_do_div(n,base)   (n%base)
+#define wf_yield                   fr_yield
+#define wf_inline                  inline
+
+#define wf_memcpy                  memcpy
+#define wf_memcmp                  memcmp
+#define wf_memset                  memset
+#define wf_mdelay                  fr_mdelay
+#define wf_udelay                  fr_delay
+#define wf_msleep                  vTaskDelay
+
+extern void vTaskDelay();
+extern void vPortFree();
+
+#define wf_kzalloc(sz)             fr_alloc(sz)
+#define wf_kfree(pv)               vPortFree(pv)
+#endif
+#define wf_vmalloc                 fr_malloc
+#define wf_vfree                   vPortFree
+#define wf_alloc_skb(sz)           fr_malloc
+#define wf_free_skb                vPortFree
+
+#define wf_packed                  __attribute__((__packed__))
+#define FreeRTOS                   1
+typedef struct work_struct*  wf_work_struct;
+typedef struct workqueue_struct  wf_workqueue_struct;
+typedef void (*work_func)(wf_work_struct *work);
+typedef struct wf_workqueue_mgnt_st_ wf_workqueue_mgnt_st;
+
+typedef struct
+{
+    char *workqueue_name;
+    work_func func;
+}wf_workqueue_func_param_st;
+
+
+
+struct hlist_node {
+    struct hlist_node *next, **pprev;
+};
+struct timer_list{
+    struct hlist_node    entry;
+    unsigned long        expires;
+    void            (*function)(unsigned long);
+    unsigned long        data;
+    wf_bool            flags;
+};
+struct list_head {
+	struct list_head *next, *prev;
+};
+//typedef struct arch_spinlock {
+//    union {
+//        __ticketpair_t head_tail;
+//        struct __raw_tickets {
+//            __ticket_t head, tail;
+//        } tickets;
+//    };
+//} arch_spinlock_t;
+struct semaphore {
+	volatile unsigned int lock; //arch_spinlock_t;
+	unsigned int		count;
+	struct list_head	wait_list;
+};
+typedef struct {
+	long long counter;
+} atomic64_t;
+typedef atomic64_t atomic_long_t;
+struct mutex {
+	atomic_long_t		owner;
+	spinlock_t		wait_lock;
+};
+typedef struct mutex            wf_lock_mutex;
+typedef struct semaphore        wf_os_api_sema_t;
+typedef struct timer_list       wf_os_api_timer_t;
+typedef struct file             wf_file;
+//#endif
+
+#define BUG() printf("BUG: failure at %s:%d/%s()!\n", __FILE__, __LINE__, __func__);
+static inline void *fr_alloc(size_t size)
+{
+  return 0;
+}
+static inline void *fr_malloc(size_t size)
+{
+  return 0;
+}
+
+#ifndef WF_DEBUG_LEVEL
+#define WF_DEBUG_LEVEL   0
+#endif
+#define WF_DEBUG_DEBUG         0x01U
+#define WF_DEBUG_INFO          0x02U
+#define WF_DEBUG_WARN          0x04U
+#define WF_DEBUG_ERROR         0x08U
+#define WF_DEBUG_MASK          0x0FU
+#ifdef WF_DEBUG_COLOR
+#define _WF_DEBUG_HDR(lvl_name, color_n)    \
+        printk(KERN_LEVELS "\033["#color_n"m["lvl_name"]")
+#define _WF_DEBUG_END   printk("\033[0m\n")
+#else
+#define _WF_DEBUG_HDR(lvl_name, color_n)   printk(KERN_LEVELS "["lvl_name"]")
+#define _WF_DEBUG_END   printk("\n")
+#endif
+
+#if (WF_DEBUG_LEVEL & WF_DEBUG_DEBUG)
+#define LOG_D(fmt, ...)   do {  _WF_DEBUG_HDR("D", 0);   \
+                                printk(fmt, ##__VA_ARGS__); \
+                                _WF_DEBUG_END;  \
+                          }while(0)
+#else
+#define LOG_D(fmt, ...)
+#endif
+
+#if (WF_DEBUG_LEVEL & WF_DEBUG_INFO)
+#define LOG_I(fmt, ...)   do {  _WF_DEBUG_HDR("I", 32);   \
+                                printk(fmt, ##__VA_ARGS__); \
+                                _WF_DEBUG_END;  \
+                          }while(0)
+#else
+#define LOG_I(fmt, ...)
+#endif
+
+#if (WF_DEBUG_LEVEL & WF_DEBUG_WARN)
+#define LOG_W(fmt, ...)   do {  _WF_DEBUG_HDR("W", 33);   \
+                                printk(fmt, ##__VA_ARGS__); \
+                                _WF_DEBUG_END;  \
+                          }while(0)
+#else
+#define LOG_W(fmt, ...)
+#endif
+
+#if (WF_DEBUG_LEVEL & WF_DEBUG_ERROR)
+#define LOG_E(fmt, ...)   do {  _WF_DEBUG_HDR("E", 31);   \
+                                printk(fmt, ##__VA_ARGS__); \
+                                _WF_DEBUG_END;  \
+                          }while(0)
+#else
+#define LOG_E(fmt, ...)
+#endif
+
+#define     WF_ASSERT(EX)                                     \
+if (!(EX))                                                    \
+{                                                             \
+    LOG_E("#EX assertion failed at function:%s, line number:%d \n", __FUNCTION__, __LINE__);\
+    BUG();                                                 \
+}

@@ -1,0 +1,192 @@
+/*++
+
+Copyright (c) SCICS Co., Ltd. All rights reserved.
+
+Module Name:
+    wf_oids_adapt.c
+
+Abstract:
+    Functions to adapt the OIDs interfaces.
+    
+Revision History:
+      When        What
+    ----------    ----------------------------------------------
+    03-06-2021    Created
+Notes:
+
+--*/
+
+#include "wf_debug.h"
+#include "pcomp.h"
+
+static void wf_update_bss_list(void* adapter)
+{
+	PADAPTER padapter = adapter;
+	nic_info_st* pnic_info = (nic_info_st*)padapter->nic_info;
+	wf_wlan_mgmt_scan_que_for_rst_e scanned_ret;
+	wf_wlan_mgmt_scan_que_node_t* pscanned_info = NULL;
+	wf_mib_info_t* mib_info = padapter->mib_info;
+
+	WdfSpinLockAcquire(mib_info->bss_lock);
+
+	mib_info->bss_cnt = 0;
+	wf_wlan_mgmt_scan_que_for_begin(pnic_info, pscanned_info) {
+		mib_info->bss_node[mib_info->bss_cnt++] = pscanned_info;
+	}
+	wf_wlan_mgmt_scan_que_for_end(scanned_ret);
+
+
+	//LOG_D("scan_ret=%d, bss_cnt=%d", scanned_ret, mib->bss_cnt);
+	WdfSpinLockRelease(mib_info->bss_lock);
+}
+
+VOID Mp11CompletePendedRequest(PADAPTER           pAdapter, NDIS_STATUS ndisStatus)
+{
+
+}
+
+
+wf_u64 wf_get_speed_by_raid(wf_u8 raid)
+{
+
+}
+
+VOID wf_submit_disassoc_complete(PADAPTER pAdapter, ULONG Reason)
+{
+
+}
+
+NDIS_STATUS wf_submit_assoc_complete(PADAPTER padapter, ULONG status)
+{
+
+}
+
+NDIS_STATUS wf_submit_connect_complete(PADAPTER pAdapter, ULONG status)
+{
+
+}
+
+void wf_submit_link_speed(PADAPTER padapter, ULONG64  linkSpeed)    
+{
+
+}
+
+VOID
+secSetCipherSuite (
+    IN PADAPTER prAdapter,
+    IN wf_u32     u4CipherSuitesFlags
+    )
+{
+	// TODO:  2021/06/03
+	return;
+}
+
+ENUM_PARAM_MEDIA_STATE_T
+kalGetMediaStateIndicated(
+	IN P_GLUE_INFO_T	prGlueInfo
+	)
+{
+	ASSERT(prGlueInfo);
+
+	return prGlueInfo->eParamMediaStateIndicated;
+}
+
+NDIS_STATUS
+wf_set_scan(PADAPTER prAdapter)
+{
+	// TODD: Finish the scan interface.      2021/06/04
+	NDIS_STATUS ndisStatus = wf_set_start_scan(prAdapter->nic_info);
+	return ndisStatus;
+}
+
+
+NDIS_STATUS wf_set_start_scan(void *nic_info)
+{
+	nic_info_st *pnic_info = nic_info;
+	wf_bool is_connected, is_busy;
+	int ret;
+#ifdef CONFIG_CONCURRENT_MODE
+	nic_info_st *pvir_nic = pnic_info->vir_nic;
+	mlme_state_e state;
+#endif
+
+	pnic_info->is_up = 1;
+
+#ifdef CONFIG_CONCURRENT_MODE
+	wf_mlme_get_state(pvir_nic, &state);
+	if(state <= MLME_STATE_ASSOC) {
+		LOG_D("another nic is scanning");
+		wf_os_api_ind_scan_done(pnic_info, wf_true);
+		return 0;
+	}
+#endif
+    
+	wf_mlme_get_connect(pnic_info, &is_connected);
+	if (is_connected) {
+        wf_mlme_get_traffic_busy(pnic_info, &is_busy);
+        if (is_busy) {
+            wf_os_api_ind_scan_done(pnic_info, wf_true, 0);
+
+            return 0;
+        }
+        ret = wf_mlme_scan_start(pnic_info, SCAN_TYPE_PASSIVE,
+                           NULL, 0, NULL, 0, WF_MLME_FRAMEWORK_NDIS);
+    } else {
+        ret = wf_mlme_scan_start(pnic_info, SCAN_TYPE_ACTIVE,
+                           NULL, 0, NULL, 0, WF_MLME_FRAMEWORK_NDIS);
+    }
+
+	if(ret != 0) {
+		LOG_D("[%s-%d] scan start failed! ret=%d\n", __FUNCTION__, __LINE__, ret);
+		ret = NDIS_STATUS_FAILURE;
+	} else {
+		ret = NDIS_STATUS_SUCCESS;
+	}
+
+	return ret;
+
+}
+
+NDIS_STATUS wf_submit_scan_complete(PADAPTER pAdapter)
+{
+	NDIS_STATUS ndis_status = NDIS_STATUS_SUCCESS;
+	wf_update_bss_list(pAdapter);
+	if(pAdapter->bRequestedScan == TRUE)
+	{
+		pAdapter->bRequestedScan = FALSE;
+		pAdapter->CurrentRequestID_Scan = NULL;
+	}
+
+	LOG_D("NDIS scan complete. BSS list is updated.");
+	return NDIS_STATUS_SUCCESS;
+}
+
+NDIS_STATUS wf_oids_adapt_init(void *adapter)
+{
+	PADAPTER padapter = adapter;
+	wf_mib_info_t *mib_info = padapter->mib_info;
+	WDF_OBJECT_ATTRIBUTES   attributes;
+	NTSTATUS                ntStatus;
+	NDIS_STATUS				ndisStatus;
+	ndisStatus = NDIS_STATUS_SUCCESS;
+	WDF_OBJECT_ATTRIBUTES_INIT(&attributes);
+    attributes.ParentObject = padapter->WdfDevice;
+
+    ntStatus = WdfSpinLockCreate(&attributes, &mib_info->bss_lock);
+    if (ntStatus != STATUS_SUCCESS) {
+        LOG_D("create bss lock failed");
+		NT_STATUS_TO_NDIS_STATUS(ntStatus, &ndisStatus);
+		goto out;
+    }
+	
+	padapter->ap_info = wf_malloc(sizeof(wf_ap_info_t));
+	if(padapter->ap_info == NULL){
+		LOG_E("malloc ap info failed!!!\n");
+		NT_STATUS_TO_NDIS_STATUS(ntStatus, &ndisStatus);
+		goto out;
+	}
+	memset(padapter->ap_info, 0, sizeof(wf_ap_info_t));
+out:
+	
+	return ndisStatus;
+}
