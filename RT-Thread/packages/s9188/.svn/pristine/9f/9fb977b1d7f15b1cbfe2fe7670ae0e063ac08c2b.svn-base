@@ -1,9 +1,0 @@
-
-#include "wf_80211.h"
-int wf_rt_add_key(nic_info_st *pnic_info,
-                       wf_u8 key_index, const wf_u8 * mac_addr,
-                       struct key_params *params);
-
-int wf_rt_sta_set_encryption(nic_info_st *pnic_info,
-									  ieee_param *param, wf_u32 param_len);
-

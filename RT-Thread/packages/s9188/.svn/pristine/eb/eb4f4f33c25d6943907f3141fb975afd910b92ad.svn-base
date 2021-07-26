@@ -1,6 +1,0 @@
-config SCI9083H 
-	tristate "Wf_wlan 9083h USB WiFi"
-	depends on USB
-	---help---
-	  Help message of SCI9083H
-

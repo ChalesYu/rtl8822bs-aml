@@ -1100,16 +1100,14 @@ static wf_s32 wf_sdio_read_net_data(hif_node_st *hif_node, wf_u32 addr, wf_u8 * 
       netbuf_node = wf_netbuf_queue_remove(&hif_node->trx_pipe.free_netbuf_queue);
       if(NULL == netbuf_node)
       {
-//        /* must clear the buffer */
-//        static wf_u32 sdio_skip_data[WF_MAX_RECV_BUFF_LEN_SDIO/4];
-//        sdio_get_fifoaddr_by_que_Index(addr, read_size, &fifo_addr, 0);
-//        wf_sdio_req_packet(sd, SDIO_RD, fifo_addr, read_size, sdio_skip_data);
-//    
+        /* must clear the buffer */
+        static wf_u32 sdio_skip_data[WF_MAX_RECV_BUFF_LEN_SDIO/4];
+        sdio_get_fifoaddr_by_que_Index(addr, read_size, &fifo_addr, 0);
+        wf_sdio_req_packet(sd, SDIO_RD, fifo_addr, read_size, sdio_skip_data);   
         hif_node->trx_pipe.rx_wq.ops->workqueue_work(&hif_node->trx_pipe.rx_wq);
+        
         LOG_W("[%s]:There is no netbuf for recv data", __func__);
-//        return -1;
-        wf_msleep(5);
-        continue;
+        return -1;
       }
       
       if (netbuf_node->len != 0)

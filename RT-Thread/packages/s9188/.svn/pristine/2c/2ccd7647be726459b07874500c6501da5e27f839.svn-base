@@ -1,6 +1,0 @@
-#ifndef __RX_RTTHREAD__
-#define __RX_RTTHREAD__
-
-//int rx_work(struct net_device *ndev, struct sk_buff *skb);
-
-#endif

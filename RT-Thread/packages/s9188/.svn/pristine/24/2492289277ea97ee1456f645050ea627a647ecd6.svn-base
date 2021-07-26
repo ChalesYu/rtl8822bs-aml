@@ -1,6 +1,0 @@
-#ifndef __RX_RTTHREAD__
-#define __RX_RTTHREAD__
-
-int rx_work(struct rt_wlan_device *wlan, struct hif_netbuf *netbuf);
-
-#endif
