@@ -298,7 +298,7 @@ int wf_fw_download(nic_info_st *nic_info)
     }
 
     /* close the fw debug info */
-    wf_close_fw_dbginfo(nic_info);
+    wf_mcu_disable_fw_dbginfo(nic_info);
     
     LOG_I("end");
 

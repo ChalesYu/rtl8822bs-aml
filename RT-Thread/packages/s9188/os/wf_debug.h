@@ -1,3 +1,19 @@
+/*
+ * wf_debug.h
+ *
+ * used for .....
+ *
+ * Author: luozhi
+ *
+ * Copyright (c) 2020 SmartChip Integrated Circuits(SuZhou ZhongKe) Co.,Ltd
+ *
+ *
+ * This program is free software; you can redistribute  it and/or modify it
+ * under  the terms of  the GNU General  Public License as published by the
+ * Free Software Foundation;  either version 2 of the  License, or (at your
+ * option) any later version.
+ *
+ */
 #ifndef __WF_DEBUG_H__
 #define __WF_DEBUG_H__
 
@@ -120,8 +136,8 @@ static wf_inline void log_array (void *ptr, wf_u16 len)
 #define LOG_W(fmt,...) DbgPrint("[%s,%d] "fmt"\n",__FUNCTION__,__LINE__,##__VA_ARGS__);
 #define LOG_E(fmt,...) DbgPrint("[%s,%d] "fmt"\n",__FUNCTION__,__LINE__,##__VA_ARGS__);
 
-#define WF_ASSERT(EX)  
-    
+#define WF_ASSERT(EX)
+
 	#ifdef _WIN64
       //define something for Windows (64-bit only)
    #endif
@@ -134,6 +150,20 @@ static wf_inline void log_array (void *ptr, wf_u16 len)
 #define DBG_LVL              DBG_LOG
 #include <rtdbg.h>
 #define WF_ASSERT    RT_ASSERT
+#endif
+
+#ifdef __RTOS__
+#define LOG_D(...)
+#define LOG_I(...)
+#define LOG_W(...)
+#define LOG_E(...)
+
+#define WF_ASSERT(EX)                                         \
+if (!(EX))                                                    \
+{                                                             \
+    LOG_E("#EX assertion failed at function:%s, line number:%d \n", __FUNCTION__, __LINE__);\
+    OS_BUG_ON();                                              \
+}
 #endif
 
 #endif      /* END OF __WF_DEBUG_H__ */

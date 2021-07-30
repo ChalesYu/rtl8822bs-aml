@@ -1,3 +1,19 @@
+/*
+ * rx.c
+ *
+ * used for rx frame handle
+ *
+ * Author: renhaibo
+ *
+ * Copyright (c) 2020 SmartChip Integrated Circuits(SuZhou ZhongKe) Co.,Ltd
+ *
+ *
+ * This program is free software; you can redistribute  it and/or modify it
+ * under  the terms of  the GNU General  Public License as published by the
+ * Free Software Foundation;  either version 2 of the  License, or (at your
+ * option) any later version.
+ *
+ */
 #include "common.h"
 #include "wf_debug.h"
 #include "queue.h"
@@ -19,7 +35,6 @@
 #define HT_CONTRL_LEN           4
 
 
-static wf_u8 a[8] = {0xe6,0xb4,0x04,0x0b,0x13,0x08,0xdf,0x3e};
 #define GET_C2H_TX_RPT_LIFE_TIME_OVER(_Header)  wf_le_bits_to_u8((_Header + 0), 6, 1)
 #define GET_C2H_TX_RPT_RETRY_OVER(_Header)      wf_le_bits_to_u8((_Header + 0), 7, 1)
 #define C2H_ID(_c2h)        wf_le_bits_to_u8(((wf_u8*)(_c2h)), 0, 8)
@@ -1262,6 +1277,7 @@ void rx_c2h_ra_report_handler(wf_u8 *cmd_buf, wf_u8 cmd_len)
 
 int wf_rx_notice_process(wf_u8 *pbuf, wf_u16 skb_len)
 {
+    wf_u8 a[8] = {0xe6,0xb4,0x04,0x0b,0x13,0x08,0xdf,0x3e};
     int ret,i,c2h_len;
 #ifdef C2H_ADPT_TXACK_DEBUG
     wf_u16 seqNum;
@@ -1444,15 +1460,41 @@ wf_inline int wf_rx_data_len_check(nic_info_st *pnic_info,wf_u8 *pbuf, wf_u16 sk
     return pkt_len;
 }
 
+#ifdef CONFIG_RICHV300
+wf_inline static wf_bool wf_rxdesc_chksum(wf_u8 *prx_desc)
+{
+    wf_u16 *usPtr = (wf_u16 *) prx_desc;
+    wf_u32 index;
+    wf_u16 checksum;
+    wf_u16 checksum_calc = 0;
+
+    for (index = 0; index < 11; index++)
+        checksum_calc ^= wf_le16_to_cpu(*(usPtr + index));
+
+    checksum = wf_le_bits_to_u32(prx_desc + 20, 16, 16);
+    if(checksum == checksum_calc) {
+        return wf_true;
+    } else {
+        LOG_E("rxd checksum error, not a valid rxd, my checksum: 0x%04x, recv checksum:0x%04x", checksum_calc, checksum);
+        return wf_false;
+    }
+}
+#endif
 
 wf_inline wf_u16 wf_rx_get_pkt_len_and_check_valid(wf_u8 *buf, wf_u16 remain, wf_bool *valid, wf_bool *notice)
 {
     wf_u16 pkt_len;
-
 #ifdef CONFIG_RICHV200
     struct rxd_detail_new *prxd = (struct rxd_detail_new *)buf;
 #else
     struct rxd_detail_org *prxd = (struct rxd_detail_org *)buf;
+#endif
+
+#ifdef CONFIG_RICHV300
+    if(wf_false == wf_rxdesc_chksum(buf)) {
+        *valid = wf_false;
+        return 0;
+    }
 #endif
 
 #ifdef CONFIG_RICHV200

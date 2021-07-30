@@ -3,6 +3,16 @@
 
 #define ODM_RF_PATH_MAX 2
 
+/**/
+#define RTL8188F_MAX_CMD_LEN            7
+#define RTL8188F_EX_MESSAGE_BOX_SIZE    4
+#define MESSAGE_BOX_SIZE                4
+#define MAX_H2C_BOX_NUMS                4
+
+#define REG_HMEBOX_EXT0_8188F           0x01F0
+#define REG_HMEBOX_EXT1_8188F           0x01F4
+#define REG_HMEBOX_EXT2_8188F           0x01F8
+#define REG_HMEBOX_EXT3_8188F           0x01FC
 
 typedef enum _RF_PATH 
 {

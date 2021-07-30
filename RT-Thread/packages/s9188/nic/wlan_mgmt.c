@@ -1,4 +1,19 @@
-
+/*
+ * wlan_mgmt.c
+ *
+ * used for process the IEEE80211 management frame receive from path of rx chain
+ *
+ * Author: luozhi
+ *
+ * Copyright (c) 2020 SmartChip Integrated Circuits(SuZhou ZhongKe) Co.,Ltd
+ *
+ *
+ * This program is free software; you can redistribute  it and/or modify it
+ * under  the terms of  the GNU General  Public License as published by the
+ * Free Software Foundation;  either version 2 of the  License, or (at your
+ * option) any later version.
+ *
+ */
 /* 802.11 bgn managment frame compose and parse */
 #include "common.h"
 #include "wf_debug.h"
@@ -273,11 +288,10 @@ int wlan_mgmt_scan_node_info (nic_info_st *pnic_info,
         if(wf_p2p_is_valid(pnic_info))
         {
             p2p_info_st *p2p_info = pnic_info->p2p;
-            p2p_wd_info_st *pwdinfo = &(p2p_info->wdinfo);
             if (!wf_memcmp(&pmgmt->beacon.variable[2],
-                           pwdinfo->p2p_wildcard_ssid, P2P_WILDCARD_SSID_LEN))
+                           p2p_info->p2p_wildcard_ssid, P2P_WILDCARD_SSID_LEN))
             {
-                NODE_INFO_DBG(" This is a p2p device role = %d", pwdinfo->role);
+                NODE_INFO_DBG(" This is a p2p device role = %d", p2p_info->role);
             }
         }
         else
@@ -326,7 +340,7 @@ int wlan_mgmt_scan_node_info (nic_info_st *pnic_info,
                     pscan_que_node->ssid_type =
                         pie->len == 0 ? WF_80211_HIDDEN_SSID_ZERO_LEN :
                         pie->data[0] == '\0' ? WF_80211_HIDDEN_SSID_ZERO_CONTENTS :
-                                               WF_80211_HIDDEN_SSID_NOT_IN_USE;
+                        WF_80211_HIDDEN_SSID_NOT_IN_USE;
                 }
                 pscan_que_node->ssid.length = pie->len;
                 wf_memcpy(pscan_que_node->ssid.data, pie->data, pie->len);
@@ -373,10 +387,10 @@ int wlan_mgmt_scan_node_info (nic_info_st *pnic_info,
                 wf_memcpy(&pscan_que_node->mcs, pht_cap->mcs_info.rx_mask,
                           sizeof(pscan_que_node->mcs));
                 pscan_que_node->bw_40mhz = (wf_bool)
-                    (!!(pht_cap->cap_info & WF_80211_MGMT_HT_CAP_SUP_WIDTH_20_40));
+                                           (!!(pht_cap->cap_info & WF_80211_MGMT_HT_CAP_SUP_WIDTH_20_40));
                 pscan_que_node->short_gi = (wf_bool)
-                    (!!(pht_cap->cap_info & (WF_80211_MGMT_HT_CAP_SGI_20 |
-                                            WF_80211_MGMT_HT_CAP_SGI_40)));
+                                           (!!(pht_cap->cap_info & (WF_80211_MGMT_HT_CAP_SGI_20 |
+                                                   WF_80211_MGMT_HT_CAP_SGI_40)));
                 break;
 
             case WF_80211_MGMT_EID_VENDOR_SPECIFIC :
@@ -745,7 +759,7 @@ static int frm_msg_send (wf_wlan_mgmt_info_t *pwlan_mgmt_info, wf_msg_tag_t tag,
     rst = wf_msg_new(pmsg_que, tag, &pmsg);
     if (rst)
     {
-        WLAN_MGMT_WARN("msg new fail error code: %d", rst);
+        WLAN_MGMT_DBG("msg new fail error code: %d", rst);
         return -1;
     }
 
@@ -855,7 +869,7 @@ int wf_wlan_mgmt_rx_frame (void *ptr)
                                get_phy_status(ppkt), pmgmt, mgmt_len);
             if (rst)
             {
-                WLAN_MGMT_WARN("scan frame message send fail, error code: %d", rst);
+                WLAN_MGMT_DBG("scan frame message send fail, error code: %d", rst);
                 return -8;
             }
 
@@ -883,20 +897,20 @@ int wf_wlan_mgmt_rx_frame (void *ptr)
                 wf_p2p_proc_probereq(pnic_info, pmgmt, mgmt_len);
             }
 #if defined(CFG_ENABLE_ADHOC_MODE)
-        if (get_sys_work_mode(pnic_info) == WF_ADHOC_MODE)
-        {
-            wf_adhoc_do_probrsp(pnic_info, pmgmt, mgmt_len);
-            break;
-        }
+            if (get_sys_work_mode(pnic_info) == WF_ADHOC_MODE)
+            {
+                wf_adhoc_do_probrsp(pnic_info, pmgmt, mgmt_len);
+                break;
+            }
 #endif
 
 #ifdef CFG_ENABLE_AP_MODE
-        if (get_sys_work_mode(pnic_info) == WF_MASTER_MODE)
-        {
-            wf_ap_probe(pnic_info, pmgmt, mgmt_len);
-        }
+            if (get_sys_work_mode(pnic_info) == WF_MASTER_MODE)
+            {
+                wf_ap_probe(pnic_info, pmgmt, mgmt_len);
+            }
 #endif
-        break;
+            break;
 
         case WF_80211_FRM_PROBE_RESP :
             if (mgmt_len > WF_80211_MGMT_PROBERSP_SIZE_MAX)

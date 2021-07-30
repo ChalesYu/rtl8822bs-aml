@@ -186,9 +186,6 @@ static int android_cmd_set_miracastmode(nic_info_st *pnic_info,char *command,int
 #ifdef CONFIG_WFD
     wf_u8 mode;
     p2p_info_st *p2p_info = pnic_info->p2p;
-    p2p_wd_info_st *pwdinfo = &p2p_info->wdinfo;
-    struct wifi_display_info *pwfd_info = &pwdinfo->wfd_info;
-    
     char *cmd = command + strlen(cmd_handle->cmd_name) + 1;
 
     if(sscanf(cmd, "%hhu", &mode) < 1){
@@ -207,8 +204,8 @@ static int android_cmd_set_miracastmode(nic_info_st *pnic_info,char *command,int
         mode = MIRACAST_DISABLED;
         break;
     }
-    pwfd_info->stack_wfd_mode = mode;
-    AND_INFO("stack miracast mode: %s\n", do_query_miracast_str(pwfd_info->stack_wfd_mode));
+    p2p_info->stack_wfd_mode = mode;
+    AND_INFO("stack miracast mode: %s\n", do_query_miracast_str(p2p_info->stack_wfd_mode));
 #endif
     return bytes_written;
 }
@@ -701,10 +698,10 @@ static int android_cmd_wfd_enable(nic_info_st *pnic_info,char *command,int total
     int bytes_written = 0;
 #ifdef CONFIG_WFD
     p2p_info_st *p2p_info = pnic_info->p2p;
-    p2p_wd_info_st *pwdinfo = &p2p_info->wdinfo;
-    struct wifi_display_info *pwfd_info = &pwdinfo->wfd_info; 
+    struct wifi_display_info *pwfd_info = &p2p_info->wfd_info; 
 
-    if(pwdinfo->driver_interface == DRIVER_CFG80211 && pwfd_info->wfd_enable == wf_false){
+    if(pwfd_info->wfd_enable == wf_false)
+    {
         wfd_enable(pnic_info,wf_true);
     }
 #endif
@@ -718,10 +715,10 @@ static int android_cmd_wfd_disable(nic_info_st *pnic_info,char *command,int tota
     int bytes_written = 0;
 #ifdef CONFIG_WFD
     p2p_info_st *p2p_info = pnic_info->p2p;
-    p2p_wd_info_st *pwdinfo = &p2p_info->wdinfo;
-    struct wifi_display_info *pwfd_info = &pwdinfo->wfd_info; 
+    struct wifi_display_info *pwfd_info = &p2p_info->wfd_info; 
 
-    if(pwdinfo->driver_interface == DRIVER_CFG80211 && pwfd_info->wfd_enable == wf_true){
+    if(pwfd_info->wfd_enable == wf_true)
+    {
         wfd_enable(pnic_info,wf_false);
     }
 #endif
@@ -747,11 +744,7 @@ int parse_command(char *pcmd)
 
 static int android_cmd_set_tcpport(nic_info_st *pnic_info,char *command,int total_len, android_cmd_handle_st *cmd_handle){
 #ifdef CONFIG_WFD
-    p2p_info_st *p2p_info = pnic_info->p2p;
-    p2p_wd_info_st *pwdinfo = &p2p_info->wdinfo;
-
-    if(pwdinfo->driver_interface == DRIVER_CFG80211)
-        wfd_set_ctrl_port(pnic_info, parse_command(command));
+    wfd_set_ctrl_port(pnic_info, parse_command(command));
 #endif
 
     return 0;       
@@ -760,13 +753,11 @@ static int android_cmd_set_tcpport(nic_info_st *pnic_info,char *command,int tota
 static int android_cmd_set_wfd_devtype(nic_info_st *pnic_info,char *command,int total_len, android_cmd_handle_st *cmd_handle){
 #ifdef CONFIG_WFD
     p2p_info_st *p2p_info = pnic_info->p2p;
-    p2p_wd_info_st *pwdinfo = &p2p_info->wdinfo;
-    struct wifi_display_info *pwfd_info = &pwdinfo->wfd_info;
+    struct wifi_display_info *pwfd_info = &p2p_info->wfd_info;
 
-    if(pwdinfo->driver_interface == DRIVER_CFG80211){
-        pwfd_info->wfd_device_type = (wf_u8)parse_command(command);
-        pwfd_info->wfd_device_type &= 0x0003;
-    }
+    pwfd_info->wfd_device_type = (wf_u8)parse_command(command);
+    pwfd_info->wfd_device_type &= 0x0003;
+    
 #endif 
     return 0;
 }
@@ -920,7 +911,11 @@ int wf_android_priv_cmd_ioctl(struct net_device *net, struct ifreq *ifr, int cmd
         return ret;
     }
     AND_INFO("used_len:%d,total_len:%d",priv_cmd.used_len,priv_cmd.total_len);
-    if (!access_ok(VERIFY_READ, priv_cmd.buf, priv_cmd.total_len)) 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 20, 0))
+    if (!access_ok(priv_cmd.buf, priv_cmd.total_len))
+#else    
+    if (!access_ok(VERIFY_READ, priv_cmd.buf, priv_cmd.total_len))
+#endif
     {
         AND_WARN("failed to access memory\n");
         ret = -EFAULT;

@@ -1,3 +1,19 @@
+/*
+ * lpc.c
+ *
+ * used for low power saving
+ *
+ * Author: houchuang
+ *
+ * Copyright (c) 2020 SmartChip Integrated Circuits(SuZhou ZhongKe) Co.,Ltd
+ *
+ *
+ * This program is free software; you can redistribute  it and/or modify it
+ * under  the terms of  the GNU General  Public License as published by the
+ * Free Software Foundation;  either version 2 of the  License, or (at your
+ * option) any later version.
+ *
+ */
 #include "common.h"
 #include "wf_debug.h"
 
@@ -562,31 +578,31 @@ static void lps_fill_fake_txdesc(nic_info_st *pnic_info, wf_u8 *tx_des_start_add
 {
     LPS_DBG();
     wf_memset(tx_des_start_addr, 0, TXDESC_SIZE);
-    SET_TX_DESC_FIRST_SEG_9086X(tx_des_start_addr, 1); // bFirstSeg
-    SET_TX_DESC_LAST_SEG_9086X(tx_des_start_addr, 1);  // bLastSeg
-    SET_TX_DESC_OFFSET_9086X(tx_des_start_addr, 0X28); // Offset = 32
-    SET_TX_DESC_PKT_SIZE_9086X(tx_des_start_addr, pkt_len);  // Buffer size + command header
-    SET_TX_DESC_QUEUE_SEL_9086X(tx_des_start_addr, QSLT_MGNT); // Fixed queue of Mgnt queue
+    wf_set_bits_to_le_u32(tx_des_start_addr, 27, 1, 1); // bFirstSeg
+    wf_set_bits_to_le_u32(tx_des_start_addr, 26, 1, 1);  // bLastSeg
+    wf_set_bits_to_le_u32(tx_des_start_addr, 16, 8, 0X28); // Offset = 32
+    wf_set_bits_to_le_u32(tx_des_start_addr, 0, 16, pkt_len);  // Buffer size + command header
+    wf_set_bits_to_le_u32(tx_des_start_addr+4, 8, 5, QSLT_MGNT); // Fixed queue of Mgnt queue
 
     /* Set NAVUSEHDR to prevent Ps-poll AId filed to be changed to error vlaue by Hw. */
     if (is_ps_poll == wf_true)
     {
-        SET_TX_DESC_NAV_USE_HDR_9086X(tx_des_start_addr, 1);
+        wf_set_bits_to_le_u32(tx_des_start_addr+12, 15, 1, 1);
     }
     else
     {
-        SET_TX_DESC_HWSEQ_EN_9086X(tx_des_start_addr, 1); // Hw set sequence number
-        SET_TX_DESC_HWSEQ_SEL_9086X(tx_des_start_addr, 0);
+        wf_set_bits_to_le_u32(tx_des_start_addr+32, 15, 1, 1); // Hw set sequence number
+        wf_set_bits_to_le_u32(tx_des_start_addr+12, 6, 2, 0);
     }
 
     if (is_bt_qos_null == wf_true)
     {
-        SET_TX_DESC_BT_INT_9086X(tx_des_start_addr, 1);
+        wf_set_bits_to_le_u32(tx_des_start_addr+8, 23, 1, 1);
     }
-    SET_TX_DESC_USE_RATE_9086X(tx_des_start_addr, 1); /* use data rate which is set by Sw */
-    SET_TX_DESC_OWN_9086X(tx_des_start_addr, 1);
+    wf_set_bits_to_le_u32(tx_des_start_addr+12, 8, 1, 1); /* use data rate which is set by Sw */
+    wf_set_bits_to_le_u32(tx_des_start_addr, 31, 1, 1);
 
-    SET_TX_DESC_TX_RATE_9086X(tx_des_start_addr, DESC_RATE1M);
+    wf_set_bits_to_le_u32(tx_des_start_addr+16, 0, 7, DESC_RATE1M);
 
     /* Encrypt the data frame if under security mode excepct null data. Suggested by CCW. */
     if (is_dataframe == wf_true)
@@ -597,25 +613,25 @@ static void lps_fill_fake_txdesc(nic_info_st *pnic_info, wf_u8 *tx_des_start_add
         EncAlg = sec_info->dot11PrivacyAlgrthm;
         switch (EncAlg) {
         case _NO_PRIVACY_:
-            SET_TX_DESC_SEC_TYPE_9086X(tx_des_start_addr, 0x0);
+            wf_set_bits_to_le_u32(tx_des_start_addr+4, 22, 2,  0x0);
             break;
         case _WEP40_:
         case _WEP104_:
         case _TKIP_:
-            SET_TX_DESC_SEC_TYPE_9086X(tx_des_start_addr, 0x1);
+            wf_set_bits_to_le_u32(tx_des_start_addr+4, 22, 2,  0x1);
             break;
         case _SMS4_:
-            SET_TX_DESC_SEC_TYPE_9086X(tx_des_start_addr, 0x2);
+            wf_set_bits_to_le_u32(tx_des_start_addr+4, 22, 2,  0x2);
             break;
         case _AES_:
-            SET_TX_DESC_SEC_TYPE_9086X(tx_des_start_addr, 0x3);
+            wf_set_bits_to_le_u32(tx_des_start_addr+4, 22, 2,  0x3);
             break;
         default:
-            SET_TX_DESC_SEC_TYPE_9086X(tx_des_start_addr, 0x0);
+            wf_set_bits_to_le_u32(tx_des_start_addr+4, 22, 2,  0x0);
             break;
         }
     }
-    
+
 #ifdef CONFIG_RICHV200
     wf_txdesc_chksum(tx_des_start_addr);
 #else
@@ -753,27 +769,6 @@ static wf_s32 lps_resv_page_xmit(nic_info_st * pnic_info, struct xmit_frame *mgn
     return ret;
 }
 
-static wf_s32 lps_set_rsvd_page_h2c_loc(nic_info_st * nic_info, PRSVDPAGE_LOC rsvdpageloc)
-{
-    wf_u8 u1wMBOX1RsvdPageParm[wMBOX1_RSVDPAGE_LOC_LEN] = { 0 };
-    int ret = 0;
-    LPS_DBG();
-
-    SET_wMBOX1CMD_RSVDPAGE_LOC_PROBE_RSP(u1wMBOX1RsvdPageParm, rsvdpageloc->LocProbeRsp);
-    SET_wMBOX1CMD_RSVDPAGE_LOC_PSPOLL(u1wMBOX1RsvdPageParm, rsvdpageloc->LocPsPoll);
-    SET_wMBOX1CMD_RSVDPAGE_LOC_NULL_DATA(u1wMBOX1RsvdPageParm, rsvdpageloc->LocNullData);
-    SET_wMBOX1CMD_RSVDPAGE_LOC_QOS_NULL_DATA(u1wMBOX1RsvdPageParm, rsvdpageloc->LocQosNull);
-    SET_wMBOX1CMD_RSVDPAGE_LOC_BT_QOS_NULL_DATA(u1wMBOX1RsvdPageParm, rsvdpageloc->LocBTQosNull);
-
-#if 0 //CHIP51_DIRECT_ACCESS
-    ret = FillH2CCmd(nic_info,wMBOX1_9086X_RSVD_PAGE,wMBOX1_RSVDPAGE_LOC_LEN,u1wMBOX1RsvdPageParm);
-#else
-    ret = wf_mcu_fill_mbox1_fw(nic_info, wMBOX1_9086X_RSVD_PAGE, u1wMBOX1RsvdPageParm ,wMBOX1_RSVDPAGE_LOC_LEN);
-#endif
-
-    return ret;
-}
-
 static void lps_set_fw_rsvd_page(nic_info_st *pnic_info)
 {
     wf_u8 rsvd_page_num = 0;
@@ -888,7 +883,7 @@ static void lps_set_fw_rsvd_page(nic_info_st *pnic_info)
 
     if (b_connect == wf_true)
     {
-        if (lps_set_rsvd_page_h2c_loc(pnic_info, &rsvd_page_loc) == WF_RETURN_FAIL)
+        if (wf_mcu_set_rsvd_page_h2c_loc(pnic_info, &rsvd_page_loc) == WF_RETURN_FAIL)
         {
             LPS_WARN(" fail: lps_set_rsvd_page_h2c_loc");
         }

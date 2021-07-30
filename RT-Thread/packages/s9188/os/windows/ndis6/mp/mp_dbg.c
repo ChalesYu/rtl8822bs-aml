@@ -48,7 +48,7 @@ wf_u8 wf_dbg_start_ctrl(wf_dbg_info_t *dbg_info)
 
 void wf_dbg_counter_handle(WDFTIMER WdfTimer)
 {
-	KIRQL irq = 0;
+	//KIRQL irq = 0;
 		
 	wf_timer_ctx_t *timer_ctx = wf_get_timer_ctx(WdfTimer);
 	PADAPTER padapter = timer_ctx->padapter;
@@ -57,8 +57,8 @@ void wf_dbg_counter_handle(WDFTIMER WdfTimer)
 	wf_xmit_info_t *xmit_info;
 	wf_usb_info_t *usb_info;
 	nic_info_st *nic_info;
-	wf_u64 tx_cnt;
-	wf_u64 rx_cnt;
+	//wf_u64 tx_cnt;
+	//wf_u64 rx_cnt;
 
 	if(padapter == NULL) {
 		return;

@@ -1,3 +1,19 @@
+/*
+ * hif_queue.h
+ *
+ * used for .....
+ *
+ * Author: luozhi
+ *
+ * Copyright (c) 2020 SmartChip Integrated Circuits(SuZhou ZhongKe) Co.,Ltd
+ *
+ *
+ * This program is free software; you can redistribute  it and/or modify it
+ * under  the terms of  the GNU General  Public License as published by the
+ * Free Software Foundation;  either version 2 of the  License, or (at your
+ * option) any later version.
+ *
+ */
 #ifndef __HIF_QUEUE_H__
 #define __HIF_QUEUE_H__
 
@@ -45,6 +61,12 @@ typedef struct
     wf_u32 addr;
     wf_u8  agg_num;
     wf_u8  pg_num;
+	wf_u8 encrypt_algo;
+	wf_u8 qsel;
+	wf_u16 ether_type;
+	wf_u8 icmp_pkt;
+	wf_u8 hw_queue;
+	wf_u32 fifo_addr;
     union
     {
         struct urb * purb;
@@ -83,7 +105,6 @@ typedef struct trx_queue_st_
     /*hif rx handle*/
     wf_workqueue_mgnt_st rx_wq;
     struct tasklet_struct recv_task;
-
 }data_queue_mngt_st;
 
 int wf_data_queue_mngt_init(void *hif_node);

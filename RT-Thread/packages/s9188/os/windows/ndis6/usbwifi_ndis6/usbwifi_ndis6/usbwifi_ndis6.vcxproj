@@ -201,7 +201,6 @@
     <ClCompile Include="..\..\..\..\..\nic\ars\ars_rainfo.c" />
     <ClCompile Include="..\..\..\..\..\nic\ars\ars_thread.c" />
     <ClCompile Include="..\..\..\..\..\nic\ars\ars_txpower.c" />
-    <ClCompile Include="..\..\..\..\..\nic\ars\odm.c" />
     <ClCompile Include="..\..\..\..\..\nic\assoc.c" />
     <ClCompile Include="..\..\..\..\..\nic\auth.c" />
     <ClCompile Include="..\..\..\..\..\nic\efuse.c" />
@@ -218,7 +217,6 @@
     <ClCompile Include="..\..\..\..\..\nic\p2p\p2p.c" />
     <ClCompile Include="..\..\..\..\..\nic\p2p\p2p_frame_mgt.c" />
     <ClCompile Include="..\..\..\..\..\nic\p2p\p2p_proto_mgt.c" />
-    <ClCompile Include="..\..\..\..\..\nic\p2p\p2p_timer.c" />
     <ClCompile Include="..\..\..\..\..\nic\p2p\p2p_wfd.c" />
     <ClCompile Include="..\..\..\..\..\nic\p2p\p2p_wowlan.c" />
     <ClCompile Include="..\..\..\..\..\nic\rx.c" />
@@ -227,7 +225,6 @@
     <ClCompile Include="..\..\..\..\..\nic\sec_arc4.c" />
     <ClCompile Include="..\..\..\..\..\nic\sec_tkip.c" />
     <ClCompile Include="..\..\..\..\..\nic\sec_wep.c" />
-    <ClCompile Include="..\..\..\..\..\nic\trx.c" />
     <ClCompile Include="..\..\..\..\..\nic\tx.c" />
     <ClCompile Include="..\..\..\..\..\nic\utility\wf_msg.c" />
     <ClCompile Include="..\..\..\..\..\nic\utility\wf_que.c" />

@@ -1,4 +1,19 @@
-
+/*
+ * wf_80211.h
+ *
+ * This file contains all the prototypes for the wf_80211.c file
+ *
+ * Author: luozhi
+ *
+ * Copyright (c) 2020 SmartChip Integrated Circuits(SuZhou ZhongKe) Co.,Ltd
+ *
+ *
+ * This program is free software; you can redistribute  it and/or modify it
+ * under  the terms of  the GNU General  Public License as published by the
+ * Free Software Foundation;  either version 2 of the  License, or (at your
+ * option) any later version.
+ *
+ */
 #ifndef __WF_80211_H__
 #define __WF_80211_H__
 
@@ -1287,20 +1302,20 @@ wf_inline static wf_bool wf_80211_is_mcast_addr (wf_80211_addr_t addr)
 wf_inline static wf_bool wf_80211_is_bcast_addr (wf_80211_addr_t addr)
 {
     return (wf_bool)((addr[0] & addr[1] & addr[2] &
-            addr[3] & addr[4] & addr[5]) == 0xFF);
+                      addr[3] & addr[4] & addr[5]) == 0xFF);
 }
 
 wf_inline static wf_bool wf_80211_is_zero_addr (wf_80211_addr_t addr)
 {
     return (wf_bool)((addr[0] | addr[1] | addr[2] |
-            addr[3] | addr[4] | addr[5]) == 0x00);
+                      addr[3] | addr[4] | addr[5]) == 0x00);
 }
 
 wf_inline static wf_bool wf_80211_is_valid_bssid (wf_80211_bssid_t bssid)
 {
     return (wf_bool)(!wf_80211_is_bcast_addr(bssid) &&
-           !wf_80211_is_zero_addr(bssid) &&
-           !wf_80211_is_mcast_addr(bssid));
+                     !wf_80211_is_zero_addr(bssid) &&
+                     !wf_80211_is_mcast_addr(bssid));
 }
 
 wf_inline static
@@ -1308,14 +1323,6 @@ wf_bool wf_80211_is_same_addr (wf_80211_addr_t addr1, wf_80211_addr_t addr2)
 {
     return (wf_bool)(!wf_memcmp(addr1, addr2, sizeof(wf_80211_addr_t)));
 }
-
-
-enum secondary_ch_offset
-{
-    SCN = 0,
-    SCA = 1,
-    SCB = 3,
-};
 
 
 

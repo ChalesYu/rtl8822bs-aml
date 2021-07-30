@@ -1,3 +1,19 @@
+/*
+ * p2p_proto_mgt.c
+ *
+ * used for .....
+ *
+ * Author: luozhi
+ *
+ * Copyright (c) 2020 SmartChip Integrated Circuits(SuZhou ZhongKe) Co.,Ltd
+ *
+ *
+ * This program is free software; you can redistribute  it and/or modify it
+ * under  the terms of  the GNU General  Public License as published by the
+ * Free Software Foundation;  either version 2 of the  License, or (at your
+ * option) any later version.
+ *
+ */
 #include "common.h"
 #include "wf_debug.h"
 
@@ -12,185 +28,12 @@
 #define P2P_PROTO_INFO(fmt, ...)     LOG_I("P2P_PROTO[%s:%d]"fmt, __func__,__LINE__, ##__VA_ARGS__)
 #define P2P_PROTO_WARN(fmt, ...)     LOG_E("P2P_PROTO[%s:%d]"fmt, __func__,__LINE__, ##__VA_ARGS__)
 
-
-typedef wf_s32 (*proto_handle)(nic_info_st *nic_info);
-typedef struct p2p_proto_ops_st_
-{
-    P2P_PROTO_WK_ID id;
-    proto_handle proto_func;
-}p2p_proto_ops_st;
-
-
-static wf_s32 p2p_proto_proc_concurrent(nic_info_st *nic_info)
-{
-    
-    p2p_info_st *p2p_info = nic_info->p2p;
-    p2p_wd_info_st *pwdinfo = &p2p_info->wdinfo;
-    if(wf_p2p_check_buddy_linkstate(nic_info))
-    {
-        pwdinfo->operating_channel = wf_wlan_get_cur_channel(nic_info->buddy_nic);
-        if (pwdinfo->driver_interface == DRIVER_CFG80211) 
-        {
-            wf_u8 current_bwmode = wf_wlan_get_cur_bw(nic_info->buddy_nic);
-
-             wf_hw_info_set_channnel_bw(nic_info,pwdinfo->operating_channel,current_bwmode,HAL_PRIME_CHNL_OFFSET_DONT_CARE);
-            
-            //if (do_chk_partner_fwstate(pwadptdata, WIFI_FW_STATION_STATE))
-            //    nulldata_to_pre_issue_func(pbuddy_wadptdata, NULL, 0, 3, 500);
-        }
-        else
-        {
-            LOG_I("WEXT for p2p to be doing.");
-        }
-    }
-    else
-    {
-        if(P2P_STATE_GONEGO_OK != pwdinfo->p2p_state)
-        {
-            wf_hw_info_set_channnel_bw(nic_info,pwdinfo->listen_channel,CHANNEL_WIDTH_20,HAL_PRIME_CHNL_OFFSET_DONT_CARE);
-        }
-    }
-    
-    return 0;
-}
-
-
-static wf_s32 p2p_proto_proc_findphase(nic_info_st * nic_info)
-{
-    #if 0
-    p2p_wd_info_st *pwdinfo = &pwadptdata->wdinfo;
-    struct mlme_priv *pmlmepriv = &pwadptdata->mlmepriv;
-    NDIS_802_11_SSID ssid;
-    _irqL irqL;
-    u8 _status = 0;
-
-    _func_enter_;
-
-    if (flag) {
-        memset((unsigned char *)&ssid, 0, sizeof(NDIS_802_11_SSID));
-        Func_Of_Proc_Pre_Memcpy(ssid.Ssid, pwdinfo->p2p_wildcard_ssid,
-                    P2P_WILDCARD_SSID_LEN);
-        ssid.SsidLength = P2P_WILDCARD_SSID_LEN;
-    }
-    wl_p2p_set_state(pwdinfo, P2P_STATE_FIND_PHASE_SEARCH);
-
-    spin_lock_bh(&pmlmepriv->lock);
-    _status = proc_sitesurvey_cmd_func(pwadptdata, &ssid, 1, NULL, 0);
-    spin_unlock_bh(&pmlmepriv->lock);
-
-    _func_exit_;
-    #else
-    //p2p_info_st *p2p_info = nic_info->p2p;
-    //p2p_wd_info_st *pwdinfo = &p2p_info->wdinfo;
-    
-    //wf_scan_start(nic_info,SCAN_TYPE_ACTIVE,NULL,pwdinfo->p2p_wildcard_ssid,1,);
-    #endif
-    return 0;
-}
-
-static wf_s32 p2p_proto_restore_state(nic_info_st *nic_info)
-{
-    p2p_info_st *p2p_info = nic_info->p2p;
-    p2p_wd_info_st *pwdinfo = &p2p_info->wdinfo;
-    
-    if(P2P_STATE_GONEGO_ING == pwdinfo->p2p_state || P2P_STATE_GONEGO_FAIL == pwdinfo->p2p_state)
-    {
-        wf_p2p_set_role(pwdinfo, P2P_ROLE_DEVICE);
-    }
-    if(wf_p2p_check_buddy_linkstate(nic_info))
-    {
-        if(P2P_STATE_TX_PROVISION_DIS_REQ == pwdinfo->p2p_state  || P2P_STATE_RX_PROVISION_DIS_RSP == pwdinfo->p2p_state)
-        {
-            wf_u8 cur_channel = wf_wlan_get_cur_channel(nic_info->buddy_nic);
-            wf_u8 cur_bwmode  = wf_wlan_get_cur_bw(nic_info->buddy_nic);
-            wf_hw_info_set_channnel_bw(nic_info->buddy_nic,cur_channel,cur_bwmode,HAL_PRIME_CHNL_OFFSET_DONT_CARE);
-            //nulldata_to_pre_issue_func(pbuddy_wadptdata, NULL, 0, 3, 500);
-        }
-    }
-    
-    wf_p2p_set_state(pwdinfo, pwdinfo->pre_p2p_state);
-
-    if (P2P_ROLE_DEVICE == pwdinfo->role ) 
-    {
-        if(nic_info->buddy_nic)
-        {
-            p2p_proto_proc_concurrent(nic_info);
-        }
-        else
-        {
-            wf_hw_info_set_channnel_bw(nic_info,pwdinfo->listen_channel,CHANNEL_WIDTH_20,HAL_PRIME_CHNL_OFFSET_DONT_CARE);
-        }
-    }
-    
-    return 0;
-}
-
-
-static wf_s32 p2p_proto_proc_tx_provdisc(nic_info_st *nic_info)
-{
-    
-    p2p_info_st *p2p_info = nic_info->p2p;
-    p2p_wd_info_st *pwdinfo = &p2p_info->wdinfo;
-    
-    if(wf_p2p_check_buddy_linkstate(nic_info))
-    {
-        p2p_proto_proc_concurrent(nic_info);
-    }
-    
-    wf_hw_info_set_channnel_bw(nic_info,pwdinfo->tx_prov_disc_info.peer_channel_num[0],CHANNEL_WIDTH_20,HAL_PRIME_CHNL_OFFSET_DONT_CARE);
-    wf_mcu_set_mlme_scan(nic_info,wf_true);
-    wf_os_api_timer_set(&p2p_info->pre_tx_scan_timer, P2P_TX_PRESCAN_TIMEOUT);
-
-    return 0;
-}
-
-static wf_s32 p2p_proto_proc_tx_invitereq(nic_info_st *nic_info)
-{
-    
-    p2p_info_st *p2p_info = nic_info->p2p;
-    p2p_wd_info_st *pwdinfo = &p2p_info->wdinfo;
-
-    if(wf_p2p_check_buddy_linkstate(nic_info))
-    {
-        p2p_proto_proc_concurrent(nic_info);
-    }
-
-    wf_hw_info_set_channnel_bw(nic_info,pwdinfo->invitereq_info.peer_ch,CHANNEL_WIDTH_20,HAL_PRIME_CHNL_OFFSET_DONT_CARE);
-    wf_mcu_set_mlme_scan(nic_info,wf_true);
-    wf_os_api_timer_set(&p2p_info->pre_tx_scan_timer, P2P_TX_PRESCAN_TIMEOUT);
-    
-
-    return 0;
-}
-
-static wf_s32 p2p_proto_proc_tx_negoreq(nic_info_st *nic_info)
-{
-    
-    p2p_info_st *p2p_info = nic_info->p2p;
-    p2p_wd_info_st *pwdinfo = &p2p_info->wdinfo;
-    
-    if(wf_p2p_check_buddy_linkstate(nic_info))
-    {
-        p2p_proto_proc_concurrent(nic_info);
-    }
-    
-    wf_hw_info_set_channnel_bw(nic_info,pwdinfo->nego_req_info.peer_channel_num[0],CHANNEL_WIDTH_20,HAL_PRIME_CHNL_OFFSET_DONT_CARE);
-    wf_mcu_set_mlme_scan(nic_info,wf_true);
-    //wf_p2p_issue_probereq(pwadptdata, NULL);
-    //wf_p2p_issue_probereq(pwadptdata, pwdinfo->nego_req_info.peerDevAddr);
-    wf_os_api_timer_set(&p2p_info->pre_tx_scan_timer, P2P_TX_PRESCAN_TIMEOUT);
-    
-    return 0;
-}
-
-static wf_s32 p2p_proto_proc_remain_channel(nic_info_st *pnic_info)
+ wf_s32 wf_p2p_proto_proc_remain_channel(nic_info_st *pnic_info)
 {
     wf_u8 ch, bw, offset;
-    p2p_wd_info_st *pwdinfo = NULL;
     p2p_info_st *p2p_info = pnic_info->p2p;
     wf_wlan_mgmt_info_t *pwlan_mgmt_info = NULL;
     wf_wlan_network_t *pcur_network = NULL;
-    pwdinfo = &p2p_info->wdinfo;
 
     P2P_PROTO_DBG("start");
     
@@ -202,9 +45,9 @@ static wf_s32 p2p_proto_proc_remain_channel(nic_info_st *pnic_info)
     
     pcur_network = &pwlan_mgmt_info->cur_network;
     
-    if (p2p_info->p2p_enabled && pwdinfo->listen_channel) 
+    if (p2p_info->p2p_enabled && p2p_info->listen_channel) 
     {
-        ch = pwdinfo->listen_channel;
+        ch = p2p_info->listen_channel;
         bw = CHANNEL_WIDTH_20;
         offset = HAL_PRIME_CHNL_OFFSET_DONT_CARE;
         P2P_PROTO_INFO(" back to listen ch - ch:%u, bw:%u, offset:%u\n",
@@ -212,7 +55,7 @@ static wf_s32 p2p_proto_proc_remain_channel(nic_info_st *pnic_info)
     } 
     else 
     {
-        ch = pwdinfo->restore_channel;
+        ch = p2p_info->restore_channel;
         bw = CHANNEL_WIDTH_20;
         offset = HAL_PRIME_CHNL_OFFSET_DONT_CARE;
         P2P_PROTO_INFO(" back to restore ch - ch:%u, bw:%u, offset:%u\n",
@@ -222,8 +65,8 @@ static wf_s32 p2p_proto_proc_remain_channel(nic_info_st *pnic_info)
     pcur_network->channel = ch;
     wf_hw_info_set_channnel_bw(pnic_info, ch, offset, bw);
 
-    pwdinfo->is_ro_ch = wf_false;
-    pwdinfo->last_ro_ch_time = wf_os_api_timestamp();
+    p2p_info->is_ro_ch = wf_false;
+    p2p_info->last_ro_ch_time = wf_os_api_timestamp();
 #if 1
     if(NULL != p2p_info->scb.remain_on_channel_expired)
     {
@@ -231,70 +74,6 @@ static wf_s32 p2p_proto_proc_remain_channel(nic_info_st *pnic_info)
     }
 #endif
     return 0;
-}
-
-static p2p_proto_ops_st gl_p2p_proto_funs[]=
-{
-    {P2P_FIND_PHASE_WK,p2p_proto_proc_findphase},
-    {P2P_RESTORE_STATE_WK,p2p_proto_restore_state},
-    {P2P_PRE_TX_PROVDISC_PROCESS_WK,p2p_proto_proc_tx_provdisc},
-    {P2P_PRE_TX_NEGOREQ_PROCESS_WK,p2p_proto_proc_tx_negoreq},
-    {P2P_PRE_TX_INVITEREQ_PROCESS_WK,p2p_proto_proc_tx_invitereq},
-    {P2P_AP_P2P_CH_SWITCH_PROCESS_WK,p2p_proto_proc_concurrent},
-    {P2P_RO_CH_WK,p2p_proto_proc_remain_channel}
-};
-
-char *proto_id_to_str(P2P_PROTO_WK_ID proto_id)
-{
-    switch(proto_id)
-    {
-        case P2P_FIND_PHASE_WK:
-            return to_str(P2P_FIND_PHASE_WK);
-        case P2P_RESTORE_STATE_WK:
-            return to_str(P2P_RESTORE_STATE_WK);
-        case P2P_PRE_TX_PROVDISC_PROCESS_WK:
-            return to_str(P2P_PRE_TX_PROVDISC_PROCESS_WK);
-        case P2P_PRE_TX_NEGOREQ_PROCESS_WK:
-            return to_str(P2P_PRE_TX_NEGOREQ_PROCESS_WK);
-        case P2P_PRE_TX_INVITEREQ_PROCESS_WK:
-            return to_str(P2P_PRE_TX_INVITEREQ_PROCESS_WK);
-            
-        case P2P_AP_P2P_CH_SWITCH_PROCESS_WK:
-            return to_str(P2P_AP_P2P_CH_SWITCH_PROCESS_WK);
-        case P2P_RO_CH_WK:
-            return to_str(P2P_RO_CH_WK);
-        default:
-            return "unknown proto_id";
-    }
-}
-wf_s32 wf_p2p_protocol_dispatch_entry(nic_info_st *pnic_info, int proto_id)
-{
-    wf_s32 ret = 0;
-    if(NULL == pnic_info)
-    {
-        return -1;
-    }
-    
-    if(P2P_FIND_PHASE_WK > proto_id || proto_id > P2P_RO_CH_WK)
-    {
-        LOG_W("%s() proto_id:%d",__func__,proto_id);
-    }
-    
-    if(gl_p2p_proto_funs[proto_id].proto_func)
-    {
-        ret = gl_p2p_proto_funs[proto_id].proto_func(pnic_info);
-        if(WF_RETURN_OK != ret)
-        {
-            P2P_PROTO_WARN("%s failed",proto_id_to_str(proto_id));
-        }
-    }
-    else
-    {
-        P2P_PROTO_WARN("no proto func");
-
-    }
-
-    return ret;
 }
 
 wf_s32 p2p_mgnt_nego_tx(nic_info_st *pnic_info, wf_u8 tx_ch, wf_u8 *buf, wf_s32 len)
@@ -393,7 +172,7 @@ wf_s32 wf_p2p_mgnt_nego(nic_info_st *pnic_info,void *param)
     else if(P2P_INVIT_RESP == type)
     {
             p2p_info_st *p2p_info = pnic_info->p2p;
-            wf_widev_invit_info_t *invit_info = &p2p_info->wdinfo.invit_info;
+            wf_widev_invit_info_t *invit_info = &p2p_info->invit_info;
             P2P_PROTO_INFO("P2P_INVIT_RESP");
             if (invit_info->flags & BIT(0) && invit_info->status == 0)
             {
@@ -416,19 +195,18 @@ wf_s32 wf_p2p_mgnt_nego(nic_info_st *pnic_info,void *param)
 wf_s32 wf_p2p_cannel_remain_on_channel(nic_info_st *pnic_info)
 {
     p2p_info_st *p2p_info   = pnic_info->p2p;
-    p2p_wd_info_st *pwdinfo = &p2p_info->wdinfo;
-
-    if (pwdinfo->is_ro_ch == wf_true)
+    if (p2p_info->is_ro_ch == wf_true)
     {
         P2P_PROTO_INFO("cancel ro ch timer\n");
         wf_p2p_msg_timer_stop(pnic_info,WF_P2P_MSG_TAG_TIMER_RO_CH_STOP);
-        wf_p2p_protocol_dispatch_entry(pnic_info, P2P_RO_CH_WK);
+        wf_p2p_proto_proc_remain_channel(pnic_info);
     }
 
-    wf_p2p_set_state(pwdinfo, pwdinfo->pre_p2p_state);
-    P2P_PROTO_INFO("role:%s, state:%s",wf_p2p_role_to_str(pwdinfo->role),wf_p2p_state_to_str(pwdinfo->p2p_state));
-    pwdinfo->is_ro_ch = wf_false;
-    pwdinfo->last_ro_ch_time = wf_os_api_timestamp();
+    wf_p2p_set_state(p2p_info, p2p_info->pre_p2p_state);
+    P2P_PROTO_INFO("role:%s, state:%s",
+        wf_p2p_role_to_str(p2p_info->role),wf_p2p_state_to_str(p2p_info->p2p_state));
+    p2p_info->is_ro_ch = wf_false;
+    p2p_info->last_ro_ch_time = wf_os_api_timestamp();
     
     return 0;
 }
@@ -436,7 +214,6 @@ wf_s32 wf_p2p_cannel_remain_on_channel(nic_info_st *pnic_info)
 wf_s32 wf_p2p_remain_on_channel(nic_info_st *pnic_info)
 {
     p2p_info_st *p2p_info                   = NULL;
-    p2p_wd_info_st *pwdinfo                 = NULL;
     wf_wlan_mgmt_info_t *pwlan_mgmt_info    = NULL;
     wf_wlan_network_t *pcur_network         = NULL;
 
@@ -446,49 +223,48 @@ wf_s32 wf_p2p_remain_on_channel(nic_info_st *pnic_info)
     }
     
     p2p_info                   = pnic_info->p2p;
-    pwdinfo                 = &p2p_info->wdinfo;
     pwlan_mgmt_info = (wf_wlan_mgmt_info_t *)pnic_info->wlan_mgmt_info;
     pcur_network    = &pwlan_mgmt_info->cur_network;
-    P2P_PROTO_DBG(" ch:%u duration:%d\n",pwdinfo->remain_ch, pwdinfo->ro_ch_duration);
-    if (pwdinfo->is_ro_ch == wf_true)
+    P2P_PROTO_DBG(" ch:%u duration:%d\n",p2p_info->remain_ch, p2p_info->ro_ch_duration);
+    if (p2p_info->is_ro_ch == wf_true)
     {
         P2P_PROTO_INFO("cancel ro ch timer\n");
         wf_p2p_msg_timer_stop(pnic_info,WF_P2P_MSG_TAG_TIMER_RO_CH_STOP);
     }
 
-    pwdinfo->is_ro_ch = wf_true;
-    pwdinfo->last_ro_ch_time = wf_os_api_timestamp();
+    p2p_info->is_ro_ch = wf_true;
+    p2p_info->last_ro_ch_time = wf_os_api_timestamp();
 
-    if (pwdinfo->p2p_state == P2P_STATE_NONE)
+    if (p2p_info->p2p_state == P2P_STATE_NONE)
     {
         wf_p2p_enable(pnic_info, P2P_ROLE_DEVICE);
         p2p_info->p2p_enabled = wf_true;
-        pwdinfo->listen_channel = pwdinfo->remain_ch;
+        p2p_info->listen_channel = p2p_info->remain_ch;
     }
-    else if (pwdinfo->p2p_state == P2P_STATE_LISTEN)
+    else if (p2p_info->p2p_state == P2P_STATE_LISTEN)
     {
-        P2P_PROTO_INFO("listen_channel:%d, remain_ch:%d",pwdinfo->listen_channel,pwdinfo->remain_ch);
-        if(pwdinfo->listen_channel != pwdinfo->remain_ch)
+        P2P_PROTO_INFO("listen_channel:%d, remain_ch:%d",p2p_info->listen_channel,p2p_info->remain_ch);
+        if(p2p_info->listen_channel != p2p_info->remain_ch)
         {
-            pwdinfo->listen_channel = pwdinfo->remain_ch;
+            p2p_info->listen_channel = p2p_info->remain_ch;
         }
 
     }
     else
     {
-        wf_p2p_set_pre_state(pwdinfo, pwdinfo->p2p_state);
-        P2P_PROTO_INFO("role=%d, p2p_state=%d\n", pwdinfo->role,pwdinfo->p2p_state);
+        wf_p2p_set_pre_state(p2p_info, p2p_info->p2p_state);
+        P2P_PROTO_INFO("role=%d, p2p_state=%d\n", p2p_info->role,p2p_info->p2p_state);
     }
 
-    wf_p2p_set_state(pwdinfo, P2P_STATE_LISTEN);
-    P2P_PROTO_INFO("role=%d, p2p_state=%d  listen_channel=%d\n", pwdinfo->role,pwdinfo->p2p_state,pwdinfo->listen_channel);
+    wf_p2p_set_state(p2p_info, P2P_STATE_LISTEN);
+    P2P_PROTO_INFO("role=%d, p2p_state=%d  listen_channel=%d\n", p2p_info->role,p2p_info->p2p_state,p2p_info->listen_channel);
 
-    pwdinfo->restore_channel = pcur_network->channel;
-    pcur_network->channel = pwdinfo->remain_ch;
+    p2p_info->restore_channel = pcur_network->channel;
+    pcur_network->channel = p2p_info->remain_ch;
     P2P_PROTO_DBG("current channel:%d",pcur_network->channel);
-    wf_hw_info_set_channnel_bw(pnic_info, pwdinfo->remain_ch, CHANNEL_WIDTH_20, HAL_PRIME_CHNL_OFFSET_DONT_CARE);
+    wf_hw_info_set_channnel_bw(pnic_info, p2p_info->remain_ch, CHANNEL_WIDTH_20, HAL_PRIME_CHNL_OFFSET_DONT_CARE);
 
-    wf_p2p_msg_timer_start(pnic_info,WF_P2P_MSG_TAG_TIMER_RO_CH_START,pwdinfo->ro_ch_duration);
+    wf_p2p_msg_timer_start(pnic_info,WF_P2P_MSG_TAG_TIMER_RO_CH_START,p2p_info->ro_ch_duration);
 
     if(p2p_info->scb.ready_on_channel)
     {

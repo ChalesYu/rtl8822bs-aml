@@ -1,3 +1,19 @@
+/*
+ * wf_config.h
+ *
+ * used for .....
+ *
+ * Author: luozhi
+ *
+ * Copyright (c) 2020 SmartChip Integrated Circuits(SuZhou ZhongKe) Co.,Ltd
+ *
+ *
+ * This program is free software; you can redistribute  it and/or modify it
+ * under  the terms of  the GNU General  Public License as published by the
+ * Free Software Foundation;  either version 2 of the  License, or (at your
+ * option) any later version.
+ *
+ */
 #ifndef __WF_CONFIG_H__
 #define __WF_CONFIG_H__
 
@@ -57,7 +73,7 @@ all gl configuration should be placed there
 #define MP_DRIVER   0
 #endif /* !CONFIG_MP_INCLUDED */
 
-//#define WF_CONFIG_P2P
+#define WF_CONFIG_P2P
 #ifdef WF_CONFIG_P2P
 #define CONFIG_WFD
 #define CONFIG_P2P_OP_CHK_SOCIAL_CH
@@ -72,15 +88,16 @@ all gl configuration should be placed there
 #ifdef __RTTHREAD__
 #define WF_VERSION            "1.0.0"
 #define WIFI_CFG_DIR          "/etc/wifi.cfg"
-#define WIFI_FW_DIR           "/lib/firmware/fw_9188_r1657.bin"
+#define WIFI_FW_DIR           "/lib/firmware/fw_9188_r1703.bin"
 
 //#define CFG_ENABLE_AP_MODE
 #define MCU_CMD_MAILBOX
-//#define CONFIG_ARS_FIRMWARE_SUPPORT
+#define CONFIG_ARS_FIRMWARE_SUPPORT
+//#define CONFIG_ARS_DRIVER_SUPPORT
 // tx frame  number
-#define NR_XMITFRAME           8
-////open tx soft agg
-//#define CONFIG_SOFT_TX_AGGREGATION
+#define NR_XMITFRAME           32
+//open tx soft agg
+#define CONFIG_SOFT_TX_AGGREGATION
 //open rx soft agg
 #define CONFIG_SOFT_RX_AGGREGATION
 

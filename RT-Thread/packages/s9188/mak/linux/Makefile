@@ -18,6 +18,16 @@ else
 MODULE_NAME := s9188
 endif
 endif
+
+ifeq ($(CONFIG_CHIP), richv300)
+ifeq ($(CONFIG_HIF_PORT), usb)
+MODULE_NAME := s9188u
+else ifeq ($(CONFIG_HIF_PORT), sdio)
+MODULE_NAME := s9188s
+else
+MODULE_NAME := s9188
+endif
+endif
 #####################################################
 ifeq ($(CONFIG_DRIVER_VER), null)
 # get svn version
@@ -126,6 +136,8 @@ endif
 
 EXTRA_LDFLAGS += --strip-debug
 
+EXTRA_CFLAGS += -Wno-implicit-fallthrough
+
 ########################## Features ###########################
 
 ifneq ($(KERNELRELEASE),)
@@ -174,7 +186,6 @@ $(MODULE_NAME)-y += os/linux/rx_linux.o
 $(MODULE_NAME)-y += os/linux/tx_linux.o
 $(MODULE_NAME)-y += os/linux/proc.o
 $(MODULE_NAME)-y += nic/p2p/p2p.o
-$(MODULE_NAME)-y += nic/p2p/p2p_timer.o
 $(MODULE_NAME)-y += nic/p2p/p2p_frame_mgt.o
 $(MODULE_NAME)-y += nic/p2p/p2p_proto_mgt.o
 $(MODULE_NAME)-y += nic/p2p/p2p_wfd.o
@@ -207,7 +218,6 @@ $(MODULE_NAME)-y += nic/efuse.o
 $(MODULE_NAME)-y += nic/utility/wf_que.o
 $(MODULE_NAME)-y += nic/utility/wf_msg.o
 $(MODULE_NAME)-y += nic/utility/wf_timer.o
-$(MODULE_NAME)-y += nic/trx.o
 
 ifeq ($(CONFIG_OS_ANDROID), y)
 $(MODULE_NAME)-y += os/android/android_priv_cmd.o
@@ -238,6 +248,13 @@ EXTRA_CFLAGS += -DCONFIG_RICHV200
 EXTRA_CFLAGS += -DCONFIG_FW_ENCRYPT
 endif
 
+ifeq ($(CONFIG_CHIP), richv300)
+$(MODULE_NAME)-y += os/linux/pwr/power_hw_rich200.o
+EXTRA_CFLAGS += -DCONFIG_RICHV300
+EXTRA_CFLAGS += -DCONFIG_RICHV200
+EXTRA_CFLAGS += -DCONFIG_FW_ENCRYPT
+endif
+
 ifeq ($(CONFIG_ARS_SUPPORT), driver)
 $(MODULE_NAME)-y += nic/ars/ars_acs.o
 $(MODULE_NAME)-y += nic/ars/ars_adaptivity.o
@@ -257,8 +274,6 @@ $(MODULE_NAME)-y += nic/ars/ars_powertracking.o
 $(MODULE_NAME)-y += nic/ars/ars_rainfo.o
 $(MODULE_NAME)-y += nic/ars/ars_thread.o
 $(MODULE_NAME)-y += nic/ars/ars_txpower.o
-else ifeq ($(CONFIG_ARS_SUPPORT), firmware)
-$(MODULE_NAME)-y += nic/ars/odm.o
 endif
 
 ifeq ($(CONFIG_CMD_METHOD), mailbox)
@@ -284,6 +299,11 @@ strip:
 install:
 	install -p -m 644 $(MODULE_NAME).ko  $(MODDESTDIR)
 	/sbin/depmod -a ${KVER}
+
+modules_install:
+	@$(MAKE) INSTALL_MOD_STRIP=1 M=$(WDRV_DIR) -C $(KSRC) modules_install
+	mkdir -p ${OUT_DIR}/../vendor_lib/modules
+	cd ${OUT_DIR}/$(WDRV_DIR)/; find -name $(MODULE_NAME).ko -exec cp {} ${OUT_DIR}/../vendor_lib/modules/$(MODULE_NAME).ko \;
 
 uninstall:
 	rm -f $(MODDESTDIR)/$(MODULE_NAME).ko

@@ -4,13 +4,14 @@
 #if 0
 #define ARS_THD_DBG(fmt, ...)      LOG_D("ARS_THD[%s,%d]"fmt, __func__, __LINE__,##__VA_ARGS__)
 #define ARS_THD_PRT(fmt, ...)      LOG_D("ARS_THD-"fmt,##__VA_ARGS__)
+#define ARS_THD_INFO(fmt, ...)      LOG_I("ARS_THD-"fmt,##__VA_ARGS__)
 
 #else
 #define ARS_THD_DBG(fmt, ...)
 #define ARS_THD_PRT(fmt, ...)
+#define ARS_THD_INFO(fmt, ...)
 #endif
 
-#define ARS_THD_INFO(fmt, ...)      LOG_I("ARS_THD-"fmt,##__VA_ARGS__)
 #define ARS_THD_ERR(fmt, ...)      LOG_E("ARS_THD-"fmt,##__VA_ARGS__)
 
 
@@ -57,10 +58,21 @@ wf_s32 odm_CommonInfoSelfUpdate(ars_st *pars)
 
 wf_s32 phydm_BasicDbgMessage(ars_st *pars)
 {
-    PFALSE_ALARM_STATISTICS FalseAlmCnt = &pars->FalseAlmCnt;
-    ars_dig_info_st *dig = &pars->dig;
-    wf_u8   legacy_table[12] = {1, 2, 5, 11, 6, 9, 12, 18, 24, 36, 48, 54};
-    wf_u8   vht_en = ((pars->RxRate) >= ODM_RATEVHTSS1MCS0) ? 1 : 0;
+    PFALSE_ALARM_STATISTICS FalseAlmCnt = NULL;
+    ars_dig_info_st *dig = NULL;
+    wf_u8   legacy_table_value[12] = {1, 2, 5, 11, 6, 9, 12, 18, 24, 36, 48, 54};
+    wf_u8   *legacy_table = NULL;
+    wf_u8   vht_en = 0;
+
+    if(NULL == pars )
+    {
+        return -1;
+    }
+    
+    FalseAlmCnt = &pars->FalseAlmCnt;
+    dig = &pars->dig;
+    legacy_table = legacy_table_value;
+	vht_en = ((pars->RxRate) >= ODM_RATEVHTSS1MCS0) ? 1 : 0;
     if (pars->RxRate <= ODM_RATE11M) 
     {
         ARS_THD_INFO("[CCK AGC Report] LNA_idx = %d, VGA_idx = %d",pars->cck_lna_idx, pars->cck_vga_idx);        

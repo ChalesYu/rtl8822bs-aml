@@ -1,4 +1,19 @@
-
+/*
+ * ap.c
+ *
+ * impliment IEEE80211 management frame logic of ap role
+ *
+ * Author: luozhi
+ *
+ * Copyright (c) 2020 SmartChip Integrated Circuits(SuZhou ZhongKe) Co.,Ltd
+ *
+ *
+ * This program is free software; you can redistribute  it and/or modify it
+ * under  the terms of  the GNU General  Public License as published by the
+ * Free Software Foundation;  either version 2 of the  License, or (at your
+ * option) any later version.
+ *
+ */
 #include "common.h"
 #include "wf_debug.h"
 
@@ -468,7 +483,7 @@ static wf_inline int new_boradcast_wdn (nic_info_st *pnic_info)
     pwdn_info->qos_option = 0;
     pwdn_info->state = E_WDN_AP_STATE_8021X_UNBLOCK;
     pwdn_info->ieee8021x_blocked = wf_true;
-
+    pwdn_info->network_type = WIRELESS_11B;
     pwdn_info->mode = WF_MASTER_MODE;
 
     /* notify connection establish */
@@ -884,9 +899,8 @@ int wf_ap_set_beacon (nic_info_st *pnic_info, wf_u8 *pbuf, wf_u32 len, wf_u8 fra
                 if(wf_p2p_is_valid(pnic_info))
                 {
                     p2p_info_st *p2p_info = pnic_info->p2p;
-                    p2p_wd_info_st *pwdinfo = &p2p_info->wdinfo;
-                    wf_memcpy(pwdinfo->p2p_group_ssid, pcur_network->ssid.data, pcur_network->ssid.length);
-                    pwdinfo->p2p_group_ssid_len = pcur_network->ssid.length;
+                    wf_memcpy(p2p_info->p2p_group_ssid, pcur_network->ssid.data, pcur_network->ssid.length);
+                    p2p_info->p2p_group_ssid_len = pcur_network->ssid.length;
                 }
                 break;
 
@@ -914,7 +928,7 @@ int wf_ap_set_beacon (nic_info_st *pnic_info, wf_u8 *pbuf, wf_u32 len, wf_u8 fra
                 {
                     pcur_network->channel = pie->data[0];
                 }
-                
+
                 AP_DBG("channel: %d", pcur_network->channel);
                 break;
 

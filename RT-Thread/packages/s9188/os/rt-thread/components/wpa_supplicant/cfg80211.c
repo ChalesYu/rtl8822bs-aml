@@ -137,10 +137,9 @@ int wf_rt_sta_set_encryption(nic_info_st *pnic_info,
                 if(wf_p2p_is_valid(pnic_info))
                 {
                     p2p_info_st *p2p_info = pnic_info->p2p;
-                    p2p_wd_info_st *pwdinfo = &p2p_info->wdinfo;
-                    if (pwdinfo->p2p_state == P2P_STATE_PROVISIONING_ING)
+                    if (p2p_info->p2p_state == P2P_STATE_PROVISIONING_ING)
                     {
-                        wf_p2p_set_state(pwdinfo,P2P_STATE_PROVISIONING_DONE);
+                        wf_p2p_set_state(p2p_info,P2P_STATE_PROVISIONING_DONE);
                     }
                 }
 

@@ -2,6 +2,7 @@
 #define __ARS_TIMER_H__
 
 #define ARS_TIMESTATP (2000) //ms
+#define ODM_NAME_LEN    (32)
 
 
 typedef struct ars_thread_info_st_

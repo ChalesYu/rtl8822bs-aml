@@ -71,10 +71,63 @@ wf_u32 wf_os_api_rand32(void)
 
 void wf_os_api_ind_disconnect(void *arg, wf_u8 arg1)
 {
-	//UNREFERENCED_PARAMETER(arg1);
 	nic_info_st *pnic_info = (nic_info_st *)arg;
-	PADAPTER pAdapter = (PADAPTER) pnic_info->hif_node;
-	wf_submit_disassoc_complete(pAdapter, DOT11_DISASSOC_REASON_OS);
+	PADAPTER padapter = (PADAPTER) pnic_info->hif_node;
+	wf_mib_info_t *mib_info;
+	ULONG reason_code, status_code;
+	PNDIS_OID_REQUEST   request;
+
+	UNREFERENCED_PARAMETER(arg1);
+
+	if(pnic_info == NULL || pnic_info->hif_node == NULL) {
+		LOG_E("nic or padapter is NULL");
+		return;
+	}
+
+	padapter = pnic_info->hif_node;
+
+	if(padapter->mib_info == NULL) {
+		LOG_E("mib is NULL");
+		return;
+	}
+	
+	mib_info = padapter->mib_info;
+	//connect state is false, means the assoc complete is not submit
+	if(mib_info->connect_state == FALSE) {
+		if(padapter->PendedRequest != NULL){
+			request = padapter->PendedRequest;
+			if(request->RequestType == NdisRequestSetInformation &&
+				request->DATA.SET_INFORMATION.Oid == OID_DOT11_CONNECT_REQUEST) {
+				status_code = WF_MLME_INFO_STATUS_CODE(pnic_info);
+				wf_save_assoc_ssid(padapter, FALSE);
+				wf_submit_assoc_complete(padapter, DOT11_ASSOC_STATUS_FAILURE);
+				//DOT11_CONNECTION_STATUS_SUCCESS
+				wf_submit_connect_complete(padapter, DOT11_CONNECTION_STATUS_FAILURE);
+				Mp11CompletePendedRequest(padapter, NDIS_STATUS_SUCCESS);
+			}
+		}
+	} else {
+		reason_code = WF_MLME_INFO_REASON_CODE(pnic_info);
+
+		switch(reason_code) {
+		case WF_80211_REASON_4WAY_HANDSHAKE_TIMEOUT:
+		case WF_80211_REASON_MIC_FAILURE:
+		case WF_80211_REASON_GROUP_KEY_HANDSHAKE_TIMEOUT:
+		case WF_80211_REASON_INVALID_GROUP_CIPHER:
+		case WF_80211_REASON_INVALID_PAIRWISE_CIPHER:
+		case WF_80211_REASON_IEEE8021X_FAILED:
+		case WF_80211_REASON_CIPHER_SUITE_REJECTED:
+			reason_code |= DOT11_ASSOC_STATUS_PEER_DEAUTHENTICATED;
+			break;
+		case WF_80211_REASON_DISASSOC_DUE_TO_INACTIVITY:
+			reason_code |= DOT11_ASSOC_STATUS_PEER_DISASSOCIATED;
+			break;
+		}
+		
+		wf_submit_disassoc_complete(padapter, reason_code);
+		mib_info->connect_state = FALSE;
+		KeSetEvent(&mib_info->halt_deauth_finish, 0, FALSE);
+	}
 
 	return;
 }
@@ -112,7 +165,7 @@ void wf_os_api_ind_scan_done(void *arg,wf_bool arg1, wf_u8 arg2)
 {
 	nic_info_st *pnic_info = arg;
 	PADAPTER padapter = pnic_info->hif_node;
-	wf_mib_info_t *mib_info = padapter->mib_info;
+	//wf_mib_info_t *mib_info = padapter->mib_info;
 
 	UNREFERENCED_PARAMETER(arg1);
 	UNREFERENCED_PARAMETER(arg2);
@@ -124,8 +177,23 @@ void wf_os_api_ind_scan_done(void *arg,wf_bool arg1, wf_u8 arg2)
 void wf_os_api_ind_connect(void *arg, wf_u8 arg1)
 {
 	nic_info_st *pnic_info = arg;
-	PADAPTER padapter = pnic_info->hif_node;
+	PADAPTER padapter = NULL;
 	wdn_net_info_st *pwdn_info;
+	wf_mib_info_t *mib_info = NULL;
+
+	if(pnic_info == NULL || pnic_info->hif_node == NULL) {
+		LOG_E("nic or padapter is NULL");
+		return;
+	}
+
+	padapter = pnic_info->hif_node;
+
+	if(padapter->mib_info == NULL) {
+		LOG_E("mib is NULL");
+		return;
+	}
+	
+	mib_info = padapter->mib_info;
 
 	UNREFERENCED_PARAMETER(arg1);
 	LOG_D("Indicate connection seccuss.");
@@ -133,8 +201,19 @@ void wf_os_api_ind_connect(void *arg, wf_u8 arg1)
 		wf_submit_assoc_complete(padapter, DOT11_ASSOC_STATUS_SUCCESS);
 		wf_submit_connect_complete(padapter, DOT11_CONNECTION_STATUS_SUCCESS);
 		Mp11CompletePendedRequest(padapter, NDIS_STATUS_SUCCESS);
+
+		mib_info->connect_state = TRUE;
+
+		pwdn_info = wf_wdn_find_info(pnic_info, wf_wlan_get_cur_bssid(pnic_info));
+		if(pwdn_info != NULL) {
+			wf_submit_link_qual(padapter);
+			wf_submit_link_speed(padapter, wf_get_speed_by_raid(pwdn_info->raid));
+		} else {
+			LOG_E("pwdn is NULL");
+		}
 	}
 }
+
 #ifdef CFG_ENABLE_AP_MODE
 void wf_os_api_ap_ind_assoc(void *arg, void *arg1, void *arg2)
 {

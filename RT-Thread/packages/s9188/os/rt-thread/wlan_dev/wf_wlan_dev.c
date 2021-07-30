@@ -165,15 +165,13 @@ static rt_err_t wf_wlan_init(struct rt_wlan_device *wlan)
     if(wlan_priv->nic->nic_num == 0)
     {
       memcpy(wlan_priv->hw_addr, hw_info->macAddr, WF_ETH_ALEN);
-      //wf_mcu_hw_var_set_macaddr(ndev_priv->nic,ndev->dev_addr);
     }
     else if(wlan_priv->nic->nic_num == 1)
     {
       hw_info->macAddr[0] = hw_info->macAddr[0] + 0x2;
       memcpy(wlan_priv->hw_addr, hw_info->macAddr, WF_ETH_ALEN);
-      //wf_mcu_hw_var_set_macaddr(ndev_priv->nic,ndev->dev_addr);
     }
-    wf_mcu_hw_var_set_macaddr(wlan_priv->nic,wlan_priv->hw_addr);
+     wf_mcu_set_macaddr(wlan_priv->nic,wlan_priv->hw_addr);
   } 
   
   return RT_EOK;

@@ -1,4 +1,19 @@
-
+/*
+ * wf_os_api.h
+ *
+ * used for .....
+ *
+ * Author: luozhi
+ *
+ * Copyright (c) 2020 SmartChip Integrated Circuits(SuZhou ZhongKe) Co.,Ltd
+ *
+ *
+ * This program is free software; you can redistribute  it and/or modify it
+ * under  the terms of  the GNU General  Public License as published by the
+ * Free Software Foundation;  either version 2 of the  License, or (at your
+ * option) any later version.
+ *
+ */
 #ifndef __WF_OS_API_H__
 #define __WF_OS_API_H__
 
@@ -68,6 +83,9 @@
 
 #include <netif/ethernetif.h>
 #include <lwip/netifapi.h>
+
+#elif defined ( __RTOS__ )
+#include "os_utility.h"
 #endif
 
 #include "os_priv.h"

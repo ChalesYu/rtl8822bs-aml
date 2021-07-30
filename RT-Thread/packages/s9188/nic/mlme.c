@@ -1,4 +1,19 @@
-
+/*
+ * mlme.c
+ *
+ * used for impliment MLME(MAC sublayer management entity) logic
+ *
+ * Author: luozhi
+ *
+ * Copyright (c) 2020 SmartChip Integrated Circuits(SuZhou ZhongKe) Co.,Ltd
+ *
+ *
+ * This program is free software; you can redistribute  it and/or modify it
+ * under  the terms of  the GNU General  Public License as published by the
+ * Free Software Foundation;  either version 2 of the  License, or (at your
+ * option) any later version.
+ *
+ */
 #include "common.h"
 #include "wf_debug.h"
 
@@ -100,7 +115,6 @@ int hw_cfg (nic_info_st *pnic_info, wdn_net_info_st *wdn_info)
     get_bratecfg_by_support_dates(wdn_info->datarate, wdn_info->datarate_len, &basic_dr_cfg);
     get_bratecfg_by_support_dates(wdn_info->ext_datarate, wdn_info->ext_datarate_len, &basic_dr_cfg);
     ret |= wf_mcu_set_basic_rate(pnic_info,  basic_dr_cfg);
-    ret |= wf_mcu_msg_body_set_ability(pnic_info, ODM_FUNC_CLR, ODM_BB_DYNAMIC_TXPWR);
 
     return ret;
 }
@@ -184,10 +198,14 @@ wf_pt_rst_t core_scan_thrd (wf_pt_t *pt, nic_info_st *pnic_info,
         PT_YIELD(pt);
     }
 
-    /* notify system scan result */
-    MLME_DBG("report scan result");
-    wf_os_api_ind_scan_done(pnic_info, *prsn == WF_SCAN_TAG_ABORT,
-                            preq->framework);
+    if (pnic_info->is_up)
+    {
+        /* notify system scan result */
+        MLME_DBG("report scan result");
+        wf_os_api_ind_scan_done(pnic_info, *prsn == WF_SCAN_TAG_ABORT,
+                                preq->framework);
+    }
+
     *prsn = 0;
 
     PT_END(pt);
@@ -270,10 +288,10 @@ wf_pt_rst_t core_conn_scan_thrd (wf_pt_t *pt, nic_info_st *pnic_info,
     wf_msg_que_t *pmsg_que = &pmlme_info->msg_que;
     wf_msg_t *pmsg = NULL;
     int rst;
-	mlme_conn_abort_t *pconn_abort;
-	mlme_conn_t *pconn;
-	wf_80211_mgmt_t *pmgmt;
-	wf_u16 mgmt_len;
+    mlme_conn_abort_t *pconn_abort;
+    mlme_conn_t *pconn;
+    wf_80211_mgmt_t *pmgmt;
+    wf_u16 mgmt_len;
 
     PT_BEGIN(pt);
 
@@ -374,8 +392,8 @@ wf_pt_rst_t core_conn_auth_thrd (wf_pt_t *pt, nic_info_st *pnic_info, int *prsn)
     wf_msg_que_t *pmsg_que = &pmlme_info->msg_que;
     wf_msg_t *pmsg = NULL;
     int rst;
-	mlme_conn_abort_t *pconn_abort;
-	mlme_conn_t *pconn;
+    mlme_conn_abort_t *pconn_abort;
+    mlme_conn_t *pconn;
 
     PT_BEGIN(pt);
 
@@ -432,8 +450,8 @@ wf_pt_rst_t core_conn_assoc_thrd (wf_pt_t *pt, nic_info_st *pnic_info, int *prsn
     wf_msg_que_t *pmsg_que = &pmlme_info->msg_que;
     wf_msg_t *pmsg = NULL;
     int rst;
-	mlme_conn_abort_t *pconn_abort;
-	mlme_conn_t *pconn;
+    mlme_conn_abort_t *pconn_abort;
+    mlme_conn_t *pconn;
 
     PT_BEGIN(pt);
 
@@ -506,12 +524,12 @@ int core_conn_preconnect (nic_info_st *pnic_info)
                                    pwdn_info->bw_mode,
                                    pwdn_info->channle_offset))
     {
-        MLME_WARN("UMSG_OPS_HAL_CHNLBW_MODE failed");
+        MLME_WARN("wf_hw_info_set_channnel_bw failed");
         return -1;
     }
-    if (wf_mcu_wdn_update(pnic_info, pwdn_info))
+    if (wf_mcu_rate_table_update(pnic_info, pwdn_info))
     {
-        MLME_WARN("ODM Update Failed");
+        MLME_WARN("wf_mcu_rate_table_update Failed");
         return -2;
     }
 
@@ -596,9 +614,12 @@ wf_pt_rst_t core_conn_maintain_scan_thrd (wf_pt_t *pt, nic_info_st *pnic_info,
         PT_YIELD(pt);
     }
 
-    /* notify system scan result */
-    wf_os_api_ind_scan_done(pnic_info, rst == WF_SCAN_TAG_ABORT,
-                            preq->framework);
+    if (pnic_info->is_up)
+    {
+        /* notify system scan result */
+        wf_os_api_ind_scan_done(pnic_info, rst == WF_SCAN_TAG_ABORT,
+                                preq->framework);
+    }
 
     if (rst != WF_SCAN_TAG_DONE)
     {
@@ -809,8 +830,8 @@ wf_pt_rst_t core_conn_maintain_msg_thrd (wf_pt_t *pt, nic_info_st *pnic_info)
     wf_msg_que_t *pmsg_que = &pmlme_info->msg_que;
     wf_msg_t *pmsg;
     int reason;
-	mlme_conn_abort_t *pconn_abort;
-	mlme_conn_t *pconn;
+    mlme_conn_abort_t *pconn_abort;
+    mlme_conn_t *pconn;
 #ifdef CONFIG_LPS
     mlme_lps_t *param;
 #endif
@@ -1266,6 +1287,9 @@ static wf_pt_rst_t mlme_core_thrd (nic_info_st *pnic_info)
         }
 
         mlme_set_state(pnic_info, MLME_STATE_CONN_SCAN);
+        /* init status code and reason code */
+        WF_MLME_INFO_STATUS_CODE(pnic_info) = WF_80211_STATUS_UNSPECIFIED_FAILURE;
+        WF_MLME_INFO_REASON_CODE(pnic_info) = WF_80211_REASON_UNSPECIFIED;
         /* retrive message information */
         pmlme_info->pconn_msg = pmsg;
         /* launch probe request to find target bss */
@@ -1766,7 +1790,7 @@ int wf_mlme_conn_abort (nic_info_st *pnic_info, wf_bool en_disconn_ind)
     {
         mlme_conn_abort_t value =
         {
-           en_disconn_ind
+            en_disconn_ind
         };
         rst = mlme_msg_send(pnic_info, WF_MLME_TAG_CONN_ABORT,
                             &value, sizeof(mlme_conn_abort_t));
@@ -1903,7 +1927,6 @@ int wf_mlme_add_ba_rsp (nic_info_st *pnic_info, wf_add_ba_parm_st *barsp_parm)
 static int mlme_set_state (nic_info_st *pnic_info, mlme_state_e state)
 {
     mlme_info_t *pmlme_info;
-    wf_irq irq;
 
     if (pnic_info == NULL)
     {
@@ -1916,9 +1939,9 @@ static int mlme_set_state (nic_info_st *pnic_info, mlme_state_e state)
         return -2;
     }
 
-    wf_lock_irq_lock(&pmlme_info->state_lock, &irq);
+    wf_lock_lock(&pmlme_info->state_lock);
     pmlme_info->state = state;
-    wf_lock_irq_unlock(&pmlme_info->state_lock, &irq);
+    wf_lock_unlock(&pmlme_info->state_lock);
 
     return 0;
 }
@@ -1926,7 +1949,6 @@ static int mlme_set_state (nic_info_st *pnic_info, mlme_state_e state)
 int wf_mlme_get_state (nic_info_st *pnic_info, mlme_state_e *state)
 {
     mlme_info_t *pmlme_info;
-    wf_irq irq;
 
     if (pnic_info == NULL)
     {
@@ -1939,9 +1961,9 @@ int wf_mlme_get_state (nic_info_st *pnic_info, mlme_state_e *state)
         return -2;
     }
 
-    wf_lock_irq_lock(&pmlme_info->state_lock, &irq);
+    wf_lock_lock(&pmlme_info->state_lock);
     *state = pmlme_info->state;
-    wf_lock_irq_unlock(&pmlme_info->state_lock, &irq);
+    wf_lock_unlock(&pmlme_info->state_lock);
 
     return 0;
 }
@@ -1960,9 +1982,9 @@ int wf_mlme_set_connect (nic_info_st *pnic_info, wf_bool bconnect)
     {
         return -2;
     }
-    wf_lock_spin_lock(&pmlme_info->connect_lock);
+    wf_lock_lock(&pmlme_info->connect_lock);
     pmlme_info->connect = bconnect;
-    wf_lock_spin_unlock(&pmlme_info->connect_lock);
+    wf_lock_unlock(&pmlme_info->connect_lock);
 
     return 0;
 }
@@ -1982,9 +2004,9 @@ int wf_mlme_get_connect (nic_info_st *pnic_info, wf_bool *bconnect)
         return -2;
     }
 
-    wf_lock_spin_lock(&pmlme_info->connect_lock);
+    wf_lock_lock(&pmlme_info->connect_lock);
     *bconnect = pmlme_info->connect;
-    wf_lock_spin_unlock(&pmlme_info->connect_lock);
+    wf_lock_unlock(&pmlme_info->connect_lock);
 
     return 0;
 }
@@ -2130,9 +2152,8 @@ int wf_mlme_init (nic_info_st *pnic_info)
     }
     pnic_info->mlme_info = pmlme_info;
     pmlme_info->parent = pnic_info;
-
-    wf_lock_spin_init(&pmlme_info->state_lock);
-    wf_lock_spin_init(&pmlme_info->connect_lock);
+    wf_lock_init(&pmlme_info->state_lock, WF_LOCK_TYPE_IRQ);
+    wf_lock_init(&pmlme_info->connect_lock, WF_LOCK_TYPE_SPIN);
     wf_mlme_set_connect(pnic_info, wf_false);
     pmlme_info->babort_thrd = wf_false;
     mlme_set_state(pnic_info, MLME_STATE_IDLE);
@@ -2183,8 +2204,8 @@ int wf_mlme_term (nic_info_st *pnic_info)
     mlme_msg_deinit(&pmlme_info->msg_que);
 
     MLME_DBG("del lock");
-    wf_lock_spin_free(&pmlme_info->state_lock);
-    wf_lock_spin_free(&pmlme_info->connect_lock);
+    wf_lock_term(&pmlme_info->state_lock);
+    wf_lock_term(&pmlme_info->connect_lock);
 
     MLME_DBG("free pmlme_info");
     wf_kfree(pmlme_info);

@@ -832,7 +832,7 @@ wf_s32 ars_term(nic_info_st *pnic_info)
     }
     
     ars_thread_end(pars); 
-    
+    wf_os_api_set_ars(pnic_info,NULL);
     wf_kfree(pars);
     pars = NULL;
 

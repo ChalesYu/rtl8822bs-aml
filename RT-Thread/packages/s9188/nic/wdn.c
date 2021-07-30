@@ -1,4 +1,19 @@
-
+/*
+ * wdn.c
+ *
+ * impliment WDN(wireless device node) management
+ *
+ * Author: luozhi
+ *
+ * Copyright (c) 2020 SmartChip Integrated Circuits(SuZhou ZhongKe) Co.,Ltd
+ *
+ *
+ * This program is free software; you can redistribute  it and/or modify it
+ * under  the terms of  the GNU General  Public License as published by the
+ * Free Software Foundation;  either version 2 of the  License, or (at your
+ * option) any later version.
+ *
+ */
 #include "common.h"
 #include "wf_debug.h"
 
@@ -106,11 +121,6 @@ void get_bratecfg_by_support_dates(wf_u8 *pdataRate, wf_u8 dataRate_len, wf_u16 
     }
 }
 
-static const wf_u8 _graid_table[] =
-{
-    0, 5, 0, 4,0,3,2,1,0
-};
-
 wf_u8 wf_wdn_get_raid_by_network_type (wdn_net_info_st *pwdn_info)
 {
     wf_u8 raid = RATEID_IDX_BGN_40M_1SS;
@@ -165,12 +175,7 @@ wf_u8 wf_wdn_get_raid_by_network_type (wdn_net_info_st *pwdn_info)
 
     }
 
-#ifdef CONFIG_RICHV200
-    return _graid_table[raid];
-#else
     return raid;
-#endif
-
 }
 
 wdn_net_info_st *wf_wdn_find_info (nic_info_st *pnic_info, wf_u8 *pmac)

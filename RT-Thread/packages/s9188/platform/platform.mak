@@ -79,7 +79,7 @@ EXTRA_CFLAGS += -DCONFIG_LITTLE_ENDIAN -DCONFIG_PLATFORM_IPC
 ARCH := arm
 #CROSS_COMPILE ?= /home/hichard/renhaibo/gk720x/GK720X_LinuxSDK_v1.0.0/opt/goke/toolchain/uClibc_gcc4.8.5/arm-gk720x-linux/bin/arm-gk720x-linux-uclibcgnueabi-
 #KSRC ?=/home/hichard/renhaibo/gk720x/GK720X_LinuxSDK_v1.0.0/linux/kernel/3.4.43
-CROSS_COMPILE := arm-gk720x-linux-uclibcgnueabi-
+CROSS_COMPILE ?= arm-gk720x-linux-uclibcgnueabi-
 KSRC ?= /home/syt/share/GK720X_LinuxSDK_v1.0.0/linux/kernel/3.4.43
 #KSRC ?= /home/hichard/renhaibo/002.gk7202/GK720X_LinuxSDK_v1.0.0/linux/kernel/3.4.43
 endif
@@ -99,7 +99,7 @@ EXTRA_CFLAGS += -DCONFIG_LITTLE_ENDIAN
 EXTRA_CFLAGS += -DCONFIG_4412
 ARCH := arm
 KVER  := 3.0.86
-CROSS_COMPILE :=/opt/FriendlyARM/toolschain/4.5.1/bin/arm-linux-
+CROSS_COMPILE ?=/opt/FriendlyARM/toolschain/4.5.1/bin/arm-linux-
 KSRC ?= /home/syt/share/4412/linux/linux-3.0.86
 #KSRC ?= /home/hichard/renhaibo/001.smart210/linux-3.0.86
 endif

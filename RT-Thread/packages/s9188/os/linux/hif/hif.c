@@ -1,3 +1,19 @@
+/*
+ * hif.c
+ *
+ * used for .....
+ *
+ * Author: luozhi
+ *
+ * Copyright (c) 2020 SmartChip Integrated Circuits(SuZhou ZhongKe) Co.,Ltd
+ *
+ *
+ * This program is free software; you can redistribute  it and/or modify it
+ * under  the terms of  the GNU General  Public License as published by the
+ * Free Software Foundation;  either version 2 of the  License, or (at your
+ * option) any later version.
+ *
+ */
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
@@ -265,6 +281,15 @@ hif_mngent_st *hif_mngent_get(void)
     return gl_hif;
 }
 
+static void dump_kernel_version(void)
+{
+    int a = LINUX_VERSION_CODE>>16;
+    int c = (0x0000ffff & LINUX_VERSION_CODE)>>8;
+    int e = 0x000000ff & LINUX_VERSION_CODE;
+    
+    LOG_I("Kernel_version: %d.%d.%d",a,c,e);
+}
+
 static int __init hif_init(void)
 {
     int i;
@@ -280,6 +305,7 @@ static int __init hif_init(void)
 #else
     LOG_I("Driver Ver:%s", WF_VERSION);
 #endif
+    dump_kernel_version();
 #ifdef MEMDBG_ENABLE
     if(memdbg_init()<0)
     {
@@ -1231,7 +1257,7 @@ int hif_write_cmd(void *node, wf_u32 cmd, wf_u32 *send_buf, wf_u32 send_len, wf_
 {
     int ret = 0;
     wf_u8  u8Value;
-    wf_u16 u16Value;
+//    wf_u16 u16Value;
     wf_u8 *ptx_desc;
     wf_u8 *prx_desc;
     wf_u16 snd_pktLen = 0;
@@ -1275,7 +1301,7 @@ int hif_write_cmd(void *node, wf_u32 cmd, wf_u32 *send_buf, wf_u32 send_len, wf_
     snd_pktLen = TXDESC_OFFSET_NEW + CMD_PARAM_LENGTH + send_len * 4;
 
     wf_hif_bulk_cmd_init(hif_node);
-    ret = wf_tx_queue_insert(hif_node, 1, ptx_desc, snd_pktLen, wf_quary_addr(CMD_QUEUE_INX), NULL, NULL, NULL);
+    ret = wf_tx_queue_insert(hif_node, 1, ptx_desc, snd_pktLen, CMD_QUEUE_INX, NULL, NULL, NULL);
     if(ret != 0)
     {
         LOG_E("bulk access cmd error by send");
@@ -1292,7 +1318,7 @@ int hif_write_cmd(void *node, wf_u32 cmd, wf_u32 *send_buf, wf_u32 send_len, wf_
 
     prx_desc = hif_node->cmd_rcv_buffer;
     rcv_pktLen = RXDESC_OFFSET_NEW + recv_len * 4 + CMD_PARAM_LENGTH;
-    if(hif_node->cmd_size != rcv_pktLen)
+    if(hif_node->cmd_size > rcv_pktLen)
     {
         LOG_E("mcu cmd: 0x%08X", cmd);
         LOG_E("bulk access cmd read length error, recv cmd size is %d, but need pkt_len is %d", hif_node->cmd_size, rcv_pktLen);
@@ -1308,6 +1334,8 @@ int hif_write_cmd(void *node, wf_u32 cmd, wf_u32 *send_buf, wf_u32 send_len, wf_
         ret = -1;
         goto mcu_cmd_communicate_exit;
     }
+
+    #if 0
     u16Value = wf_le_u16_read(prx_desc + 4);
     u16Value &= 0x3FFF;
     if(u16Value != (recv_len * 4 + CMD_PARAM_LENGTH))
@@ -1318,6 +1346,7 @@ int hif_write_cmd(void *node, wf_u32 cmd, wf_u32 *send_buf, wf_u32 send_len, wf_
         ret = -1;
         goto mcu_cmd_communicate_exit;
     }
+    #endif
 
     if(recv_len != 0)
     {

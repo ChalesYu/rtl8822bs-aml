@@ -24,8 +24,8 @@
 ## o CONFIG_WIFI_MODE              = all(sta/ap/adhoc/monitor), sta, ap, adhoc
 ## o CONFIG_WIFI_FRAMEWORK         = wext, nl80211, mp
 ## o CONFIG_HIF_PORT               = usb, sdio, both
-## o CONFIG_CHIP                   = s9083,s9188
-## o CONFIG_ARS_SUPPORT            = Adaptive rate system(firmware):firmware,driver,none
+## o CONFIG_CHIP                   = s9083,s9188,richv300
+## o CONFIG_ARS_SUPPORT            = Adaptive rate system:driver,firmware
 ################################################################################
   export WDRV_DIR ?= $(shell pwd)
   SUBDIR = mak
@@ -46,7 +46,7 @@
   CONFIG_WIFI_MODE          = all
   CONFIG_WIFI_FRAMEWORK     = wext
   CONFIG_HIF_PORT           = both
-  CONFIG_CHIP               = s9188
+  CONFIG_CHIP               = s9083
   CONFIG_POWER_SAVING       = n
   CONFIG_ARS_SUPPORT        = firmware
 

@@ -1,13 +1,29 @@
+/*
+ * action.h
+ *
+ * used for xmit action frame
+ *
+ * Author: renhaibo
+ *
+ * Copyright (c) 2020 SmartChip Integrated Circuits(SuZhou ZhongKe) Co.,Ltd
+ *
+ *
+ * This program is free software; you can redistribute  it and/or modify it
+ * under  the terms of  the GNU General  Public License as published by the
+ * Free Software Foundation;  either version 2 of the  License, or (at your
+ * option) any later version.
+ *
+ */
 #ifndef _ACTION_H
 #define _ACTION_H
 
 #define WF_GET_LE16(a) ((wf_u16) (((a)[1] << 8) | (a)[0]))
 
-#define IEEE80211_ADDBA_PARAM_POLICY_MASK 0x0002
-#define IEEE80211_ADDBA_PARAM_TID_MASK 0x003C
-#define IEEE80211_ADDBA_PARAM_BUF_SIZE_MASK 0xFFC0
-#define IEEE80211_DELBA_PARAM_TID_MASK 0xF000
-#define IEEE80211_DELBA_PARAM_INITIATOR_MASK 0x0800
+#define IEEE80211_ADDBA_PARAM_POLICY_MASK       0x0002
+#define IEEE80211_ADDBA_PARAM_TID_MASK          0x003C
+#define IEEE80211_ADDBA_PARAM_BUF_SIZE_MASK     0xFFC0
+#define IEEE80211_DELBA_PARAM_TID_MASK          0xF000
+#define IEEE80211_DELBA_PARAM_INITIATOR_MASK    0x0800
 
 
 #define WF_WLAN_20_40_BSS_COEX_INFO_REQ            BIT(0)

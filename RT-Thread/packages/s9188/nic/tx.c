@@ -1,3 +1,19 @@
+/*
+ * tx.c
+ *
+ * used for data frame xmit
+ *
+ * Author: renhaibo
+ *
+ * Copyright (c) 2020 SmartChip Integrated Circuits(SuZhou ZhongKe) Co.,Ltd
+ *
+ *
+ * This program is free software; you can redistribute  it and/or modify it
+ * under  the terms of  the GNU General  Public License as published by the
+ * Free Software Foundation;  either version 2 of the  License, or (at your
+ * option) any later version.
+ *
+ */
 #include "common.h"
 #include "wf_debug.h"
 
@@ -54,15 +70,6 @@ static void do_set_qos(struct xmit_frame *pxmitframe, ip_header *ip_hdr)
         user_priority = ip_hdr->tos >> 5;
     }
 
-#if 0
-    if (user_priority)
-    {
-        LOG_W("user_priority=%d  [proto=%d]",user_priority,ip_hdr.proto);
-        LOG_W("src_ip:  %d.%d.%d.%d",ip_hdr.src_ip[0],ip_hdr.src_ip[1],ip_hdr.src_ip[2],ip_hdr.src_ip[3]);
-        LOG_W("dest_ip:  %d.%d.%d.%d",ip_hdr.dest_ip[0],ip_hdr.dest_ip[1],ip_hdr.dest_ip[2],ip_hdr.dest_ip[3]);
-    }
-#endif
-
     pxmitframe->priority = user_priority;
     pxmitframe->hdrlen = WLAN_HDR_A3_QOS_LEN;
 }
@@ -117,7 +124,6 @@ static wf_bool xmit_frame_sec_init(nic_info_st *nic_info, wdn_net_info_st *pwdn,
             pxmitframe->encrypt_algo = _NO_PRIVACY_;
     }
 
-    /* iv & icv & txmickey */
     switch(pxmitframe->encrypt_algo)
     {
         case _WEP40_:
@@ -313,12 +319,6 @@ wf_bool wf_xmit_frame_init(nic_info_st *nic_info, struct xmit_frame *pxmitframe,
             iphdr.header_len = WF_GET_IPV4_IHL(msdu_buf+pkt_offset);
             iphdr.proto = WF_GET_IPV4_PROTOCOL(msdu_buf+pkt_offset);
             iphdr.tos = WF_GET_IPV4_TOS(msdu_buf+pkt_offset);
-
-#ifdef TX_DEBUG
-            LOG_D("[%s]: header_len:%d", __func__, iphdr.header_len);
-            LOG_D("[%s]: proto:0x%x", __func__, iphdr.proto);
-            LOG_D("[%s]: tos:0x%x", __func__, iphdr.tos);
-#endif
 
             pkt_offset += iphdr.header_len * 4;
             switch(iphdr.proto)
@@ -921,6 +921,15 @@ static void txdesc_phy_fill(nic_info_st *nic_info, struct xmit_frame *pxmitframe
     }
 }
 
+static const wf_u8 __graid_table[] =
+{
+    0, 5, 0, 4,0,3,2,1,0
+};
+static wf_inline wf_u8 tx_raid_get(wf_u8 raid)
+{
+    return __graid_table[raid];
+} 
+
 static void txdesc_fill(struct xmit_frame *pxmitframe, wf_u8 * pbuf, wf_bool bSendAck)
 {
     nic_info_st *nic_info = pxmitframe->nic_info;
@@ -942,14 +951,14 @@ static void txdesc_fill(struct xmit_frame *pxmitframe, wf_u8 * pbuf, wf_bool bSe
         /* set rate mode, mgmt frame use fix mode */
         wf_set_bits_to_le_u32(pbuf + 16, 5, 1, 0);
         /* set RATE ID, mgmt frame use 802.11 B, the number is raid */
-        wf_set_bits_to_le_u32(pbuf + 16, 6, 3, pwdn->raid);
+        wf_set_bits_to_le_u32(pbuf + 16, 6, 3, tx_raid_get(pwdn->raid));
     }
     else
     {
         /* set rate mode, mgmt frame use adp mode */
         wf_set_bits_to_le_u32(pbuf + 16, 5, 1, 1);
         /* set RATE ID, the number is raid - 9 */
-        wf_set_bits_to_le_u32(pbuf + 16, 9, 3, pwdn->raid - 9);
+        wf_set_bits_to_le_u32(pbuf + 16, 9, 3, tx_raid_get(pwdn->raid));
     }
     /* set QOS QUEUE  */
     wf_set_bits_to_le_u32(pbuf + 12, 6, 5, pxmitframe->qsel);
@@ -1333,10 +1342,7 @@ struct xmit_buf *wf_xmit_buf_new(tx_info_st *tx_info)
     }
 
     wf_lock_unlock(&pfree_xmitbuf_queue->lock);
-#if 0
-    if(NULL != pxmitbuf)
-        LOG_I("[%s] new buffer_id:%d",__func__,pxmitbuf->buffer_id);
-#endif
+
     return pxmitbuf;
 }
 #ifdef CONFIG_LPS
@@ -1413,7 +1419,6 @@ wf_bool wf_xmit_buf_delete(tx_info_st *tx_info, struct xmit_buf *pxmitbuf)
                         wf_que_list_head(pfree_xmitbuf_queue));
     tx_info->free_xmitbuf_cnt++;
     wf_lock_unlock(&pfree_xmitbuf_queue->lock);
-    //LOG_I("[%s] free buffer_id:%d",__func__,pxmitbuf->buffer_id);
     return wf_true;
 }
 
@@ -1482,10 +1487,6 @@ struct xmit_frame *wf_xmit_frame_new(tx_info_st *tx_info)
 
     if (wf_list_is_empty(wf_que_list_head(pfree_xmit_queue)) == wf_true)
     {
-#if 0
-        LOG_E("%s failed: free_xmitframe_cnt=%d", __func__,
-              tx_info->free_xmitframe_cnt);
-#endif
         pxframe = NULL;
     }
     else
@@ -1498,11 +1499,6 @@ struct xmit_frame *wf_xmit_frame_new(tx_info_st *tx_info)
 
         wf_list_delete(&(pxframe->list));
         tx_info->free_xmitframe_cnt--;
-
-#if 0
-        LOG_D("%s ok:free_xmitframe_cnt=%d", __func__,
-              tx_info->free_xmitframe_cnt);
-#endif
     }
 
     if (pxframe != NULL)
@@ -2141,7 +2137,7 @@ int wf_nic_mgmt_frame_xmit_with_ack(nic_info_st *nic_info, wdn_net_info_st *wdn,
         /* set rate mode, mgmt frame use fix mode */
         wf_set_bits_to_le_u32(pbuf + 16, 5, 1, 0);
         /* set RATE ID */
-        wf_set_bits_to_le_u32(pbuf + 16, 6, 3,  wdn->raid);
+        wf_set_bits_to_le_u32(pbuf + 16, 6, 3,  tx_raid_get(wdn->raid));
         /* set TX RATE */
         wf_set_bits_to_le_u32(pbuf + 8, 18, 7, wf_mrate_to_hwrate(wdn->tx_rate));
 

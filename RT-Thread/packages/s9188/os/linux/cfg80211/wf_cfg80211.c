@@ -1,3 +1,19 @@
+/*
+ * wf_cfg80211.c
+ *
+ * used for netlink framework interface
+ *
+ * Author: houchuang
+ *
+ * Copyright (c) 2020 SmartChip Integrated Circuits(SuZhou ZhongKe) Co.,Ltd
+ *
+ *
+ * This program is free software; you can redistribute  it and/or modify it
+ * under  the terms of  the GNU General  Public License as published by the
+ * Free Software Foundation;  either version 2 of the  License, or (at your
+ * option) any later version.
+ *
+ */
 #include <linux/nl80211.h>
 #include <net/cfg80211.h>
 #include <linux/decompress/mm.h>
@@ -11,7 +27,7 @@
 
 #ifdef CONFIG_IOCTL_CFG80211
 
-#if 0
+#if 1
 #define CFG80211_DBG(fmt, ...)      LOG_D("[%s:%d]"fmt, __func__, __LINE__,##__VA_ARGS__)
 #define CFG80211_ARRAY(data, len)   log_array(data, len)
 #else
@@ -858,11 +874,10 @@ static int cfg80211_sta_set_encryption(struct net_device *dev,
                 if(wf_p2p_is_valid(pnic_info))
                 {
                     p2p_info_st *p2p_info = pnic_info->p2p;
-                    p2p_wd_info_st *pwdinfo = &p2p_info->wdinfo;
-                    CFG80211_INFO("state:%s",wf_p2p_state_to_str(pwdinfo->p2p_state));
-                    if (pwdinfo->p2p_state == P2P_STATE_PROVISIONING_ING)
+                    CFG80211_INFO("state:%s",wf_p2p_state_to_str(p2p_info->p2p_state));
+                    if (p2p_info->p2p_state == P2P_STATE_PROVISIONING_ING)
                     {
-                        wf_p2p_set_state(pwdinfo,P2P_STATE_PROVISIONING_DONE);
+                        wf_p2p_set_state(p2p_info,P2P_STATE_PROVISIONING_DONE);
                     }
                 }
 
@@ -1235,22 +1250,14 @@ static int _cfg80211_change_iface(struct wiphy *wiphy,
         pmlme_info->action_public_dialog_token = 0xff;
         pmlme_info->action_public_rxseq = 0xffff;
     }
-    /* initial default type */
+
     ndev->type = ARPHRD_ETHER;
 
-    /*
-     * Disable Power Save in moniter mode,
-     * and enable it after leaving moniter mode.
-     */
     if (type == NL80211_IFTYPE_MONITOR)
     {
-        // wf_lps_deny(pnic_info, PS_DENY_MONITOR_MODE);
-        // wf_lps_leave_ps_mode(pnic_info);
     }
     else if (old_type == NL80211_IFTYPE_MONITOR)
     {
-        /* driver in moniter mode in last time */
-        // wf_lps_deny_cancel(pnic_info, PS_DENY_MONITOR_MODE);
     }
     switch(type)
     {
@@ -1262,25 +1269,23 @@ static int _cfg80211_change_iface(struct wiphy *wiphy,
             network_type = WF_INFRA_MODE;
             if(wf_p2p_is_valid(pnic_info))
             {
-                pwdinfo = &p2p_info->wdinfo;
-                if(pwdinfo->driver_interface == DRIVER_CFG80211)
+                CFG80211_INFO("DRIVER_CFG80211");
+                if(change && P2P_ROLE_GO == p2p_info->role)
                 {
-                    CFG80211_INFO("DRIVER_CFG80211");
-                    if(change && P2P_ROLE_GO == pwdinfo->role)
-                    {
-                        wf_p2p_set_role(pwdinfo,P2P_ROLE_DEVICE);
-                        wf_p2p_set_state(pwdinfo,pwdinfo->pre_p2p_state);
-                        CFG80211_INFO("%s, role=%d, p2p_state=%d, pre_p2p_state=%d\n",__func__,pwdinfo->role,pwdinfo->p2p_state,pwdinfo->pre_p2p_state);
-                    }
+                    wf_p2p_set_role(p2p_info,P2P_ROLE_DEVICE);
+                    wf_p2p_set_state(p2p_info,p2p_info->pre_p2p_state);
+                    CFG80211_INFO("role=%d, p2p_state=%d, pre_p2p_state=%d\n",
+                                  p2p_info->role,p2p_info->p2p_state,p2p_info->pre_p2p_state);
+                }
 
 #if ((LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 37)) || defined(COMPAT_KERNEL_RELEASE))
-                    if (pwdinfo->role == P2P_ROLE_CLIENT)
-                    {
-                        wf_p2p_set_role(pwdinfo, P2P_ROLE_DEVICE);
-                    }
+                if (p2p_info->role == P2P_ROLE_CLIENT)
+                {
+                    wf_p2p_set_role(p2p_info, P2P_ROLE_DEVICE);
+                }
 
 #endif
-                }
+
             }
             break;
         case NL80211_IFTYPE_AP:
@@ -1288,14 +1293,11 @@ static int _cfg80211_change_iface(struct wiphy *wiphy,
 #if ((LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,37)) || defined(COMPAT_KERNEL_RELEASE))
             if(wf_p2p_is_valid(pnic_info))
             {
-                pwdinfo = &p2p_info->wdinfo;
-                if (pwdinfo->driver_interface == DRIVER_CFG80211)
+                if (change && p2p_info->p2p_state != P2P_STATE_NONE)
                 {
-                    if (change && pwdinfo->p2p_state != P2P_STATE_NONE)
-                    {
-                        wf_p2p_set_role(pwdinfo, P2P_ROLE_GO);
-                    }
+                    wf_p2p_set_role(p2p_info, P2P_ROLE_GO);
                 }
+
             }
 #endif
             wf_mlme_abort(pnic_info);
@@ -1310,32 +1312,27 @@ static int _cfg80211_change_iface(struct wiphy *wiphy,
             network_type = WF_INFRA_MODE;
             if(wf_p2p_is_valid(pnic_info))
             {
-                pwdinfo = &p2p_info->wdinfo;
-                if(pwdinfo->driver_interface == DRIVER_CFG80211)
+                CFG80211_INFO("DRIVER_CFG80211");
+                if(change && P2P_ROLE_GO == p2p_info->role)
                 {
-                    CFG80211_INFO("DRIVER_CFG80211");
-                    if(change && P2P_ROLE_GO == pwdinfo->role)
-                    {
-                        wf_p2p_set_role(pwdinfo,P2P_ROLE_DEVICE);
-                        wf_p2p_set_state(pwdinfo,pwdinfo->pre_p2p_state);
-                        CFG80211_INFO("%s, role=%d, p2p_state=%d, pre_p2p_state=%d\n",__func__,pwdinfo->role,pwdinfo->p2p_state,pwdinfo->pre_p2p_state);
-                    }
-                    wf_p2p_set_role(pwdinfo, P2P_ROLE_CLIENT);
+                    wf_p2p_set_role(p2p_info,P2P_ROLE_DEVICE);
+                    wf_p2p_set_state(p2p_info,p2p_info->pre_p2p_state);
+                    CFG80211_INFO("%s, role=%d, p2p_state=%d, pre_p2p_state=%d\n",__func__,pwdinfo->role,pwdinfo->p2p_state,pwdinfo->pre_p2p_state);
                 }
+                wf_p2p_set_role(p2p_info, P2P_ROLE_CLIENT);
+
             }
             break;
         case NL80211_IFTYPE_P2P_GO:
         {
             CFG80211_INFO("NL80211_IFTYPE_P2P_GO");
             network_type = WF_MASTER_MODE;
-            pwdinfo = &p2p_info->wdinfo;
-            if (pwdinfo->driver_interface == DRIVER_CFG80211)
+
+            if (change && p2p_info->p2p_state != P2P_STATE_NONE)
             {
-                if (change && pwdinfo->p2p_state != P2P_STATE_NONE)
-                {
-                    wf_p2p_set_role(pwdinfo, P2P_ROLE_GO);
-                }
+                wf_p2p_set_role(p2p_info, P2P_ROLE_GO);
             }
+
         }
         break;
 #endif
@@ -1374,11 +1371,10 @@ void wf_cfg80211_scan_done_event_up (nic_info_st *pnic_info, wf_bool babort)
     memset(&info, 0, sizeof(info));
     info.aborted = babort;
 #endif
-    wf_lock_bh_lock(&pwdev_info->scan_req_lock);
+    wf_lock_lock(&pwdev_info->scan_req_lock);
     if (pwdev_info->pscan_request != NULL)
     {
         CFG80211_DBG("with scan req");
-//        if(pwdev_info->pscan_request->wiphy != NULL)
         if(pwdev_info->pscan_request->wiphy == pnic_info->pwiphy)
         {
 #if (KERNEL_VERSION(4, 7, 0) <= LINUX_VERSION_CODE)
@@ -1397,12 +1393,14 @@ void wf_cfg80211_scan_done_event_up (nic_info_st *pnic_info, wf_bool babort)
     {
         CFG80211_DBG("scan req is NULL");
     }
-    wf_lock_bh_unlock(&pwdev_info->scan_req_lock);
+    wf_lock_unlock(&pwdev_info->scan_req_lock);
 }
 
 static wf_u64 cfg80211_get_timestamp_us(void)
 {
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,39))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 20, 0))
+	return ktime_to_us(ktime_get_boottime());
+#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,39))
 	struct timespec ts;
 	get_monotonic_boottime(&ts);
 	return ((wf_u64) ts.tv_sec * 1000000) + ts.tv_nsec / 1000;
@@ -1679,13 +1677,12 @@ void wf_cfg80211_indicate_connect (nic_info_st *pnic_info)
     if(wf_p2p_is_valid(pnic_info))
     {
         p2p_info_st *p2p_info           = pnic_info->p2p;
-        p2p_wd_info_st *pwdinfo = &p2p_info->wdinfo;
-        wf_p2p_set_pre_state(pwdinfo, pwdinfo->p2p_state);
-        wf_p2p_set_role(pwdinfo, P2P_ROLE_CLIENT);
-        wf_p2p_set_state(pwdinfo, P2P_STATE_GONEGO_OK);
+        wf_p2p_set_pre_state(p2p_info, p2p_info->p2p_state);
+        wf_p2p_set_role(p2p_info, P2P_ROLE_CLIENT);
+        wf_p2p_set_state(p2p_info, P2P_STATE_GONEGO_OK);
         CFG80211_INFO("role=%s, p2p_state=%s, pre_p2p_state=%s\n",
-                      wf_p2p_role_to_str(pwdinfo->role), wf_p2p_state_to_str(pwdinfo->p2p_state),
-                      wf_p2p_state_to_str(pwdinfo->pre_p2p_state));
+                      wf_p2p_role_to_str(p2p_info->role), wf_p2p_state_to_str(p2p_info->p2p_state),
+                      wf_p2p_state_to_str(p2p_info->pre_p2p_state));
 
     }
 
@@ -1723,16 +1720,15 @@ void wf_cfg80211_indicate_disconnect(nic_info_st *pnic_info)
     if(wf_p2p_is_valid(pnic_info))
     {
         p2p_info_st *p2p_info           = pnic_info->p2p;
-        p2p_wd_info_st *pwdinfo = &p2p_info->wdinfo;
 
-        wf_p2p_set_state(pwdinfo, pwdinfo->pre_p2p_state);
+        wf_p2p_set_state(p2p_info, p2p_info->pre_p2p_state);
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 37)) || defined(COMPAT_KERNEL_RELEASE)
         if (pwdev->iftype != NL80211_IFTYPE_P2P_CLIENT)
 #endif
-            wf_p2p_set_role(pwdinfo, P2P_ROLE_DEVICE);
+            wf_p2p_set_role(p2p_info, P2P_ROLE_DEVICE);
         CFG80211_INFO("role=%s, p2p_state=%s, pre_p2p_state=%s\n",
-                      wf_p2p_role_to_str(pwdinfo->role), wf_p2p_state_to_str(pwdinfo->p2p_state),
-                      wf_p2p_state_to_str(pwdinfo->pre_p2p_state));
+                      wf_p2p_role_to_str(p2p_info->role), wf_p2p_state_to_str(p2p_info->p2p_state),
+                      wf_p2p_state_to_str(p2p_info->pre_p2p_state));
 
     }
 
@@ -1795,41 +1791,11 @@ void wf_cfg80211_scan_complete(nic_info_st *pnic_info)
 
     wf_wlan_mgmt_scan_que_for_begin(pnic_info, pscan_que_node)
     {
-        struct wf_widev_priv *pwdev_info;
-        struct cfg80211_scan_request *req;
+        struct wf_widev_priv *pwdev_info = pnic_info->widev_priv;
+        struct cfg80211_scan_request *req = pwdev_info->pscan_request;
 
-        pwdev_info = pnic_info->widev_priv;
-        if (pwdev_info == NULL)
-        {
-            break;
-        }
-        req = pwdev_info->pscan_request;
-        if (req == NULL)
-        {
-            break;
-        }
-
-#if 0
-        /* checkout ssid */
-        if (req->n_ssids > 1)
-        {
-            wf_u8 i;
-            for (i = 0; i < req->n_ssids - 1; i++)
-            {
-                if (req->ssids[i].ssid_len == pscan_que_node->ssid.length &&
-                    !wf_memcmp(req->ssids[i].ssid, pscan_que_node->ssid.data,
-                               req->ssids[i].ssid_len))
-                {
-                    break;
-                }
-            }
-            if (i == req->n_ssids - 1)
-            {
-                continue;
-            }
-        }
-#endif
-
+	    CFG80211_DBG(" pscan_que_node have results");
+	
         /* checkout channel */
         if (req->n_channels)
         {
@@ -1911,9 +1877,9 @@ static int _call_scan_cb (struct wiphy *wiphy
     pscan_info = pnic_info->scan_info;
     pwdev_info = pnic_info->widev_priv;
 
-    wf_lock_bh_lock(&pwdev_info->scan_req_lock);
+    wf_lock_lock(&pwdev_info->scan_req_lock);
     pwdev_info->pscan_request = req;
-    wf_lock_bh_unlock(&pwdev_info->scan_req_lock);
+    wf_lock_unlock(&pwdev_info->scan_req_lock);
 
     if(pwdev_info->block_scan == wf_true)
     {
@@ -1928,22 +1894,18 @@ static int _call_scan_cb (struct wiphy *wiphy
         wf_u8 social_channel = 0;
         wf_u8  i             = 0;
         p2p_info_st *p2p_info = pnic_info->p2p;
-        p2p_wd_info_st *pwdinfo = NULL;
 
         CFG80211_DBG(" p2p ie_len:%zu", req->ie_len);
         if(p2p_info)
         {
-            pwdinfo = &p2p_info->wdinfo;
             /*register callback function*/
-            if (pwdinfo->driver_interface == DRIVER_CFG80211)
+
+            if(wf_false == p2p_info->scb.init_flag)
             {
-                if(wf_false == p2p_info->scb.init_flag)
-                {
-                    p2p_info->scb.remain_on_channel_expired = wf_cfg80211_remain_on_channel_expired;
-                    p2p_info->scb.rx_mgmt           = wf_cfg80211_p2p_rx_mgmt;
-                    p2p_info->scb.ready_on_channel  = wf_cfg80211_p2p_ready_on_channel;
-                    p2p_info->scb.init_flag = wf_true;
-                }
+                p2p_info->scb.remain_on_channel_expired = wf_cfg80211_remain_on_channel_expired;
+                p2p_info->scb.rx_mgmt           = wf_cfg80211_p2p_rx_mgmt;
+                p2p_info->scb.ready_on_channel  = wf_cfg80211_p2p_ready_on_channel;
+                p2p_info->scb.init_flag = wf_true;
             }
 
             for(i=0; i<req->n_channels; i++)
@@ -2676,13 +2638,6 @@ static int _cfg80211_set_power_mgmt(struct wiphy *wiphy,
 
     pwdev_info->power_mgmt = enabled;
 
-//#ifdef CONFIG_LPS
-//    if(!enabled)
-//    {
-//        wf_lps_sleep(pnic_info, LPS_CTRL_LEAVE_CFG80211_PWRMGMT, wf_true);
-//    }
-//#endif
-
     return 0;
 }
 
@@ -2812,80 +2767,7 @@ static int _set_monitor_channel(struct wiphy *wiphy
 #endif
                                )
 {
-#if 0
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 8, 0))
-    struct ieee80211_channel *chan = chandef->chan;
-#endif
 
-    nic_info_st *pnic_info;
-    wf_u8 target_channel = chan->hw_value;
-    wf_u8 target_offset = HAL_PRIME_CHNL_OFFSET_DONT_CARE;
-    wf_u8 target_width = CHANNEL_WIDTH_20;
-
-    CFG80211_DBG();
-
-    set_wiphy_pirv(wiphy, pnic_info);
-
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 8, 0))
-    CFG80211_DBG("center_freq = %u Mhz ch = %u width = %u freq1 = %u freq2 = %u",
-                 chan->center_freq, chan->hw_value, chandef->width,
-                 chandef->center_freq1, chandef->center_freq2);
-
-    switch (chandef->width)
-    {
-        case NL80211_CHAN_WIDTH_20_NOHT:
-        case NL80211_CHAN_WIDTH_20:
-            target_width = CHANNEL_WIDTH_20;
-            target_offset = HAL_PRIME_CHNL_OFFSET_DONT_CARE;
-            break;
-        case NL80211_CHAN_WIDTH_40:
-            target_width = CHANNEL_WIDTH_40;
-            if (chandef->center_freq1 > chan->center_freq)
-            {
-                target_offset = HAL_PRIME_CHNL_OFFSET_LOWER;
-            }
-            else
-            {
-                target_offset = HAL_PRIME_CHNL_OFFSET_UPPER;
-            }
-            break;
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 11, 0))
-        case NL80211_CHAN_WIDTH_5:
-        case NL80211_CHAN_WIDTH_10:
-#endif
-        default:
-            target_width = CHANNEL_WIDTH_20;
-            target_offset = HAL_PRIME_CHNL_OFFSET_DONT_CARE;
-            break;
-    }
-#else
-    CFG80211_DBG("center_freq = %u Mhz ch = %u channel_type = %u",
-                 chan->center_freq, chan->hw_value, channel_type);
-
-    switch (channel_type)
-    {
-        case NL80211_CHAN_NO_HT:
-        case NL80211_CHAN_HT20:
-            target_width = CHANNEL_WIDTH_20;
-            target_offset = HAL_PRIME_CHNL_OFFSET_DONT_CARE;
-            break;
-        case NL80211_CHAN_HT40MINUS:
-            target_width = CHANNEL_WIDTH_40;
-            target_offset = HAL_PRIME_CHNL_OFFSET_UPPER;
-            break;
-        case NL80211_CHAN_HT40PLUS:
-            target_width = CHANNEL_WIDTH_40;
-            target_offset = HAL_PRIME_CHNL_OFFSET_LOWER;
-            break;
-        default:
-            target_width = CHANNEL_WIDTH_20;
-            target_offset = HAL_PRIME_CHNL_OFFSET_DONT_CARE;
-            break;
-    }
-#endif
-
-    wf_hw_info_set_channnel_bw(pnic_info, target_channel, target_offset, target_width);
-#endif
     return 0;
 }
 #endif
@@ -3042,6 +2924,7 @@ static int _cfg80211_Mgmt_Tx(struct wiphy *wiphy,
         param.len = len;
         wf_memcpy((wf_u8*)&param.buf[0],buf,len);
         wf_p2p_msg_send( pnic_info, WF_P2P_MSG_TAG_NEGO, (void*)&param, sizeof(p2p_nego_param_st));
+        wf_p2p_proto_thrd_wait(pnic_info);
     }
     else
     {
@@ -3553,29 +3436,26 @@ static int add_beacon(nic_info_st *pnic_info, const wf_u8 * head, size_t head_le
 
     if(wf_p2p_is_valid(pnic_info))
     {
-        pwdinfo = &p2p_info->wdinfo;
-        if(pwdinfo->driver_interface == DRIVER_CFG80211)
+        if(wf_p2p_get_ie(pbuf + _FIXED_IE_LENGTH_, len - _FIXED_IE_LENGTH_, NULL, &p2p_ielen))
         {
-            if(wf_p2p_get_ie(pbuf + _FIXED_IE_LENGTH_, len - _FIXED_IE_LENGTH_, NULL, &p2p_ielen))
+            got_p2p_ie = wf_true;
+            CFG80211_INFO("got p2p_ie, len = %d\n",p2p_ielen);
+
+            if(p2p_info->p2p_state == P2P_STATE_NONE)
             {
-                got_p2p_ie = wf_true;
-                CFG80211_INFO("got p2p_ie, len = %d\n",p2p_ielen);
-
-                if(pwdinfo->p2p_state == P2P_STATE_NONE)
-                {
-                    CFG80211_INFO("Enable P2P for the first time\n");
-                    wf_p2p_enable(pnic_info,P2P_ROLE_GO);
-                }
-                else
-                {
-                    CFG80211_INFO("enter GO mode , p2p_ielen=%d\n",p2p_ielen);
-                    wf_p2p_set_role(pwdinfo, P2P_ROLE_GO);
-                    wf_p2p_set_state(pwdinfo, P2P_STATE_GONEGO_OK);
-                    pwdinfo->intent = 15;
-                }
-
+                CFG80211_INFO("Enable P2P for the first time\n");
+                wf_p2p_enable(pnic_info,P2P_ROLE_GO);
             }
+            else
+            {
+                CFG80211_INFO("enter GO mode , p2p_ielen=%d\n",p2p_ielen);
+                wf_p2p_set_role(p2p_info, P2P_ROLE_GO);
+                wf_p2p_set_state(p2p_info, P2P_STATE_GONEGO_OK);
+                p2p_info->intent = 15;
+            }
+
         }
+
     }
 
     if (wf_ap_set_beacon(pnic_info, pbuf, len, WF_MLME_FRAMEWORK_NETLINK) == 0)
@@ -3773,7 +3653,7 @@ static int del_station(struct wiphy *wiphy,
                 if(pwdn_info->is_p2p_device && 1>=wf_wdn_get_cnt(pnic_info))
                 {
                     CFG80211_DBG("p2p restart");
-                    wf_p2p_protocol_dispatch_entry(pnic_info, P2P_RO_CH_WK);
+                    wf_p2p_proto_proc_remain_channel(pnic_info);
                     wf_p2p_enable(pnic_info,P2P_ROLE_DEVICE);
                 }
             }
@@ -3926,7 +3806,7 @@ static wf_s32 cfg80211_remain_on_channel_cb(struct wiphy *wiphy,
 #endif
 
     wf_u8 remain_ch = (u8) ieee80211_frequency_to_channel(channel->center_freq);
-    p2p_wd_info_st *pwdinfo;
+
     struct cfg80211_wifidirect_info *pcfg80211_wdinfo;
     ndev_priv_st *pndev_priv;
     p2p_info_st *p2p_info;
@@ -3949,9 +3829,8 @@ static wf_s32 cfg80211_remain_on_channel_cb(struct wiphy *wiphy,
     CFG80211_DBG("mac addr: "WF_MAC_FMT,WF_MAC_ARG(nic_to_local_addr(pnic_info)));
     p2p_info = pnic_info->p2p;
     pcfg80211_wdinfo = &pndev_priv->cfg80211_wifidirect;
-    pwdinfo = &p2p_info->wdinfo;
 
-    is_p2p_find = (duration < (pwdinfo->ext_listen_interval)) ? wf_true : wf_false;
+    is_p2p_find = (duration < (p2p_info->ext_listen_interval)) ? wf_true : wf_false;
     *cookie = atomic_inc_return(&pcfg80211_wdinfo->ro_ch_cookie_gen);
     wf_memcpy(&pcfg80211_wdinfo->remain_on_ch_channel, channel,sizeof(struct ieee80211_channel));
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(3,8,0))
@@ -3964,10 +3843,11 @@ static wf_s32 cfg80211_remain_on_channel_cb(struct wiphy *wiphy,
         duration = duration * 3;
     }
 #endif
-    pwdinfo->ro_ch_duration = duration;
-    pwdinfo->remain_ch = remain_ch;
+    p2p_info->ro_ch_duration = duration;
+    p2p_info->remain_ch = remain_ch;
 
     wf_p2p_msg_send(pnic_info,WF_P2P_MSG_TAG_RO_CH,NULL,0);
+    wf_p2p_proto_thrd_wait(pnic_info);
 
     return 0;
 
@@ -3985,7 +3865,6 @@ static wf_s32 cfg80211_cancel_remain_on_channel_cb(struct wiphy *wiphy,
     struct net_device *ndev = wdev->netdev;
 #endif
 
-    p2p_wd_info_st *pwdinfo = NULL;
     p2p_info_st *p2p_info   = NULL;
     ndev_priv_st *pndev_priv = NULL;
     nic_info_st *pnic_info   = NULL;
@@ -3994,8 +3873,6 @@ static wf_s32 cfg80211_cancel_remain_on_channel_cb(struct wiphy *wiphy,
 
     pnic_info = pndev_priv->nic;
     p2p_info = pnic_info->p2p;
-    pwdinfo = &p2p_info->wdinfo;
-
     CFG80211_DBG("mac addr: "WF_MAC_FMT,WF_MAC_ARG(nic_to_local_addr(pnic_info)));
     if (ndev == NULL)
     {
@@ -4005,194 +3882,13 @@ static wf_s32 cfg80211_cancel_remain_on_channel_cb(struct wiphy *wiphy,
     CFG80211_INFO("cookie:0x%llx~ 0x%llx\n", cookie,pndev_priv->cfg80211_wifidirect.remain_on_ch_cookie);
 
     wf_p2p_msg_send(pnic_info, WF_P2P_MSG_TAG_RO_CH_CANNEL,NULL,0);
+    wf_p2p_proto_thrd_wait(pnic_info);
 
     return 0;
 
 }
 #endif
 
-#if 0
-static struct cfg80211_ops wf_cfg80211_ops =
-{
-    /* wowlan */
-    .suspend                = NULL,
-    .resume                 = NULL,
-    .set_wakeup             = NULL,
-
-    /* virtual */
-#ifdef CFG_ENABLE_AP_MODE
-    .add_virtual_intf       = NULL,//add_virtual_intf,
-    .del_virtual_intf       = NULL,//del_virtual_intf,
-#else
-    .add_virtual_intf       = NULL,
-    .del_virtual_intf       = NULL,
-#endif
-    .change_virtual_intf    = _cfg80211_change_iface,
-
-    /* key */
-    .add_key                = _add_key_cb,
-    .get_key                = NULL, //_get_key_cb, //
-    .del_key                = _del_key_cb,
-    .set_default_key        = _set_default_key_cb,
-    .set_default_mgmt_key   = NULL,
-    .set_rekey_data         = NULL,
-
-    /* beacon */
-#ifdef CFG_ENABLE_AP_MODE
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 4, 0)) && !defined(COMPAT_KERNEL_RELEASE)
-    .add_beacon             = add_beacon_cb,
-    .set_beacon             = set_beacon_cb,
-    .del_beacon             = del_beacon_cb,
-#else
-    .start_ap               = cfg80211_start_ap,
-    .change_beacon          = cfg80211_change_beacon,
-    .stop_ap                = cfg80211_stop_ap,
-#endif
-#else
-#endif
-
-    /* station */
-#ifdef CFG_ENABLE_AP_MODE
-    .add_station            = NULL, //_add_station,
-    .del_station            = _del_station,
-    .change_station         = NULL, //_change_station,
-    .dump_station           = _dump_station,
-#endif
-    .get_station            = _cfg80211_get_station,
-
-    /* for mesh */
-    .add_mpath              = NULL,
-    .del_mpath              = NULL,
-    .change_mpath           = NULL,
-    .get_mpath              = NULL,
-    .dump_mpath             = NULL,
-    .get_mpp                = NULL,
-    .dump_mpp               = NULL,
-    .join_mesh              = NULL,
-    .leave_mesh             = NULL,
-    .get_mesh_config        = NULL,
-    .update_mesh_config     = NULL,
-
-#ifdef CFG_ENABLE_AP_MODE
-    .change_bss             = NULL, //change_bss,
-#endif
-
-    /* tx params */
-    .set_txq_params         = NULL,
-
-    /* channel */
-    .libertas_set_mesh_channel  = NULL,
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 6, 0))
-    .set_monitor_channel    = NULL, //_set_monitor_channel,
-#endif
-    .get_channel            = NULL,
-
-    .scan                   = _call_scan_cb,
-    .auth                   = NULL,
-    .deauth                 = NULL,
-    .assoc                  = NULL,
-    .disassoc               = NULL,
-
-    /* connect */
-    .connect                = _connect_cb,
-    .disconnect             = _disconnect_cb,
-    .join_ibss              = NULL, //_join_ibss_cb,
-    .leave_ibss             = NULL, //_leave_ibss_cb,
-
-    .set_mcast_rate         = NULL,
-
-    .set_wiphy_params       = _set_wiphy_params,
-
-    /* power */
-    .set_tx_power           = _call_set_txpower,
-    .get_tx_power           = _call_get_txpower,
-
-    .set_wds_peer           = NULL,
-
-    .rfkill_poll            = NULL,
-
-    .dump_survey            = NULL,
-
-    /* remain on channel */
-    .remain_on_channel      = NULL,
-    .cancel_remain_on_channel   = NULL,
-
-    /* action frame */
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,37)) || defined(COMPAT_KERNEL_RELEASE)
-    .mgmt_tx                = _cfg80211_Mgmt_Tx, //
-    .mgmt_frame_register    = mgmt_frame_register, //
-#elif  (LINUX_VERSION_CODE>=KERNEL_VERSION(2,6,34) && LINUX_VERSION_CODE<=KERNEL_VERSION(2,6,35))
-    .action                 = _cfg80211_Mgmt_Tx,
-#endif
-    .mgmt_tx_cancel_wait    = NULL,
-
-    /* test mode */
-#ifdef CONFIG_NL80211_TESTMODE
-    .testmode_cmd           = NULL,
-    .testmode_dump          = NULL,
-#endif
-
-    .set_bitrate_mask       = NULL,
-
-    /* PMKID */
-    .set_pmksa              = _set_pmksa_cb,
-    .del_pmksa              = _del_pmksa_cb,
-    .flush_pmksa            = _flush_pmksa_cb,
-
-    .set_power_mgmt         = _cfg80211_set_power_mgmt,
-
-    .set_cqm_rssi_config    = NULL,
-    .set_cqm_txe_config     = NULL,
-
-#if defined(CONFIG_PNO_SUPPORT) && (LINUX_VERSION_CODE >= KERNEL_VERSION(3,0,0))
-    .sched_scan_start       = NULL,
-    .sched_scan_stop        = NULL,
-#endif
-
-    .set_antenna            = NULL,
-    .get_antenna            = NULL,
-
-    /* TIDS */
-    .tdls_mgmt              = NULL,
-    .tdls_oper              = NULL,
-    .set_noack_map          = NULL,
-
-    .probe_client           = NULL,
-
-    /* p2p */
-    .start_p2p_device       = NULL,
-    .stop_p2p_device        = NULL,
-
-    .set_mac_acl            = NULL,
-
-    .start_radar_detection  = NULL,
-
-    .update_ft_ies          = NULL,
-
-    .crit_proto_start       = NULL,
-    .crit_proto_stop        = NULL,
-    .set_coalesce           = NULL,
-
-    .channel_switch         = NULL,
-
-    .set_qos_map            = NULL,
-
-    .set_ap_chanwidth       = NULL,
-
-    .add_tx_ts              = NULL,
-
-
-
-
-
-#ifdef CFG_ENABLE_AP_MODE
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 6, 0))
-    .set_channel = set_channel,
-#endif
-#endif
-};
-
-#else
 static struct cfg80211_ops wf_cfg80211_ops =
 {
     .change_virtual_intf = _cfg80211_change_iface,
@@ -4269,7 +3965,6 @@ static struct cfg80211_ops wf_cfg80211_ops =
 #endif
 
 };
-#endif
 
 int wf_cfg80211_alloc (nic_info_st *pnic_info)
 {
@@ -4322,7 +4017,7 @@ int wf_cfg80211_alloc (nic_info_st *pnic_info)
     pwidev_priv->ifname_mon[0]  = '\0';
     pwidev_priv->pnic_info      = pnic_info;
     pwidev_priv->pscan_request  = NULL;
-    wf_lock_spin_init(&pwidev_priv->scan_req_lock);
+    wf_lock_init(&pwidev_priv->scan_req_lock, WF_LOCK_TYPE_BH);
     pwidev_priv->power_mgmt     = wf_false;
 
     pwidev_priv->bandroid_scan = wf_true;

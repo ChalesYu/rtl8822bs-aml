@@ -1,3 +1,19 @@
+/*
+ * proc.c
+ *
+ * used for print logs
+ *
+ * Author: pansiwei
+ *
+ * Copyright (c) 2020 SmartChip Integrated Circuits(SuZhou ZhongKe) Co.,Ltd
+ *
+ *
+ * This program is free software; you can redistribute  it and/or modify it
+ * under  the terms of  the GNU General  Public License as published by the
+ * Free Software Foundation;  either version 2 of the  License, or (at your
+ * option) any later version.
+ *
+ */
 #include "wf_debug.h"
 #include "ndev_linux.h"
 #include "proc.h"
@@ -8,43 +24,6 @@ char WF_PROC_NAME[20]={ 's','c','i','c','s'};
 char demo_var[20] = {'s','s'};
 
 #define __user
-
-
-#if 0
-static int wf_get_demo(struct seq_file *m, void *v)
-{
-    wf_print_seq(m, "%s %s\n",WF_PROC_NAME, demo_var);
-    return 0;
-}
-
-static ssize_t wf_set_demo(struct file *file, const char __user *buffer, size_t count, loff_t *pos, void *data)
-{
-    char tmp[64];
-
-    if (count < 1)
-    {
-        return -EINVAL;
-    }
-
-    if (count > sizeof(tmp))
-    {
-        printk("[%s] warning: do not have enough space",__func__);
-        return -EFAULT;
-    }
-
-    if (buffer && !copy_from_user(tmp, buffer, count))
-    {
-        sscanf(tmp,"%s", demo_var);
-        LOG_D("[%s] set info: %s\n", __func__, demo_var);
-    }
-    else
-    {
-        return -EFAULT;
-    }
-
-    return count;
-}
-#endif
 
 static int wf_get_version_info(struct seq_file *m, void *v)
 {
@@ -143,9 +122,7 @@ static int wf_get_mlme_info (struct seq_file *m, void *v)
 static int wf_get_rx_info(struct seq_file *m, void *v)
 {
     hif_node_st *hif_info           = m->private;
-    nic_info_st *pnic_info          = NULL;
     wdn_net_info_st *wdn_net_info   = NULL;
-    rx_info_t *rx_info              = NULL;
 	data_queue_node_st *data_node   = NULL;
     int i                           = 0;
     if(NULL == hif_info)
@@ -169,39 +146,6 @@ static int wf_get_rx_info(struct seq_file *m, void *v)
             wf_print_seq(m, "[%d] state:%d, pg_num:%d,agg_num:%d\n", data_node->node_id,data_node->state,data_node->pg_num,data_node->agg_num);
         }
     }
-
-    /*odm debug info*/
-    do{
-        odm_mgnt_st *odm                = NULL;
-        odm_phy_info_st *odm_phy        = NULL;
-        int     i = 0;
-        pnic_info = hif_info->nic_info[0];
-        if(NULL == pnic_info)
-        {
-            break;
-        }
-        odm = (odm_mgnt_st *)pnic_info->odm;
-        wf_print_seq(m,"wdg_exec_cnt:%d,bcn_cnt:%d,last_bcn_cnt:%d\n",odm->wdg_exec_cnt,odm->bcn_cnt,odm->last_bcn_cnt);
-        wdn_net_info  = wf_wdn_find_info(pnic_info,wf_wlan_get_cur_bssid(pnic_info));
-        if(NULL != wdn_net_info)
-        {
-             odm_phy = &odm->phy[wdn_net_info->wdn_id];
-             wf_print_seq(m,"signal_qual:%d,signal_strength:%d\n",odm_phy->phy_status.signal_qual,odm_phy->phy_status.signal_strength);
-             wf_print_seq(m,"is_cck_rate:%d, rx_rate:%d\n",odm_phy->is_cck_rate,odm_phy->rx_rate);
-             for(i=0;i<28;i++)
-            {
-                wf_print_seq(m,"0x%x ",odm_phy->raw_phystatus[i]);
-                if((i+1)%16 == 0)
-                {
-                    wf_print_seq(m,"\n");
-                }
-            }
-            wf_print_seq(m,"\n");
-        }
-
-        rx_info = pnic_info->rx_info;
-        wf_print_seq(m, "m0_buf[0]:%d, m0_buf[1]:%d,data_rate:%d\n", rx_info->m0_rxbuf[0],rx_info->m0_rxbuf[1],rx_info->m0_rxbuf[2]);
-    }while(0);
 
     if(HIF_SDIO == hif_info->hif_type)
     {
@@ -472,6 +416,10 @@ static int wf_get_hif_info(struct seq_file *m, void *v)
         wf_print_seq(m,"[tx] fifo_ppg_num    :%d\n",sd->tx_fifo_ppg_num);
         wf_print_seq(m,"[tx] fifo_hpg_num    :%d\n",sd->tx_fifo_hpg_num);
         wf_print_seq(m,"[tx] fifo_lpg_num    :%d\n",sd->tx_fifo_lpg_num);
+		wf_print_seq(m,"[tx] tx_state:%d\n",sd->tx_state);
+		wf_print_seq(m,"[tx] tx_all_time:%lld ms\n",sd->tx_all_time);
+		wf_print_seq(m,"[tx] tx_flow_ctl_time:%lld ms\n",sd->tx_flow_ctl_time);
+		wf_print_seq(m,"[tx] tx_agg_send_time:%lld ms\n",sd->tx_agg_send_time);
     }
 
     /*register info*/

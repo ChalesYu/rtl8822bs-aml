@@ -1,3 +1,19 @@
+/*
+ * mp.c
+ *
+ * used for .....
+ *
+ * Author: luozhi
+ *
+ * Copyright (c) 2020 SmartChip Integrated Circuits(SuZhou ZhongKe) Co.,Ltd
+ *
+ *
+ * This program is free software; you can redistribute  it and/or modify it
+ * under  the terms of  the GNU General  Public License as published by the
+ * Free Software Foundation;  either version 2 of the  License, or (at your
+ * option) any later version.
+ *
+ */
 #include "mp.h"
 
 #include "wf_debug.h"
@@ -273,7 +289,7 @@ static int mp_test_start(struct net_device *dev, struct iw_request_info *info, u
         }
 
         wf_mcu_msg_body_set_ability(pnic_info,ODM_DIS_ALL_FUNC, 0);
-        wf_mcu_msg_body_set_ability(pnic_info,ODM_FUNC_SET,ODM_RF_CALIBRATION);
+        //wf_mcu_msg_body_set_ability(pnic_info,ODM_FUNC_SET,ODM_RF_CALIBRATION);
 
         pmp_info->antenna_tx = 8;
         pmp_info->antenna_rx = 8;

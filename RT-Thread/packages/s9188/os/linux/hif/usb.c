@@ -1,3 +1,19 @@
+/*
+ * usb.c
+ *
+ * used for .....
+ *
+ * Author: luozhi
+ *
+ * Copyright (c) 2020 SmartChip Integrated Circuits(SuZhou ZhongKe) Co.,Ltd
+ *
+ *
+ * This program is free software; you can redistribute  it and/or modify it
+ * under  the terms of  the GNU General  Public License as published by the
+ * Free Software Foundation;  either version 2 of the  License, or (at your
+ * option) any later version.
+ *
+ */
 #include <linux/usb.h>
 #include <linux/module.h>
 #include <linux/vmalloc.h>
@@ -198,8 +214,15 @@ static inline unsigned int wf_usb_ffaddr2pipe(hif_usb_mngt *usb, wf_u32 addr)
         case BK_QUEUE_INX:
         case VI_QUEUE_INX:
         case VO_QUEUE_INX:
-        case CMD_QUEUE_INX:  // hjy
             ep_num = usb->out_endp_addr[1];
+            break;
+        case CMD_QUEUE_INX:  // hjy
+#ifdef CONFIG_RICHV300
+            /* rich 300*/
+            ep_num = usb->out_endp_addr[3];
+#else
+            ep_num = usb->out_endp_addr[1];
+#endif
             break;
 
         //case CMD_QUEUE_INX:
@@ -713,9 +736,19 @@ static int usb_bulk_write_sync(struct hif_node_ *node, unsigned int addr, char *
         return -1;
     }
 
+//    LOG_D("before write :");
+//    LOG_D("reg 60E8 == %x",hif_io_read32(node,0x60E8, NULL));
+//    LOG_D("reg 60fc == %x",hif_io_read32(node,0x60fc, NULL));
+//    LOG_D("reg 60f8 == %x",hif_io_read32(node,0x60f8, NULL));
+//    LOG_D("reg 60f4 == %x\n\n",hif_io_read32(node,0x60f4, NULL));
     pipe = wf_usb_ffaddr2pipe(&node->u.usb, addr);
     status = usb_bulk_msg(pusb_dev,pipe,data,datalen,&actual_len,BULK_SYNC_TIMEOUT);
 
+//    LOG_D("after write :");
+//    LOG_D("reg 60E8 == %x",hif_io_read32(node,0x60E8, NULL));
+//    LOG_D("reg 60fc == %x",hif_io_read32(node,0x60fc, NULL));
+//    LOG_D("reg 60f8 == %x",hif_io_read32(node,0x60f8, NULL));
+//    LOG_D("reg 60f4 == %x\n\n",hif_io_read32(node,0x60f4, NULL));
     if (status)
     {
         USB_INFO("-->usb_write_port error, errno no is %d", status);

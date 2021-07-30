@@ -901,46 +901,6 @@ typedef enum _SCAN_STATE
 	ScanStateMaxState
 } SCAN_STATE;
 
-
-
-typedef struct _NICKEY
-{
-    BOOLEAN                     Persistent;
-    BOOLEAN                     Valid;
-    DOT11_MAC_ADDRESS           MacAddr;
-    DOT11_CIPHER_ALGORITHM      AlgoId;
-    UCHAR                       KeyLength;              // length of KeyValue in bytes
-    UCHAR                       KeyValue[16];           // 128 bits
-    UCHAR                       TxMICKey[8];            // for TKIP only
-    UCHAR                       RxMICKey[8];            // for TKIP only
-    union {
-        struct {
-            ULONGLONG           PN:48;                  // for CCMP
-            ULONGLONG           PN_unused:16;
-        };
-        struct {
-            ULONGLONG           TSC:48;                 // for TKIP
-            ULONGLONG           TSC_unused:16;
-        };
-        struct {
-            ULONG               IV:24;                  // for WEP 
-            ULONG               IV_unused:8;
-        };
-    };
-    struct {
-        ULONGLONG               ReplayCounter:48;       // for CCMP or TKIP
-        ULONGLONG               ReplayCounter_unused:16;
-    };
-} NICKEY, *PNICKEY;
-
-typedef struct _NIC_PER_STA_KEY
-{
-    DOT11_MAC_ADDRESS           StaMacAddr;
-    BOOLEAN                     Valid;
-    NICKEY                      NicKey[DOT11_MAX_NUM_DEFAULT_KEY];
-} NIC_PER_STA_KEY, *PNIC_PER_STA_KEY;
-
-
 typedef struct _OctetString
 {
     PUCHAR  Octet;
@@ -966,6 +926,8 @@ typedef struct wf_cache_info_s{
 
 typedef struct wf_mib_info_s
 {
+	KEVENT 								halt_deauth_finish;
+	BOOLEAN								connect_state;
 	KEVENT 								scan_hidden_finish;
 	BOOLEAN								hidden_network_enable;
 	WDFSPINLOCK 						bss_lock;

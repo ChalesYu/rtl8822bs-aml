@@ -1,3 +1,19 @@
+/*
+ * iw_priv_func.c
+ *
+ * used for iwpriv private command
+ *
+ * Author: houchuang
+ *
+ * Copyright (c) 2020 SmartChip Integrated Circuits(SuZhou ZhongKe) Co.,Ltd
+ *
+ *
+ * This program is free software; you can redistribute  it and/or modify it
+ * under  the terms of  the GNU General  Public License as published by the
+ * Free Software Foundation;  either version 2 of the  License, or (at your
+ * option) any later version.
+ *
+ */
 #include "common.h"
 #include "hif.h"
 #include "wf_debug.h"
@@ -24,529 +40,6 @@ int wf_iw_priv_mac_reg(nic_info_st *nic_info, int time);
 
 
 #define IW_PRV_DEBUG
-
-//int wf_iw_priv_mp_set(struct net_device *dev, struct iw_request_info *info, union iwreq_data *wrqu, char *extra)
-//{
-//  ndev_priv_st *ndev_priv = netdev_priv(dev);
-//  nic_info_st *pnic_info = ndev_priv->nic;
-//  local_info_st * plocal_info = (local_info_st *)pnic_info->local_info;
-//  struct iw_point *p = NULL;
-//  wf_u8  *tmp_buf       = NULL;
-//    u16 len     = 0;
-//  char cmd_string[512]={0};
-//  char *test;
-//  char *token, *cmd[3] = {0, 0, 0};
-//  u16 addr = 0xFF, cnts = 0;
-//  int err, efuse_code = 1000;
-//  int i = 0;
-//  p = &wrqu->data;
-//    len = p->length;
-
-//#ifdef IW_PRV_DEBUG
-//    LOG_D("[WLAN_IW_PRIV] : %s", __func__);
-//#endif
-
-//    if(0 == len)
-//    {
-//        return -EINVAL;
-//    }
-
-//    tmp_buf = wf_kzalloc(len + 1);
-//    if(NULL == tmp_buf)
-//    {
-//        return -ENOMEM;
-//    }
-
-
-//    if(copy_from_user(tmp_buf,p->pointer,len))
-//    {
-//        wf_kfree(tmp_buf);
-//        return -EFAULT;
-//    }
-
-//  if(sscanf(tmp_buf,"%s",cmd_string)!= 1)
-//  {
-//      LOG_D("iwpriv wlan(X) set help                    :display all cmd");
-//      wf_kfree(tmp_buf);
-//        return -EFAULT;
-//  }
-
-//    test = cmd_string;
-
-//  while ((token = strsep(&test, "=")) != NULL)
-//    {
-//        cmd[i] = token;
-//        i++;
-//  }
-
-//    LOG_D("cmd0: %s",cmd[0]);
-//    LOG_D("cmd1: %s",cmd[1]);
-
-//    if (cmd[0] == NULL)
-//    {
-//      LOG_D("iwpriv wlan(X) set help                    :display all cmd");
-//      wf_kfree(tmp_buf);
-//        return -EFAULT;
-//  }
-
-//  if(!strcmp(cmd[0],"help"))
-//  {
-//      LOG_D("\n\n\n");
-//      LOG_D("-----------------------------------------------------------");
-//      LOG_D("-                 iwpriv set help function                 -");
-//      LOG_D("-----------------------------------------------------------");
-//      LOG_D("iwpriv wlan(X) set test=start                    :start TEST mode");
-//      LOG_D("iwpriv wlan(X) set test=stop                     :stop  TEST mode");
-//      LOG_D("iwpriv wlan(X) set freq=[01~07][70~FF]           :write Freq value");
-//      LOG_D("iwpriv wlan(X) set thermal                       :start Thermal test");
-//      LOG_D("iwpriv wlan(X) set tx_ant=[0~2]                  :set tx antenna (0:all ant on  1:ant_1 on  2:ant_2 on)");
-//        LOG_D("iwpriv wlan(X) set rx_ant=[0~2]                  :set tx antenna (0:all ant on  1:ant_1 on  2:ant_2 on)");
-//      LOG_D("iwpriv wlan(X) set tx_power0=[0~63]              :set tx power level");
-//      LOG_D("iwpriv wlan(X) set channel=[1~14]                :set channel");
-//      LOG_D("iwpriv wlan(X) set bw=[0,1]                      :set bw   (0:20MHz  1:40MHz)");
-//      LOG_D("iwpriv wlan(X) set gi=[0,1]                      :set tx guard interval   (0:short  1:long)");
-//      LOG_D("iwpriv wlan(X) set rate=[0~3,128~135,256~263]    :set data rate   (referance rate table)");
-//        LOG_D("iwpriv wlan(X) set tx=frame                      :start tx frame");
-//        LOG_D("iwpriv wlan(X) set tx=frame,len=[]               :start tx frame with length");
-//        LOG_D("iwpriv wlan(X) set tx=frame,count=[]             :start tx number of packets frame");
-//        LOG_D("iwpriv wlan(X) set tx=frame,len=[],count=[]      :start tx number of packets frame with length");
-//        LOG_D("iwpriv wlan(X) set tx=carr                       :start sending carrier suppression");
-//        LOG_D("iwpriv wlan(X) set tx=single                     :start sending single tone signal");
-//        LOG_D("iwpriv wlan(X) set tx=stop                       :stop tx frame");
-//        LOG_D("iwpriv wlan(X) set rx=start                      :start rx frame");
-//        LOG_D("iwpriv wlan(X) set rx=stop                       :stop rx frame");
-//        LOG_D("iwpriv wlan(X) set stats=query                   :get the statistics");
-//        LOG_D("iwpriv wlan(X) set stats=reset                   :reset statistics");
-//  }
-//  else if (!strcmp(cmd[0], "test"))
-//    {
-//      mp_test_ctrl(dev, cmd[1]);
-//  }
-//  else if (!strcmp(cmd[0], "channel"))
-//    {
-//        mp_set_channel(dev, cmd[1]);
-//  }
-//    else if (!strcmp(cmd[0], "freq"))
-//    {
-//  }
-//  else if (!strcmp(cmd[0], "bw"))
-//    {
-//  }
-//  else if (!strcmp(cmd[0], "gi"))
-//    {
-//  }
-//  else if (!strcmp(cmd[0], "tx_ant"))
-//    {
-//  }
-//  else if (!strcmp(cmd[0], "tx_power0"))
-//    {
-//  }
-//  else if (!strcmp(cmd[0], "rate"))
-//    {
-//  }
-//  else if (!strcmp(cmd[0], "tx"))
-//    {
-//  }
-//  else if (!strcmp(cmd[0], "stats"))
-//    {
-//  }
-//  else if (!strcmp(cmd[0], "rx_ant"))
-//    {
-//  }
-//  else if (!strcmp(cmd[0], "rx"))
-//    {
-//  }
-//  else if (!strcmp(cmd[0], "thermal"))
-//    {
-//  }
-//    else
-//    {
-//        LOG_D("iwpriv wlan(X) set help                    :display all cmd");
-//    }
-
-//    wf_kfree(tmp_buf);
-//  return 0;
-//}
-
-
-
-//int wf_iw_priv_mp_get(struct net_device *dev, struct iw_request_info *info, union iwreq_data *wrqu, char *extra)
-//{
-//  ndev_priv_st *ndev_priv = netdev_priv(dev);
-//  nic_info_st *pnic_info = ndev_priv->nic;
-//  local_info_st * plocal_info = (local_info_st *)pnic_info->local_info;
-//  struct iw_point *p = NULL;
-//  wf_u8  *tmp_buf       = NULL;
-//    u16 len     = 0;
-//  char cmd_string[512]={0};
-//  char *test;
-//  char *token, *cmd[3] = {0, 0, 0};
-//  u16 addr = 0xFF, cnts = 0;
-//  int err, efuse_code = 1000;
-//  int i = 0;
-//  p = &wrqu->data;
-//    len = p->length;
-
-//#ifdef IW_PRV_DEBUG
-//    LOG_D("[WLAN_IW_PRIV] : %s", __func__);
-//#endif
-
-//    if(0 == len)
-//    {
-//        return -EINVAL;
-//    }
-
-//    tmp_buf = wf_kzalloc(len + 1);
-//    if(NULL == tmp_buf)
-//    {
-//        return -ENOMEM;
-//    }
-
-
-//    if(copy_from_user(tmp_buf,p->pointer,len))
-//    {
-//        wf_kfree(tmp_buf);
-//        return -EFAULT;
-//    }
-
-//  if(sscanf(tmp_buf,"%s",cmd_string)!= 1)
-//  {
-//      LOG_D("iwpriv wlan(X) get help                    :display all cmd");
-//      wf_kfree(tmp_buf);
-//        return -EFAULT;
-//  }
-
-//    test = cmd_string;
-
-
-//    while ((token = strsep(&test, "=")) != NULL)
-//    {
-//        cmd[i] = token;
-//        i++;
-//    }
-
-//    LOG_D("cmd0: %s",cmd[0]);
-//    LOG_D("cmd1: %s",cmd[1]);
-
-//    if (cmd[0] == NULL)
-//    {
-//      LOG_D("iwpriv wlan(X) get help                    :display all cmd");
-//      wf_kfree(tmp_buf);
-//        return -EFAULT;
-//  }
-
-//  if(!strcmp(cmd[0],"help"))
-//  {
-//      LOG_D("\n\n\n");
-//      LOG_D("-----------------------------------------------------------");
-//      LOG_D("-                 iwpriv get help function                 -");
-//      LOG_D("-----------------------------------------------------------");
-//      LOG_D("iwpriv wlan(X) get freq                          :read Freq, return a value");
-//      LOG_D("iwpriv wlan(X) get thermal                       :read Thermal, return a value");
-//  }
-//  else if (!strcmp(cmd[0], "bw"))
-//  {
-//      wf_u8 bw;
-
-//      mp_get_bw(dev,&bw);
-//  }
-//  else if (!strcmp(cmd[0], "channel") == 0)
-//  {
-//  }
-//  else if (!strcmp(cmd[0], "freq") == 0)
-//  {
-//  }
-//  else if (!strcmp(cmd[0], "thermal") == 0)
-//    {
-//  }
-//  else if (!strcmp(cmd[0], "blinked") == 0)
-//    {
-//  }
-//  else if (!strcmp(cmd[0], "drv_version") == 0)
-//    {
-//  }
-//    else
-//    {
-//        LOG_D("iwpriv wlan(X) get help                    :display all cmd");
-//    }
-
-//    wf_kfree(tmp_buf);
-//  return 0;
-//}
-
-
-
-//int wf_iw_priv_mp_read_efuse(struct net_device *dev, struct iw_request_info *info, union iwreq_data *wrqu, char *extra)
-//{
-//  ndev_priv_st *ndev_priv = netdev_priv(dev);
-//  nic_info_st *pnic_info = ndev_priv->nic;
-//  local_info_st * plocal_info = (local_info_st *)pnic_info->local_info;
-//  struct iw_point *p = NULL;
-//  wf_u8  *tmp_buf       = NULL;
-//    u16 len     = 0;
-//  char cmd_string[512]={0};
-//  char *test;
-//  char *token, *cmd[3] = {0, 0, 0};
-//  u16 addr = 0xFF, cnts = 0;
-//  int err, efuse_code = 1000;
-//  int i = 0;
-//  p = &wrqu->data;
-//    len = p->length;
-
-//#ifdef IW_PRV_DEBUG
-//    LOG_D("[WLAN_IW_PRIV] : %s", __func__);
-//#endif
-
-//    if(0 == len)
-//    {
-//        return -EINVAL;
-//    }
-
-//    tmp_buf = wf_kzalloc(len + 1);
-//    if(NULL == tmp_buf)
-//    {
-//        return -ENOMEM;
-//    }
-
-
-//    if(copy_from_user(tmp_buf,p->pointer,len))
-//    {
-//        wf_kfree(tmp_buf);
-//        return -EFAULT;
-//    }
-
-//  if(sscanf(tmp_buf,"%s",cmd_string)!= 1)
-//  {
-//      LOG_D("iwpriv wlan(X) read_efuse help                    :display all cmd");
-//      wf_kfree(tmp_buf);
-//        return -EFAULT;
-//  }
-
-//    test = cmd_string;
-//    while ((token = strsep(&test, "=")) != NULL)
-//    {
-//        cmd[i] = token;
-//        i++;
-//    }
-
-//    LOG_D("cmd0: %s",cmd[0]);
-//    LOG_D("cmd1: %s",cmd[1]);
-
-//    if (cmd[0] == NULL)
-//    {
-//      LOG_D("iwpriv wlan(X) read_efuse help                    :display all cmd");
-//      wf_kfree(tmp_buf);
-//        return -EFAULT;
-//  }
-
-//  if(!strcmp(cmd[0],"help"))
-//  {
-//      LOG_D("\n\n\n");
-//      LOG_D("-------------------------------------------------------------------");
-//      LOG_D("-                 iwpriv read_efuse help function                 -");
-//      LOG_D("-------------------------------------------------------------------");
-//        LOG_D("iwpriv wlan(X) read_efuse phy_freespace            :get the remaining physpace,eg:0xe0");
-//        LOG_D("iwpriv wlan(X) read_efuse mac                      :get mac address,eg: 0xb4 0x04 0x18 0x00 0x00 0x04");
-//        LOG_D("iwpriv wlan(X) read_efuse vid                      :get vid value, eg: 0xE7 0x02");
-//        LOG_D("iwpriv wlan(X) read_efuse pid                      :get pid value eg :0x86 0x90");
-//        LOG_D("iwpriv wlan(X) read_efuse manufacture              :read Manufacture value ,only usb");
-//        LOG_D("iwpriv wlan(X) read_efuse product                  :read Product value ,only usb");
-//        LOG_D("iwpriv wlan(X) read_efuse freqcal                  :read Freqcal value");
-//        LOG_D("iwpriv wlan(X) read_efuse tempcal                  :read tempCal value");
-//        LOG_D("iwpriv wlan(X) read_efuse channelplan              :read channeplan value");
-//        LOG_D("iwpriv wlan(X) read_efuse powercal                 :read PowerCal value");
-//        LOG_D("iwpriv wlan(X) read_efuse customer[1-5]            :read tempCal value");
-//  }
-//  else if (!strcmp(cmd[0], "phy_freespace"))
-//    {
-//      efuse_code = EFUSE_PHYSPACE;
-//  }
-//  else if (!strcmp(cmd[0], "mac"))
-//    {
-//      efuse_code = WLAN_EEPORM_MAC;
-//  }
-//  else if (!strcmp(cmd[0], "vid"))
-//    {
-//      efuse_code = EFUSE_VID;
-//  }
-//  else if (!strcmp(cmd[0], "pid"))
-//    {
-//      efuse_code = EFUSE_PID;
-//  }
-//  else if (!strcmp(cmd[0], "manufacture"))
-//    {
-//      efuse_code = EFUSE_MANU;
-//  }
-//  else if (!strcmp(cmd[0], "product"))
-//    {
-//      efuse_code = EFUSE_PRODUCT;
-//  }
-//  else if (!strcmp(cmd[0], "freqcal"))
-//    {
-//      efuse_code = EFUSE_FREQCAL;
-//  }
-//  else if (!strcmp(cmd[0], "tempcal"))
-//    {
-//      efuse_code = EFUSE_TEMPCAL;
-//  }
-//  else if (!strcmp(cmd[0], "channelplan"))
-//    {
-//      efuse_code = EFUSE_CHANNELPLAN;
-//  }
-//  else if (!strcmp(cmd[0], "powercal"))
-//    {
-//      efuse_code = EFUSE_POWERCAL;
-//    }
-//    else
-//    {
-//        LOG_D("iwpriv wlan(X) read_efuse help                    :display all cmd");
-//    }
-
-//    wf_kfree(tmp_buf);
-//  return 0;
-//}
-
-
-//int wf_iw_priv_mp_write_efuse(struct net_device *dev, struct iw_request_info *info, union iwreq_data *wrqu, char *extra)
-//{
-//  ndev_priv_st *ndev_priv = netdev_priv(dev);
-//  nic_info_st *pnic_info = ndev_priv->nic;
-//  local_info_st * plocal_info = (local_info_st *)pnic_info->local_info;
-//  struct iw_point *p = NULL;
-//  wf_u8  *tmp_buf       = NULL;
-//    u16 len     = 0;
-//  char cmd_string[512]={0};
-//  char *test;
-//  char *token, *cmd[3] = {0, 0, 0};
-//  u16 addr = 0xFF, cnts = 0;
-//  int err, efuse_code = 1000;
-//  int i = 0;
-//  p = &wrqu->data;
-//    len = p->length;
-
-//#ifdef IW_PRV_DEBUG
-//    LOG_D("[WLAN_IW_PRIV] : %s", __func__);
-//#endif
-
-//    if(0 == len)
-//    {
-//        return -EINVAL;
-//    }
-
-//    tmp_buf = wf_kzalloc(len + 1);
-//    if(NULL == tmp_buf)
-//    {
-//        return -ENOMEM;
-//    }
-
-
-//    if(copy_from_user(tmp_buf,p->pointer,len))
-//    {
-//        wf_kfree(tmp_buf);
-//        return -EFAULT;
-//    }
-
-//  if(sscanf(tmp_buf,"%s",cmd_string)!= 1)
-//  {
-//      LOG_D("iwpriv wlan(X) write_efuse help                    :display all cmd");
-//      wf_kfree(tmp_buf);
-//        return -EFAULT;
-//  }
-
-//    test = cmd_string;
-//    while ((token = strsep(&test, "=")) != NULL)
-//    {
-//        cmd[i] = token;
-//        i++;
-//    }
-
-//    LOG_D("cmd0: %s",cmd[0]);
-//    LOG_D("cmd1: %s",cmd[1]);
-
-//    if (cmd[0] == NULL)
-//    {
-//      LOG_D("iwpriv wlan(X) write_efuse help                    :display all cmd");
-//      wf_kfree(tmp_buf);
-//        return -EFAULT;
-//  }
-
-//  if(!strcmp(cmd[0],"help"))
-//  {
-//      LOG_D("\n\n\n");
-//      LOG_D("--------------------------------------------------------------------");
-//      LOG_D("-                 iwpriv write_efuse help function                 -");
-//      LOG_D("--------------------------------------------------------------------");
-//        LOG_D("iwpriv wlan(X) write_efuse check=id                :id data check");
-//        LOG_D("iwpriv wlan(X) write_efuse check=phy               :phy data check");
-//        LOG_D("iwpriv wlan(X) write_efuse check=fix               :write fixed data");
-//        LOG_D("iwpriv wlan(X) write_efuse mac=[b40418000007]      :write mac address");
-//        LOG_D("iwpriv wlan(X) write_efuse vid=[e702]              :write vid value");
-//        LOG_D("iwpriv wlan(X) write_efuse pid=[8690]              :write pid value");
-//        LOG_D("iwpriv wlan(X) write_efuse manufacture=[0101]      :write Manufacture value ,only usb");
-//        LOG_D("iwpriv wlan(X) write_efuse product=[9188]          :write Product value ,only usb");
-//        LOG_D("iwpriv wlan(X) write_efuse freqcal=[01~07][70~FF]  :write Freqcal value");
-//        LOG_D("iwpriv wlan(X) write_efuse tempcal=[20]            :write TempCal value");
-//        LOG_D("iwpriv wlan(X) write_efuse channelplan=[20]        :write channelplan value");
-//        LOG_D("iwpriv wlan(X) write_efuse powercal=[xxxx]         :write powercal value");
-
-//  }
-//  else if (strncmp(cmd[0], "mac", 3) == 0)
-//    {
-//      efuse_code = WLAN_EEPORM_MAC;
-//  }
-//  else if (!strncmp(cmd[0], "vid", 3))
-//    {
-//      efuse_code = EFUSE_VID;
-//  }
-//  else if (!strncmp(cmd[0], "pid", 3))
-//    {
-//      efuse_code = EFUSE_PID;
-//  }
-//  else if (!strncmp(cmd[0], "manufacture", strlen("manufacture")))
-//    {
-//      efuse_code = EFUSE_MANU;
-//  }
-//  else if (!strncmp(cmd[0], "product", strlen("product")))
-//    {
-//      efuse_code = EFUSE_PRODUCT;
-//  }
-//  else if (!strncmp(cmd[0], "freqcal", strlen("freqcal")))
-//    {
-//      efuse_code = EFUSE_FREQCAL;
-//  }
-//  else if (!strncmp(cmd[0], "tempcal", strlen("tempcal")))
-//    {
-//      efuse_code = EFUSE_TEMPCAL;
-//  }
-//  else if (!strncmp(cmd[0], "channelplan", strlen("channelplan")))
-//    {
-//      efuse_code = EFUSE_CHANNELPLAN;
-//  }
-//  else if (!strncmp(cmd[0], "powercal", strlen("powercal")))
-//    {
-//      efuse_code = EFUSE_POWERCAL;
-//  }
-//  else if (!strncmp(cmd[0], "id", 2))
-//    {
-//      efuse_code = EFUSE_HEADERCHECK;
-//  }
-//  else if (strncmp(cmd[0], "fix", 3))
-//    {
-//      efuse_code = WLAN_EEPORM_BASEVALUE2;
-//  }
-//  else if (strncmp(cmd[0], "phy", 3))
-//    {
-//      efuse_code = EFUSE_PHYCFGCHECK;
-//  }
-//  else
-//    {
-//        LOG_D("iwpriv wlan(X) write_efuse help                    :display all cmd");
-//    }
-
-//    wf_kfree(tmp_buf);
-//  return 0;
-//}
-
 
 
 #ifdef IW_PRV_DEBUG
@@ -733,9 +226,9 @@ int wf_iw_ars(struct net_device *dev, struct iw_request_info *info, union iwreq_
 {
     ndev_priv_st *pndev_priv = netdev_priv(dev);
     nic_info_st *pnic_info = pndev_priv->nic;
-	wf_u8 *pch;
-	struct iw_point *wrqu;
-	wf_u32 in_ops,in_ability;
+    wf_u8 *pch;
+    struct iw_point *wrqu;
+    wf_u32 in_ops,in_ability;
     wrqu = (struct iw_point *)wdata;
 
     if (copy_from_user(extra, wrqu->pointer, wrqu->length))
@@ -743,15 +236,43 @@ int wf_iw_ars(struct net_device *dev, struct iw_request_info *info, union iwreq_
         LOG_D("copy_from_user fail");
         return WF_RETURN_FAIL;
     }
-	pch = extra;
+    pch = extra;
     LOG_D("in = %s",extra);
 
     sscanf(pch,"%d,%d",&in_ops,&in_ability);
-	
+    
     wf_mcu_msg_body_set_ability(pnic_info,in_ops,in_ability);
     return 0;
 }
 
+int wf_iw_txagg_timestart(struct net_device *dev, struct iw_request_info *info, union iwreq_data *wdata, char *extra)
+{
+    ndev_priv_st *pndev_priv = netdev_priv(dev);
+    nic_info_st *pnic_info = pndev_priv->nic;
+    hif_node_st *hif_info   = pnic_info->hif_node;
+    wf_u8 *pch;
+    wf_s32 time_start;
+    struct iw_point *wrqu;
+    wrqu = (struct iw_point *)wdata;
+
+    if (copy_from_user(extra, wrqu->pointer, wrqu->length))
+    {
+        LOG_D("copy_from_user fail");
+        return WF_RETURN_FAIL;
+    }
+    pch = extra;
+    LOG_D("txagg= %s",extra);
+    sscanf(pch,"%d",&time_start);
+    LOG_D("time_start %d",time_start);
+    hif_info->u.sdio.count_start = time_start;
+    if(0 == hif_info->u.sdio.count_start)
+    {
+        hif_info->u.sdio.tx_agg_send_time = 0;
+        hif_info->u.sdio.tx_flow_ctl_time = 0;
+        hif_info->u.sdio.tx_all_time = 0;
+    }
+    return 0;
+}
 
 int wf_iw_reg_read(struct net_device *dev, struct iw_request_info *info, union iwreq_data *wdata, char *extra)
 {
@@ -760,8 +281,8 @@ int wf_iw_reg_read(struct net_device *dev, struct iw_request_info *info, union i
     struct iw_point *wrqu;
     wf_u8 *pch;
     wf_u32 byte,addr,data = 0;
-	wf_u32 addr_reg = 0x0;
-	wf_u32 start = 0x0,end = 0xff;
+    wf_u32 addr_reg = 0x0;
+    wf_u32 start = 0x0,end = 0xff;
     wf_u32 ret=WF_RETURN_OK;
     wrqu = (struct iw_point *)wdata;
 
@@ -773,15 +294,15 @@ int wf_iw_reg_read(struct net_device *dev, struct iw_request_info *info, union i
 
     pch = extra;
     LOG_D("in = %s",extra);
-	if(strncmp(pch, "all" ,3) == 0)
-	{
-	    for(addr_reg = start;addr_reg<=end;addr_reg++)
-    	{
-			LOG_D("%02x:",addr_reg);
-        	LOG_D("%08x ", data = wf_io_read32(pnic_info,addr_reg, NULL));
-    	}
-		return 0;
-	}
+    if(strncmp(pch, "all" ,3) == 0)
+    {
+        for(addr_reg = start;addr_reg<=end;addr_reg++)
+        {
+            LOG_D("%02x:",addr_reg);
+            LOG_D("%08x ", data = wf_io_read32(pnic_info,addr_reg, NULL));
+        }
+        return 0;
+    }
 
     sscanf(pch,"%d,%x",&byte,&addr);
     LOG_D("byte:%d addr:%x",byte,addr);
@@ -869,9 +390,9 @@ int wf_iw_fwdl(struct net_device *dev, struct iw_request_info *info, union iwreq
 {
     ndev_priv_st *ndev_priv = netdev_priv(dev);
     nic_info_st *pnic_info = ndev_priv->nic;
-	hif_node_st *hif_node = (hif_node_st *)pnic_info->hif_node;
-	
-	wf_tasklet_hi_sched(&hif_node->trx_pipe.send_task);
+    hif_node_st *hif_node = (hif_node_st *)pnic_info->hif_node;
+    
+    wf_tasklet_hi_sched(&hif_node->trx_pipe.send_task);
     return 0;
 }
 
@@ -958,15 +479,8 @@ int wf_iw_priv_tx(struct net_device *dev, struct iw_request_info *info, union iw
         loopback = wf_io_read32(pnic_info, 0x100,NULL);
         LOG_D("loopback:%x",loopback);
         loopback |= (BIT(24) | BIT(25) | BIT(27));
-//      loopback &= (~(BIT(27)));
-//      loopback = 0x0b000000;
         LOG_D("loopback:%x",loopback);
         wf_io_write32(pnic_info, 0x100, loopback);
-//      buff_addr = wf_io_read32(pnic_info, 0x45D,NULL);
-//      LOG_D("buff_addr:%x",buff_addr);
-//      buff_addr |= 0x03;
-//      LOG_D("buff_addr:%x",buff_addr);
-//      wf_io_write32(pnic_info, 0x45D, buff_addr);
         wf_kfree(tmp_buf);
         return 0;
     }
@@ -974,15 +488,8 @@ int wf_iw_priv_tx(struct net_device *dev, struct iw_request_info *info, union iw
         loopback = wf_io_read32(pnic_info, 0xd00,NULL);
         LOG_D("loopback:%x",loopback);
         loopback |= 0x1000000;
-//      loopback &= (~(BIT(27)));
-//      loopback = 0x0b000000;
         LOG_D("loopback:%x",loopback);
         wf_io_write32(pnic_info, 0xd00, loopback);
-//      buff_addr = wf_io_read32(pnic_info, 0x45D,NULL);
-//      LOG_D("buff_addr:%x",buff_addr);
-//      buff_addr |= 0x03;
-//      LOG_D("buff_addr:%x",buff_addr);
-//      wf_io_write32(pnic_info, 0x45D, buff_addr);
         wf_kfree(tmp_buf);
         return 0;
     }
@@ -1139,86 +646,46 @@ int wf_iw_priv_phy_reg(nic_info_st *nic_info, wf_u32 time)
     int cnt_cck_crc_ok_all;
     int cnt_cck_fail;
     ret = wf_io_read32(nic_info,0x09cc,NULL);
-//  LOG_D("cnt_txpkton_ofdm:%d",(ret & 0xffff));
-//  LOG_D("cnt_ofdmtxen:%d",((ret & 0xffff0000) >> 16));
     ret = wf_io_read32(nic_info,0x09d0,NULL);
-//  LOG_D("cnt_txpkton_cck:%d",(ret & 0xffff));
-//  LOG_D("cnt_ccktxen:%d",((ret & 0xffff0000) >> 16));
-//  ret = wf_io_read32(nic_info,0x0f14,NULL);
-//  LOG_D("r_txpkt_cnt_ofdm_ext:%d",((ret & 0xf0000) >> 16));
-//  ret = wf_io_read32(nic_info,0x0f18,NULL);
-//  LOG_D("r_txpkt_cnt_ofdm_old:%d",(ret & 0xffff));
-//  LOG_D("r_txpkt_cnt_cck:%d",((ret & 0xffff0000) >> 16));
     ret = wf_io_read32(nic_info,0x0da0,NULL);
-//  LOG_D("cnt_parity_fail:%d",((ret & 0xffff0000) >> 16));
     cnt_parity_fail1 = (ret & 0xffff0000) >> 16;
     ret = wf_io_read32(nic_info,0x0da4,NULL);
     cnt_rate_fail1 = ret & 0xffff;
     cnt_crc8_fail1 = (ret & 0xffff0000) >> 16;
-//  LOG_D("cnt_rate_fail:%d",(ret & 0xffff));
-//  LOG_D("cnt_crc8_fail:%d",((ret & 0xffff0000) >> 16));
     ret = wf_io_read32(nic_info,0x0da8,NULL);
     cnt_mcs_fail1 = ret & 0xffff;
     ret = wf_io_read32(nic_info,0x0cf0,NULL);
     cnt_fast_fsync1 = ret & 0xffff;
     cnt_sb_search_fail1 = (ret & 0xffff0000) >> 16;
     cnt_ofdm_fail1 = cnt_parity_fail1 + cnt_rate_fail1 + cnt_crc8_fail1 + cnt_mcs_fail1 + cnt_fast_fsync1 + cnt_sb_search_fail1;
-//  LOG_D("RX cnt_ofdm_fail:%d",cnt_ofdm_fail1);
     ret = wf_io_read32(nic_info,0x0f90,NULL);
     cnt_ofdm_ht_crc_ok1 = ret & 0xffff;
     cnt_ofdm_ht_crc_fail1 = (ret & 0xffff0000) >> 16;
-//  LOG_D("cnt_ofdmrx_ht_crc_ok:%d",(ret & 0xffff));
-//  LOG_D("cck_ofdmrx_ht_crc_err:%d",((ret & 0xffff0000) >> 16));
     ret = wf_io_read32(nic_info,0x0f94,NULL);
     cnt_ofdm_crc_ok1 = ret & 0xffff;
     cnt_ofdm_crc_fail1 = (ret & 0xffff0000) >> 16;
     cnt_ofdm_crc_fail_all1 = cnt_ofdm_crc_fail1 + cnt_ofdm_ht_crc_fail1;
     cnt_ofdm_crc_ok_all1 = cnt_ofdm_crc_ok1 + cnt_ofdm_ht_crc_ok1;
-//  LOG_D("cnt_ofdmrx_l_crc_ok:%d",(ret & 0xffff));
-//  LOG_D("cck_ofdmrx_l_crc_err:%d",((ret & 0xffff0000) >> 16));
-//  LOG_D("cnt_ofdm_crc_fail_all:%d",cnt_ofdm_crc_fail_all1);
-//  LOG_D("cnt_ofdm_crc_ok_all:%d",cnt_ofdm_crc_ok_all1);
     ofdm_fail_probability1 = ((cnt_ofdm_crc_fail_all1*100)/(cnt_ofdm_crc_fail_all1 + cnt_ofdm_crc_ok_all1));
-//  LOG_D("ofdm fail_probability:%d",ofdm_fail_probability);
-//  ret = wf_io_read32(nic_info,0x0fa0,NULL);
-//  LOG_D("cck_cca_cnt:%d",((ret & 0xffff0000) >> 16));
     ret = wf_io_read32(nic_info,0x0a5c,NULL);
     cnt_cck_fail1 = ret & 0xff;
     ret = wf_io_read32(nic_info,0x0a58,NULL);
     cnt_cck_fail1 += ((ret & 0xff000000) >> 16);
-//  LOG_D("cnt_cck_fail:%d",cnt_cck_fail1);
     ret = wf_io_read32(nic_info,0x0f84,NULL);
     cnt_cck_crc_fail1 = ret;
-//  LOG_D("cnt_cck_crc_fail:%d",cnt_cck_crc_fail1);
     ret = wf_io_read32(nic_info,0x0f88,NULL);
     cnt_cck_crc_ok1 = ret;
-//  LOG_D("cnt_ cck_crc32ok:%d",cnt_cck_crc_ok1);
     cnt_crc_fail_all1 = cnt_cck_crc_fail1 + cnt_ofdm_crc_fail_all1;
-//  LOG_D("cnt_crc_fail_all:%d",cnt_crc_fail_all1);
     cnt_crc_ok_all1 = cnt_cck_crc_ok1 + cnt_ofdm_crc_ok_all1;
-//  LOG_D("cnt_crc_ok_all:%d",cnt_crc_ok_all1);
     cck_fail_probability1 = ((cnt_crc_fail_all1*100)/(cnt_crc_fail_all1 + cnt_crc_ok_all1));
-//  LOG_D("cck fail_probability:%d",cck_fail_probability);
     wf_msleep(time*1000);
     ret = wf_io_read32(nic_info,0x09cc,NULL);
-//  LOG_D("cnt_txpkton_ofdm:%d",(ret & 0xffff));
-//  LOG_D("cnt_ofdmtxen:%d",((ret & 0xffff0000) >> 16));
     ret = wf_io_read32(nic_info,0x09d0,NULL);
-//  LOG_D("cnt_txpkton_cck:%d",(ret & 0xffff));
-//  LOG_D("cnt_ccktxen:%d",((ret & 0xffff0000) >> 16));
-//  ret = wf_io_read32(nic_info,0x0f14,NULL);
-//  LOG_D("r_txpkt_cnt_ofdm_ext:%d",((ret & 0xf0000) >> 16));
-//  ret = wf_io_read32(nic_info,0x0f18,NULL);
-//  LOG_D("r_txpkt_cnt_ofdm_old:%d",(ret & 0xffff));
-//  LOG_D("r_txpkt_cnt_cck:%d",((ret & 0xffff0000) >> 16));
     ret = wf_io_read32(nic_info,0x0da0,NULL);
-//  LOG_D("cnt_parity_fail:%d",((ret & 0xffff0000) >> 16));
     cnt_parity_fail2 = (ret & 0xffff0000) >> 16;
     ret = wf_io_read32(nic_info,0x0da4,NULL);
     cnt_rate_fail2 = ret & 0xffff;
     cnt_crc8_fail2 = (ret & 0xffff0000) >> 16;
-//  LOG_D("cnt_rate_fail:%d",(ret & 0xffff));
-//  LOG_D("cnt_crc8_fail:%d",((ret & 0xffff0000) >> 16));
     ret = wf_io_read32(nic_info,0x0da8,NULL);
     cnt_mcs_fail2 = ret & 0xffff;
     ret = wf_io_read32(nic_info,0x0cf0,NULL);
@@ -1233,77 +700,50 @@ int wf_iw_priv_phy_reg(nic_info_st *nic_info, wf_u32 time)
     LOG_D("cnt_fast_fsync2:%d",(cnt_fast_fsync2-cnt_fast_fsync1));
     LOG_D("cnt_sb_search_fail2:%d",(cnt_sb_search_fail2-cnt_sb_search_fail1));
     LOG_D("-----------------test------------------");
-//  LOG_D("RX cnt_ofdm_fail:%d",cnt_ofdm_fail2);
     ret = wf_io_read32(nic_info,0x0f90,NULL);
     cnt_ofdm_ht_crc_ok2 = ret & 0xffff;
     cnt_ofdm_ht_crc_fail2 = (ret & 0xffff0000) >> 16;
-//  LOG_D("cnt_ofdmrx_ht_crc_ok:%d",(ret & 0xffff));
-//  LOG_D("cck_ofdmrx_ht_crc_err:%d",((ret & 0xffff0000) >> 16));
     ret = wf_io_read32(nic_info,0x0f94,NULL);
     cnt_ofdm_crc_ok2 = ret & 0xffff;
     cnt_ofdm_crc_fail2 = (ret & 0xffff0000) >> 16;
     cnt_ofdm_crc_fail_all2 = cnt_ofdm_crc_fail2 + cnt_ofdm_ht_crc_fail2;
     cnt_ofdm_crc_ok_all2 = cnt_ofdm_crc_ok2 + cnt_ofdm_ht_crc_ok2;
-//  LOG_D("cnt_ofdmrx_l_crc_ok:%d",(ret & 0xffff));
-//  LOG_D("cck_ofdmrx_l_crc_err:%d",((ret & 0xffff0000) >> 16));
-//  LOG_D("cnt_ofdm_crc_fail_all2:%d",cnt_ofdm_crc_fail_all2);
-//  LOG_D("cnt_ofdm_crc_ok_all2:%d",cnt_ofdm_crc_ok_all2);
     ofdm_fail_probability2 = ((cnt_ofdm_crc_fail_all2*100)/(cnt_ofdm_crc_fail_all2 + cnt_ofdm_crc_ok_all2));
-//  LOG_D("ofdm fail_probability:%d",ofdm_fail_probability);
-//  ret = wf_io_read32(nic_info,0x0fa0,NULL);
-//  LOG_D("cck_cca_cnt:%d",((ret & 0xffff0000) >> 16));
     ret = wf_io_read32(nic_info,0x0a5c,NULL);
     cnt_cck_fail2 = ret & 0xff;
     ret = wf_io_read32(nic_info,0x0a58,NULL);
     cnt_cck_fail2 += ((ret & 0xff000000) >> 16);
-//  LOG_D("cnt_cck_fail:%d",cnt_cck_fail2);
     ret = wf_io_read32(nic_info,0x0f84,NULL);
     cnt_cck_crc_fail2 = ret;
-//  LOG_D("cnt_cck_crc_fail:%d",cnt_cck_crc_fail2);
     ret = wf_io_read32(nic_info,0x0f88,NULL);
     cnt_cck_crc_ok2 = ret;
-//  LOG_D("cnt_ cck_crc32ok:%d",cnt_cck_crc_ok2);
     cnt_crc_fail_all2 = cnt_cck_crc_fail2 + cnt_ofdm_crc_fail_all2;
-//  LOG_D("cnt_crc_fail_all:%d",cnt_crc_fail_all2);
     cnt_crc_ok_all2 = cnt_cck_crc_ok2 + cnt_ofdm_crc_ok_all2;
-//  LOG_D("cnt_crc_ok_all:%d",cnt_crc_ok_all2);
     cck_fail_probability2 = ((cnt_crc_fail_all2*100)/(cnt_crc_fail_all2 + cnt_crc_ok_all2));
     cnt_ofdm_fail_interval = cnt_ofdm_fail2 - cnt_ofdm_fail1;
     if(cnt_ofdm_fail_interval < 0){
         cnt_ofdm_fail_interval = cnt_ofdm_fail1 - cnt_ofdm_fail2;
-//      cnt_ofdm_fail_interval = (cnt_ofdm_fail2 + val) - cnt_ofdm_fail1;
-//      LOG_D("reg reset");
     }
 
     cnt_ofdm_crc_fail_all = cnt_ofdm_crc_fail_all2 - cnt_ofdm_crc_fail_all1;
     if(cnt_ofdm_crc_fail_all < 0){
         cnt_ofdm_crc_fail_all = cnt_ofdm_crc_fail_all1 - cnt_ofdm_crc_fail_all2;
-//      cnt_ofdm_crc_fail_all = (cnt_ofdm_crc_fail_all2 + val) - cnt_ofdm_crc_fail_all1;
-//      LOG_D("reg reset");
     }
     cnt_ofdm_crc_ok_all = cnt_ofdm_crc_ok_all2 - cnt_ofdm_crc_ok_all1;
     if(cnt_ofdm_crc_ok_all < 0){
         cnt_ofdm_crc_ok_all = cnt_ofdm_crc_ok_all1 - cnt_ofdm_crc_ok_all2;
-//      cnt_ofdm_crc_ok_all = (cnt_ofdm_crc_ok_all2 + val) - cnt_ofdm_crc_ok_all1;
-//      LOG_D("reg reset");
     }
     cnt_cck_crc_ok_all = cnt_cck_crc_ok2 - cnt_cck_crc_ok1;
     if(cnt_cck_crc_ok_all < 0){
         cnt_cck_crc_ok_all = cnt_cck_crc_ok1 - cnt_cck_crc_ok2;
-//      cnt_cck_crc_ok_all = (cnt_cck_crc_ok2 + val) - cnt_cck_crc_ok1;
-//      LOG_D("reg reset");
     }
     cnt_cck_crc_fail_all = cnt_cck_crc_fail2 - cnt_cck_crc_fail1;
     if(cnt_cck_crc_fail_all < 0){
         cnt_cck_crc_fail_all = cnt_cck_crc_fail1 - cnt_cck_crc_fail2;
-//      cnt_cck_crc_fail_all = (cnt_cck_crc_fail2 + val) - cnt_cck_crc_fail1;
-//      LOG_D("reg reset");
     }
     cnt_cck_fail = cnt_cck_fail2 - cnt_cck_fail1;
     if(cnt_cck_fail < 0){
         cnt_cck_fail = cnt_cck_fail1 - cnt_cck_fail2;
-//      cnt_cck_fail = (cnt_cck_fail2 + val) - cnt_cck_fail1;
-//      LOG_D("reg reset");
     }
     LOG_D("ofdm fail interval %d s : %d",time,cnt_ofdm_fail_interval);
     LOG_D("ofdm crc fail interval %d s : %d",time,cnt_ofdm_crc_fail_all);
@@ -1574,15 +1014,10 @@ void null_data_wlan_hdr(nic_info_st * pnic_info, struct xmit_buf * pxmit_buf)
      LOG_D("wlanhdr:addr2="WF_MAC_FMT,WF_MAC_ARG(pwlanhdr->addr2));
      LOG_D("wlanhdr:addr3="WF_MAC_FMT,WF_MAC_ARG(pwlanhdr->addr3));
 #endif
-//  set_fixed_ie(pframe,10,test,&pkt_len);
      pxmit_buf->pkt_len = pkt_len;
 
     pkt = wf_kzalloc(sizeof(wf_pkt));
-//  wf_memcpy(&pkt->data,pframe,pkt_len);
-//for(;i<pkt_len;i++)
-//{
-//  LOG_D("%x",*(phead + i));
-//}
+
     LOG_D("-----------------------------------------------------------");
 
     pkt->data = icmp;
@@ -1591,9 +1026,6 @@ void null_data_wlan_hdr(nic_info_st * pnic_info, struct xmit_buf * pxmit_buf)
     {
         wf_wdn_add(pnic_info,bmc_addr);
     }
-
-    //ret = wf_tx_msdu(pnic_info,);
-
 
     LOG_D("%s ret=%d",__func__,ret);
 
@@ -1679,7 +1111,7 @@ int wf_iw_fw_debug(struct net_device *dev, struct iw_request_info *info, union i
     nic_info_st *pnic_info = pndev_priv->nic;
     wf_s32 ret = 0;
     wf_u32 inbuff[2] = {0xffffffff,0xffffffff};
-	
+    
     ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_HAL_DBGLOG_CONFIG, inbuff, 2, NULL, 0);
     if (WF_RETURN_FAIL == ret)
     {

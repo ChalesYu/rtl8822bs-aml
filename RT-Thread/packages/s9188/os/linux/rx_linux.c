@@ -1,3 +1,19 @@
+/*
+ * rx_linux.h
+ *
+ * used for frame xmit for linux
+ *
+ * Author: renhaibo
+ *
+ * Copyright (c) 2020 SmartChip Integrated Circuits(SuZhou ZhongKe) Co.,Ltd
+ *
+ *
+ * This program is free software; you can redistribute  it and/or modify it
+ * under  the terms of  the GNU General  Public License as published by the
+ * Free Software Foundation;  either version 2 of the  License, or (at your
+ * option) any later version.
+ *
+ */
 #include <net/ieee80211_radiotap.h>
 #include "ndev_linux.h"
 #include "wf_os_api.h"
@@ -17,32 +33,17 @@ Every A-MSDU frame structrue:
 | DA | SA | Len |    MSDU    | Padding |
 |  6 |  6 |  2  |   0~2304   |   0~3   |
 */
-#define AMSDU_HDR_LEN           14   /* DA(6)  SA(6)  Length(2)  */
-#define AMSDU_HDR_DA_OFFSET     0
-#define AMSDU_HDR_SA_OFFSET     6
-#define AMSDU_HDR_Len_OFFSET    12
-#define AMSDU_MSDU_OFFSET       14
+#define AMSDU_HDR_LEN               14
+#define AMSDU_HDR_DA_OFFSET         0
+#define AMSDU_HDR_SA_OFFSET         6
+#define AMSDU_HDR_Len_OFFSET        12
+#define AMSDU_MSDU_OFFSET           14
 
 static void rx_data_reorder_process(rx_pkt_t *pkt,struct net_device *ndev);
 
 wf_bool is_snap_pkt(struct sk_buff * pskb)
 {
-    #if 0
-    u16 eth_type;
-    WF_ASSERT(pskb);
-    eth_type = WF_PCHAR_2_BE16(pskb->data+6);
-    if (pskb->len >= 8 &&
-        ((array_equal(pskb->data, wl_rfc1042_header, SNAP_HDR_SIZE) &&
-          eth_type != ETH_P_AARP && eth_type != ETH_P_IPX) ||
-         array_equal(pskb->data, wl_bridge_tunnel_header, SNAP_HDR_SIZE)))
-    {
-        return wf_true;
-    }
-
-    return wf_false;
-    #else
     return is_snap_hdr(pskb->data);
-    #endif
 }
 
 inline int create_skb(prx_pkt_t prx_pkt,wf_u8 * pbuf,wf_u32 pkt_len)
@@ -105,7 +106,7 @@ inline wf_u8 * pkt_trim(prx_pkt_t prx_pkt,int size)
         return (wf_u8 *)skb->data;
     }
 
-    pskb_trim(skb, skb->len - size); //hjy 9-17
+    pskb_trim(skb, skb->len - size);
 
     prx_pkt->ptail = skb_tail_pointer(skb);
     prx_pkt->len = skb->len;
@@ -550,8 +551,6 @@ static void rx_data_reorder_process(rx_pkt_t *pkt,struct net_device *ndev)
 
     if(NULL == pwdn_info->ba_ctl ||  wf_false == pwdn_info->ba_ctl[prio].enable)
     {
-        //LOG_W("[%s]：pwdn_info->ba_ctl->%p, pwdn_info->ba_ctl[%d].enable->%d", 
-        //      __func__, pwdn_info->ba_ctl, prio, pwdn_info->ba_ctl[prio].enable);
         upload_skb(ndev, pkt->pskb);
         //rx_do_update_expect_seq(seq_num,&pwdn_info->ba_ctl[prio]);
         return;
@@ -650,10 +649,7 @@ void mpdu_process(struct net_device *ndev, wf_u32 tot_len, wf_u32 remain_len, wf
         if(hw_info && hw_info->use_drv_odm)
         {
 #if defined CONFIG_ARS_DRIVER_SUPPORT
-            //ars to do
             wf_ars_query_phystatus(nic_info, &phyStatus, pkt.pdata, &pkt);
-#elif defined CONFIG_ARS_FIRMWARE_SUPPORT
-            wf_odm_handle_phystatus(nic_info, &phyStatus, pkt.pdata, &pkt);
 #endif
         }
     }
@@ -741,7 +737,7 @@ int rx_work(struct net_device *ndev, struct sk_buff *skb)
         {
             LOG_E("wf_rx_get_pkt_len_and_check_valid error! agg index:%d, tot_len:%d, remain_len:%d, pkt_len: %d",
                     usb_agg_index, skb->len, remain_len, pkt_len);
-            // {
+            //  {
             //     int i;
             //     for(i=0; i<skb->len;)
             //     {
@@ -767,8 +763,6 @@ int rx_work(struct net_device *ndev, struct sk_buff *skb)
         remain_len -= once_len;
     }
     while (remain_len > 0);
-    
-
 
     return 0;
 }

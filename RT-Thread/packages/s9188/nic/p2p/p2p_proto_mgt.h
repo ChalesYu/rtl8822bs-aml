@@ -1,23 +1,21 @@
+/*
+ * p2p_proto_mgt.h
+ *
+ * used for .....
+ *
+ * Author: luozhi
+ *
+ * Copyright (c) 2020 SmartChip Integrated Circuits(SuZhou ZhongKe) Co.,Ltd
+ *
+ *
+ * This program is free software; you can redistribute  it and/or modify it
+ * under  the terms of  the GNU General  Public License as published by the
+ * Free Software Foundation;  either version 2 of the  License, or (at your
+ * option) any later version.
+ *
+ */
 #ifndef __P2P_PROTO_MGT_H__
 #define __P2P_PROTO_MGT_H__
-
-typedef enum  
-{
-    P2P_FIND_PHASE_WK = 0,
-    P2P_RESTORE_STATE_WK = 1,
-    P2P_PRE_TX_PROVDISC_PROCESS_WK = 2,
-    P2P_PRE_TX_NEGOREQ_PROCESS_WK = 3,
-    P2P_PRE_TX_INVITEREQ_PROCESS_WK = 4,
-    P2P_AP_P2P_CH_SWITCH_PROCESS_WK = 5,
-    P2P_RO_CH_WK,
-}P2P_PROTO_WK_ID;
-
-
-typedef struct p2p_proto_node_st_
-{
-    P2P_PROTO_WK_ID id;
-    wf_que_list_t list_node;
-}p2p_proto_node_st;
 
 enum
 {
@@ -52,7 +50,7 @@ typedef struct
     wf_u8 buf[512];
 }p2p_nego_param_st;
 
-wf_s32 wf_p2p_protocol_dispatch_entry(nic_info_st *nic_info, int proto_id);
+wf_s32 wf_p2p_proto_proc_remain_channel(nic_info_st *pnic_info);
 wf_s32 p2p_proto_mgt_init(void *p2p);
 wf_s32 p2p_proto_mgt_term(void *p2p);
 wf_s32 wf_p2p_msg_send(nic_info_st *pnic_info,wf_msg_tag_t tag,void *value,wf_u32 len);

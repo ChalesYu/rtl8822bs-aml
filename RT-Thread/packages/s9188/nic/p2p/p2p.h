@@ -1,7 +1,22 @@
+/*
+ * p2p.h
+ *
+ * used for .....
+ *
+ * Author: luozhi
+ *
+ * Copyright (c) 2020 SmartChip Integrated Circuits(SuZhou ZhongKe) Co.,Ltd
+ *
+ *
+ * This program is free software; you can redistribute  it and/or modify it
+ * under  the terms of  the GNU General  Public License as published by the
+ * Free Software Foundation;  either version 2 of the  License, or (at your
+ * option) any later version.
+ *
+ */
 #ifndef __WF_P2P_H__
 #define __WF_P2P_H__
 
-#include "p2p_timer.h"
 #include "p2p_proto_mgt.h"
 #include "p2p_frame_mgt.h"
 #include "p2p_wfd.h"
@@ -435,19 +450,55 @@ typedef struct
     sys_priv_callback rx_mgmt;
     sys_priv_callback ready_on_channel;
 }p2p_sys_cb_st;
+
+typedef struct
+{
+    wf_timer_t remain_on_ch_timer;
+}p2p_timer_st;
+
+typedef struct
+{
+    wf_u32 duration;
+}p2p_timer_param_st;
+
+
 typedef struct p2p_info_st_
 {
     void *nic_info;
     p2p_timer_st p2p_timers;
-    wf_os_api_timer_t find_phase_timer;
-    wf_os_api_timer_t restore_p2p_state_timer;
 
-    wf_os_api_timer_t pre_tx_scan_timer;
-    wf_os_api_timer_t reset_ch_sitesurvey;
-    wf_os_api_timer_t reset_ch_sitesurvey2;
-    wf_os_api_timer_t ap_p2p_switch_timer;
+    enum P2P_ROLE role;
+    enum P2P_STATE pre_p2p_state;
+    enum P2P_STATE p2p_state;
+    wf_u8 p2p_wildcard_ssid[P2P_WILDCARD_SSID_LEN];
+    wf_u8 p2p_support_rate[8];
+    wf_u8 p2p_group_ssid[WF_80211_MAX_SSID_LEN];
+    wf_u8 p2p_group_ssid_len;
+    wf_u8 device_addr[WF_ETH_ALEN];
+    wf_u8 interface_addr[WF_ETH_ALEN];
+    wf_u8 listen_channel;
+    wf_u8 find_phase_state_exchange_cnt;
+    wf_u8 intent;
+    wf_u16 ext_listen_interval;
+    wf_u16 supported_wps_cm;
+    wf_u16 report_mgmt;
+    wf_u8 provdisc_req_issued;
     
-    p2p_wd_info_st wdinfo;
+    wf_widev_nego_info_t nego_info;
+    wf_widev_invit_info_t invit_info;
+    
+    wf_bool is_ro_ch;
+    wf_u32 last_ro_ch_time;
+    wf_u8 restore_channel;
+    wf_u8 remain_ch;
+    wf_u32 ro_ch_duration;
+    
+    /*wfd*/
+    wf_u8 session_available;
+    wf_u8 stack_wfd_mode;
+    struct wifi_display_info wfd_info;
+    
+    //p2p_wd_info_st wdinfo;
 
     wf_u8 *p2p_ie[WF_P2P_IE_MAX];
     wf_u32 p2p_ie_len[WF_P2P_IE_MAX];
@@ -474,9 +525,9 @@ wf_s32 wf_p2p_disable(nic_info_st *nic_info);
 wf_bool wf_p2p_check_buddy_linkstate(nic_info_st *nic_info);
 wf_u8 wf_p2p_get_buddy_channel(nic_info_st *pnic_info);
 
-void wf_p2p_set_role(p2p_wd_info_st *wdinfo, enum P2P_ROLE role);
-void wf_p2p_set_state(p2p_wd_info_st *wdinfo, enum P2P_STATE state);
-void wf_p2p_set_pre_state(p2p_wd_info_st *wdinfo, enum P2P_STATE state);
+void wf_p2p_set_role(p2p_info_st *p2p_info, enum P2P_ROLE role);
+void wf_p2p_set_state(p2p_info_st *p2p_info, enum P2P_STATE state);
+void wf_p2p_set_pre_state(p2p_info_st *p2p_info, enum P2P_STATE state);
 wf_s32 wf_p2p_dump_attrs(wf_u8 * p2p_ie, wf_u32 p2p_ielen);
 
 char *wf_p2p_state_to_str(P2P_STATE state);

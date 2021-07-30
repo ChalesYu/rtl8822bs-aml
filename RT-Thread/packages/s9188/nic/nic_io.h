@@ -1,3 +1,19 @@
+/*
+ * nic_io.h
+ *
+ * used for nic io read or write
+ *
+ * Author: renhaibo
+ *
+ * Copyright (c) 2020 SmartChip Integrated Circuits(SuZhou ZhongKe) Co.,Ltd
+ *
+ *
+ * This program is free software; you can redistribute  it and/or modify it
+ * under  the terms of  the GNU General  Public License as published by the
+ * Free Software Foundation;  either version 2 of the  License, or (at your
+ * option) any later version.
+ *
+ */
 #ifndef __NIC_IO_H__
 #define __NIC_IO_H__
 
@@ -173,8 +189,6 @@ int wf_io_write8(const nic_info_st *nic_info, wf_u32 addr, wf_u8 value);
 int wf_io_write16(const nic_info_st *nic_info, wf_u32 addr, wf_u16 value);
 int wf_io_write32(const nic_info_st *nic_info, wf_u32 addr, wf_u32 value);
 
-/* send special cmd */
-
 /* send cmd */
 int wf_io_write_cmd_by_mailbox(nic_info_st *nic_info, wf_u32 cmd, wf_u32 *send_buf, wf_u32 send_len, wf_u32 *recv_buf, wf_u32 recv_len);
 int wf_io_write_cmd_by_mailbox_try(nic_info_st *nic_info, wf_u32 cmd, wf_u32 *send_buf, wf_u32 send_len, wf_u32 *recv_buf, wf_u32 recv_len);
@@ -188,7 +202,6 @@ int wf_io_tx_xmit_wake(const nic_info_st *nic_info);
 
 /* send firmware */
 int wf_io_write_firmware(const nic_info_st *nic_info, wf_u8 which,  wf_u8 *firmware, wf_u32 len);
-
 
 #endif
 

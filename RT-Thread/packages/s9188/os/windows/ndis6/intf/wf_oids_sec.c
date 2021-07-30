@@ -347,7 +347,7 @@ HwSetKey(
 		}
 		for (i = 0; i < keyLength; i++) {
 			pNicKey->KeyValue[i] = keyValue[i];
-			DbgPrint("%02X", keyValue[i]);
+			DbgPrint("%02X ", keyValue[i]);
 		}
 		DbgPrint("\n");
 		for (i = keyLength; i < sizeof(pNicKey->KeyValue); i++)

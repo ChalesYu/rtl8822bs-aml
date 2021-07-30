@@ -1,3 +1,19 @@
+/*
+ * hw_info.c
+ *
+ * used for Hardware information
+ *
+ * Author: songqiang
+ *
+ * Copyright (c) 2020 SmartChip Integrated Circuits(SuZhou ZhongKe) Co.,Ltd
+ *
+ *
+ * This program is free software; you can redistribute  it and/or modify it
+ * under  the terms of  the GNU General  Public License as published by the
+ * Free Software Foundation;  either version 2 of the  License, or (at your
+ * option) any later version.
+ *
+ */
 #include "common.h"
 #include "wf_debug.h"
 
@@ -571,7 +587,7 @@ int wf_hw_info_init(nic_info_st *pnic_info)
         LOG_E("[wf_hw_info_init] malloc hw_info failed");
         return -1;
     }
-    
+
     pnic_info->hw_info = phw_info;
 
     data_rate_init(pnic_info);
@@ -621,16 +637,16 @@ int wf_hw_info_set_channnel_bw(nic_info_st *nic_info, wf_u8 channel, CHANNEL_WID
     int ret = 0;
     wf_u8 center_ch;
     wf_u32 uarg[7]= {0};
-    
+
     center_ch = do_query_center_ch(cw, channel, offset);
 
     if(NIC_USB == nic_info->nic_type)
     {
-        uarg[0] =   0;//hw_info->hw_reg.rf_reg_chnl_val;
+        uarg[0] =   0;
     }
     else
     {
-        uarg[0] =   0;//0x7c07;
+        uarg[0] =   0;
     }
     uarg[1] =   center_ch;
     uarg[2] =   cw;
@@ -643,8 +659,6 @@ int wf_hw_info_set_channnel_bw(nic_info_st *nic_info, wf_u8 channel, CHANNEL_WID
     ret = wf_mcu_set_ch_bw(nic_info, uarg, 7);
 
     //LOG_I("[%s] channel:%d  bw:%d  offset:%d",__func__,channel, cw, offset);
-    
-    //wf_mcu_handle_rf_lck_calibrate(nic_info);
 
     return ret ;
 }
@@ -654,7 +668,6 @@ int wf_hw_info_get_default_cfg(nic_info_st *pnic_info)
     int ret;
     wf_u32 version = 0;
     hw_info_st *phw_info = pnic_info->hw_info;
-    //wf_u32 bflag[4];
     wf_u8 macAddr[WF_ETH_ALEN] = {0xb4, 0x04, 0x18, 0x00, 0x00, 0x12};
     wf_u8 bmc_macAddr[WF_ETH_ALEN] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 
@@ -669,7 +682,7 @@ int wf_hw_info_get_default_cfg(nic_info_st *pnic_info)
     /*get efuse id*/
     ret = wf_mcu_efuse_get(pnic_info, EFUSE_VID, (wf_u32 *)&phw_info->efuse.vid, 2);
     LOG_D("vid:0x%x ", phw_info->efuse.vid);
-    
+
     ret = wf_mcu_efuse_get(pnic_info, EFUSE_PID, (wf_u32 *)&phw_info->efuse.pid, 2);
     LOG_D("pid:0x%x ", phw_info->efuse.pid);
 
@@ -687,12 +700,12 @@ int wf_hw_info_get_default_cfg(nic_info_st *pnic_info)
 
     /*get channel plan in efuse*/
     ret = wf_mcu_efuse_get(pnic_info, EFUSE_CHANNELPLAN, (wf_u32 *)&phw_info->channel_plan, 1);
-    LOG_D("get channel plan:0x%x ", phw_info->channel_plan);  
-    
-    
+    LOG_D("get channel plan:0x%x ", phw_info->channel_plan);
+
+
     LOG_D("\n--Get HW Defualt Setting Info--");
     phw_info->vcs_type = RTS_CTS;
-    
+
 #ifdef CONFIG_MP_MODE
     phw_info->use_fixRate = wf_false;
 #else
@@ -701,12 +714,8 @@ int wf_hw_info_get_default_cfg(nic_info_st *pnic_info)
 
     phw_info->tx_data_rpt = wf_false;
     phw_info->ba_enable   = wf_true;
-    
-#ifdef CONFIG_RICHV200
+
     phw_info->use_drv_odm = wf_false;
-#else
-    phw_info->use_drv_odm = wf_true;
-#endif
 
     phw_info->dot80211n_support = wf_true;
     phw_info->cbw40_support = wf_true;
@@ -748,6 +757,7 @@ int wf_hw_info_set_default_cfg(nic_info_st *nic_info)
 
     /* set channel plan */
     channel_init(nic_info);
+    
 #ifdef CONFIG_RICHV200	
 	ret = wf_mcu_set_hw_invalid_all(nic_info);
 	if (ret != WF_RETURN_OK)
@@ -779,7 +789,7 @@ int wf_hw_info_set_default_cfg(nic_info_st *nic_info)
     {
         hw_param.concurrent_mode = 1;
     }
-    
+
 #ifdef CONFIG_SOFT_RX_AGGREGATION
 	hw_param.rx_agg_enable = 1;
 #else
@@ -792,7 +802,7 @@ int wf_hw_info_set_default_cfg(nic_info_st *nic_info)
 	{
 		return WF_RETURN_FAIL;
 	}
-    
+
 #else
 
     /* set concurrent mode */
@@ -853,9 +863,10 @@ int wf_hw_info_set_default_cfg(nic_info_st *nic_info)
     phy_cfg.RFEType        = 0;
     phy_cfg.PackageType    = 15;
     phy_cfg.boardConfig    = 0;
-#ifndef CONFIG_MP_MODE
+    
+    #ifndef CONFIG_MP_MODE
     ret = wf_mcu_set_phy_config(nic_info, &phy_cfg);
-#endif
+    #endif
 
     msg_val.tx_bytes = 0;
     msg_val.rx_bytes = 0;
@@ -890,14 +901,6 @@ int wf_hw_info_set_default_cfg(nic_info_st *nic_info)
         return WF_RETURN_FAIL;
     }
 
-    #if 0
-    mbox1_cmd = 1;
-    wf_mcu_mbox1_cmd(nic_info,&mbox1_cmd,1, WLAN_WL_H2M_SYS_CALIBRATION);
-
-    mbox1_cmd = 0;
-    wf_mcu_mbox1_cmd(nic_info,&mbox1_cmd,1, WLAN_WL_H2M_SYS_CALIBRATION);
-	#endif
-
 	if (local_info->work_mode == WF_INFRA_MODE)
 	{
 		hw_param.send_msg[0] = WIFI_STATION_STATE;
@@ -917,6 +920,12 @@ int wf_hw_info_set_default_cfg(nic_info_st *nic_info)
 	{
 		return WF_RETURN_FAIL;
 	}
+    
+	ret = wf_mcu_update_tx_fifo(nic_info);
+	if (ret != WF_RETURN_OK)
+	{
+		return WF_RETURN_FAIL;
+	}
 #endif
 
     // tx configue
@@ -926,33 +935,17 @@ int wf_hw_info_set_default_cfg(nic_info_st *nic_info)
 		return WF_RETURN_FAIL;
 	}
 
-#ifdef CONFIG_RICHV200
 	ret = wf_mcu_set_config_xmit(nic_info, WF_XMIT_OFFSET, 40);
-#else
-#ifdef CONFIG_SOFT_TX_AGGREGATION
-	if(NIC_USB == nic_info->nic_type)
-	{
-		ret = wf_mcu_set_config_xmit(nic_info, WF_XMIT_OFFSET, 36);
-	}
-	else
-	{
-		ret = wf_mcu_set_config_xmit(nic_info, WF_XMIT_OFFSET, 40);
-	}
-#else
-	ret = wf_mcu_set_config_xmit(nic_info, WF_XMIT_OFFSET, 40);
-#endif
-#endif
-	if (ret != WF_RETURN_OK)
+    if (ret != WF_RETURN_OK)
 	{
 		return WF_RETURN_FAIL;
-	}
+	}	
 
 	ret = wf_mcu_set_config_xmit(nic_info, WF_XMIT_PKT_OFFSET, 0);
 	if (ret != WF_RETURN_OK)
 	{
 		return WF_RETURN_FAIL;
 	}
-
 
     return WF_RETURN_OK;
 }

@@ -50,8 +50,8 @@ ULONG DSSS_Freq_Channel[] = {
 	2484
 };
 
-static unsigned char WPA_OUI[4] = { 0x00, 0x50, 0xf2, 0x01 };
-static unsigned char WMM_OUI[4] = { 0x00, 0x50, 0xf2, 0x02 };
+//static unsigned char WPA_OUI[4] = { 0x00, 0x50, 0xf2, 0x01 };
+//static unsigned char WMM_OUI[4] = { 0x00, 0x50, 0xf2, 0x02 };
 
 
 wf_u64 wf_get_speed_by_raid(wf_u8 raid)
@@ -82,7 +82,7 @@ wf_u64 wf_get_speed_by_raid(wf_u8 raid)
 	return link_speed;
 }
 
-static wf_u32 _get_phyid_by_rate(nic_info_st *nic_info, wf_u8 *pie_data, wf_u8 len)
+static wf_u8 _get_phyid_by_rate(nic_info_st *nic_info, wf_u8 *pie_data, wf_u8 len)
 {
     wf_u8 i,j;
 	wf_u8 data_rate[8] = {0};
@@ -119,7 +119,7 @@ static wf_u32 _get_phyid_by_rate(nic_info_st *nic_info, wf_u8 *pie_data, wf_u8 l
 }
 
 
-int wf_get_phyid_by_ies(nic_info_st *nic_info, wf_u8 *pie_start, wf_u32 ie_len)
+int wf_get_phyid_by_ies(nic_info_st *nic_info, wf_u8 *pie_start, wf_u16 ie_len)
 {
     wf_80211_mgmt_ie_t *pie;
     hw_info_st *hw_info = nic_info->hw_info;
@@ -178,11 +178,9 @@ void wf_save_assoc_ssid(PADAPTER padapter, wf_u8 type)
 	wf_ap_info_t *ap_info = padapter->ap_info;
 	wf_file *file;
 	int pos, i, set_pos;
-	wf_u8 status = 0, try_cnt = 0;
+	wf_u8 try_cnt = 0;
 	wf_cache_info_t cache_info = {0};
 	NDIS_STATUS ret;
-
-	//return;
 
 	if(mib_info == NULL || ap_info == NULL) {
 		LOG_E("param is NULL");
@@ -202,7 +200,7 @@ void wf_save_assoc_ssid(PADAPTER padapter, wf_u8 type)
 	}
 
 	if(KeGetCurrentIrql() != PASSIVE_LEVEL) {
-		LOG_E("irql is too high");
+		LOG_E("irql is too high %d", KeGetCurrentIrql());
 		return;
 	}
 
@@ -220,7 +218,7 @@ void wf_save_assoc_ssid(PADAPTER padapter, wf_u8 type)
 		pos = 0;
 		set_pos = 0;
 		for(i=0; i<MP_MAX_DEVICE_NUM; i++) {
-			ret = wf_os_api_file_read(file, pos, &cache_info, sizeof(cache_info));
+			ret = wf_os_api_file_read(file, pos, (unsigned char *)&cache_info, sizeof(cache_info));
 			if(ret != NDIS_STATUS_SUCCESS) {
 				break;
 			}
@@ -249,7 +247,7 @@ void wf_save_assoc_ssid(PADAPTER padapter, wf_u8 type)
 			wf_memset(&cache_info, 0, sizeof(cache_info));
 		}
 		
-		ret = wf_os_api_file_write(file, set_pos, &cache_info, sizeof(cache_info));
+		ret = wf_os_api_file_write(file, set_pos, (unsigned char *)&cache_info, sizeof(cache_info));
 		wf_os_api_file_close(file);
 		if(ret == NDIS_STATUS_SUCCESS) {
 			break;
@@ -262,7 +260,7 @@ int wf_get_assoc_ssid(PADAPTER padapter, wf_wlan_ssid_t *ssid)
 {
 	wf_file *file;
 	int pos, i;
-	wf_u8 status = 0, try_cnt = 0;
+	wf_u8 try_cnt = 0;
 	wf_cache_info_t cache_info = {0};
 	NDIS_STATUS ret;
 	wf_u8 find_flag = FALSE;
@@ -271,8 +269,10 @@ int wf_get_assoc_ssid(PADAPTER padapter, wf_wlan_ssid_t *ssid)
 
 	if(KeGetCurrentIrql() != PASSIVE_LEVEL) {
 		LOG_E("irql is too high");
-		return;
+		return find_flag;
 	}
+
+	LOG_D("start parser file");
 
 	try_cnt = 0;
 	while(try_cnt < 3) {
@@ -287,7 +287,7 @@ int wf_get_assoc_ssid(PADAPTER padapter, wf_wlan_ssid_t *ssid)
 
 		pos = 0;
 		for(i=0; i<MP_MAX_DEVICE_NUM; i++) {
-			ret = wf_os_api_file_read(file, pos, &cache_info, sizeof(cache_info));
+			ret = wf_os_api_file_read(file, pos, (unsigned char *)&cache_info, sizeof(cache_info));
 			if(ret != NDIS_STATUS_SUCCESS ) {
 				//LOG_D("read info failed!");
 				break;
@@ -580,7 +580,7 @@ NDIS_STATUS wf_submit_assoc_complete(PADAPTER padapter, ULONG status)
 	wf_ap_info_t *ap_info = padapter->ap_info;
 	wf_mib_info_t *mib_info = padapter->mib_info;
 	wf_u8 *ie_start;
-	wf_u32 ie_len;
+	wf_u16 ie_len;
 	KIRQL irq = 0;
 
 	LOG_D("indicate assoc complete");
@@ -595,7 +595,7 @@ NDIS_STATUS wf_submit_assoc_complete(PADAPTER padapter, ULONG status)
 		return NDIS_STATUS_FAILURE;
 	}
 
-	WdfTimerStop(mib_info->exception_timer, FALSE);
+	//WdfTimerStop(mib_info->exception_timer, FALSE);
 
     // Determine length of buffer to use for filling completion parameters.
     BufferLength = sizeof(DOT11_ASSOCIATION_COMPLETION_PARAMETERS) + sizeof(ULONG);
@@ -647,11 +647,13 @@ NDIS_STATUS wf_submit_assoc_complete(PADAPTER padapter, ULONG status)
 
 		mib_info->OperatingPhyId = wf_get_phyid_by_ies(padapter->nic_info, ie_start, ie_len);	
 		mib_info->OperatingPhyMIB = &mib_info->PhyMIB[mib_info->OperatingPhyId];
-
 		LOG_D("phyid==%d, auth=%d, unicast=%d, multi=%d", mib_info->OperatingPhyId,
 			mib_info->AuthAlgorithm, mib_info->UnicastCipherAlgorithm, 
 			mib_info->MulticastCipherAlgorithm);
-    }
+    }else {
+		ap_info->assoc_req_len = 0;
+		ap_info->assoc_resp_len = 0;
+	}
 	parameter->uActivePhyListOffset = CurrentOffset;
     parameter->uActivePhyListSize = sizeof(ULONG);
     pTempPtr = pStatusBuffer + CurrentOffset;
@@ -722,8 +724,8 @@ VOID wf_submit_disassoc_complete(PADAPTER pAdapter, ULONG Reason)
 	}
 
 	if(!ap_info->valid) {
-		LOG_E("ap info is invalid!\n");
-		return NDIS_STATUS_FAILURE;
+		LOG_E("ap info is invalid! valid=%d", ap_info->valid);
+		return;
 	}
 	
 	NdisZeroMemory(&disassocParameters, sizeof(DOT11_DISASSOCIATION_PARAMETERS));
@@ -736,6 +738,8 @@ VOID wf_submit_disassoc_complete(PADAPTER pAdapter, ULONG Reason)
 	// Copy the MAC address from the AP entry
 	//NdisMoveMemory(&(disassocParameters.MacAddr), pAdapter->MibInfo.BssId, sizeof(DOT11_MAC_ADDRESS));
 	NdisMoveMemory(&(disassocParameters.MacAddr), ap_info->scan_info.bssid, sizeof(DOT11_MAC_ADDRESS));
+	
+	LOG_D("reason=%x", Reason);
 
 	disassocParameters.uReason = Reason;
 
@@ -989,7 +993,7 @@ NDIS_STATUS wf_set_start_assoc (PADAPTER adapter, PDOT11_SSID_LIST pDot11SSIDLis
 	wf_u8 *mac_addr;
 	//char ssid[64] = {0};
     wf_bool bconnect = wf_false;
-	wf_oids_timer_ctx_t *timer_ctx;
+	//wf_oids_timer_ctx_t *timer_ctx;
 	wf_mib_info_t *mib_info = adapter->mib_info;
 
 #ifdef CONFIG_CONCURRENT_MODE
@@ -1075,8 +1079,8 @@ NDIS_STATUS wf_set_start_assoc (PADAPTER adapter, PDOT11_SSID_LIST pDot11SSIDLis
 	wf_submit_assoc_start(adapter, scan_info);
 
     // probe and connect
-    LOG_D("connect bss: ssid(%s), bssid("WF_MAC_FMT")",
-                wf_wlan_get_cur_ssid(pnic_info)->data,
+    LOG_D("connect bss:valid=%d ssid(%s), bssid("WF_MAC_FMT")",
+                ap_info->valid, wf_wlan_get_cur_ssid(pnic_info)->data,
                 WF_MAC_ARG(wf_wlan_get_cur_bssid(pnic_info)));
     wf_mlme_conn_start(pnic_info,
                        wf_wlan_get_cur_bssid(pnic_info),
@@ -1085,9 +1089,9 @@ NDIS_STATUS wf_set_start_assoc (PADAPTER adapter, PDOT11_SSID_LIST pDot11SSIDLis
 
 	wf_save_assoc_ssid(adapter, TRUE);
 
-	timer_ctx = wf_get_timer_context(mib_info->exception_timer);
-	timer_ctx->msg_type = OIDS_PEND_REQ_ASSOC;
-	WdfTimerStart(mib_info->exception_timer, WDF_REL_TIMEOUT_IN_MS(10000));
+	//timer_ctx = wf_get_timer_context(mib_info->exception_timer);
+	//timer_ctx->msg_type = OIDS_PEND_REQ_ASSOC;
+	//WdfTimerStart(mib_info->exception_timer, WDF_REL_TIMEOUT_IN_MS(10000));
     return NDIS_STATUS_PENDING;
 }
 
@@ -1576,14 +1580,14 @@ VOID wf_set_wpa_ie(PADAPTER pAdapter)
 
 	if(pnic_info == NULL || mib_info == NULL) {
 		LOG_E("param is NULL");
-		return NDIS_STATUS_FAILURE;
+		return;
 	}
 
 	psec_info = pnic_info->sec_info;
 	wlan_info = pnic_info->wlan_mgmt_info;
 	if(psec_info == NULL || wlan_info == NULL) {
 		LOG_E("param is NULL");
-		return NDIS_STATUS_FAILURE;
+		return;
 	}
 	
 	wf_wlan_mgmt_scan_que_for_begin(pnic_info, pscanned_info)
@@ -1760,8 +1764,8 @@ NDIS_STATUS wf_get_bss_list(PADAPTER       pAdapter, PDOT11_BYTE_ARRAY pDot11Byt
 	ULONGLONG			ullHostTimeStamp;
 	wf_mib_info_t 		*mib_info = pAdapter->mib_info;
 	nic_info_st *pnic_info = pAdapter->nic_info;
-	wf_80211_mgmt_ie_t *ssid_info;
-	char ssid_name[64] = {0};
+	//wf_80211_mgmt_ie_t *ssid_info;
+	//char ssid_name[64] = {0};
 
 	if(pnic_info == NULL || mib_info == NULL) {
 		LOG_E("param is NULL");
@@ -2521,6 +2525,11 @@ void wf_oids_exception_handle(WDFTIMER WdfTimer)
 			}
 		}
 		break;
+	case OIDS_PEND_REQ_IP:
+		//wf_set_start_deassoc(padapter);
+		//wf_submit_disassoc_complete(padapter, 
+		//	WF_80211_REASON_4WAY_HANDSHAKE_TIMEOUT);
+		break;
 	default:
 		break;
 	}
@@ -2567,7 +2576,7 @@ NDIS_STATUS wf_oids_exception_timer_create(void *adapter)
     timer_ctx->padapter = padapter;
 	timer_ctx->msg_type = 0;
 
-	WdfTimerStart(mib_info->exception_timer, WDF_REL_TIMEOUT_IN_MS(1000));
+	//WdfTimerStart(mib_info->exception_timer, WDF_REL_TIMEOUT_IN_MS(1000));
 
 	return ndisStatus;
 }
@@ -2584,6 +2593,7 @@ void wf_oids_adapt_init(void *adapter)
     attributes.ParentObject = padapter->WdfDevice;
 
 	KeInitializeEvent(&mib_info->scan_hidden_finish, SynchronizationEvent, FALSE);
+	KeInitializeEvent(&mib_info->halt_deauth_finish, SynchronizationEvent, FALSE);
 
     ntStatus = WdfSpinLockCreate(&attributes, &mib_info->bss_lock);
     if (ntStatus != STATUS_SUCCESS) {
@@ -2610,13 +2620,13 @@ void wf_oids_adapt_deinit(void *adapter)
 {
 	PADAPTER padapter = adapter;
 	wf_mib_info_t 		*mib_info = padapter->mib_info;
-	wf_u8 ret;
+	wf_u8 ret = 0;
 
 	if(padapter->ap_info != NULL) {
 		wf_free(padapter->ap_info);
 	}
 
-	ret = WdfTimerStop(mib_info->exception_timer, FALSE);
+	//ret = WdfTimerStop(mib_info->exception_timer, FALSE);
 	LOG_D("exception timer exit %d", ret);
 }
 

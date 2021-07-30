@@ -1,3 +1,19 @@
+/*
+ * iw_priv_func.h
+ *
+ * used for iwpriv private command
+ *
+ * Author: houchuang
+ *
+ * Copyright (c) 2020 SmartChip Integrated Circuits(SuZhou ZhongKe) Co.,Ltd
+ *
+ *
+ * This program is free software; you can redistribute  it and/or modify it
+ * under  the terms of  the GNU General  Public License as published by the
+ * Free Software Foundation;  either version 2 of the  License, or (at your
+ * option) any later version.
+ *
+ */
 #ifndef __IW_PRIV_FUNC_H__
 #define __IW_PRIV_FUNC_H__
 
@@ -39,6 +55,7 @@ int wf_iw_reg_read(struct net_device *dev, struct iw_request_info *info, union i
 int wf_iw_fw_debug(struct net_device *dev, struct iw_request_info *info, union iwreq_data *wdata, char *extra);
 int wf_iw_ars(struct net_device *dev, struct iw_request_info *info, union iwreq_data *wdata, char *extra);
 int wf_iw_fwdl(struct net_device *dev, struct iw_request_info *info, union iwreq_data *wdata, char *extra);
+int wf_iw_txagg_timestart(struct net_device *dev, struct iw_request_info *info, union iwreq_data *wdata, char *extra);
 
 #endif
 

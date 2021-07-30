@@ -1,3 +1,19 @@
+/*
+ * tx_linux.c
+ *
+ * used for frame rx handle for linux
+ *
+ * Author: renhaibo
+ *
+ * Copyright (c) 2020 SmartChip Integrated Circuits(SuZhou ZhongKe) Co.,Ltd
+ *
+ *
+ * This program is free software; you can redistribute  it and/or modify it
+ * under  the terms of  the GNU General  Public License as published by the
+ * Free Software Foundation;  either version 2 of the  License, or (at your
+ * option) any later version.
+ *
+ */
 #include <net/ieee80211_radiotap.h>
 #include "ndev_linux.h"
 #include "wf_os_api.h"
@@ -58,7 +74,7 @@ static int  mpdu_agg_insert_sending_queue(nic_info_st *nic_info, struct xmit_buf
 
 
 
-static int tx_work_mpdu_xmit_agg(nic_info_st *nic_info)
+int tx_work_mpdu_xmit_agg(nic_info_st *nic_info)
 {
     struct xmit_frame *pxframe  = NULL;
     tx_info_st *tx_info         = nic_info->tx_info;
@@ -241,8 +257,7 @@ static int tx_work_mpdu_xmit_agg(nic_info_st *nic_info)
     return 0;
 }
 
-#else
-
+#endif
 static wf_bool mpdu_insert_sending_queue(nic_info_st *nic_info, struct xmit_frame *pxmitframe, wf_bool ack)
 {
     wf_u8 *mem_addr;
@@ -297,6 +312,8 @@ static wf_bool mpdu_insert_sending_queue(nic_info_st *nic_info, struct xmit_fram
 
         txlen = TXDESC_SIZE + pxmitframe->last_txcmdsz;
         pxmitbuf->pg_num   += (txlen+127)/128;
+        pxmitbuf->ether_type = pxmitframe->ether_type;
+        pxmitbuf->icmp_pkt   = pxmitframe->icmp_pkt;
         wf_timer_set(&pxmitbuf->time, 0);
 
         if(blast)
@@ -403,14 +420,7 @@ static int tx_work_mpdu_xmit(nic_info_st *nic_info)
 
                 res = wf_tx_msdu_to_mpdu(nic_info, pxframe, skb->data, skb->len);
                 
-                /* check tx resource */
-                bRet = wf_need_wake_queue(nic_info);
-                if (bRet == wf_true)
-                {
-                    LOG_W("<<<<ndev tx start queue");
-                    ndev_tx_resource_enable(nic_info->ndev, pxframe->pkt);
-                }
-
+                
                 dev_kfree_skb_any(pxframe->pkt);
                 pxframe->pkt = NULL;
             }
@@ -426,6 +436,15 @@ static int tx_work_mpdu_xmit(nic_info_st *nic_info)
                 else
                 {
                     wf_xmit_frame_delete(tx_info, pxframe);
+                }
+                
+                /* check tx resource */
+                bRet = wf_need_wake_queue(nic_info);
+                if (bRet == wf_true)
+                {
+                    tx_info_st *tx_info = nic_info->tx_info;
+                    LOG_W("<<<<ndev tx start queue,free:%d,pending:%d",tx_info->free_xmitframe_cnt,tx_info->pending_frame_cnt);
+                    ndev_tx_resource_enable(nic_info->ndev, pxframe->pkt);
                 }
             }
             else
@@ -445,8 +464,6 @@ static int tx_work_mpdu_xmit(nic_info_st *nic_info)
 
     return 0;
 }
-#endif
-
 
 void tx_work_init(struct net_device *ndev)
 {
@@ -456,7 +473,8 @@ void tx_work_init(struct net_device *ndev)
     ndev_priv = netdev_priv(ndev);
     nic_info = ndev_priv->nic;
 
-#ifdef CONFIG_SOFT_TX_AGGREGATION
+//#ifdef CONFIG_SOFT_TX_AGGREGATION
+#if 0
     tasklet_init(&ndev_priv->get_tx_data_task, (void (*)(unsigned long))tx_work_mpdu_xmit_agg,(unsigned long)nic_info);
 #else
     tasklet_init(&ndev_priv->get_tx_data_task, (void (*)(unsigned long))tx_work_mpdu_xmit,(unsigned long)nic_info);

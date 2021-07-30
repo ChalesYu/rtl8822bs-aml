@@ -1,3 +1,19 @@
+/*
+ * sec_arc4.c
+ *
+ * impliment arc4 arithmetic used for tkip or wep encryption
+ *
+ * Author: luozhi
+ *
+ * Copyright (c) 2020 SmartChip Integrated Circuits(SuZhou ZhongKe) Co.,Ltd
+ *
+ *
+ * This program is free software; you can redistribute  it and/or modify it
+ * under  the terms of  the GNU General  Public License as published by the
+ * Free Software Foundation;  either version 2 of the  License, or (at your
+ * option) any later version.
+ *
+ */
 #include "common.h"
 
 void arc4_init (struct arc4context *parc4ctx, wf_u8 *key, wf_u32 key_len)
@@ -47,7 +63,7 @@ static wf_u32 arc4_byte (struct arc4context *parc4ctx)
 }
 
 void arc4_encrypt (struct arc4context *parc4ctx,
-                          wf_u8 *dest, wf_u8 *src, wf_u32 len)
+                   wf_u8 *dest, wf_u8 *src, wf_u32 len)
 {
     wf_u32 i;
 

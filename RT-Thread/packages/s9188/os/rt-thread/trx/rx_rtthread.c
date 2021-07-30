@@ -7,11 +7,7 @@
  *
  * Copyright (c) 2020 SmartChip Integrated Circuits(SuZhou ZhongKe) Co.,Ltd
  *
- *
- * This program is free software; you can redistribute  it and/or modify it
- * under  the terms of  the GNU General  Public License as published by the
- * Free Software Foundation;  either version 2 of the  License, or (at your
- * option) any later version.
+ * SPDX-License-Identifier: Apache-2.0
  *
  */
 #include "common.h"
@@ -643,10 +639,7 @@ void mpdu_process(struct rt_wlan_device *wlan, wf_u32 tot_len, wf_u32 remain_len
         if(hw_info && hw_info->use_drv_odm)
         {
 #if defined CONFIG_ARS_DRIVER_SUPPORT
-            //ars to do
             wf_ars_query_phystatus(nic_info, &phyStatus, pkt.pdata, &pkt);
-#elif defined CONFIG_ARS_FIRMWARE_SUPPORT
-            wf_odm_handle_phystatus(nic_info, &phyStatus, pkt.pdata, &pkt);
 #endif
         }
     }

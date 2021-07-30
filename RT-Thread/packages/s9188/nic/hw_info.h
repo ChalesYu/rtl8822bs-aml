@@ -1,12 +1,24 @@
+/*
+ * hw_info.h
+ *
+ * used for Hardware information
+ *
+ * Author: songqiang
+ *
+ * Copyright (c) 2020 SmartChip Integrated Circuits(SuZhou ZhongKe) Co.,Ltd
+ *
+ *
+ * This program is free software; you can redistribute  it and/or modify it
+ * under  the terms of  the GNU General  Public License as published by the
+ * Free Software Foundation;  either version 2 of the  License, or (at your
+ * option) any later version.
+ *
+ */
 #ifndef __WF_HW_INFO_H__
 #define __WF_HW_INFO_H__
 
 
-#ifdef CONFIG_RICHV200
 #define RXDESC_SIZE 24
-#else
-#define RXDESC_SIZE 24
-#endif
 #define DRVINFO_SZ  4
 
 #ifndef MAX_RECVBUF_SZ
@@ -124,34 +136,7 @@ typedef enum HAL_PRIME_CH_OFFSET_
 } HAL_PRIME_CH_OFFSET;
 
 
-/*efuse*/
-#define EEPROM_TX_PWR_INX_9086X                 0x10
-#define EEPROM_ChannelPlan_9086X                0xBA
-#define EEPROM_XTAL_9086X                       0xB9
-#define EEPROM_THERMAL_METER_9086X              0x22
-#define EEPROM_RF_BOARD_OPTION_9086X            0xC1
-#define EEPROM_FEATURE_OPTION_9086X             0xC2
-#define EEPROM_VERSION_9086X                    0xC4
-#define EEPROM_CustomID_9086X                   0xC5
-#define EEPROM_COUNTRY_CODE_9086X               0xCB
-#define EEPROM_MAC_ADDR_9086XU                  0xD7
-#define EEPROM_VID_9086XU                       0xD0
-#define EEPROM_PID_9086XU                       0xD2
-#define EEPROM_USB_OPTIONAL_FUNCTION0_9086XU    0xD4
-#define EEPROM_CHANNEL_PLAN_BY_HW_MASK          0x80
-#define EEPROM_Default_ThermalMeter             0x12
-#define EEPROM_Default_ThermalMeter_9086X       0x18
-#define EEPROM_Default_CrystalCap_9086X         0x20
-#define EEPROM_DEFAULT_24G_INDEX                0x2D
-#define EEPROM_DEFAULT_24G_HT20_DIFF            0X02
 
-#define EEPROM_DEFAULT_24G_CCK_INDEX            0x25
-#define EEPROM_DEFAULT_24G_OFDM_INDEX           0x2A
-#define EEPROM_DEFAULT_24G_OFDM_DIFF            0X02
-
-
-#define EEPROM_DEFAULT_DIFF                     0XFE
-#define EEPROM_DEFAULT_BOARD_OPTION             0x00
 
 typedef enum _HT_CAP_AMPDU_FACTOR
 {
@@ -428,7 +413,7 @@ typedef struct
 } wf_channel_info_t;
 
 #define	MAX_CHNL_GROUP_24G		6
-typedef struct 
+typedef struct
 {
 	wf_u8 IndexCCK_Base[1][MAX_CHNL_GROUP_24G];
 	wf_u8 IndexBW40_Base[1][MAX_CHNL_GROUP_24G];
@@ -494,7 +479,7 @@ typedef struct hardware_info_struct_
 	wf_s8 OFDM_24G_Diff[1][MAX_TX_COUNT];
 	wf_s8 BW20_24G_Diff[1][MAX_TX_COUNT];
 	wf_s8 BW40_24G_Diff[1][MAX_TX_COUNT];
-    
+
     wf_s8 TxPwrByRateOffset[TX_PWR_BY_RATE_NUM_BAND]
             [TX_PWR_BY_RATE_NUM_RF]
             [TX_PWR_BY_RATE_NUM_RF]

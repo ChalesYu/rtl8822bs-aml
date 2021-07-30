@@ -1,3 +1,19 @@
+/*
+ * p2p.c
+ *
+ * used for .....
+ *
+ * Author: luozhi
+ *
+ * Copyright (c) 2020 SmartChip Integrated Circuits(SuZhou ZhongKe) Co.,Ltd
+ *
+ *
+ * This program is free software; you can redistribute  it and/or modify it
+ * under  the terms of  the GNU General  Public License as published by the
+ * Free Software Foundation;  either version 2 of the  License, or (at your
+ * option) any later version.
+ *
+ */
 #include "common.h"
 #include "wf_debug.h"
 
@@ -281,12 +297,11 @@ wf_s32 proc_p2p_merge_ies_func(wf_u8 * in_ie, wf_u32 in_len, wf_u8 * merge_ie, w
 static void p2p_do_renew_tx_rate(nic_info_st *pnic_info, wf_u8 wirelessmode)
 {
     p2p_info_st *p2p_info           = pnic_info->p2p;
-    p2p_wd_info_st *pwdinfo = &p2p_info->wdinfo;
     wf_u8 *supported_rates = NULL;
     wf_u8 support_rate_cnt = 0;
     wf_u16 basic_dr_cfg;
     wf_s32 ret = 0;
-    if (P2P_STATE_NONE !=pwdinfo->p2p_state)
+    if (P2P_STATE_NONE !=p2p_info->p2p_state)
     {
         return;
     }
@@ -325,107 +340,28 @@ static void p2p_do_renew_tx_rate(nic_info_st *pnic_info, wf_u8 wirelessmode)
 }
 
 
-static void wifi_direct_info_init(p2p_wd_info_st *pwdinfo)
+static void p2p_info_init(p2p_info_st *p2p_info)
 {
-#ifdef CONFIG_IOCTL_CFG80211
-    pwdinfo->driver_interface = DRIVER_CFG80211;
-#else
-    pwdinfo->driver_interface = DRIVER_WEXT;
-#endif
-
-    /*  1, 6, 11 are the social channel defined in the WiFi Direct specification. */
-    pwdinfo->social_chan[0] = 1;
-    pwdinfo->social_chan[1] = 6;
-    pwdinfo->social_chan[2] = 11;
-    pwdinfo->social_chan[3] = 0;    /*  channel 0 for scanning ending in site survey function. */
-
     /*  Use the OFDM rate in the P2P probe response frame. ( 6(B), 9(B), 12, 18, 24, 36, 48, 54 )    */
-    pwdinfo->p2p_support_rate[0] = 0x8c;    /*  6(B) */
-    pwdinfo->p2p_support_rate[1] = 0x92;    /*  9(B) */
-    pwdinfo->p2p_support_rate[2] = 0x18;    /*  12 */
-    pwdinfo->p2p_support_rate[3] = 0x24;    /*  18 */
-    pwdinfo->p2p_support_rate[4] = 0x30;    /*  24 */
-    pwdinfo->p2p_support_rate[5] = 0x48;    /*  36 */
-    pwdinfo->p2p_support_rate[6] = 0x60;    /*  48 */
-    pwdinfo->p2p_support_rate[7] = 0x6c;    /*  54 */
+    p2p_info->p2p_support_rate[0] = 0x8c;    /*  6(B) */
+    p2p_info->p2p_support_rate[1] = 0x92;    /*  9(B) */
+    p2p_info->p2p_support_rate[2] = 0x18;    /*  12 */
+    p2p_info->p2p_support_rate[3] = 0x24;    /*  18 */
+    p2p_info->p2p_support_rate[4] = 0x30;    /*  24 */
+    p2p_info->p2p_support_rate[5] = 0x48;    /*  36 */
+    p2p_info->p2p_support_rate[6] = 0x60;    /*  48 */
+    p2p_info->p2p_support_rate[7] = 0x6c;    /*  54 */
 
-    pwdinfo->p2p_state = P2P_STATE_NONE;
-    wf_memcpy((void *)pwdinfo->p2p_wildcard_ssid, "DIRECT-", 7);
-    wf_memset(pwdinfo->device_name, 0x00, WPS_MAX_DEVICE_NAME_LEN);
-    pwdinfo->device_name_len = 0;
+    p2p_info->p2p_state = P2P_STATE_NONE;
+    wf_memcpy((void *)p2p_info->p2p_wildcard_ssid, "DIRECT-", 7);
 
+    p2p_info->find_phase_state_exchange_cnt = P2P_FINDPHASE_EX_NONE;
+    wf_memset(&p2p_info->wfd_info,0,sizeof(struct wifi_display_info));
+    p2p_info->supported_wps_cm = WPS_CONFIG_METHOD_DISPLAY | WPS_CONFIG_METHOD_PBC | WPS_CONFIG_METHOD_KEYPAD;
+    p2p_info->ext_listen_interval    = 1000;
 
-    wf_memset(&pwdinfo->invitereq_info, 0x00, sizeof(struct tx_invite_req_info));
-    pwdinfo->invitereq_info.token = 3;
-
-    wf_memset(&pwdinfo->inviteresp_info, 0x00, sizeof(struct tx_invite_resp_info));
-    pwdinfo->inviteresp_info.token = 0;
-
-
-    pwdinfo->profileindex = 0;
-    wf_memset(&pwdinfo->profileinfo[0], 0x00,sizeof(struct profile_info) * P2P_MAX_PERSISTENT_GROUP_NUM);
-
-    pwdinfo->find_phase_state_exchange_cnt = P2P_FINDPHASE_EX_NONE;
-
-
-
-    //kernel4.4 happen to : WARNING: "__umoddi3"
-    //pwdinfo->listen_dwell = (wf_u8)((wf_os_api_timestamp() % 3) + 1);
-
-    wf_memset(&pwdinfo->tx_prov_disc_info, 0x00,sizeof(struct tx_provdisc_req_info));
-    pwdinfo->tx_prov_disc_info.wps_config_method_request = WPS_CM_NONE;
-
-    wf_memset(&pwdinfo->nego_req_info, 0x00, sizeof(struct tx_nego_req_info));
-
-    pwdinfo->device_password_id_for_nego = WPS_DPID_PBC;
-    pwdinfo->negotiation_dialog_token = 1;
-
-    wf_memset(pwdinfo->nego_ssid, 0x00, WF_80211_MAX_SSID_LEN);
-    pwdinfo->nego_ssidlen = 0;
-
-    pwdinfo->ui_got_wps_info = P2P_NO_WPSINFO;
-    
-    wf_memset(&pwdinfo->wfd_info,0,sizeof(struct wifi_display_info));
-    pwdinfo->supported_wps_cm = WPS_CONFIG_METHOD_DISPLAY | WPS_CONFIG_METHOD_PBC | WPS_CONFIG_METHOD_KEYPAD;
-    pwdinfo->channel_list_attr_len = 0;
-    wf_memset(pwdinfo->channel_list_attr, 0x00, 100);
-
-    wf_memset(pwdinfo->rx_prov_disc_info.strconfig_method_desc_of_prov_disc_req, 0x00, 4);
-    wf_memset(pwdinfo->rx_prov_disc_info.strconfig_method_desc_of_prov_disc_req, '0', 3);
-    wf_memset(&pwdinfo->groupid_info, 0x00, sizeof(struct group_id_info));
-#ifdef CONFIG_CONCURRENT_MODE
-#ifdef CONFIG_IOCTL_CFG80211
-    pwdinfo->ext_listen_interval    = 1000;
-    pwdinfo->ext_listen_period      = 3000;
-#else
-    pwdinfo->ext_listen_interval    = 1000;
-    pwdinfo->ext_listen_period      = 1000;
-#endif
-#endif
-
-
-    wf_memset(pwdinfo->p2p_peer_interface_addr, 0x00, WF_ETH_ALEN);
-    wf_memset(pwdinfo->p2p_peer_device_addr, 0x00, WF_ETH_ALEN);
-
-    pwdinfo->rx_invitereq_info.operation_ch[0] = 0;
-    pwdinfo->rx_invitereq_info.operation_ch[1] = 0;
-#ifdef CONFIG_P2P_OP_CHK_SOCIAL_CH
-    pwdinfo->rx_invitereq_info.operation_ch[2] = 0;
-    pwdinfo->rx_invitereq_info.operation_ch[3] = 0;
-    pwdinfo->rx_invitereq_info.operation_ch[4] = 0;
-#endif
-    pwdinfo->rx_invitereq_info.scan_op_ch_only = 0;
-    pwdinfo->p2p_info.operation_ch[0] = 0;
-    pwdinfo->p2p_info.operation_ch[1] = 0;
-#ifdef CONFIG_P2P_OP_CHK_SOCIAL_CH
-    pwdinfo->p2p_info.operation_ch[2] = 0;
-    pwdinfo->p2p_info.operation_ch[3] = 0;
-    pwdinfo->p2p_info.operation_ch[4] = 0;
-#endif
-    pwdinfo->p2p_info.scan_op_ch_only = 0;
-
-    wf_widev_invit_info_init(&pwdinfo->invit_info);
-    wf_widev_nego_info_init(&pwdinfo->nego_info);
+    wf_widev_invit_info_init(&p2p_info->invit_info);
+    wf_widev_nego_info_init(&p2p_info->nego_info);
 
 
 }
@@ -450,11 +386,10 @@ wf_s32 wf_p2p_init(nic_info_st *pnic_info)
 
     pnic_info->p2p = p2p_info;
     p2p_info->nic_info = pnic_info;
-    wifi_direct_info_init(&p2p_info->wdinfo);
-    wf_memcpy(p2p_info->wdinfo.device_addr,nic_to_local_addr(pnic_info),WF_ETH_ALEN);
-    wf_memcpy(p2p_info->wdinfo.interface_addr,nic_to_local_addr(pnic_info),WF_ETH_ALEN);
+    wf_memcpy(p2p_info->device_addr,nic_to_local_addr(pnic_info),WF_ETH_ALEN);
+    wf_memcpy(p2p_info->interface_addr,nic_to_local_addr(pnic_info),WF_ETH_ALEN);
     p2p_proto_mgt_init(p2p_info);
-    p2p_timers_init(pnic_info);
+    p2p_info_init(p2p_info);
     p2p_info->p2p_enabled = wf_false;
     p2p_info->full_ch_in_p2p_handshake = wf_false;
     
@@ -471,7 +406,6 @@ wf_s32 wf_p2p_init(nic_info_st *pnic_info)
 wf_s32 wf_p2p_term(nic_info_st *pnic_info)
 {
     p2p_info_st *p2p_info = NULL;
-    p2p_wd_info_st *pwdinfo = NULL;
 
     P2P_INFO("start");
     p2p_info = pnic_info->p2p;
@@ -480,8 +414,6 @@ wf_s32 wf_p2p_term(nic_info_st *pnic_info)
         return 0;
     }
 
-    pwdinfo = &p2p_info->wdinfo;
-    /*todo*/
     p2p_proto_mgt_term(p2p_info);
     wf_kfree(p2p_info);
     p2p_info = NULL;
@@ -490,32 +422,32 @@ wf_s32 wf_p2p_term(nic_info_st *pnic_info)
 
 
 
-wf_inline void wf_p2p_set_role(p2p_wd_info_st *wdinfo, enum P2P_ROLE role)
+wf_inline void wf_p2p_set_role(p2p_info_st *p2p_info, enum P2P_ROLE role)
 {
-    if (wdinfo->role != role)
+    if (p2p_info->role != role)
     {
-        wdinfo->role = role;
+        p2p_info->role = role;
     }
 }
-wf_inline P2P_ROLE p2p_get_role(p2p_wd_info_st *wdinfo)
+wf_inline P2P_ROLE p2p_get_role(p2p_info_st *p2p_info)
 {
-    return wdinfo->role;
+    return p2p_info->role;
 }
 
-wf_inline void wf_p2p_set_state(p2p_wd_info_st *wdinfo, enum P2P_STATE state)
+wf_inline void wf_p2p_set_state(p2p_info_st *p2p_info, enum P2P_STATE state)
 {
-    if (wdinfo->p2p_state != state)
+    if (p2p_info->p2p_state != state)
     {
-        wdinfo->p2p_state = state;
+        p2p_info->p2p_state = state;
     }
 }
 
 
-wf_inline void wf_p2p_set_pre_state(p2p_wd_info_st *wdinfo, enum P2P_STATE state)
+wf_inline void wf_p2p_set_pre_state(p2p_info_st *p2p_info, enum P2P_STATE state)
 {
-    if (wdinfo->pre_p2p_state != state)
+    if (p2p_info->pre_p2p_state != state)
     {
-        wdinfo->pre_p2p_state = state;
+        p2p_info->pre_p2p_state = state;
     }
 }
 
@@ -533,7 +465,6 @@ static wf_s32 p2p_scan_ie_parse(nic_info_st *pnic_info, char *buf, wf_u32 len)
     
     mlme_info_t *pmlme_info = (mlme_info_t *)pnic_info->mlme_info;
     p2p_info_st *p2p_info    = pnic_info->p2p;
-    p2p_wd_info_st *pwdinfo = &p2p_info->wdinfo;
     
     P2P_DBG("start! ielen = %d", len);
 
@@ -570,13 +501,13 @@ static wf_s32 p2p_scan_ie_parse(nic_info_st *pnic_info, char *buf, wf_u32 len)
             if (wf_p2p_get_attr_content(p2p_ie, p2p_ielen, P2P_ATTR_LISTEN_CH, (wf_u8 *) listen_ch_attr, (wf_u32 *) & attr_contentlen)
                 && attr_contentlen == 5)
             {
-                if (pwdinfo->listen_channel != listen_ch_attr[4])
+                if (p2p_info->listen_channel != listen_ch_attr[4])
                 {
                     P2P_DBG(" listen channel - country:%c%c%c, class:%u, ch:%u\n",
                           listen_ch_attr[0],
                           listen_ch_attr[1], listen_ch_attr[2],
                           listen_ch_attr[3], listen_ch_attr[4]);
-                    pwdinfo->listen_channel = listen_ch_attr[4];
+                    p2p_info->listen_channel = listen_ch_attr[4];
                 }
             }
         }
@@ -585,7 +516,7 @@ static wf_s32 p2p_scan_ie_parse(nic_info_st *pnic_info, char *buf, wf_u32 len)
         if(wfd_ie)
         {
             P2P_DBG("probe_req_wfdielen=%d",wfd_ielen);
-            pwdinfo->wfd_info.wfd_enable = wf_true;
+            p2p_info->wfd_info.wfd_enable = wf_true;
             if (wf_p2p_wfd_update_ie(pnic_info, WF_WFD_IE_PROBE_REQ, wfd_ie, wfd_ielen, 1) != wf_true)
             {
                 return -1;
@@ -603,32 +534,31 @@ static wf_s32 p2p_scan_ie_parse(nic_info_st *pnic_info, char *buf, wf_u32 len)
 wf_s32 wf_p2p_scan_entry(nic_info_st *pnic_info,wf_u8 social_channel,wf_u8 *ies,wf_s32 ieslen)
  {
      p2p_info_st *p2p_info = pnic_info->p2p;
-     p2p_wd_info_st *pwdinfo = &p2p_info->wdinfo;
 
-     if (pwdinfo->p2p_state == P2P_STATE_NONE)
+     if (p2p_info->p2p_state == P2P_STATE_NONE)
      {
          wf_p2p_enable(pnic_info, P2P_ROLE_DEVICE);
      }
      else
      {
-         wf_p2p_set_pre_state(pwdinfo, pwdinfo->p2p_state);
+         wf_p2p_set_pre_state(p2p_info, p2p_info->p2p_state);
      }
      
-     P2P_DBG("%s",wf_p2p_state_to_str(pwdinfo->p2p_state) );
-     wf_p2p_set_state(pwdinfo, P2P_STATE_LISTEN);
+     P2P_DBG("%s",wf_p2p_state_to_str(p2p_info->p2p_state) );
+     wf_p2p_set_state(p2p_info, P2P_STATE_LISTEN);
 
-     if (pwdinfo->p2p_state!=P2P_STATE_NONE && pwdinfo->p2p_state != P2P_STATE_IDLE )
+     if (p2p_info->p2p_state!=P2P_STATE_NONE && p2p_info->p2p_state != P2P_STATE_IDLE )
      {
-         wf_p2p_set_state(pwdinfo, P2P_STATE_FIND_PHASE_SEARCH);
+         wf_p2p_set_state(p2p_info, P2P_STATE_FIND_PHASE_SEARCH);
          //do_network_queue_unnew(pwadptdata, _TRUE, 1);
          if (social_channel == 0)
          {
-             pwdinfo->find_phase_state_exchange_cnt = P2P_FINDPHASE_EX_NONE;
+             p2p_info->find_phase_state_exchange_cnt = P2P_FINDPHASE_EX_NONE;
 
          }
          else
          {
-             pwdinfo->find_phase_state_exchange_cnt = P2P_FINDPHASE_EX_SOCIAL_LAST;
+             p2p_info->find_phase_state_exchange_cnt = P2P_FINDPHASE_EX_SOCIAL_LAST;
          }
      }
 
@@ -677,10 +607,8 @@ wf_s32 wf_p2p_enable(nic_info_st *pnic_info,P2P_ROLE role)
 {
 
     wf_s32 ret = WF_RETURN_OK;
-    p2p_wd_info_st *pwdinfo         = NULL;
     p2p_info_st *p2p_info = pnic_info->p2p;
     nic_info_st *buddy_nic                 = pnic_info->buddy_nic;
-    p2p_wd_info_st *pbuddy_wdinfo   = NULL;
     wf_wlan_mgmt_info_t *pother_wlan_info        = NULL;
     wf_wlan_network_t *pother_cur_network   = NULL;
     p2p_info_st *other_p2p_info = NULL;
@@ -688,18 +616,16 @@ wf_s32 wf_p2p_enable(nic_info_st *pnic_info,P2P_ROLE role)
 
 
     P2P_INFO("%s",wf_p2p_role_to_str(role));
-    pwdinfo = &p2p_info->wdinfo;
     if (role == P2P_ROLE_DEVICE || role == P2P_ROLE_CLIENT || role == P2P_ROLE_GO)
     {
 
         if(buddy_nic)
         {
             other_p2p_info      = buddy_nic->p2p;
-            pbuddy_wdinfo       = &other_p2p_info->wdinfo;
             pother_wlan_info    = buddy_nic->wlan_mgmt_info;
             pother_cur_network  = &pother_wlan_info->cur_network;
             
-            if (pbuddy_wdinfo->p2p_state != P2P_STATE_NONE)
+            if (other_p2p_info->p2p_state != P2P_STATE_NONE)
             {
                 return ret;
             }
@@ -707,12 +633,12 @@ wf_s32 wf_p2p_enable(nic_info_st *pnic_info,P2P_ROLE role)
             if (other_bconnect == wf_true &&
                 (1 == pother_cur_network->channel || 6 == pother_cur_network->channel|| 11 == pother_cur_network->channel))
             {
-                pwdinfo->listen_channel = pother_cur_network->channel;
+                p2p_info->listen_channel = pother_cur_network->channel;
             }
         }
         else 
         {
-            pwdinfo->listen_channel = 11;
+            p2p_info->listen_channel = 11;
         }
 
         p2p_info->p2p_enabled = wf_true;
@@ -720,39 +646,39 @@ wf_s32 wf_p2p_enable(nic_info_st *pnic_info,P2P_ROLE role)
         
         if (role == P2P_ROLE_DEVICE)
         {
-            wf_p2p_set_role(pwdinfo, P2P_ROLE_DEVICE);
+            wf_p2p_set_role(p2p_info, P2P_ROLE_DEVICE);
             if (other_bconnect == wf_true)
             {
-                wf_p2p_set_state(pwdinfo, P2P_STATE_IDLE);
+                wf_p2p_set_state(p2p_info, P2P_STATE_IDLE);
             }
             else
             {
-                wf_p2p_set_state(pwdinfo, P2P_STATE_LISTEN);
+                wf_p2p_set_state(p2p_info, P2P_STATE_LISTEN);
             }
             
-            pwdinfo->intent = 1;
-            wf_p2p_set_pre_state(pwdinfo, P2P_STATE_LISTEN);
+            p2p_info->intent = 1;
+            wf_p2p_set_pre_state(p2p_info, P2P_STATE_LISTEN);
         }
         else if (role == P2P_ROLE_CLIENT)
         {
-            wf_p2p_set_role(pwdinfo, P2P_ROLE_CLIENT);
-            wf_p2p_set_state(pwdinfo, P2P_STATE_GONEGO_OK);
-            pwdinfo->intent = 1;
-            wf_p2p_set_pre_state(pwdinfo, P2P_STATE_GONEGO_OK);
+            wf_p2p_set_role(p2p_info, P2P_ROLE_CLIENT);
+            wf_p2p_set_state(p2p_info, P2P_STATE_GONEGO_OK);
+            p2p_info->intent = 1;
+            wf_p2p_set_pre_state(p2p_info, P2P_STATE_GONEGO_OK);
         }
         else if (role == P2P_ROLE_GO)
         {
-            wf_p2p_set_role(pwdinfo, P2P_ROLE_GO);
-            wf_p2p_set_state(pwdinfo, P2P_STATE_GONEGO_OK);
-            pwdinfo->intent = 15;
-            wf_p2p_set_pre_state(pwdinfo, P2P_STATE_GONEGO_OK);
+            wf_p2p_set_role(p2p_info, P2P_ROLE_GO);
+            wf_p2p_set_state(p2p_info, P2P_STATE_GONEGO_OK);
+            p2p_info->intent = 15;
+            wf_p2p_set_pre_state(p2p_info, P2P_STATE_GONEGO_OK);
         }
 
         wf_mcu_msg_body_sync(pnic_info,HAL_MSG_P2P_STATE,wf_true);
 
         if(wf_p2p_wfd_is_valid(pnic_info))
         {
-            pwdinfo->supported_wps_cm = WPS_CONFIG_METHOD_DISPLAY | WPS_CONFIG_METHOD_PBC;
+            p2p_info->supported_wps_cm = WPS_CONFIG_METHOD_DISPLAY | WPS_CONFIG_METHOD_PBC;
             wf_mcu_msg_body_sync(pnic_info,HAL_MSG_WIFI_DISPLAY_STATE,wf_true);
         }
     }
@@ -764,30 +690,14 @@ wf_s32 wf_p2p_enable(nic_info_st *pnic_info,P2P_ROLE role)
 wf_s32 wf_p2p_disable(nic_info_st *pnic_info)
 {
     p2p_info_st *p2p_info = pnic_info->p2p;
-    p2p_wd_info_st *pwdinfo         = &p2p_info->wdinfo;
-    
-    if (pwdinfo->driver_interface == DRIVER_CFG80211)
-    {
-        p2p_info->p2p_enabled = wf_false;
-    }
 
+    p2p_info->p2p_enabled = wf_false;
 
-    if(pwdinfo->p2p_state != P2P_STATE_NONE)
+    if(p2p_info->p2p_state != P2P_STATE_NONE)
     {
-        wf_os_api_timer_unreg(&p2p_info->find_phase_timer);
-        wf_os_api_timer_unreg(&p2p_info->restore_p2p_state_timer);
-        wf_os_api_timer_unreg(&p2p_info->pre_tx_scan_timer);
-        wf_os_api_timer_unreg(&p2p_info->reset_ch_sitesurvey);
-        wf_os_api_timer_unreg(&p2p_info->reset_ch_sitesurvey2);
-        p2p_reset_invitereq_operation_ch(pwdinfo);
-        p2p_reset_operation_ch(pwdinfo);
-        wf_os_api_timer_unreg(&p2p_info->ap_p2p_switch_timer);
-        wf_p2p_set_state(pwdinfo, P2P_STATE_NONE);
-        wf_p2p_set_pre_state(pwdinfo, P2P_STATE_NONE);
-        wf_p2p_set_role(pwdinfo, P2P_ROLE_DISABLE);
-        wf_memset(&pwdinfo->rx_prov_disc_info, 0x00, sizeof(struct rx_provdisc_req_info));
-        wf_memset(&pwdinfo->profileinfo[0], 0x00, sizeof(struct profile_info) * P2P_MAX_PERSISTENT_GROUP_NUM);
-        pwdinfo->profileindex = 0;
+        wf_p2p_set_state(p2p_info, P2P_STATE_NONE);
+        wf_p2p_set_pre_state(p2p_info, P2P_STATE_NONE);
+        wf_p2p_set_role(p2p_info, P2P_ROLE_DISABLE);
     }
 
     wf_mcu_msg_body_sync(pnic_info,HAL_MSG_P2P_STATE,wf_false);
@@ -810,12 +720,10 @@ wf_s32 wf_p2p_disable(nic_info_st *pnic_info)
 wf_bool wf_p2p_is_valid(nic_info_st *pnic_info)
 {
     p2p_info_st *p2p_info   = pnic_info->p2p;
-    p2p_wd_info_st *pwdinfo = NULL;
 
     if(p2p_info)
     {
-        pwdinfo = &p2p_info->wdinfo;
-        if(P2P_STATE_NONE != pwdinfo->p2p_state)
+        if(P2P_STATE_NONE != p2p_info->p2p_state)
         {
             return wf_true;
         }
@@ -915,7 +823,6 @@ static int p2p_probe_rsp_parse(nic_info_st *pnic_info, char *buf, int len)
     wf_u32 wfd_ielen = 0;
     wf_u8 *wfd_ie    = NULL;
     mlme_info_t *pmlme_info = (mlme_info_t *)pnic_info->mlme_info;
-    p2p_wd_info_st *pwdinfo = &p2p_info->wdinfo;
 
     P2P_DBG(" ielen=%d\n", len);
     //P2P_ARRAY(buf,  len);
@@ -967,8 +874,7 @@ static int p2p_probe_rsp_parse(nic_info_st *pnic_info, char *buf, int len)
             {
                 if (wf_p2p_is_valid(pnic_info))
                 {
-                    pwdinfo = &p2p_info->wdinfo;
-                    if(pwdinfo->role == P2P_ROLE_GO)
+                    if(p2p_info->role == P2P_ROLE_GO)
                     {
                         uconfig_method = WPS_CM_PUSH_BUTTON;
                         uconfig_method = wf_cpu_to_be16(uconfig_method);
@@ -1112,74 +1018,5 @@ wf_s32 wf_p2p_parse_ie(nic_info_st *pnic_info, wf_u8 *buf, wf_s32 len, wf_s32 ty
 
     return ret;
 
-}
-
-wf_s32 wf_p2p_scan_rsp_entry(nic_info_st *pnic_info,wf_80211_mgmt_t *pmgmt, wf_u16 mgmt_len)
-{
-    p2p_info_st *p2p_info   = NULL;
-    p2p_wd_info_st *pwdinfo = NULL;
-
-    if(NULL == pnic_info || NULL == pmgmt)
-    {
-        LOG_E("[%s] input param is null",__func__);
-        return -1;
-    }
-    
-    p2p_info = pnic_info->p2p;
-    pwdinfo = &p2p_info->wdinfo;
-    
-    //P2P_INFO("start");
-    if ( pwdinfo->p2p_state == P2P_STATE_TX_PROVISION_DIS_REQ )
-    {
-        if (wf_true == pwdinfo->tx_prov_disc_info.benable)
-        {
-            if (0 == wf_memcmp(pwdinfo->tx_prov_disc_info.peerIFAddr, GetAddr2Ptr(pmgmt),WF_ETH_ALEN))
-            {
-                if (pwdinfo->role == P2P_ROLE_CLIENT)
-                {
-                    pwdinfo->tx_prov_disc_info.benable = wf_false;
-                    p2p_provision_request_to_issue_func(pnic_info,
-                                                        pwdinfo->tx_prov_disc_info.ssid,
-                                                        pwdinfo->tx_prov_disc_info.ssidlen,
-                                                        pwdinfo->tx_prov_disc_info.peerDevAddr, 1);
-                }
-                else if (pwdinfo->role == P2P_ROLE_DEVICE || pwdinfo->role == P2P_ROLE_GO)
-                {
-                    pwdinfo->tx_prov_disc_info.benable = wf_false;
-                    p2p_provision_request_to_issue_func(pnic_info,
-                                                        NULL,
-                                                        0,
-                                                        pwdinfo->tx_prov_disc_info.peerDevAddr, 1);
-                }
-            }
-        }
-        return 0;
-    }
-    else if (pwdinfo->p2p_state == P2P_STATE_GONEGO_ING)
-    {
-        if (pwdinfo->nego_req_info.benable)
-        {
-            P2P_INFO("P2P State is GONEGO ING!");
-            if (0 == wf_memcmp(pwdinfo->nego_req_info.peerDevAddr, GetAddr2Ptr(pmgmt),WF_ETH_ALEN))
-            {
-                pwdinfo->nego_req_info.benable = wf_false;
-                p2p_GO_request_to_issue_func(pnic_info,pwdinfo->nego_req_info.peerDevAddr, 1);
-            }
-        }
-    }
-    else if (pwdinfo->p2p_state == P2P_STATE_TX_INVITE_REQ)
-    {
-        if ( pwdinfo->invitereq_info.benable)
-        {
-            P2P_INFO("P2P_STATE_TX_INVITE_REQ!\n");
-            if (0 == wf_memcmp(pwdinfo->invitereq_info.peer_macaddr, GetAddr2Ptr(pmgmt),WF_ETH_ALEN))
-            {
-                pwdinfo->invitereq_info.benable = wf_false;
-                p2p_invitation_request_to_issue_func(pnic_info, pwdinfo->invitereq_info.peer_macaddr, 1);
-            }
-        }
-    }
-
-    return 0;
 }
 

@@ -1,4 +1,19 @@
-
+/*
+ * scan.c
+ *
+ * impliment of IEEE80211 management frame scan stage processing
+ *
+ * Author: luozhi
+ *
+ * Copyright (c) 2020 SmartChip Integrated Circuits(SuZhou ZhongKe) Co.,Ltd
+ *
+ *
+ * This program is free software; you can redistribute  it and/or modify it
+ * under  the terms of  the GNU General  Public License as published by the
+ * Free Software Foundation;  either version 2 of the  License, or (at your
+ * option) any later version.
+ *
+ */
 #include "common.h"
 #include "wf_debug.h"
 
@@ -394,12 +409,6 @@ int wf_scan_filter (nic_info_st *pnic_info,
         return 0;
     }
 
-
-    if(wf_p2p_is_valid(pnic_info))
-    {
-        wf_p2p_scan_rsp_entry(pnic_info,pmgmt,mgmt_len);
-    }
-
     /* check frame if legality */
     {
         wf_u8 *pies = &pmgmt->probe_resp.variable[0];
@@ -455,7 +464,6 @@ wf_pt_rst_t wf_scan_thrd (wf_pt_t *pt, nic_info_st *pnic_info, int *prsn)
     int reason = WF_SCAN_TAG_DONE;
     int rst;
     p2p_info_st *p2p_info = pnic_info->p2p;
-    p2p_wd_info_st *pwdinfo = NULL;
 
     if (pt == NULL || pnic_info == NULL || prsn == NULL)
     {
@@ -562,10 +570,9 @@ wf_pt_rst_t wf_scan_thrd (wf_pt_t *pt, nic_info_st *pnic_info, int *prsn)
                 /* send probe request */
                 if(wf_p2p_is_valid(pnic_info))
                 {
-                    pwdinfo = &p2p_info->wdinfo;
                     //LOG_D("[%s,%d] p2p_state:%s",__func__,__LINE__,wf_p2p_state_to_str(pwdinfo->p2p_state));
-                    if(pwdinfo->p2p_state == P2P_STATE_SCAN ||
-                       pwdinfo->p2p_state == P2P_STATE_FIND_PHASE_SEARCH)
+                    if(p2p_info->p2p_state == P2P_STATE_SCAN ||
+                       p2p_info->p2p_state == P2P_STATE_FIND_PHASE_SEARCH)
                     {
                         rst = wf_p2p_issue_probereq(pnic_info,NULL);
                     }

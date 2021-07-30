@@ -1,3 +1,19 @@
+/*
+ * ndev_linux.h
+ *
+ * This file contains all the prototypes for the ndev_linux.c file
+ *
+ * Author: luozhi
+ *
+ * Copyright (c) 2020 SmartChip Integrated Circuits(SuZhou ZhongKe) Co.,Ltd
+ *
+ *
+ * This program is free software; you can redistribute  it and/or modify it
+ * under  the terms of  the GNU General  Public License as published by the
+ * Free Software Foundation;  either version 2 of the  License, or (at your
+ * option) any later version.
+ *
+ */
 #ifndef __NEDV_LINUX_H__
 #define __NEDV_LINUX_H__
 
@@ -54,15 +70,15 @@ extern rx_pkt_t pkt_temp2;
 typedef struct sk_buff   wf_pkt;
 
 #ifdef CONFIG_IOCTL_CFG80211
-typedef struct cfg80211_wifidirect_info 
+typedef struct cfg80211_wifidirect_info
 {
-    
+
     struct ieee80211_channel remain_on_ch_channel;
     enum nl80211_channel_type remain_on_ch_type;
     atomic_t ro_ch_cookie_gen;
     wf_u64 remain_on_ch_cookie;
     wf_u32 duration;
-}cfg80211_wifidirect_info_st;
+} cfg80211_wifidirect_info_st;
 #endif
 
 typedef struct wf_widev_priv
@@ -71,7 +87,7 @@ typedef struct wf_widev_priv
     void *pnic_info;
 
     struct cfg80211_scan_request *pscan_request;
-    wf_lock_spin scan_req_lock;
+    wf_lock_t scan_req_lock;
 
     struct net_device *pmon_ndev;
     char ifname_mon[IFNAMSIZ + 1];
@@ -91,7 +107,7 @@ typedef struct wf_widev_priv
 typedef struct
 {
     nic_info_st *nic;
-    
+
     wf_widev_priv_t widev_priv;
     struct iw_statistics  iw_stats;
     struct tasklet_struct recv_task;

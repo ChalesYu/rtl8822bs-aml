@@ -1,3 +1,19 @@
+/*
+ * iw.c
+ *
+ * used for wext
+ *
+ * Author: houchuang
+ *
+ * Copyright (c) 2020 SmartChip Integrated Circuits(SuZhou ZhongKe) Co.,Ltd
+ *
+ *
+ * This program is free software; you can redistribute  it and/or modify it
+ * under  the terms of  the GNU General  Public License as published by the
+ * Free Software Foundation;  either version 2 of the  License, or (at your
+ * option) any later version.
+ *
+ */
 #include "wf_debug.h"
 #include "ndev_linux.h"
 #include "iw_func.h"
@@ -102,11 +118,12 @@ static iw_handler wl_handlers[] =
 #if defined(CONFIG_WEXT_PRIV)
 static iw_handler wl_private_handler[] =
 {
-	wf_iw_fw_debug,
-	wf_iw_reg_read,
-	wf_iw_reg_write,
-	wf_iw_ars,
-	wf_iw_fwdl,
+    wf_iw_fw_debug,
+    wf_iw_reg_read,
+    wf_iw_reg_write,
+    wf_iw_ars,
+    wf_iw_fwdl,
+    wf_iw_txagg_timestart,
 #ifdef CONFIG_MP_MODE
     wf_mp,
 #endif
@@ -116,27 +133,28 @@ static iw_handler wl_private_handler[] =
 
 static struct iw_priv_args wl_private_args[] =
 {
-	{IW_PRV_FW_DEBUG,			   IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK, 			  "fw_debug"},
-	{IW_PRV_READ_REG_TEST  ,	   IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK,              "read_reg_test"},
-    {IW_PRV_WRITE_REG_TEST,	   	   IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK,				"write_reg_test"},
-    {IW_PRV_ARS,			   		   IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK,				"ars"},
-	{IW_PRV_TEST,				   IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK,				"tasklet"},
+    {IW_PRV_FW_DEBUG,              IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK,               "fw_debug"},
+    {IW_PRV_READ_REG_TEST  ,       IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK,              "read_reg_test"},
+    {IW_PRV_WRITE_REG_TEST,        IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK,             "write_reg_test"},
+    {IW_PRV_ARS,                       IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK,             "ars"},
+    {IW_PRV_TEST,                  IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK,             "tasklet"},
+    {IW_PRV_TXAGG,                  IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK,              "txagg"},
 #ifdef CONFIG_MP_MODE
-	{IW_PRV_MP_GET,                IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK,               ""},
-	{IW_PRV_SET,                   IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK,              "set"},
-	{IW_PRV_GET,                   IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK,              "get"},
-	{IW_PRV_EFUSE_SET_PHY,         IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK,              "write_efuse"},
-	{IW_PRV_EFUSE_GET_PHY,         IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK,              "read_efuse"},
+    {IW_PRV_MP_GET,                IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK,               ""},
+    {IW_PRV_SET,                   IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK,              "set"},
+    {IW_PRV_GET,                   IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK,              "get"},
+    {IW_PRV_EFUSE_SET_PHY,         IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK,              "write_efuse"},
+    {IW_PRV_EFUSE_GET_PHY,         IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK,              "read_efuse"},
     {IW_PRV_READ_BB,               IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK,              "read_bb"},
     {IW_PRV_READ_RF,               IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK,              "read_rf"},
     {IW_PRV_WRITE_RF,              IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK,              "write_rf"},
     {IW_PRV_WRITE_BB,              IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK,              "write_bb"},
     {IW_PRV_EFUSE_SET_LOGIC,       IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK,              "set_efuse"},
-	{IW_PRV_EFUSE_GET_LOGIC,       IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK,              "get_efuse"},
-	{IW_PRV_WRITE_REG,             IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK,              "write_reg"},
-	{IW_PRV_READ_REG,              IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK,              "read_reg"},
-	{IW_PRV_WRITE_PHY_EFUSE,       IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK,              "set_phy_efuse"},
-	{IW_PRV_FW_INIT,       		   IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK,              "fw_init"},
+    {IW_PRV_EFUSE_GET_LOGIC,       IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK,              "get_efuse"},
+    {IW_PRV_WRITE_REG,             IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK,              "write_reg"},
+    {IW_PRV_READ_REG,              IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK,              "read_reg"},
+    {IW_PRV_WRITE_PHY_EFUSE,       IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK,              "set_phy_efuse"},
+    {IW_PRV_FW_INIT,               IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK,              "fw_init"},
 #endif
 };
 #endif

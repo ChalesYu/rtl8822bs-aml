@@ -1626,11 +1626,11 @@ MpOnSurpriseRemoval(
     )
 {
 	PNDIS_OID_REQUEST   request;
-	wf_usb_info_t 		*usb_info = NULL;
+	//wf_usb_info_t 		*usb_info = NULL;
 	nic_info_st 		*nic_info = NULL;
-	wf_data_que_t 		*pdata_pend = NULL;
-	wf_usb_req_t 		*usb_req = NULL;
-	PLIST_ENTRY 		plist = NULL;
+	//wf_data_que_t 		*pdata_pend = NULL;
+	//wf_usb_req_t 		*usb_req = NULL;
+	//PLIST_ENTRY 		plist = NULL;
 
 	if(pAdapter == NULL) {
 		return;
@@ -2428,7 +2428,13 @@ NOTE: A miniport can't fail the pause request
 {
     PADAPTER         pAdapter = (PADAPTER) MiniportAdapterContext;
     NDIS_STATUS      ndisStatus = NDIS_STATUS_SUCCESS;
-    ULONG           CurrentStatus, uReceiveCount;
+	wf_mib_info_t *mib_info;
+	nic_info_st *nic_info;
+	LARGE_INTEGER timeout = { 0 };
+
+	timeout.QuadPart = DELAY_ONE_MILLISECOND;
+	timeout.QuadPart *= 2000;
+    //ULONG           CurrentStatus, uReceiveCount;
 
     UNREFERENCED_PARAMETER(MiniportPauseParameters);
     UNREFERENCED_PARAMETER(pAdapter);
@@ -2439,8 +2445,26 @@ NOTE: A miniport can't fail the pause request
     
     //MPASSERT(MP_GET_NDIS_PNP_STATE(pAdapter) == MINIPORT_RUNNING);
 
-
     MP_ACQUIRE_RESET_PNP_LOCK(pAdapter);
+
+	nic_info = pAdapter->nic_info;
+	mib_info = pAdapter->mib_info;
+	if(mib_info != NULL && nic_info != NULL) {
+		if(mib_info->connect_state == TRUE) {
+			//wf_usb_dev_start(pAdapter);
+			KeClearEvent(&mib_info->halt_deauth_finish);
+			if(!wf_mlme_deauth(nic_info, wf_true)) {
+				//return ndisStatus;
+			}
+			LOG_D("start deauth from ap");
+
+			if(KeWaitForSingleObject(&mib_info->halt_deauth_finish, Executive, KernelMode, TRUE, &timeout) != STATUS_SUCCESS) {
+				LOG_E("wait scan hidden network timeout!");
+				//return NDIS_STATUS_FAILURE;
+			}
+			//wf_usb_dev_stop(pAdapter);
+		}
+	}
 
 	wf_mp_dev_stop(pAdapter);
 

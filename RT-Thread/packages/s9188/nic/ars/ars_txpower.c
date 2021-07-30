@@ -2,12 +2,12 @@
 #include "wf_debug.h"
 #ifdef CONFIG_ARS_DRIVER_SUPPORT
 
-#if 1
+#if 0
 #define ARS_TP_DBG(fmt, ...)      LOG_D("ARS_TP[%s,%d]"fmt, __func__, __LINE__,##__VA_ARGS__)
 #define ARS_TP_PRT(fmt, ...)      LOG_D("ARS_TP-"fmt, ##__VA_ARGS__)
 
 #else
-#define ARS_THD_DBG(fmt, ...)
+#define ARS_TP_DBG(fmt, ...)
 #define ARS_TP_PRT(fmt, ...)
 
 #endif

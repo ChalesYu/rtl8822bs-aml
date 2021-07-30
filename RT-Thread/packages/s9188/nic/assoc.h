@@ -1,4 +1,19 @@
-
+/*
+ * assoc.h
+ *
+ * This file contains all the prototypes for the assoc.c file
+ *
+ * Author: luozhi
+ *
+ * Copyright (c) 2020 SmartChip Integrated Circuits(SuZhou ZhongKe) Co.,Ltd
+ *
+ *
+ * This program is free software; you can redistribute  it and/or modify it
+ * under  the terms of  the GNU General  Public License as published by the
+ * Free Software Foundation;  either version 2 of the  License, or (at your
+ * option) any later version.
+ *
+ */
 #ifndef __ASSOC_H__
 #define __ASSOC_H__
 
@@ -29,7 +44,7 @@ int wf_assoc_ap_work (nic_info_st *pnic_info, wdn_net_info_st *pwdn_info,
 wf_pt_rst_t wf_assoc_ap_thrd (nic_info_st *pnic_info, wdn_net_info_st *pwdn_info);
 void wf_ap_add_sta_ratid (nic_info_st *pnic_info, wdn_net_info_st *pwdn_info);
 void wf_assoc_ap_event_up (nic_info_st *nic_info, wdn_net_info_st *pwdn_info,
-                        wf_ap_msg_t *pmsg);
+                           wf_ap_msg_t *pmsg);
 #endif
 int wf_disassoc_frame_parse (nic_info_st *pnic_info, wdn_net_info_st *pwdn_info,
                              wf_80211_mgmt_t *pmgmt, wf_u16 mgmt_len);

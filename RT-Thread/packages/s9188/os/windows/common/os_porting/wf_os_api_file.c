@@ -60,7 +60,7 @@ int wf_os_api_file_read(wf_file *file, loff_t offset, unsigned char *data, unsig
 		&file->io_status, data, size, &offs, NULL);
 	if (!NT_SUCCESS(Status))
 	{
-		//LOG_E("read file fail!!\n - %#X", Status);
+		LOG_E("read file fail!! - %#X", Status);
 		//ZwClose(file->handle);
 		return Status;
 	}

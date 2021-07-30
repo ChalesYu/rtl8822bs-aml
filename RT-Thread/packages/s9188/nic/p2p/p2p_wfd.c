@@ -1,3 +1,19 @@
+/*
+ * p2p_wfd.c
+ *
+ * used for .....
+ *
+ * Author: luozhi
+ *
+ * Copyright (c) 2020 SmartChip Integrated Circuits(SuZhou ZhongKe) Co.,Ltd
+ *
+ *
+ * This program is free software; you can redistribute  it and/or modify it
+ * under  the terms of  the GNU General  Public License as published by the
+ * Free Software Foundation;  either version 2 of the  License, or (at your
+ * option) any later version.
+ *
+ */
 #include "common.h"
 #include "wf_debug.h"
 
@@ -15,19 +31,13 @@ int wifi_display_info_to_init_func(nic_info_st *pnic_info, wf_u8 flag)
 {
     int res = wf_true;
     p2p_info_st *p2p_info = pnic_info->p2p;
-    p2p_wd_info_st *pwdinfo = &p2p_info->wdinfo;
-    struct wifi_display_info *pwfd_info = &pwdinfo->wfd_info;
+    struct wifi_display_info *pwfd_info = &p2p_info->wfd_info;
 
     pwfd_info->init_rtsp_ctrlport = 554;
 
-    if(DRIVER_CFG80211 == pwdinfo->driver_interface)
-    {
-        pwfd_info->rtsp_ctrlport = 0;
-    }
-    else
-    {
-        pwfd_info->rtsp_ctrlport = pwfd_info->init_rtsp_ctrlport;
-    }
+
+    pwfd_info->rtsp_ctrlport = 0;
+  
 
     pwfd_info->peer_rtsp_ctrlport = 0;
     pwfd_info->wfd_enable = wf_false;
@@ -49,8 +59,7 @@ int wifi_display_info_to_init_func(nic_info_st *pnic_info, wf_u8 flag)
 void wfd_enable(nic_info_st *pnic_info, wf_bool on){
 
     p2p_info_st *p2p_info = pnic_info->p2p;
-    p2p_wd_info_st *pwdinfo = &p2p_info->wdinfo;
-    struct wifi_display_info *pwfd_info = &pwdinfo->wfd_info; 
+    struct wifi_display_info *pwfd_info = &p2p_info->wfd_info; 
     
 	if (on) {
 		pwfd_info->rtsp_ctrlport = pwfd_info->init_rtsp_ctrlport;
@@ -66,8 +75,7 @@ void wfd_enable(nic_info_st *pnic_info, wf_bool on){
 void wfd_set_ctrl_port(nic_info_st *pnic_info, wf_u16 port){
 
     p2p_info_st *p2p_info = pnic_info->p2p;
-    p2p_wd_info_st *pwdinfo = &p2p_info->wdinfo;
-    struct wifi_display_info *pwfd_info = &pwdinfo->wfd_info;
+    struct wifi_display_info *pwfd_info = &p2p_info->wfd_info;
 
     pwfd_info->init_rtsp_ctrlport = port;
     if(pwfd_info->wfd_enable == wf_true)
@@ -288,8 +296,7 @@ wf_u32 probe_req_wfd_ie_build_func(nic_info_st * pnic_info, wf_u8 * pbuf, wf_u8 
     wf_u16 val16 = 0;
     wf_u32 len = 0, wfdielen = 0;
     p2p_info_st *p2p_info = pnic_info->p2p; 
-    p2p_wd_info_st *pwdinfo = &p2p_info->wdinfo;
-    struct wifi_display_info *pwfd_info = &pwdinfo->wfd_info;
+    struct wifi_display_info *pwfd_info = &p2p_info->wfd_info;
     wdn_list *pwdn = (wdn_list *)pnic_info->wdn;
     wdn_net_info_st *pwdn_info = NULL;
     wdn_node_st *pwdn_node = NULL;
@@ -363,8 +370,7 @@ wf_u32 probe_resp_wfd_ie_build_func(nic_info_st * pnic_info, wf_u8 * pbuf, wf_u8
     wf_u8 wfdie[MAX_WFD_IE_LEN] = { 0x00 };
     wf_u32 len = 0, wfdielen = 0;
     p2p_info_st *p2p_info = pnic_info->p2p;
-    p2p_wd_info_st *pwdinfo = &p2p_info->wdinfo;
-    struct wifi_display_info *pwfd_info = &pwdinfo->wfd_info;
+    struct wifi_display_info *pwfd_info = &p2p_info->wfd_info;
     wdn_list *pwdn = (wdn_list *)pnic_info->wdn;
     wdn_net_info_st *pwdn_info = NULL;
     wdn_node_st *pwdn_node = NULL;
@@ -383,8 +389,9 @@ wf_u32 probe_resp_wfd_ie_build_func(nic_info_st * pnic_info, wf_u8 * pbuf, wf_u8
     WF_PUT_BE16(wfdie + wfdielen, 0x0006);
     wfdielen += 2;
 
-    if (wf_true == pwdinfo->session_available) {
-        if (P2P_ROLE_GO == pwdinfo->role) {
+    if (wf_true == p2p_info->session_available) 
+    {
+        if (P2P_ROLE_GO == p2p_info->role) {
             if (pwdn->cnt) {
                 {
                     WF_PUT_BE16(wfdie + wfdielen,
@@ -456,7 +463,7 @@ wf_u32 probe_resp_wfd_ie_build_func(nic_info_st * pnic_info, wf_u8 * pbuf, wf_u8
     wfdie[wfdielen++] = 0;
     wfdie[wfdielen++] = 0;
 
-    if (pwdinfo->role == P2P_ROLE_GO) {
+    if (p2p_info->role == P2P_ROLE_GO) {
         wfdie[wfdielen++] = WFD_ATTR_SESSION_INFO;
 
         WF_PUT_BE16(wfdie + wfdielen, 0x0000);
@@ -481,14 +488,14 @@ static wf_u32 assoc_req_wfd_ie_build_func(nic_info_st * pnic_info, wf_u8 * pbuf,
     wdn_node_st *pwdn_node = NULL;
     wdn_list *pwdn = (wdn_list *)pnic_info->wdn;
     p2p_info_st *p2p_info = pnic_info->p2p;
-    p2p_wd_info_st *pwdinfo = &p2p_info->wdinfo;
-    pwfd_info = &pwdinfo->wfd_info;
+
+    pwfd_info = &p2p_info->wfd_info;
     
 
     //if (!Func_Chip_Hw_Chk_Wl_Func(pwadptdata, WL_FUNC_MIRACAST))
     //  goto exit;
 
-    if(pwdinfo->p2p_state == P2P_STATE_NONE && pwdinfo->p2p_state == P2P_STATE_IDLE)
+    if(p2p_info->p2p_state == P2P_STATE_NONE && p2p_info->p2p_state == P2P_STATE_IDLE)
         goto exit;
 
     wfdielen = 0;
@@ -503,8 +510,7 @@ static wf_u32 assoc_req_wfd_ie_build_func(nic_info_st * pnic_info, wf_u8 * pbuf,
     wfdielen += 2;
 
     val16 =
-        pwfd_info->
-        wfd_device_type | WFD_DEVINFO_SESSION_AVAIL | WFD_DEVINFO_WSD;
+        pwfd_info->wfd_device_type | WFD_DEVINFO_SESSION_AVAIL | WFD_DEVINFO_WSD;
     WF_PUT_BE16(wfdie + wfdielen, val16);
     wfdielen += 2;
 
@@ -557,8 +563,7 @@ wf_u32 assoc_resp_wfd_ie_build_func(nic_info_st * pnic_info, wf_u8 * pbuf, wf_u8
     wf_u32 len = 0, wfdielen = 0;
     wf_u16 val16 = 0;
     p2p_info_st *p2p_info = pnic_info->p2p;
-    p2p_wd_info_st *pwdinfo = &p2p_info->wdinfo;
-    struct wifi_display_info *pwfd_info = &pwdinfo->wfd_info;
+    struct wifi_display_info *pwfd_info = &p2p_info->wfd_info;
     wdn_list *pwdn = (wdn_list *)pnic_info->wdn;
     wdn_net_info_st *pwdn_info = NULL;
     wdn_node_st *pwdn_node = NULL;
@@ -577,8 +582,7 @@ wf_u32 assoc_resp_wfd_ie_build_func(nic_info_st * pnic_info, wf_u8 * pbuf, wf_u8
     wfdielen += 2;
 
     val16 =
-        pwfd_info->
-        wfd_device_type | WFD_DEVINFO_SESSION_AVAIL | WFD_DEVINFO_WSD;
+        pwfd_info->wfd_device_type | WFD_DEVINFO_SESSION_AVAIL | WFD_DEVINFO_WSD;
     WF_PUT_BE16(wfdie + wfdielen, val16);
     wfdielen += 2;
 
@@ -628,78 +632,41 @@ wf_u32 assoc_resp_wfd_ie_build_func(nic_info_st * pnic_info, wf_u8 * pbuf, wf_u8
 
 wf_u32 probe_req_wfd_ie_to_append_func(nic_info_st * pnic_info, wf_u8 * pbuf, wf_u8 flag)
 {
-    p2p_info_st *p2p_info = pnic_info->p2p;
-    p2p_wd_info_st *pwdinfo = &p2p_info->wdinfo;
-    struct wifi_display_info *wfd_info = &pwdinfo->wfd_info;
-    wf_u8 build_ie_by_self = 0;
+    p2p_info_st *p2p_info               = pnic_info->p2p;
+    struct wifi_display_info *wfd_info  = &p2p_info->wfd_info;
+    
     wf_u32 len = 0;
-
-    if (flag) {
-        //if (!Func_Chip_Hw_Chk_Wl_Func(wadptdata, WL_FUNC_MIRACAST))
-        //  goto exit;
-    }
-    if(DRIVER_CFG80211 == pwdinfo->driver_interface )
+    if (wfd_info->wfd_enable)
     {
-        if ( wf_true == pwdinfo->wfd_info.wfd_enable)
-        {
-            build_ie_by_self = 1;
-        }
-    }
-    else
-    {
-        build_ie_by_self = 1;
-    }
-
-    if (build_ie_by_self)
         len = probe_req_wfd_ie_build_func(pnic_info, pbuf, 1);
-    else if ( DRIVER_CFG80211 == pwdinfo->driver_interface && wfd_info->wfd_ie[WF_WFD_IE_PROBE_REQ] && wfd_info->wfd_ie_len[WF_WFD_IE_PROBE_REQ] > 0) {
+    }
+    else if ( wfd_info->wfd_ie[WF_WFD_IE_PROBE_REQ] && wfd_info->wfd_ie_len[WF_WFD_IE_PROBE_REQ] > 0) 
+    {
         len = wfd_info->wfd_ie_len[WF_WFD_IE_PROBE_REQ];
         wf_memcpy(pbuf, wfd_info->wfd_ie[WF_WFD_IE_PROBE_REQ], len);
     }
 
-//exit:
     return len;
 }
 
 
 wf_u32 probe_resp_wfd_ie_to_append_func(nic_info_st * pnic_info, wf_u8 * pbuf, wf_u8 flag)
 {
-    p2p_info_st *p2p_info = pnic_info->p2p;
-    p2p_wd_info_st *pwdinfo = &p2p_info->wdinfo;
-    struct wifi_display_info *wfd_info = &pwdinfo->wfd_info;
-
-    wf_u8 build_ie_by_self = 0;
+    p2p_info_st *p2p_info               = pnic_info->p2p;
+    struct wifi_display_info *wfd_info  = &p2p_info->wfd_info;
     wf_u32 len = 0;
 
-    if (flag) {
-        //if (!Func_Chip_Hw_Chk_Wl_Func(wadptdata, WL_FUNC_MIRACAST))
-            //goto exit;
-    }
-    if (DRIVER_CFG80211 == pwdinfo->driver_interface)
-    {
-        if(wf_true == pwdinfo->wfd_info.wfd_enable)
-        {
-            build_ie_by_self = 1;
-        }
-    }
-    else
-    {
-        build_ie_by_self = 1;
-    }
-    
-    WFD_INFO("adding wdf ie build_ie_by_self =%d",build_ie_by_self);
-    if (build_ie_by_self)
+    WFD_INFO("adding wdf ie build_ie_by_self =%d",wfd_info->wfd_enable);
+    if (wfd_info->wfd_enable)
     {
         len = probe_resp_wfd_ie_build_func(pnic_info, pbuf, 0, 1);
     }
-    if (DRIVER_CFG80211 == pwdinfo->driver_interface)
+    else if (wfd_info->wfd_ie[WF_WFD_IE_PROBE_RSP] && wfd_info->wfd_ie_len[WF_WFD_IE_PROBE_RSP] > 0) 
     {
-         if (wfd_info->wfd_ie[WF_WFD_IE_PROBE_RSP] && wfd_info->wfd_ie_len[WF_WFD_IE_PROBE_RSP] > 0) 
-         {
-            len = wfd_info->wfd_ie_len[WF_WFD_IE_PROBE_RSP];
-            wf_memcpy(pbuf, wfd_info->wfd_ie[WF_WFD_IE_PROBE_RSP], len);
-         }
+        len = wfd_info->wfd_ie_len[WF_WFD_IE_PROBE_RSP];
+        wf_memcpy(pbuf, wfd_info->wfd_ie[WF_WFD_IE_PROBE_RSP], len);
     }
+    
 
 //exit:
     return len;
@@ -708,42 +675,22 @@ wf_u32 probe_resp_wfd_ie_to_append_func(nic_info_st * pnic_info, wf_u8 * pbuf, w
 
 wf_u32 assoc_req_wfd_ie_to_append_func(nic_info_st * pnic_info, wf_u8 * pbuf, wf_u8 flag)
 {
-    p2p_info_st *p2p_info = pnic_info->p2p;
-    p2p_wd_info_st *pwdinfo = &p2p_info->wdinfo;
-    struct wifi_display_info *wfd_info = &pwdinfo->wfd_info;
-    wf_u8 build_ie_by_self = 0;
+    p2p_info_st *p2p_info  = pnic_info->p2p;
+    struct wifi_display_info *wfd_info = &p2p_info->wfd_info;
+    
     wf_u32 len = 0;
 
-    if (flag) 
-    {
-        //if (!Func_Chip_Hw_Chk_Wl_Func(wadptdata, WL_FUNC_MIRACAST))
-            //goto exit;
-    }
-    if (DRIVER_CFG80211 == pwdinfo->driver_interface)
-    {
-        if (wf_true == pwdinfo->wfd_info.wfd_enable)
-        {
-            build_ie_by_self = 1;
-        }
-    }
-    else
-    {
-        build_ie_by_self = 1;
-    }
-
-    if (build_ie_by_self)
+    if (p2p_info->wfd_info.wfd_enable)
     {
         len = assoc_req_wfd_ie_build_func(pnic_info, pbuf, 1);
     }
     
-    if (DRIVER_CFG80211 == pwdinfo->driver_interface)
+    else if (wfd_info->wfd_ie[WF_WFD_IE_ASSOC_REQ] && wfd_info->wfd_ie_len[WF_WFD_IE_ASSOC_REQ] > 0) 
     {
-        if (wfd_info->wfd_ie[WF_WFD_IE_ASSOC_REQ] && wfd_info->wfd_ie_len[WF_WFD_IE_ASSOC_REQ] > 0) 
-        {
-            len = wfd_info->wfd_ie_len[WF_WFD_IE_ASSOC_REQ];
-            wf_memcpy(pbuf, wfd_info->wfd_ie[WF_WFD_IE_ASSOC_REQ], len);
-        }
+        len = wfd_info->wfd_ie_len[WF_WFD_IE_ASSOC_REQ];
+        wf_memcpy(pbuf, wfd_info->wfd_ie[WF_WFD_IE_ASSOC_REQ], len);
     }
+    
 
 //exit:
     return len;
@@ -751,44 +698,20 @@ wf_u32 assoc_req_wfd_ie_to_append_func(nic_info_st * pnic_info, wf_u8 * pbuf, wf
 
 wf_u32 assoc_resp_wfd_ie_to_append_func(nic_info_st * pnic_info, wf_u8 * pbuf, wf_u8 flag)
 {
-    p2p_info_st *p2p_info = pnic_info->p2p;
-    p2p_wd_info_st *pwdinfo = &p2p_info->wdinfo;
-    struct wifi_display_info *wfd_info = &pwdinfo->wfd_info;
-
-    wf_u8 build_ie_by_self = 0;
+    p2p_info_st *p2p_info               = pnic_info->p2p;
+    struct wifi_display_info *wfd_info  = &p2p_info->wfd_info;
     wf_u32 len = 0;
-
-    if (flag) 
-    {
-        //if (!Func_Chip_Hw_Chk_Wl_Func(wadptdata, WL_FUNC_MIRACAST))
-            //goto exit;
-    }
     
-    if (DRIVER_CFG80211 == pwdinfo->driver_interface)
-    {
-        if (wf_true == pwdinfo->wfd_info.wfd_enable)
-        {
-            build_ie_by_self = 1;
-        }
-    }
-    else
-    {
-        build_ie_by_self = 1;
-    }
-
-    if (build_ie_by_self)
+    if (wfd_info->wfd_enable)
     {
         len = assoc_resp_wfd_ie_build_func(pnic_info, pbuf, 1);
     }
-    
-    if (DRIVER_CFG80211 == pwdinfo->driver_interface)
+    else if (wfd_info->wfd_ie[WF_WFD_IE_ASSOC_RSP] && wfd_info->wfd_ie_len[WF_WFD_IE_ASSOC_RSP] > 0) 
     {
-        if (wfd_info->wfd_ie[WF_WFD_IE_ASSOC_RSP] && wfd_info->wfd_ie_len[WF_WFD_IE_ASSOC_RSP] > 0) 
-        {
-            len = wfd_info->wfd_ie_len[WF_WFD_IE_ASSOC_RSP];
-            wf_memcpy(pbuf, wfd_info->wfd_ie[WF_WFD_IE_ASSOC_RSP], len);
-        }
+        len = wfd_info->wfd_ie_len[WF_WFD_IE_ASSOC_RSP];
+        wf_memcpy(pbuf, wfd_info->wfd_ie[WF_WFD_IE_ASSOC_RSP], len);
     }
+    
 
 //exit:
     return len;
@@ -796,9 +719,8 @@ wf_u32 assoc_resp_wfd_ie_to_append_func(nic_info_st * pnic_info, wf_u8 * pbuf, w
 
 wf_s32 wf_p2p_wfd_update_ie(nic_info_st *pnic_info, WF_WFD_IE_E ie_type, wf_u8 * ie,wf_u32 ie_len, wf_u8 tag)
 {
-    p2p_info_st *p2p_info = pnic_info->p2p;
-    p2p_wd_info_st *pwdinfo = &p2p_info->wdinfo;
-    struct wifi_display_info *wfd_info = &pwdinfo->wfd_info;
+    p2p_info_st *p2p_info               = pnic_info->p2p;
+    struct wifi_display_info *wfd_info  = &p2p_info->wfd_info;
     wf_u8 clear = 0;
     wf_s32 ret = wf_false;
     
@@ -873,13 +795,11 @@ exit:
 wf_bool wf_p2p_wfd_is_valid(nic_info_st *pnic_info)
 {
     p2p_info_st *p2p_info = NULL;
-    p2p_wd_info_st *pwdinfo = NULL;
     
     if(wf_p2p_is_valid(pnic_info))
     {
         p2p_info = pnic_info->p2p;
-        pwdinfo  = &p2p_info->wdinfo;
-        return pwdinfo->wfd_info.wfd_enable;
+        return p2p_info->wfd_info.wfd_enable;
     }
 
     return wf_false;

@@ -5,6 +5,7 @@
 typedef enum wf_oids_pend_req_e{
 	OIDS_PEND_REQ_MIN,
 	OIDS_PEND_REQ_ASSOC,
+	OIDS_PEND_REQ_IP,
 	OIDS_PEND_REQ_MAX,
 }wf_oids_pend_req_e;
 
@@ -18,7 +19,7 @@ WDF_DECLARE_CONTEXT_TYPE_WITH_NAME(wf_oids_timer_ctx_t, wf_get_timer_context)
 
 
 typedef struct wf_ap_info_s{
-	wf_u8 valid;
+	LONG valid;
 
 	wf_wlan_mgmt_scan_que_node_t scan_info;
 	wf_u8 beacon[MP_802_11_MAX_FRAME_SIZE];
@@ -49,6 +50,7 @@ typedef struct _BSS_FILTER_INFO
 	int cnt;
 } BSS_FILTER_INFO, *PBSS_FILTER_INFO;
 
+void wf_save_assoc_ssid(PADAPTER padapter, wf_u8 type);
 wf_u64 wf_get_speed_by_raid(wf_u8 raid);
 
 

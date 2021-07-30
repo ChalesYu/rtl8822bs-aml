@@ -47,7 +47,7 @@ static wf_s32 wf_wdn_update_traffic_stat(nic_info_st *nic_info,wdn_net_info_st *
     wdn_info->wdn_stats.cur_rx_tp       = (wf_u32)(wdn_info->wdn_stats.cur_rx_bytes * 8 / 2 / 1024 / 1024);
 
 #if 1
-    ARS_RA_INFO("tx_bytes:%lld,rx_bytes:%lld,cur_tx_bytes:%lld,cur_rx_bytes:%lld",
+    ARS_RA_DBG("tx_bytes:%lld,rx_bytes:%lld,cur_tx_bytes:%lld,cur_rx_bytes:%lld",
              wdn_info->wdn_stats.tx_bytes, wdn_info->wdn_stats.rx_pkts,
              wdn_info->wdn_stats.cur_tx_bytes, wdn_info->wdn_stats.cur_rx_bytes);
 #endif
@@ -476,7 +476,7 @@ wf_u32 ODM_Get_Rate_Bitmap( wdn_net_info_st *pwdn,        wf_u32 ra_mask,wf_u8 r
                 rate_bitmap = 0x000ff000;
             else 
             {
-                if (pwdn->bw_mode == ODM_BW40M)
+                if (pwdn->bw_mode == CHANNEL_WIDTH_40)
                     rate_bitmap = 0x000ff015;
                 else
                     rate_bitmap = 0x000ff005;

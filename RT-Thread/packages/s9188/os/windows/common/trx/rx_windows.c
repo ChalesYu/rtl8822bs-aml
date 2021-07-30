@@ -147,9 +147,9 @@ NDIS_STATUS wf_recv_parser_phy_status(nic_info_st *nic_info, wf_recv_pkt_t *pkt)
 		//we need use frame data
 		wf_rx_calc_str_and_qual(nic_info, (wf_u8*)physts, pkt->nic_pkt.pdata, &pkt->nic_pkt);
 
-	    if(hw_info && hw_info->use_drv_odm) {
-	        wf_odm_handle_phystatus(nic_info, physts, pkt->nic_pkt.pdata, &pkt->nic_pkt);
-	    }
+	    //if(hw_info && hw_info->use_drv_odm) {
+	    //    wf_odm_handle_phystatus(nic_info, physts, pkt->nic_pkt.pdata, &pkt->nic_pkt);
+	    //}
 
 		wf_free(physts);
 	}else {
@@ -800,6 +800,7 @@ NDIS_STATUS wf_recv_data_dispatch(PADAPTER padapter, wf_recv_preproc_t *pre_info
 
 			pkt->nic_pkt.pdata 	= pkt->buffer;
 			pkt->nic_pkt.len 	= pre_info->pkt_len;
+			pkt->net_if			= padapter;
 			
 			WdfObjectReference(pkt->buf_hdl);
 			wf_pkt_data_enque((pinfo->frame_type == MAC_FRAME_TYPE_DATA) ? 
@@ -884,7 +885,7 @@ VOID wf_recv_data_thread(PADAPTER padapter)
 	NDIS_STATUS ret = NDIS_STATUS_SUCCESS;
 	nic_info_st *nic_info = padapter->nic_info;
 	wf_data_que_t *pdata, *pmgmt, *pfree;
-	struct rx_pkt_info *pinfo;
+	//struct rx_pkt_info *pinfo;
 	wf_dbg_info_t *dbg_info;
 	
 	recv_info = padapter->recv_info;
@@ -961,9 +962,9 @@ NDIS_STATUS wf_recv_pkt_init(void *param)
 {
 	PADAPTER padapter = param;
 	wf_recv_info_t *recv_info = padapter->recv_info;
-	wf_data_que_t *pfree = &recv_info->comm_free;
+	//wf_data_que_t *pfree = &recv_info->comm_free;
 	wf_recv_pkt_t *pkt;
-	NDIS_STATUS           status;
+	//NDIS_STATUS           status;
 	int i;
 	
 #if defined(MP_USE_NET_BUFFER_LIST)
@@ -1056,7 +1057,7 @@ void wf_recv_pkt_deinit(void *param)
 	wf_data_que_t *pdata, *pmgmt, *pfree;
 	PLIST_ENTRY plist;
 	wf_recv_pkt_t *pkt;
-	int i;
+	//int i;
 
 	pdata = &recv_info->data_pend;
 	pmgmt = &recv_info->mgmt_pend;

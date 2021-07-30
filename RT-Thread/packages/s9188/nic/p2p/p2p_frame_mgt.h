@@ -1,3 +1,19 @@
+/*
+ * p2p_frame_mgt.h
+ *
+ * used for .....
+ *
+ * Author: luozhi
+ *
+ * Copyright (c) 2020 SmartChip Integrated Circuits(SuZhou ZhongKe) Co.,Ltd
+ *
+ *
+ * This program is free software; you can redistribute  it and/or modify it
+ * under  the terms of  the GNU General  Public License as published by the
+ * Free Software Foundation;  either version 2 of the  License, or (at your
+ * option) any later version.
+ *
+ */
 #ifndef __P2P_FRAME_MGT_H__
 #define __P2P_FRAME_MGT_H__
 
@@ -108,15 +124,11 @@ typedef struct p2p_frame_check_param_st_
 } p2p_frame_check_param_st;
 
 wf_u8 *wf_p2p_get_ie(wf_u8 * in_ie, wf_s32 in_len, wf_u8 * p2p_ie, wf_u32 * p2p_ielen);
-wf_s32 p2p_provision_request_to_issue_func(nic_info_st *nic_info, wf_u8 * pssid, wf_u8 ussidlen,wf_u8 * pdev_raddr, wf_u8 flag);
-wf_s32 p2p_GO_request_to_issue_func(nic_info_st *nic_info, wf_u8 *raddr, wf_u8 flag);
-wf_s32 p2p_invitation_request_to_issue_func(nic_info_st *nic_info, wf_u8 * raddr, wf_u8 flag);
 wf_s32 wf_p2p_issue_probereq(nic_info_st *nic_info, wf_u8 * da);
 wf_u8 *wf_p2p_get_attr_content(wf_u8 * p2p_ie, wf_u32 p2p_ielen, wf_u8 target_attr_id, wf_u8 * buf_content, wf_u32 * len_content);
 wf_s32 wf_p2p_proc_probereq(nic_info_st *pnic_info,wf_80211_mgmt_t *pframe, wf_u16 frame_len);
 wf_s32 wf_p2p_check_frames(nic_info_st *nic_info, const wf_u8 * buf, wf_u32 len, wf_bool tx,wf_u8 flag);
 wf_s32 wf_p2p_proc_action_public(nic_info_st *pnic_info, wf_u8 *pframe, wf_u16 frame_len);
-wf_s32 wf_p2p_proc_presence_req(nic_info_st *pnic_info, wf_u8 * pframe,wf_s32 len, wf_u8 flag);
 wf_s32 wf_p2p_fill_assoc_rsp(nic_info_st *pnic_info, wf_u8 *pframe, wf_u16 *pkt_len,WF_P2P_IE_E pie_type);
 wf_u8* wf_p2p_fill_assoc_req(nic_info_st *pnic_info, wf_u8 *pframe, wf_u32 *pkt_len,WF_P2P_IE_E pie_type);
 wf_s32 wf_p2p_parse_p2pie(nic_info_st *pnic_info, void *p2p, wf_u16 len,WF_P2P_IE_E ie_type);

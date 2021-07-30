@@ -1,4 +1,20 @@
-
+/*
+ * wf_80211.c
+ *
+ * used for implement the basic operation interface of IEEE80211 management
+ * frame
+ *
+ * Author: luozhi
+ *
+ * Copyright (c) 2020 SmartChip Integrated Circuits(SuZhou ZhongKe) Co.,Ltd
+ *
+ *
+ * This program is free software; you can redistribute  it and/or modify it
+ * under  the terms of  the GNU General  Public License as published by the
+ * Free Software Foundation;  either version 2 of the  License, or (at your
+ * option) any later version.
+ *
+ */
 #include "common.h"
 #include "wf_debug.h"
 
@@ -539,29 +555,34 @@ wf_u8 wf_wlan_check_is_wps_ie(wf_u8 *ie_ptr, wf_u32 *wps_ielen)
 
 wf_u8 *wf_wlan_get_ie(wf_u8 * pbuf, wf_s32 index, wf_s32 * len, wf_s32 limit)
 {
-	wf_s32 tmp, i;
-	wf_u8 *p;
+    wf_s32 tmp, i;
+    wf_u8 *p;
 
-	if (limit < 1) {
-		return NULL;
-	}
+    if (limit < 1)
+    {
+        return NULL;
+    }
 
-	p = pbuf;
-	i = 0;
-	*len = 0;
-	while (1) {
-		if (*p == index) {
-			*len = *(p + 1);
-			return (p);
-		} else {
-			tmp = *(p + 1);
-			p += (tmp + 2);
-			i += (tmp + 2);
-		}
-		if (i >= limit)
-			break;
-	}
-	return NULL;
+    p = pbuf;
+    i = 0;
+    *len = 0;
+    while (1)
+    {
+        if (*p == index)
+        {
+            *len = *(p + 1);
+            return (p);
+        }
+        else
+        {
+            tmp = *(p + 1);
+            p += (tmp + 2);
+            i += (tmp + 2);
+        }
+        if (i >= limit)
+            break;
+    }
+    return NULL;
 }
 
 
@@ -621,23 +642,27 @@ wf_u8 *wf_wlan_get_wps_attr(wf_u8 * wps_ie, wf_u32 wps_ielen, wf_u16 target_attr
     wf_u8 *target_attr_ptr = NULL;
     wf_u8 wps_oui[4] = { 0x00, 0x50, 0xF2, 0x04 };
 
-    if (flag) {
+    if (flag)
+    {
         if (len_attr)
             *len_attr = 0;
     }
     if ((wps_ie[0] != WF_80211_MGMT_EID_VENDOR_SPECIFIC) ||
-        (wf_memcmp(wps_ie + 2, wps_oui, 4) != wf_true)) {
+        (wf_memcmp(wps_ie + 2, wps_oui, 4) != wf_true))
+    {
         return attr_ptr;
     }
 
     attr_ptr = wps_ie + 6;
 
-    while (attr_ptr - wps_ie < wps_ielen) {
+    while (attr_ptr - wps_ie < wps_ielen)
+    {
         wf_u16 attr_id = WF_GET_BE16(attr_ptr);
         wf_u16 attr_data_len = WF_GET_BE16(attr_ptr + 2);
         wf_u16 attr_len = attr_data_len + 4;
 
-        if (attr_id == target_attr_id) {
+        if (attr_id == target_attr_id)
+        {
             target_attr_ptr = attr_ptr;
 
             if (buf_attr)
@@ -647,7 +672,9 @@ wf_u8 *wf_wlan_get_wps_attr(wf_u8 * wps_ie, wf_u32 wps_ielen, wf_u16 target_attr
                 *len_attr = attr_len;
 
             break;
-        } else {
+        }
+        else
+        {
             attr_ptr += attr_len;
         }
 
@@ -662,14 +689,16 @@ wf_u8 *wf_wlan_get_wps_attr_content(wf_u8 flag, wf_u8 * wps_ie, wf_u32 wps_ielen
     wf_u8 *attr_ptr;
     wf_u32 attr_len;
 
-    if (flag) {
+    if (flag)
+    {
         if (len_content)
             *len_content = 0;
     }
     attr_ptr =
         wf_wlan_get_wps_attr(wps_ie, wps_ielen, target_attr_id, NULL, &attr_len, 1);
 
-    if (attr_ptr && attr_len) {
+    if (attr_ptr && attr_len)
+    {
         if (buf_content)
             wf_memcpy(buf_content, attr_ptr + 4, attr_len - 4);
 

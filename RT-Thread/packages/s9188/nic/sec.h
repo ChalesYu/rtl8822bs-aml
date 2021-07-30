@@ -1,3 +1,19 @@
+/*
+ * sec.h
+ *
+ * This file contains all the prototypes for the sec.c file
+ *
+ * Author: luozhi
+ *
+ * Copyright (c) 2020 SmartChip Integrated Circuits(SuZhou ZhongKe) Co.,Ltd
+ *
+ *
+ * This program is free software; you can redistribute  it and/or modify it
+ * under  the terms of  the GNU General  Public License as published by the
+ * Free Software Foundation;  either version 2 of the  License, or (at your
+ * option) any later version.
+ *
+ */
 #ifndef __WF_SECURITY_H_
 #define __WF_SECURITY_H_
 
@@ -138,7 +154,7 @@ typedef struct sec_info
 
     wf_bool wpa_enable;
     wf_bool rsn_enable;
-    
+
     wf_u8 assoc_info[600];
     wf_u8 szofcapability[256];
     wf_u8 oidassociation[512];
@@ -230,10 +246,10 @@ struct mic_data
 };
 
 #define RORc(x, y) \
-	(((((unsigned long) (x) & 0xFFFFFFFFUL) >> \
-	   (unsigned long) ((y) & 31)) | \
-	  ((unsigned long) (x) << (unsigned long) (32 - ((y) & 31)))) & \
-	 0xFFFFFFFFUL)
+    (((((unsigned long) (x) & 0xFFFFFFFFUL) >> \
+       (unsigned long) ((y) & 31)) | \
+      ((unsigned long) (x) << (unsigned long) (32 - ((y) & 31)))) & \
+     0xFFFFFFFFUL)
 
 #define S(x, n)         RORc((x), (n))
 #define R(x, n)         (((x)&0xFFFFFFFFUL)>>(n))

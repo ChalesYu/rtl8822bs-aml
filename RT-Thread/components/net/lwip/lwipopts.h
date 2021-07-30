@@ -94,7 +94,7 @@
 #define MEMP_NUM_UDP_PCB                16
 #define MEMP_NUM_TCP_PCB                16
 #define MEMP_NUM_TCP_PCB_LISTEN         16
-#define MEMP_NUM_TCP_SEG                64 //128 //16    iperf测速时可以配置大，配置为128
+#define MEMP_NUM_TCP_SEG                128 //128 //16    iperf测速时可以配置大，配置为128
 #define MEMP_NUM_ALTCP_PCB              MEMP_NUM_TCP_PCB
 #define MEMP_NUM_REASSDATA              5   //每个重组包允许的最大分配数量
 #define MEMP_NUM_FRAG_PBUF              15  //每个分片包允许的最大分配数量
@@ -251,7 +251,7 @@
 #define TCP_QUEUE_OOSEQ                 0
 #define TCP_MSS                         1500
 #define TCP_SND_BUF                     (10*TCP_MSS)
-#define TCP_SND_QUEUELEN                ((6 * TCP_SND_BUF)/TCP_MSS)
+#define TCP_SND_QUEUELEN                ((8 * TCP_SND_BUF)/TCP_MSS)
 #define TCP_WND                         (11*TCP_MSS)
 #endif
 

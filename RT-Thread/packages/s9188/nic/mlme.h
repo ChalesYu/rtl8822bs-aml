@@ -1,10 +1,30 @@
-
+/*
+ * mlme.h
+ *
+ * This file contains all the prototypes for the mlme.c file
+ *
+ * Author: luozhi
+ *
+ * Copyright (c) 2020 SmartChip Integrated Circuits(SuZhou ZhongKe) Co.,Ltd
+ *
+ *
+ * This program is free software; you can redistribute  it and/or modify it
+ * under  the terms of  the GNU General  Public License as published by the
+ * Free Software Foundation;  either version 2 of the  License, or (at your
+ * option) any later version.
+ *
+ */
 #ifndef __MLME_H__
 #define __MLME_H__
 
 /* macro */
 
 #define WF_NAME_MAX_LEN         (32)
+
+#define WF_MLME_INFO_STATUS_CODE(nic_info) \
+    ((mlme_info_t *)(nic_info)->mlme_info)->status_code
+#define WF_MLME_INFO_REASON_CODE(nic_info) \
+    ((mlme_info_t *)(nic_info)->mlme_info)->reason_code
 
 /* type define */
 typedef enum
@@ -89,8 +109,8 @@ typedef struct
     char mlmeName[WF_NAME_MAX_LEN];
     mlme_state_e state;
     wf_bool connect;
-    wf_lock_spin state_lock;
-    wf_lock_spin connect_lock;
+    wf_lock_t state_lock;
+    wf_lock_t connect_lock;
     wf_link_info_st link_info;
 
     wf_add_ba_parm_st  barsp_parm;
@@ -125,6 +145,9 @@ typedef struct
     wf_u16 action_public_rxseq;
 
     wf_bool vir_scanning_intf;
+
+    wf_80211_statuscode_e status_code;
+    wf_80211_reasoncode_e reason_code;
 } mlme_info_t;
 
 /* function declaration */

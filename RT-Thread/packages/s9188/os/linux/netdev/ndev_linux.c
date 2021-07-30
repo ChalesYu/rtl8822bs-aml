@@ -1,3 +1,19 @@
+/*
+ * ndev_linux.c
+ *
+ * impliment linux framework net device regiest
+ *
+ * Author: luozhi
+ *
+ * Copyright (c) 2020 SmartChip Integrated Circuits(SuZhou ZhongKe) Co.,Ltd
+ *
+ *
+ * This program is free software; you can redistribute  it and/or modify it
+ * under  the terms of  the GNU General  Public License as published by the
+ * Free Software Foundation;  either version 2 of the  License, or (at your
+ * option) any later version.
+ *
+ */
 /* use linux netdev ioctl framework */
 #include <net/ieee80211_radiotap.h>
 #include "ndev_linux.h"
@@ -65,7 +81,7 @@ static int ndev_init(struct net_device *ndev)
             memcpy(ndev->dev_addr, hw_info->macAddr, WF_ETH_ALEN);
         }
         NDEV_INFO("[%d] macaddr:"WF_MAC_FMT,ndev_priv->nic->ndev_id,WF_MAC_ARG(hw_info->macAddr));
-        wf_mcu_hw_var_set_macaddr(ndev_priv->nic,ndev->dev_addr);
+        wf_mcu_set_macaddr(ndev_priv->nic,ndev->dev_addr);
 //        SET_NETDEV_DEV(ndev, ndev_priv->nic->dev);
     }
 
@@ -303,7 +319,7 @@ int ndev_open(struct net_device *ndev)
 {
     ndev_priv_st *ndev_priv = NULL;
     nic_info_st *pnic_info  = NULL;
-   
+
 
     ndev_priv = netdev_priv(ndev);
     pnic_info = ndev_priv->nic;
@@ -311,7 +327,7 @@ int ndev_open(struct net_device *ndev)
     {
         return -1;
     }
-    
+
     NDEV_DBG("[%d] ndev_open ",pnic_info->ndev_id);
     if (nic_enable(pnic_info) == WF_RETURN_FAIL)
     {
@@ -367,7 +383,7 @@ static int ndev_stop(struct net_device *ndev)
     {
         return -1;
     }
-    
+
     //NDEV_DBG("[%d] ndev_stop",pnic_info->ndev_id);
 
     if (nic_disable(pnic_info) == WF_RETURN_FAIL)
@@ -454,8 +470,12 @@ static int ndev_start_xmit(struct sk_buff *skb, struct net_device *ndev)
             bRet = wf_need_stop_queue(ndev_priv->nic);
             if (bRet == wf_true)
             {
-                //LOG_W(">>>>ndev tx stop queue");
-                ndev_tx_resource_disable(ndev, skb);
+            	tx_info_st *tx_info = ndev_priv->nic->tx_info;
+				if(tx_info)
+				{
+                	LOG_W(">>>>ndev tx stop queue,free:%d,pending:%d",tx_info->free_xmitframe_cnt,tx_info->pending_frame_cnt);
+                }
+				ndev_tx_resource_disable(ndev, skb);
             }
 
             /* actually xmit */
@@ -548,7 +568,7 @@ static int ndev_set_mac_addr(struct net_device *pnetdev, void *addr)
     memcpy(pnetdev->dev_addr, sock_addr->sa_data, WF_ETH_ALEN);
 
     ndev_priv = netdev_priv(pnetdev);
-    wf_mcu_hw_var_set_macaddr(ndev_priv->nic,pnetdev->dev_addr);
+    wf_mcu_set_macaddr(ndev_priv->nic,pnetdev->dev_addr);
     return 0;
 }
 
@@ -706,10 +726,10 @@ static int ndev_ioctl(struct net_device *dev, struct ifreq *req, int cmd)
             break;
 
         case (SIOCDEVPRIVATE + 1):     /* Android ioctl */
-            #ifdef CONFIG_OS_ANDROID
+#ifdef CONFIG_OS_ANDROID
             NDEV_DBG("ndev_ioctl SIOCDEVPRIVATE");
             wf_android_priv_cmd_ioctl(dev, req,cmd);
-            #endif
+#endif
             break;
 
         default:
@@ -791,7 +811,7 @@ extern char *ifname;
 extern char *if2name;
 
 static int _ndev_notifier_cb(struct notifier_block *nb,
-                                  wf_ptr state, void *ptr)
+                             wf_ptr state, void *ptr)
 {
 #if (LINUX_VERSION_CODE>=KERNEL_VERSION(3,11,0))
     struct net_device *ndev = netdev_notifier_info_to_dev(ptr);
@@ -842,7 +862,8 @@ static int _ndev_notifier_cb(struct notifier_block *nb,
 
 }
 
-static struct notifier_block wf_ndev_notifier = {
+static struct notifier_block wf_ndev_notifier =
+{
     .notifier_call = _ndev_notifier_cb,
 };
 
@@ -924,45 +945,45 @@ int ndev_register (nic_info_st *pnic_info)
     }
 #endif
 
-    #ifdef CONFIG_ANDROID_HIF
+#ifdef CONFIG_ANDROID_HIF
     if(1 == pnic_info->hif_node_id)
     {
         sprintf(dev_name, if2name[0] ? if2name : "p2p0");
         NDEV_DBG("dev_name:%s",dev_name);
     }
     else
-    #endif
-    if (pnic_info->nic_type == NIC_USB)
-    {
-        if (pnic_info->virNic)
+#endif
+        if (pnic_info->nic_type == NIC_USB)
         {
-            sprintf(dev_name, if2name[0] ? if2name : "vir%d_u%d", pnic_info->hif_node_id, pnic_info->ndev_id);
+            if (pnic_info->virNic)
+            {
+                sprintf(dev_name, if2name[0] ? if2name : "vir%d_u%d", pnic_info->hif_node_id, pnic_info->ndev_id);
+            }
+            else
+            {
+#ifdef CONFIG_MP_MODE
+                sprintf(dev_name, ifname[0] ? ifname : "wlan%d", pnic_info->hif_node_id);
+#else
+                sprintf(dev_name, ifname[0] ? ifname : "wlan%d_u%d", pnic_info->hif_node_id, pnic_info->ndev_id);
+#endif
+            }
         }
         else
         {
-        #ifdef CONFIG_MP_MODE
-            sprintf(dev_name, ifname[0] ? ifname : "wlan%d", pnic_info->hif_node_id);
-        #else
-            sprintf(dev_name, ifname[0] ? ifname : "wlan%d_u%d", pnic_info->hif_node_id, pnic_info->ndev_id);
-        #endif
+            if (pnic_info->virNic)
+            {
+                sprintf(dev_name, if2name[0] ? if2name : "vir%d_s%d", pnic_info->hif_node_id, pnic_info->ndev_id);
+            }
+            else
+            {
+#ifdef CONFIG_MP_MODE
+                sprintf(dev_name, ifname[0] ? ifname : "wlan%d", pnic_info->hif_node_id);
+#else
+                sprintf(dev_name, ifname[0] ? ifname : "wlan%d_s%d", pnic_info->hif_node_id, pnic_info->ndev_id);
+#endif
+            }
         }
-    }
-    else
-    {
-        if (pnic_info->virNic)
-        {
-            sprintf(dev_name, if2name[0] ? if2name : "vir%d_s%d", pnic_info->hif_node_id, pnic_info->ndev_id);
-        }
-        else
-        {
-        #ifdef CONFIG_MP_MODE
-            sprintf(dev_name, ifname[0] ? ifname : "wlan%d", pnic_info->hif_node_id);
-        #else
-            sprintf(dev_name, ifname[0] ? ifname : "wlan%d_s%d", pnic_info->hif_node_id, pnic_info->ndev_id);
-        #endif
-        }
-    }
-    
+
     if (dev_alloc_name(pndev, dev_name) < 0)
     {
         NDEV_WARN("dev_alloc_name, fail!");
@@ -979,11 +1000,11 @@ int ndev_register (nic_info_st *pnic_info)
     ret = register_netdev(pndev);
     if (ret)
     {
-        #ifdef CONFIG_IOCTL_CFG80211
+#ifdef CONFIG_IOCTL_CFG80211
         wf_cfg80211_wiphy_unreg(pnic_info);
         wf_cfg80211_widev_free(pnic_info);
         wf_cfg80211_wiphy_free(pnic_info);
-        #endif
+#endif
 
         free_netdev(pndev);
         pndev = NULL;

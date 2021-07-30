@@ -1,3 +1,19 @@
+/*
+ * adhoc.c
+ *
+ * used for AdHoc mode
+ *
+ * Author: houchuang
+ *
+ * Copyright (c) 2020 SmartChip Integrated Circuits(SuZhou ZhongKe) Co.,Ltd
+ *
+ *
+ * This program is free software; you can redistribute  it and/or modify it
+ * under  the terms of  the GNU General  Public License as published by the
+ * Free Software Foundation;  either version 2 of the  License, or (at your
+ * option) any later version.
+ *
+ */
 #include "common.h"
 #include "wf_debug.h"
 #ifdef CFG_ENABLE_ADHOC_MODE
@@ -13,8 +29,7 @@
 #define ADHOC_WARN(fmt, ...)     LOG_W("[%s][%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
 #define ADHOC_ERROR(fmt, ...)    LOG_E("[%s][%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
 
-static void adhoc_set_sta_ratid (nic_info_st *pnic_info, wdn_net_info_st *pwdn_info,
-                                 wf_u8 bw, wf_u8 sgi, wf_u64 bitmap);
+
 int wf_adhoc_bcn_msg_send(nic_info_st *pnic_info, wf_80211_mgmt_t *pmgmt,wf_u16 mgmt_len);
 
 wf_bool wf_get_adhoc_master (nic_info_st *pnic_info)
@@ -29,7 +44,7 @@ wf_bool wf_set_adhoc_master (nic_info_st *pnic_info,wf_bool status)
     return adhoc_info->adhoc_master = status;
 }
 
-inline wf_u32 wf_adhoc_andom32(void)
+inline static wf_u32 wf_adhoc_andom32(void)
 {
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,8,0))
     return prandom_u32();
@@ -119,47 +134,13 @@ int wf_adhoc_work (nic_info_st *pnic_info, wf_80211_mgmt_t *pmgmt, wf_u16 mgmt_l
     return 0;
 }
 
-static void adhoc_set_sta_ratid (nic_info_st *pnic_info, wdn_net_info_st *pwdn_info,
-                                 wf_u8 bw, wf_u8 sgi, wf_u64 bitmap)
-{
-    wf_u32 rate_bitmap = (wf_u32) bitmap;
-    wf_u32 mask = rate_bitmap & 0x0FFFFFFF;
-    wf_mcu_rfconfig_set(pnic_info, pwdn_info->wdn_id, pwdn_info->raid, bw, sgi, mask);
-}
-
 void wf_adhoc_add_sta_ratid (nic_info_st *pnic_info, wdn_net_info_st *pwdn_info)
 {
-    wf_u8 sgi = 0;
-    wf_u64 tx_rate_mask;
-    wf_u8 bw = pwdn_info->bw_mode;
-    mcu_msg_sta_info_st msg_sta;
-
     ADHOC_DBG();
-
-    mcu_msg_sta_info_pars(pwdn_info,&msg_sta);
-    tx_rate_mask = wf_mcu_get_rate_bitmap(pnic_info, pwdn_info,&msg_sta, NULL);
-
-    sgi = wf_ra_sGI_get(pwdn_info, 1);
-
-    if (tx_rate_mask & 0xffff000)
+    
+    if (pwdn_info->aid < 32)
     {
-        pwdn_info->network_type = WIRELESS_11_24N;
-    }
-    else if (tx_rate_mask & 0xff0)
-    {
-        pwdn_info->network_type = WIRELESS_11G;
-    }
-    else if (tx_rate_mask & 0x0f)
-    {
-        pwdn_info->network_type = WIRELESS_11B;
-    }
-    pwdn_info->raid = wf_wdn_get_raid_by_network_type(pwdn_info);
-
-    if (pwdn_info->aid < ODM_WDN_INFO_SIZE)
-    {
-        ADHOC_DBG("wdn_id:%d, raid: %d, shortGIrate: %d,tx_rate_mask:0x%016llx, networkType:0x%02x",
-                  pwdn_info->wdn_id, pwdn_info->raid, sgi, tx_rate_mask, pwdn_info->network_type);
-        adhoc_set_sta_ratid(pnic_info, pwdn_info, bw, sgi, tx_rate_mask);
+        wf_mcu_rate_table_update(pnic_info, pwdn_info);
     }
     else
     {

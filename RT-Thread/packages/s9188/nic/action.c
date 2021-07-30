@@ -1,3 +1,19 @@
+/*
+ * action.c
+ *
+ * used for xmit action frame
+ *
+ * Author: renhaibo
+ *
+ * Copyright (c) 2020 SmartChip Integrated Circuits(SuZhou ZhongKe) Co.,Ltd
+ *
+ *
+ * This program is free software; you can redistribute  it and/or modify it
+ * under  the terms of  the GNU General  Public License as published by the
+ * Free Software Foundation;  either version 2 of the  License, or (at your
+ * option) any later version.
+ *
+ */
 #include "common.h"
 #include "wf_debug.h"
 
@@ -75,7 +91,7 @@ int action_frame_block_ack (nic_info_st *nic_info, wdn_net_info_st *pwdn_info,
     {
         return -1;
     }
-    //nic_unused_check(pkt_len);
+
     frame_body = &pmgmt->action.variable[0];
     action = pmgmt->action.action_field;
     if (pwdn_info == NULL)
@@ -183,176 +199,6 @@ void action_frame_wlan_hdr (nic_info_st *pnic_info, struct xmit_buf *pxmit_buf)
 
 }
 
-#if 0
-static
-int action_frame_channel_switch (nic_info_st *nic_info, wf_u8 *pdata, wf_u16 pkt_len)
-{
-    wf_80211_mgmt_t *pmgmt = (wf_80211_mgmt_t *)pdata;
-    wf_80211_mgmt_ie_t *pie;
-    wdn_net_info_st *pwdn_info;
-    wf_u8 *pele_start;
-    wf_u8 *pele_end;
-    wf_u8 *frame_body;
-    wf_u8 switch_mode = -1, new_number = -1, switch_count = -1, switch_offset = -1;
-    wf_u8 bwmode;
-    int rst = 0;
-	
-    ACTION_DBG();
-
-    pwdn_info = wf_wdn_find_info(nic_info, wf_wlan_get_cur_bssid(nic_info));
-    if (pwdn_info == NULL)
-    {
-        return -1;
-    }
-    pele_start = &pmgmt->action.variable[0];
-    pele_end = &pele_start[pkt_len - WF_OFFSETOF(wf_80211_mgmt_t, action.variable)];
-    do
-    {
-        pie = (wf_80211_mgmt_ie_t *)pele_start;
-        frame_body = &pie->data[0];
-        switch (pie->element_id)
-        {
-            case WF_80211_MGMT_EID_CHANNEL_SWITCH:
-            {
-                switch_mode = frame_body[0];
-                new_number = frame_body[1];
-                switch_count = frame_body[2];
-            }
-            break;
-            case WF_80211_MGMT_EID_SECONDARY_CHANNEL_OFFSET:
-            {
-                switch_offset = frame_body[0];
-            }
-            default:
-                break;
-        }
-
-        pele_start = &pele_start[WF_OFFSETOF(wf_80211_mgmt_ie_t, data) + pie->len];
-
-    }
-    while (pele_start < pele_end);
-    bwmode = (switch_offset == HAL_PRIME_CHNL_OFFSET_DONT_CARE) ?
-             CHANNEL_WIDTH_20 : CHANNEL_WIDTH_40;
-    rst = wf_hw_info_set_channnel_bw(nic_info, new_number, bwmode, switch_offset);
-    if (rst == 0)
-    {
-        pwdn_info->bw_mode = bwmode;
-        pwdn_info->channel = new_number;
-    }
-    return rst;
-}
-
-int wf_action_frame_spectrum(nic_info_st *nic_info, wf_u8 *pdata, wf_u16 pkt_len)
-{
-    wf_80211_mgmt_t *pmgmt = (wf_80211_mgmt_t *)pdata;
-    wf_u8 *frame_body;
-    wf_u8 action;
-
-    ACTION_DBG();
-	
-    frame_body = &pmgmt->action.variable[0];
-    action = pmgmt->action.action_field;
-    switch (action)
-    {
-        case WF_WLAN_ACTION_SPCT_CHL_SWITCH:
-        {
-            action_frame_channel_switch(nic_info, pdata, pkt_len);
-        }
-        break;
-        default:
-            break;
-    }
-    return 0;
-}
-
-int wf_action_frame_bsscoex(nic_info_st *nic_info, wf_u8 *pdata, wf_u16 pkt_len)
-{
-    wf_80211_mgmt_t *pmgmt = (wf_80211_mgmt_t *)pdata;
-    wf_80211_mgmt_ie_t *pie;
-    wf_u8 *frame_body;
-    wf_u8 *pele_start;
-    wf_u8 *pele_end;
-    wf_u32 frame_body_len;
-    wdn_net_info_st *pwdn_info;
-	
-    ACTION_DBG();
-
-
-    pwdn_info = wf_wdn_find_info(nic_info, pmgmt->bssid);
-    pele_start = &pmgmt->action.variable[0];
-    pele_end = &pele_start[pkt_len - WF_OFFSETOF(wf_80211_mgmt_t, action.variable)];
-
-    /*ap songqiang add*/
-//  do{
-//      pie = (wf_80211_mgmt_ie_t *)pele_start;
-//      switch(pie->element_id){
-//      case WF_80211_MGMT_EID_BSS_COEX_2040:
-//      {
-//          if (pie->data & WF_WLAN_20_40_BSS_COEX_40MHZ_INTOL) {
-//              if (psta->ht_40mhz_intolerant == 0) {
-//                  psta->ht_40mhz_intolerant = 1;
-//                  pmlmepriv->num_sta_40mhz_intolerant++;
-//                  beacon_updated = _TRUE;
-//              }
-//          } else if (pie->data  & WF_WLAN_20_40_BSS_COEX_20MHZ_WIDTH_REQ) {
-//              if (pmlmepriv->ht_20mhz_width_req == _FALSE) {
-//                  pmlmepriv->ht_20mhz_width_req = _TRUE;
-//                  beacon_updated = _TRUE;
-//              }
-//          } else
-//              beacon_updated = _FALSE;
-//      }
-//      }break;
-//      case WF_80211_MGMT_EID_BSS_INTOLERANT_CHL_REPORT:
-//      {
-
-//          if (pmlmepriv->ht_intolerant_ch_reported == _FALSE) {
-//              pmlmepriv->ht_intolerant_ch_reported = _TRUE;
-//              beacon_updated = _TRUE;
-//          }
-
-//      }break;
-//      default :
-//      break;
-//      }
-//  pele_start = &pele_start[WF_OFFSETOF(wf_80211_mgmt_ie_t,data)+pie->len];
-//  }while(pele_start < pele_end);
-
-    return 0;
-}
-
-int wf_action_frame_public(nic_info_st *nic_info, wf_u8 *pdata, wf_u16 pkt_len)
-{
-    wf_80211_mgmt_t *pmgmt = (wf_80211_mgmt_t *)pdata;
-    wf_u8 *frame_body;
-    mlme_info_t *mlme_info = (mlme_info_t *)nic_info->mlme_info;
-	
-    ACTION_DBG();
-
-    frame_body = &pmgmt->action.variable[0];
-    /*sta don't need songqiang add*/
-//  if(pmgmt->action.action_field == WF_WLAN_ACTION_PUBLIC_BSSCOEXIST){
-//      if(mlme_info->state & WIFI_FW_AP_STATE){
-//          wf_action_frame_bsscoex(nic_info,pdata,pkt_len);
-//      }
-
-//  }else if(pmgmt->action.action_field == WF_WLAN_ACTION_PUBLIC_VENDOR){
-
-//  }else{
-
-
-//  }
-
-    return 0;
-
-}
-
-int wf_action_frame_ht(nic_info_st *nic_info, wf_u8 *pdata, wf_u16 pkt_len)
-{
-    ACTION_DBG();
-    return 0;
-}
-#endif
 
 wf_s32 proc_on_action_public_vendor_func(nic_info_st *pnic_info, wf_u8 *pkt,wf_u16 pkt_len)
 {
@@ -366,15 +212,6 @@ wf_s32 proc_on_action_public_vendor_func(nic_info_st *pnic_info, wf_u8 *pkt,wf_u
 
     if (wf_memcmp(frame_body + 2, P2P_OUI, 4) == 0)
     {
-//         if (decache_action_public_func(precv_frame, 7, 1) == _FAIL)
-//            {
-//                return WF_RETURN_FAIL;
-//            }
-//             goto exit;
-//
-//         if (!Func_Chip_Hw_Chk_Wl_Func(precv_frame->u.hdr.wadptdata, WL_FUNC_MIRACAST))
-//             wl_rframe_del_wfd_ie(precv_frame, 8);
-
         if(wf_p2p_is_valid(pnic_info))
         {
             ret = wf_p2p_proc_action_public(pnic_info, pkt,pkt_len);
@@ -425,11 +262,8 @@ static wf_s32 action_frame_p2p_proc(nic_info_st *pnic_info, wf_u8 *pframe, wf_u3
     {
         wf_u8 *frame_body   = NULL;
         wf_u8 category      = 0;
-        wf_u8 OUI_Subtype   = 0;
-        wf_u8 dialogToken   = 0;
         wf_u32 len          = frame_len;
         p2p_info_st *p2p    = pnic_info->p2p;
-        p2p_wd_info_st *pwdinfo = &(p2p->wdinfo);
 
         if (0 != wf_memcmp(nic_to_local_addr(pnic_info), GetAddr1Ptr(pframe), WF_ETH_ALEN))
         {
@@ -449,7 +283,7 @@ static wf_s32 action_frame_p2p_proc(nic_info_st *pnic_info, wf_u8 *pframe, wf_u3
             return WF_RETURN_OK;
         }
 
-        if (p2p->p2p_enabled && pwdinfo->driver_interface == DRIVER_CFG80211)
+        if (p2p->p2p_enabled)
         {
             if(p2p->scb.rx_mgmt)
             {
@@ -461,14 +295,7 @@ static wf_s32 action_frame_p2p_proc(nic_info_st *pnic_info, wf_u8 *pframe, wf_u3
         }
         else
         {
-            len -= sizeof(struct wl_ieee80211_hdr_3addr);
-            OUI_Subtype = frame_body[5];
-            dialogToken = frame_body[6];
-            if (OUI_Subtype == P2P_PRESENCE_REQUEST)
-            {
-                wf_p2p_proc_presence_req(pnic_info, pframe, len, 1);
-            }
-
+            ACTION_DBG("not support wext");
         }
     }
 
@@ -556,9 +383,6 @@ int wf_action_frame_ba_to_issue (nic_info_st *nic_info, wf_u8 action)
     wf_add_ba_parm_st *barsp_info       = NULL;
     wf_add_ba_parm_st *bareq_info       = NULL;
 
-
-    //ACTION_DBG("[action]%s",__func__);
-
     pwdn_info = wf_wdn_find_info(nic_info, wf_wlan_get_cur_bssid(nic_info));
     if (pwdn_info == NULL)
     {
@@ -579,20 +403,17 @@ int wf_action_frame_ba_to_issue (nic_info_st *nic_info, wf_u8 action)
     }
     wf_memset(pxmit_buf->pbuf, 0, WLANHDR_OFFSET + TXDESC_OFFSET);
 
-    /* type of management is 0100 */
     action_frame_wlan_hdr(nic_info, pxmit_buf);
 
-    /* set txd at tx module */
-    pframe = pxmit_buf->pbuf + TXDESC_OFFSET; /* pframe point to wlan_hdr */
+    pframe = pxmit_buf->pbuf + TXDESC_OFFSET;
     pwlanhdr = (struct wl_ieee80211_hdr *)pframe;
 
-    /* copy addr1/2/3 */
     wf_memcpy(pwlanhdr->addr1, pwdn_info->mac, MAC_ADDR_LEN);
     wf_memcpy(pwlanhdr->addr2, nic_to_local_addr(nic_info), MAC_ADDR_LEN);
     wf_memcpy(pwlanhdr->addr3, pwdn_info->bssid, MAC_ADDR_LEN);
 
     pkt_len = sizeof(struct wl_ieee80211_hdr_3addr);
-    pframe += pkt_len; /* point to iv or frame body */
+    pframe += pkt_len;
 
     pframe = set_fixed_ie(pframe, 1, &(category), &pkt_len);
     pframe = set_fixed_ie(pframe, 1, &(action), &pkt_len);

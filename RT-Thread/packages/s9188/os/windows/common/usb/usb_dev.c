@@ -500,7 +500,7 @@ void wf_usb_xmit_thread(PADAPTER         padapter)
 	wf_usb_req_t *usb_req = NULL;
 	NDIS_STATUS ret = NDIS_STATUS_SUCCESS;
 	nic_info_st *nic_info = padapter->nic_info;
-	wf_data_que_t *pdata_pend, *pmgmt_pend, *pdata_free, *pmgmt_free, *ppend, *pfree;
+	wf_data_que_t *pdata_pend, *pmgmt_pend, *pdata_free, *pmgmt_free;
 	
 	usb_info = padapter->usb_info;
 	pdata_pend = &usb_info->data_pend;

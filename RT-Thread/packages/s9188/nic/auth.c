@@ -1,4 +1,19 @@
-
+/*
+ * auth.c
+ *
+ * impliment of IEEE80211 management frame authentication stage processing
+ *
+ * Author: luozhi
+ *
+ * Copyright (c) 2020 SmartChip Integrated Circuits(SuZhou ZhongKe) Co.,Ltd
+ *
+ *
+ * This program is free software; you can redistribute  it and/or modify it
+ * under  the terms of  the GNU General  Public License as published by the
+ * Free Software Foundation;  either version 2 of the  License, or (at your
+ * option) any later version.
+ *
+ */
 #include "common.h"
 #include "wf_debug.h"
 
@@ -575,6 +590,7 @@ wf_pt_rst_t wf_auth_sta_thrd (wf_pt_t *pt, nic_info_st *pnic_info, int *prsn)
             pauth_ie = (void *)((wf_u8 *)&pmgmt->auth + ofs); /* offset HT Order field */
             seq = wf_le16_to_cpu(pauth_ie->auth_transaction);
             status = wf_le16_to_cpu(pauth_ie->status_code);
+            WF_MLME_INFO_STATUS_CODE(pnic_info) = (wf_80211_statuscode_e)status; /* retrive status code */
             if (seq == WF_80211_AUTH_SEQ_2)
             {
                 if (status == WF_80211_STATUS_NOT_SUPPORTED_AUTH_ALG)
@@ -679,6 +695,7 @@ wf_pt_rst_t wf_auth_sta_thrd (wf_pt_t *pt, nic_info_st *pnic_info, int *prsn)
             pauth_ie = (void *)((wf_u8 *)&pmgmt->auth + ofs);
             seq = wf_le16_to_cpu(pauth_ie->auth_transaction);
             status = wf_le16_to_cpu(pauth_ie->status_code);
+            WF_MLME_INFO_STATUS_CODE(pnic_info) = (wf_80211_statuscode_e)status; /* retrive status code */
             if (seq == WF_80211_AUTH_SEQ_4)
             {
                 if (status == WF_80211_STATUS_SUCCESS)
@@ -1062,6 +1079,8 @@ int wf_deauth_frame_parse (nic_info_st *pnic_info, wdn_net_info_st *pwdn_info,
         case WF_INFRA_MODE :
             AUTH_INFO("WF_80211_FRM_DEAUTH frame reason:%d",
                       pmgmt->deauth.reason_code);
+            WF_MLME_INFO_REASON_CODE(pnic_info) =
+                (wf_80211_reasoncode_e)pmgmt->deauth.reason_code; /* retrive reason code */
             rst = wf_mlme_deauth(pnic_info, wf_true);
             if (rst)
             {

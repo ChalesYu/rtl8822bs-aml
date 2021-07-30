@@ -1,4 +1,19 @@
-
+/*
+ * wlan_mgmt.h
+ *
+ * This file contains all the prototypes for the wlan_mgmt.c file
+ *
+ * Author: luozhi
+ *
+ * Copyright (c) 2020 SmartChip Integrated Circuits(SuZhou ZhongKe) Co.,Ltd
+ *
+ *
+ * This program is free software; you can redistribute  it and/or modify it
+ * under  the terms of  the GNU General  Public License as published by the
+ * Free Software Foundation;  either version 2 of the  License, or (at your
+ * option) any later version.
+ *
+ */
 #ifndef __WLAN_MGMT_H__
 #define __WLAN_MGMT_H__
 
@@ -16,8 +31,8 @@
 #define wf_wlan_mgmt_param_chk(para, type)\
 do\
 {\
-    type tmp = para;\
-    (void)tmp;\
+    type tmp;\
+    (void)(&tmp == &para);\
 }\
 while (0)
 #define _pscan_que(pnic_info)\
@@ -25,9 +40,9 @@ while (0)
 #define wf_wlan_mgmt_scan_que_for_begin(pnic_info, pscan_que_node)\
 do\
 {\
-    wf_que_list_t *_pos = NULL, *_phead = NULL;\
+    wf_que_list_t *_pos = NULL, *_phead = NULL; pscan_que_node = NULL;\
     wf_wlan_mgmt_param_chk(pnic_info, nic_info_st *);\
-    wf_wlan_mgmt_param_chk(pscan_que_node = NULL, wf_wlan_mgmt_scan_que_node_t *);\
+    wf_wlan_mgmt_param_chk(pscan_que_node, wf_wlan_mgmt_scan_que_node_t *);\
     if ((pnic_info) && !WF_CANNOT_RUN(pnic_info) &&\
         !wf_wlan_mgmt_scan_que_read_try(_pscan_que(pnic_info)))\
     {\
@@ -38,10 +53,10 @@ do\
             /* get scan queue node point */\
             (pscan_que_node) =\
                 (void *)wf_list_entry(_pos, wf_wlan_mgmt_scan_que_node_t, list);
-            /* { here include user code ... } */
+/* { here include user code ... } */
 
 #define wf_wlan_mgmt_scan_que_for_end(rst)\
-            wf_wlan_mgmt_param_chk(rst = 0, wf_wlan_mgmt_scan_que_for_rst_e);\
+            wf_wlan_mgmt_param_chk(rst, wf_wlan_mgmt_scan_que_for_rst_e);\
         }\
         wf_wlan_mgmt_scan_que_read_post(_pscan_que(_pnic_info));\
     }\
@@ -239,7 +254,7 @@ wf_inline static
 wf_bool wf_wlan_is_same_ssid (wf_wlan_ssid_t *pssid1, wf_wlan_ssid_t *pssid2)
 {
     return (wf_bool)(pssid1->length == pssid2->length &&
-           !wf_memcmp(pssid1->data, pssid2->data, pssid1->length));
+                     !wf_memcmp(pssid1->data, pssid2->data, pssid1->length));
 }
 void wf_wlan_set_cur_ssid(nic_info_st *pnic_info, wf_wlan_ssid_t *pssid);
 wf_wlan_ssid_t *wf_wlan_get_cur_ssid(nic_info_st *pnic_info);

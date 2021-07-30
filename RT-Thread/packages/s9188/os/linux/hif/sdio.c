@@ -1,3 +1,19 @@
+/*
+ * sdio.c
+ *
+ * used for .....
+ *
+ * Author: luozhi
+ *
+ * Copyright (c) 2020 SmartChip Integrated Circuits(SuZhou ZhongKe) Co.,Ltd
+ *
+ *
+ * This program is free software; you can redistribute  it and/or modify it
+ * under  the terms of  the GNU General  Public License as published by the
+ * Free Software Foundation;  either version 2 of the  License, or (at your
+ * option) any later version.
+ *
+ */
 #include <linux/kernel.h>
 #include <linux/slab.h>
 #include <linux/moduleparam.h>
@@ -8,6 +24,7 @@
 #include "sdio.h"
 #include "hif_queue.h"
 #include "wf_debug.h"
+
 #define SDIO_HW_QUEUE_HIGH  (1)
 #define SDIO_HW_QUEUE_MID   (2)
 #define SDIO_HW_QUEUE_LOW   (3)
@@ -20,6 +37,9 @@
 #define SDIO_BLK_SIZE       (512)
 
 #define ALIGN_SZ_RXBUFF     8
+
+
+#define DBG_USE_AGG_NUM 0
 
 #define RND4(x) (((x >> 2) + (((x & 3) == 0) ?  0: 1)) << 2)
 
@@ -36,8 +56,22 @@ module_param(sdhz,  int, 0);
 
 static void sdio_interrupt_deregister(struct sdio_func *func);
 
+wf_bool sdio_operation_is_ok(struct sdio_func *func)
+{
+    #if 0
+    hif_node_st *node = NULL;
+    
+    node        = sdio_get_drvdata(func);
+    if(node->u.sdio.current_irq || node->u.sdio.current_irq == current)
+    {
+        return wf_false;
+    }
 
-
+    return wf_true;
+    #else
+    return wf_true;
+    #endif
+}
 static wf_s32 sdio_func_print(struct sdio_func *func)
 {
     LOG_I("func_num:%d, vender:0x%x, device:0x%x, max_blksize:%d, cur_blksize:%d, state:%d",
@@ -367,7 +401,7 @@ static wf_s32 sdio_write_data(struct sdio_func *func, wf_u32 addr, wf_u8 * data,
     wf_u32 len4rnd      = 0;
     
     node        = sdio_get_drvdata(func);
-
+    
     len4rnd = WF_RND4(len);
 
     if(len <= 4)
@@ -501,6 +535,7 @@ wf_s32 sdio_read_data(struct sdio_func *func, wf_u32 addr, wf_u8 * data, wf_u32 
     wf_s32 i            = 0;
     wf_u32 len4rnd      = 0;
 
+    
     if(len <= 4)
     {
         des_addr = sdio_get_destaddr(addr, &device_id, &val_set);
@@ -580,6 +615,7 @@ wf_s32 sdio_read_data(struct sdio_func *func, wf_u32 addr, wf_u8 * data, wf_u32 
 
         }
     }
+    
     sdio_release_host(func);
     if(1 == sus_leave )
     {
@@ -591,13 +627,20 @@ wf_s32 sdio_read_data(struct sdio_func *func, wf_u32 addr, wf_u8 * data, wf_u32 
 }
 
 
-#ifdef CONFIG_RICHV200
-static wf_s32 wf_sdio_tx_flow_agg_num_check(hif_node_st *hif_info, wf_u8 agg_num,wf_u8 data_type)
+wf_s32 wf_sdio_tx_flow_agg_num_check(void *phif_info, wf_u8 agg_num,wf_u8 data_type)
 {
-    hif_sdio_st *sd         = &hif_info->u.sdio;
+    #if DBG_USE_AGG_NUM
+    hif_node_st *hif_info  = phif_info;
+    hif_sdio_st *sd         = NULL;
     wf_s32 txAggNum_remain  = 0;
 
-    if( data_type != WF_PKT_TYPE_FRAME  )
+    if(NULL == hif_info)
+    {
+        return WF_RETURN_FAIL;
+    }
+    
+    sd         = &hif_info->u.sdio;
+    if( data_type != WF_PKT_TYPE_FRAME )
     {
         return WF_RETURN_OK;
     }
@@ -607,20 +650,25 @@ static wf_s32 wf_sdio_tx_flow_agg_num_check(hif_node_st *hif_info, wf_u8 agg_num
     {
         return  WF_RETURN_FAIL;
     }
-
+    #endif
     return WF_RETURN_OK;
 }
 
-static wf_s32 wf_sdio_tx_flow_free_pg_check(hif_node_st *hif_info, wf_u32 hw_queue, wf_u8 pg_num,wf_u8 data_type)
+wf_s32 wf_sdio_tx_flow_free_pg_check(void *phif_info, wf_u32 hw_queue, wf_u8 pg_num,wf_u8 data_type)
 {
-    hif_sdio_st *sd            = &hif_info->u.sdio;
+    hif_node_st *hif_info      = phif_info;
+    hif_sdio_st *sd            = NULL;
     nic_info_st *nic_info      = NULL;
     wf_s32 lpg_remain_num      = 0;
     wf_s32 mpg_remain_num      = 0;
     wf_s32 hpg_remain_num      = 0;
 
+    if(NULL == hif_info)
+    {
+        return -1;
+    }
 
-    
+    sd       = &hif_info->u.sdio;
     nic_info = hif_info->nic_info[0];
     if(data_type != WF_PKT_TYPE_FRAME  )
     {
@@ -691,125 +739,6 @@ static wf_s32 wf_sdio_tx_flow_free_pg_check(hif_node_st *hif_info, wf_u32 hw_que
     return WF_RETURN_FAIL;
 }
 
-#else
-static wf_u32 sdio_get_ac_index_by_qsel(wf_u8 qsel, wf_u8 sec)
-{
-    wf_u32 addr = 0;
-    if(sec)
-    {
-        LOG_I("sec:%d",sec);
-        switch (qsel)
-        {
-            case 0:
-            case 1:
-            case 2:
-            case 3:
-                addr = AC5_IDX;
-                break;
-            case 4:
-            case 5:
-                addr = AC4_IDX;
-                break;
-            case 6:
-            case 7:
-                addr = AC3_IDX;
-                break;
-            case QSLT_BEACON:
-                addr = AC3_IDX;
-                break;
-            case QSLT_HIGH:
-                addr = AC3_IDX;
-                break;
-            case QSLT_MGNT:
-            default:
-                addr = AC3_IDX;
-                break;
-        }
-    }
-    else if(0 == sec)
-    {
-        switch (qsel)
-        {
-            case 0:
-            case 1:
-            case 2:
-            case 3:
-                addr = AC3_IDX;
-                break;
-            case 4:
-            case 5:
-                addr = AC4_IDX;
-                break;
-            case 6:
-            case 7:
-                addr = AC5_IDX;
-                break;
-            case QSLT_BEACON:
-                addr = AC5_IDX;
-                break;
-            case QSLT_HIGH:
-                addr = AC5_IDX;
-                break;
-            case QSLT_MGNT:
-            default:
-                addr = AC5_IDX;
-                break;
-        }
-
-    }
-
-    return addr;
-
-}
-
-static wf_s32 wf_sdio_wait_enough_txoqt_space(hif_node_st *hif_info, wf_u32 PageIdx, wf_u8 pg_num)
-{
-    hif_sdio_st *sd                 = &hif_info->u.sdio;
-    nic_info_st *nic_info           = NULL;
-    wf_u8 DedicatedPgNum            = 0;
-    wf_u8 RequiredPublicFreePgNum   = 0;
-    wf_s32 i                        = 0;
-    wf_s32 ret                      = 0;
-
-    nic_info = hif_info->nic_info[0];
-    //LOG_I("PageIdx:%d",PageIdx);
-    while (sd->SdioTxFIFOFreePage[PageIdx] +  sd->SdioTxFIFOFreePage[ACX_IDX] <= TX_RESERVED_PG_NUM + pg_num)
-    {
-        if (nic_info->is_driver_stopped || nic_info->is_surprise_removed)
-        {
-            return WF_RETURN_FAIL;
-        }
-
-        for (i = 0; i < 6; i++)
-        {
-            ret = sdio_read_data(sd->func, SDIO_BASE | (WL_REG_AC0_FREEPG + i * 4),&sd->SdioTxFIFOFreePage[i],1);
-            if(0 != ret)
-            {
-                if(-ENOMEDIUM == ret)
-                {
-                    nic_info->is_surprise_removed = wf_true;
-                }
-            }
-        }
-    }
-
-    DedicatedPgNum = sd->SdioTxFIFOFreePage[PageIdx];
-    if (pg_num <= DedicatedPgNum)
-    {
-        sd->SdioTxFIFOFreePage[PageIdx] -= pg_num;
-    }
-    else
-    {
-        sd->SdioTxFIFOFreePage[PageIdx] = 0;
-        RequiredPublicFreePgNum = pg_num - DedicatedPgNum;
-        sd->SdioTxFIFOFreePage[ACX_IDX] -= RequiredPublicFreePgNum;
-    }
-
-    return WF_RETURN_OK;
-}
-
-#endif
-
 static wf_s32 wf_sdio_tx_wait_freeAGG(hif_node_st *hif_info,wf_u8 need_agg_num)
 {
     hif_sdio_st *sd         = &hif_info->u.sdio;
@@ -845,8 +774,11 @@ static wf_s32 wf_sdio_tx_wait_freeAGG(hif_node_st *hif_info,wf_u8 need_agg_num)
 
     return 0;
 }
+
+
 static wf_s32 wf_sdio_tx_wait_freePG(hif_node_st *hif_info, wf_u8 hw_queue, wf_u8 need_pg_num)
 {
+    
     nic_info_st *nic_info   = NULL;
     wf_u32 value32          = 0;
     wf_s32 ret              = 0;
@@ -871,79 +803,96 @@ static wf_s32 wf_sdio_tx_wait_freePG(hif_node_st *hif_info, wf_u8 hw_queue, wf_u
         }
         sd->tx_fifo_ppg_num = value32;
 
-        ret = sdio_read_data(sd->func, SDIO_BASE | WL_REG_HIG_FREEPG,(wf_u8*)&value32,4);
-        if(0 != ret )
+        if (hw_queue == SDIO_HW_QUEUE_HIGH)
         {
-            if(-ENOMEDIUM == ret)
+            ret = sdio_read_data(sd->func, SDIO_BASE | WL_REG_HIG_FREEPG,(wf_u8*)&value32,4);
+            if(0 != ret )
             {
-                nic_info->is_surprise_removed = wf_true;
+                if(-ENOMEDIUM == ret)
+                {
+                    nic_info->is_surprise_removed = wf_true;
+                }
             }
-        }
-        sd->tx_fifo_hpg_num = value32;
+            sd->tx_fifo_hpg_num = value32;
 
-        ret = sdio_read_data(sd->func, SDIO_BASE | WL_REG_MID_FREEPG,(wf_u8*)&value32,4);
-        if(0 != ret )
-        {
-            if(-ENOMEDIUM == ret)
-            {
-                nic_info->is_surprise_removed = wf_true;
-            }
-        }
-        sd->tx_fifo_mpg_num = value32;
-
-        ret = sdio_read_data(sd->func, SDIO_BASE | WL_REG_LOW_FREEPG,(wf_u8*)&value32,4);
-        if(0 != ret )
-        {
-            if(-ENOMEDIUM == ret)
-            {
-                nic_info->is_surprise_removed = wf_true;
-            }
-        }
-        sd->tx_fifo_lpg_num = value32;
-
-        if (hw_queue == SDIO_HW_QUEUE_HIGH) // HIGH
-        {
             if (sd->tx_fifo_hpg_num + sd->tx_fifo_ppg_num  > TX_RESERVED_PG_NUM + need_pg_num)
             {
                 return WF_RETURN_OK;
             }
         }
-        else if (hw_queue == SDIO_HW_QUEUE_MID) // MID
+
+        else if (hw_queue == SDIO_HW_QUEUE_MID)
         {
+            ret = sdio_read_data(sd->func, SDIO_BASE | WL_REG_MID_FREEPG,(wf_u8*)&value32,4);
+            if(0 != ret )
+            {
+                if(-ENOMEDIUM == ret)
+                {
+                    nic_info->is_surprise_removed = wf_true;
+                }
+            }
+            sd->tx_fifo_mpg_num = value32;
             if (sd->tx_fifo_mpg_num + sd->tx_fifo_ppg_num  > TX_RESERVED_PG_NUM + need_pg_num)
+            {
+                return WF_RETURN_OK;
+            }
+        }
+
+        else if(SDIO_HW_QUEUE_LOW == hw_queue)
+        {
+            ret = sdio_read_data(sd->func, SDIO_BASE | WL_REG_LOW_FREEPG,(wf_u8*)&value32,4);
+            if(0 != ret )
+            {
+                if(-ENOMEDIUM == ret)
+                {
+                    nic_info->is_surprise_removed = wf_true;
+                }
+            }
+            sd->tx_fifo_lpg_num = value32;
+            if (sd->tx_fifo_lpg_num + sd->tx_fifo_ppg_num  > TX_RESERVED_PG_NUM + need_pg_num)
             {
                 return WF_RETURN_OK;
             }
         }
         else   // LOW
         {
-            if (sd->tx_fifo_lpg_num + sd->tx_fifo_ppg_num  > TX_RESERVED_PG_NUM + need_pg_num)
-            {
-                return WF_RETURN_OK;
-            }
+            LOG_E("[%s,%d] unknown hw_queue:%d",__func__,__LINE__,hw_queue);
         }
 
     };
 
-    return  WF_RETURN_FAIL;
-
 }
 
 
 
-static wf_s32 wf_sdio_tx_flow_agg_num_ctl(hif_node_st *hif_info, wf_u8 agg_num)
+wf_s32 wf_sdio_tx_flow_agg_num_ctl(void *phif_info, wf_u8 agg_num)
 {
-    hif_sdio_st *sd         = &hif_info->u.sdio;
+    #if DBG_USE_AGG_NUM
+    hif_node_st *hif_info   = phif_info;
+    hif_sdio_st *sd         = NULL;
 
+    if(NULL == hif_info)
+    {
+        return WF_RETURN_FAIL;
+    }
+    
+    sd         = &hif_info->u.sdio;
     sd->SdioTxOQTFreeSpace -= agg_num;
-
+    #endif
     return WF_RETURN_OK;
 }
 
-static wf_s32 wf_sdio_tx_flow_free_pg_ctl(hif_node_st *hif_info, wf_u32 hw_queue, wf_u8 pg_num)
+wf_s32 wf_sdio_tx_flow_free_pg_ctl(void *phif_info, wf_u32 hw_queue, wf_u8 pg_num)
 {
-    hif_sdio_st *sd         = &hif_info->u.sdio;
+    hif_node_st *hif_info   = phif_info;
+    hif_sdio_st *sd         = NULL;
 
+    if(NULL == hif_info)
+    {
+        return -1;
+    }
+    
+    sd         = &hif_info->u.sdio;
     if(hw_queue == SDIO_HW_QUEUE_LOW)   //LOW
     {
         if (sd->tx_fifo_lpg_num > pg_num)
@@ -984,10 +933,102 @@ static wf_s32 wf_sdio_tx_flow_free_pg_ctl(hif_node_st *hif_info, wf_u32 hw_queue
     return WF_RETURN_OK;
 }
 
+wf_s32 wf_sdio_update_txbuf_size(void*phif_info,void *pqnode,wf_s32 *max_page_num,wf_s32 *max_agg_num)
+{
+    hif_node_st *hif_info       = phif_info;
+    hif_sdio_st *sd             = NULL;
+    data_queue_mngt_st *dqm     = NULL;
+    wf_s32 ret                  = 0;
+    wf_u8 fifo_id               = 0;
+    data_queue_node_st *qnode   = pqnode;
+    wf_u8 need_pg               = 0;
+    wf_timer_t timer            = {0};
+    if(NULL == hif_info || NULL == qnode)
+    {
+        return -1;
+    }
+    if(hif_info->u.sdio.count_start)
+    {
+        wf_timer_set(&timer, 0);
+    }
+    dqm = &hif_info->trx_pipe;
+    sd = &hif_info->u.sdio;
+    //need_pg               = qnode->pg_num>64?qnode->pg_num:64;
+    need_pg             = qnode->pg_num;
+    fifo_id=sdio_get_fifoaddr_by_que_Index(qnode->addr, 0, &qnode->fifo_addr, qnode->encrypt_algo);
+    qnode->hw_queue = sdio_get_hwQueue_by_fifoID(fifo_id);  
+    ret = wf_sdio_tx_flow_free_pg_check(hif_info,qnode->hw_queue,need_pg,WF_PKT_TYPE_FRAME);
+    if (ret == WF_RETURN_FAIL)
+    {
+        ret = wf_sdio_tx_wait_freePG(hif_info, qnode->hw_queue, need_pg);
+    }
+
+    ret = wf_sdio_tx_flow_agg_num_check(hif_info,qnode->agg_num,WF_PKT_TYPE_FRAME);
+    if (ret == WF_RETURN_FAIL)
+    {
+        wf_sdio_tx_wait_freeAGG(hif_info,qnode->agg_num);
+    }
+
+    if(SDIO_HW_QUEUE_HIGH == qnode->hw_queue)
+    {
+        sd->free_tx_page = sd->tx_fifo_ppg_num+sd->tx_fifo_hpg_num;
+        if(sd->free_tx_page > 243)
+        {
+            LOG_W("[%s,%d] free_tx_page:%d,ppg:%d,hpg:%d, need:%d",__func__,__LINE__,sd->free_tx_page,sd->tx_fifo_ppg_num,sd->tx_fifo_hpg_num,need_pg);
+            sd->free_tx_page = 243;
+        }
+    }
+    else if(SDIO_HW_QUEUE_MID == qnode->hw_queue)
+    {
+        sd->free_tx_page = sd->tx_fifo_ppg_num+sd->tx_fifo_mpg_num;
+        if(sd->free_tx_page > 233)
+        {
+            LOG_W("[%s,%d] free_tx_page:%d,ppg:%d,hpg:%d, need:%d",__func__,__LINE__,sd->free_tx_page,sd->tx_fifo_ppg_num,sd->tx_fifo_mpg_num,need_pg);
+            sd->free_tx_page = 233;
+        }
+    }
+    else if(SDIO_HW_QUEUE_LOW == qnode->hw_queue)
+    {
+        sd->free_tx_page = sd->tx_fifo_ppg_num + sd->tx_fifo_lpg_num;
+        if(sd->free_tx_page > 233)
+        {
+            LOG_W("[%s,%d] free_tx_page:%d, ppg:%d,lpg:%d,need:%d",__func__,__LINE__,sd->free_tx_page,sd->tx_fifo_ppg_num,sd->tx_fifo_lpg_num,need_pg);
+            sd->free_tx_page = 233;
+        }
+    }
+    else
+    {   
+        if(sd->free_tx_page > 231)
+        {
+            LOG_W("[%s,%d] free_tx_page:%d,ppg:%d, need:%d",__func__,__LINE__,sd->free_tx_page,sd->tx_fifo_ppg_num,need_pg);
+            sd->free_tx_page = 231;
+        }
+        sd->free_tx_page = sd->tx_fifo_ppg_num;
+    }
+
+    
+    
+    *max_page_num = sd->free_tx_page;
+    *max_agg_num  = sd->SdioTxOQTFreeSpace - qnode->agg_num;
+    
+    if(hif_info->u.sdio.count_start)
+    {
+        sd->tx_flow_ctl_time+=wf_timer_elapsed(&timer);
+    }
+    
+    return 0;
+}
+
 static wf_s32 wf_sdio_req_packet(hif_sdio_st * sd, wf_u8 rw, wf_u32 addr, wf_u32 pkt_len, void *pkt)
 {
     wf_s32 err_ret = 0;
-    sdio_claim_host(sd->func);
+    wf_bool ready = sdio_operation_is_ok(sd->func);
+
+    if(ready)
+    {
+        sdio_claim_host(sd->func);
+    }
+
     if (rw)
     {
         err_ret = sdio_memcpy_fromio(sd->func, pkt, addr, pkt_len);
@@ -996,11 +1037,53 @@ static wf_s32 wf_sdio_req_packet(hif_sdio_st * sd, wf_u8 rw, wf_u32 addr, wf_u32
     {
         err_ret = sdio_memcpy_toio(sd->func, addr, pkt, pkt_len);
     }
-    sdio_release_host(sd->func);
+    
+
+    if(ready)
+    {
+        sdio_release_host(sd->func);
+    }
+    
     return err_ret;
 }
 
+#ifdef CONFIG_SOFT_TX_AGGREGATION
+static wf_s32 wf_sdio_write_net_data_agg(hif_node_st *hif_node, wf_u32 addr, wf_u8 * sdata, wf_u32 slen)
+{
+    data_queue_node_st * qnode    = (data_queue_node_st *)sdata;
+    wf_s32 ret                              = 0;
+    wf_u32 fifo_addr                        = 0;
+    wf_u8 fifo_id                           = 0;
+    wf_u32 len4rnd                          = 0;
+    wf_timer_t timer                        = {0};
 
+    if(hif_node->u.sdio.count_start)
+    {
+        wf_timer_set(&timer,0);
+    }
+    len4rnd = WF_RND4(slen);
+
+    hif_node->trx_pipe.tx_queue_cnt++;
+
+    if(2!= addr && 5!=addr && 8!=addr)
+    {
+        LOG_I("[%s] sec:%d,addr:%d",__func__,qnode->encrypt_algo,addr);
+    }
+    fifo_id=sdio_get_fifoaddr_by_que_Index(addr, len4rnd, &fifo_addr, qnode->encrypt_algo);
+    ret = wf_sdio_req_packet(&hif_node->u.sdio, SDIO_WD, fifo_addr, WF_RND512(len4rnd), qnode->buff);
+    if(ret < 0)
+    {
+        LOG_E("[%s] wf_sdio_req_packet failed,ret=%d, q_sel:%d, fifo_addr:0x%x, data_addr:%p, data_len:%d",
+              __func__,ret, addr, fifo_addr, qnode->buff, len4rnd);
+    }   
+    
+    if(hif_node->u.sdio.count_start)
+    {
+        hif_node->u.sdio.tx_agg_send_time += wf_timer_elapsed(&timer);
+    }
+    return WF_RETURN_OK;
+}
+#else
 static wf_s32 wf_sdio_write_net_data(hif_node_st *hif_node, wf_u32 addr, wf_u8 * sdata, wf_u32 slen)
 {
     data_queue_node_st * data_queue_node    = (data_queue_node_st *)sdata;
@@ -1011,11 +1094,8 @@ static wf_s32 wf_sdio_write_net_data(hif_node_st *hif_node, wf_u32 addr, wf_u8 *
     wf_u8 fifo_id                           = 0;
     wf_u32 len4rnd                          = 0;
     wf_u8 hw_queue                          = 0;
-    #ifdef CONFIG_RICHV200
     wf_u8 data_type                         = 0; 
-    #else
-    wf_u32 page_idx                         = 0;
-    #endif
+    
     data_queue_node->state = TX_STATE_FLOW_CTL;
     len4rnd = WF_RND4(slen);
 
@@ -1025,13 +1105,17 @@ static wf_s32 wf_sdio_write_net_data(hif_node_st *hif_node, wf_u32 addr, wf_u8 *
 
     if(2!= addr && 5!=addr && 8!=addr)
     {
-        LOG_I("sec:%d,addr:%d",pxmitbuf->encrypt_algo,addr);
+        LOG_I("[%s] sec:%d,addr:%d",__func__,pxmitbuf->encrypt_algo,addr);
     }
     fifo_id=sdio_get_fifoaddr_by_que_Index(addr, len4rnd, &fifo_addr, pxmitbuf->encrypt_algo);
     hw_queue = sdio_get_hwQueue_by_fifoID(fifo_id);
-
 #ifdef CONFIG_RICHV200
     data_type = data_queue_node->buff[0]& 0x03;
+    
+#else
+    data_type = WF_PKT_TYPE_FRAME;    
+#endif
+
     ret = wf_sdio_tx_flow_free_pg_check(hif_node,hw_queue,pg_num,data_type);
     if (ret == WF_RETURN_FAIL)
     {
@@ -1045,13 +1129,9 @@ static wf_s32 wf_sdio_write_net_data(hif_node_st *hif_node, wf_u32 addr, wf_u8 *
         wf_sdio_tx_wait_freeAGG(hif_node,pxmitbuf->agg_num);
         data_queue_node->state = TX_STATE_FLOW_CTL_SECOND;
     }
-#else
-    //page_idx =sdio_get_ac_page_by_que_index(addr,pxmitbuf->encrypt_algo);
-    page_idx = sdio_get_ac_index_by_qsel(pxmitbuf->qsel,pxmitbuf->encrypt_algo);
-    ret = wf_sdio_wait_enough_txoqt_space(hif_node, page_idx,pg_num);
-#endif
+    
     data_queue_node->state = TX_STATE_SENDING;
-    ret = wf_sdio_req_packet(&hif_node->u.sdio, SDIO_WD, fifo_addr, len4rnd, data_queue_node->buff);
+    ret = wf_sdio_req_packet(&hif_node->u.sdio, SDIO_WD, fifo_addr, WF_RND512(len4rnd), data_queue_node->buff);
     if(ret < 0)
     {
         LOG_E("[%s] wf_sdio_req_packet failed,ret=%d, q_sel:%d, fifo_addr:0x%x, data_addr:%p, data_len:%d",
@@ -1076,13 +1156,12 @@ static wf_s32 wf_sdio_write_net_data(hif_node_st *hif_node, wf_u32 addr, wf_u8 *
             ret = WF_RETURN_OK;
         }
     }
-
     wf_data_queue_insert(&hif_node->trx_pipe.free_tx_queue, data_queue_node);
     return WF_RETURN_OK;
 }
 
 
-
+#endif
 static wf_s32 wf_sdio_read_net_data(hif_node_st *hif_node, wf_u32 addr, wf_u8 * rdata, wf_u32 rlen)
 {
     hif_sdio_st        *sd      = &hif_node->u.sdio;
@@ -1237,12 +1316,163 @@ static wf_s32 wf_sdio_read_net_data(hif_node_st *hif_node, wf_u32 addr, wf_u8 * 
     return ret;
 }
 
+
+static wf_s32 wf_sdio_read_net_data_irq(hif_node_st *hif_node, wf_u32 addr, wf_u8 * rdata, wf_u32 rlen)
+{
+    hif_sdio_st        *sd      = &hif_node->u.sdio;
+    struct sk_buff *pskb        = NULL;
+    wf_s32 rx_queue_len            = 0;
+    wf_u32 read_size               = 0;
+    wf_s32 ret                     = -1;
+    wf_u32 fifo_addr;
+
+    if((rlen < 16) || rlen > MAX_RXBUF_SZ)
+    {
+        LOG_E("[%s] rlen error ，rlen:%d",__func__,rlen);
+        return -1;
+    }
+    hif_node->trx_pipe.rx_queue_cnt++;
+
+    if(rlen>512)
+    {
+        read_size = WF_RND_MAX(rlen, 512);
+    }
+    else
+    {
+        read_size = rlen;
+    }
+
+    if(read_size > WF_MAX_RECV_BUFF_LEN_SDIO + HIF_QUEUE_ALLOC_SKB_ALIGN_SZ)
+    {
+        LOG_E("[%s] read_size(%d) should be less than (%d)",__func__,read_size,WF_MAX_RECV_BUFF_LEN_SDIO + HIF_QUEUE_ALLOC_SKB_ALIGN_SZ);
+        while(1);
+    }
+
+    pskb = skb_dequeue(&hif_node->trx_pipe.free_rx_queue_skb);
+    if(NULL == pskb)
+    {
+        if(hif_node->trx_pipe.alloc_cnt<HIF_MAX_ALLOC_CNT)
+        {
+            LOG_W("[%s] alloc_skb again",__func__);
+            hif_node->trx_pipe.alloc_cnt++;
+            wf_hif_queue_alloc_skb(&hif_node->trx_pipe.free_rx_queue_skb,hif_node->hif_type);
+        }
+        else
+        {
+            LOG_W("[%s] wf_alloc_skb skip", __func__);
+        }
+        return -1;
+
+    }
+    else
+    {
+        if (skb_tailroom(pskb) < read_size)
+        {
+            skb_queue_tail(&hif_node->trx_pipe.free_rx_queue_skb, pskb);
+            return -1;
+        }
+    }
+
+    sdio_get_fifoaddr_by_que_Index(addr, read_size, &fifo_addr, 0);
+    ret = sdio_memcpy_fromio(sd->func, pskb->data, fifo_addr, read_size);    
+    if(ret < 0)
+    {
+        LOG_E("sdio_req_packet error:0x%x",ret);
+        if (pskb)
+        {
+            skb_reset_tail_pointer(pskb);
+            pskb->len = 0;
+            skb_queue_tail(&hif_node->trx_pipe.free_rx_queue_skb, pskb);
+        }
+        return -1;
+    }
+
+    skb_put(pskb, rlen);
+
+    if (hif_node->nic_info[0] != NULL)
+    {
+        ret = wf_rx_data_len_check(hif_node->nic_info[0],pskb->data, pskb->len);
+    }
+    else
+    {
+        ret = -1;
+    }
+
+    if (ret == -1)
+    {
+        if (pskb)
+        {
+            skb_reset_tail_pointer(pskb);
+            pskb->len = 0;
+            skb_queue_tail(&hif_node->trx_pipe.free_rx_queue_skb, pskb);
+        }
+    }
+    else
+    {
+
+        if (wf_rx_data_type(pskb->data) == WF_PKT_TYPE_FRAME)
+        {
+            skb_queue_tail(&hif_node->trx_pipe.rx_queue, pskb);
+
+            rx_queue_len = skb_queue_len(&hif_node->trx_pipe.rx_queue);
+            if ( rx_queue_len <= 1)
+            {
+                wf_tasklet_hi_sched(&hif_node->trx_pipe.recv_task);
+            }
+
+            ret = WF_PKT_TYPE_FRAME;
+        }
+        else
+        {
+#ifdef CONFIG_RICHV200
+            if (wf_rx_cmd_check(pskb->data, pskb->len) == 0)
+            {
+                switch(wf_rx_data_type(pskb->data))
+                {
+                    case WF_PKT_TYPE_CMD:
+                        wf_hif_bulk_cmd_post(hif_node, pskb->data, pskb->len);
+                        ret = WF_PKT_TYPE_CMD;
+                        break;
+
+                    case WF_PKT_TYPE_FW:
+                        wf_hif_bulk_fw_post(hif_node, pskb->data, pskb->len);
+                        ret = WF_PKT_TYPE_FW;
+                        break;
+
+                    case WF_PKT_TYPE_REG:
+                        wf_hif_bulk_reg_post(hif_node, pskb->data, pskb->len);
+                        ret = WF_PKT_TYPE_REG;
+                        break;
+
+                    default:
+                        LOG_E("recv rxd type error");
+                        ret = -1;
+                        break;
+                }
+
+            }
+
+            if (pskb)
+            {
+                skb_reset_tail_pointer(pskb);
+                pskb->len = 0;
+                skb_queue_tail(&hif_node->trx_pipe.free_rx_queue_skb, pskb);
+            }
+
+#endif
+        }
+    }
+
+    return ret;
+}
+
+
 static wf_s32 wf_sdio_write(struct hif_node_ *node, unsigned char flag, wf_u32 addr, char *data, wf_s32 datalen)
 {
     wf_s32 ret = 0;
     if(NULL ==node|| 0 == datalen)
     {
-        LOG_I("node null,datalen:%d",datalen);
+        LOG_I("[%s,%d] node:%p,datalen:%d",__func__,__LINE__,node,datalen);
         return -1;
     }
     if(hm_get_mod_removed() == wf_false && node->dev_removed == wf_true)
@@ -1253,7 +1483,11 @@ static wf_s32 wf_sdio_write(struct hif_node_ *node, unsigned char flag, wf_u32 a
     {
         if(WF_SDIO_TRX_QUEUE_FLAG == flag)
         {
+            #ifdef CONFIG_SOFT_TX_AGGREGATION
+            ret = wf_sdio_write_net_data_agg(node, addr,data,datalen);
+            #else
             ret = wf_sdio_write_net_data(node, addr,data,datalen);
+            #endif
         }
         else
         {
@@ -1351,6 +1585,7 @@ static struct hif_node_ops  sdio_node_ops=
 
 #define SDIO_INT_READ_BUG 0
 
+#if 0
 static wf_s32 sdio_get_rx_len(struct sdio_func *func)
 {
     wf_s32 ret = 0;
@@ -1365,15 +1600,18 @@ static wf_s32 sdio_get_rx_len(struct sdio_func *func)
 
     return rx_req_len;
 }
+#endif
 
 static void sdio_irq_handle(struct sdio_func *func)
 {
     hif_node_st  *hif_node = NULL;
-    wf_u32 isr;
-    wf_u32 isr_clean;
-    wf_s32 ret         = 0;
+    wf_u32 isr = 0;
+    wf_u32 isr_clean = 0;
     wf_u32 rx_req_len = 0;
     wf_s32 ret_type;
+
+#if 0
+    wf_s32 ret      = 0;
 
     hif_node = sdio_get_drvdata(func);
     hif_node->u.sdio.irq_cnt++;
@@ -1472,7 +1710,152 @@ static void sdio_irq_handle(struct sdio_func *func)
 
     }
     hif_node->u.sdio.int_flag--;
+#else
+    wf_u32 isr_addr     = 0;
+    wf_u32 rcv_len_addr     = 0;
 
+    wf_u8  device_id    = 0;
+    wf_u16 val_set      = 0;     
+    wf_s32 err_ret      = 0;
+
+    sdio_claim_host(func);
+
+    hif_node = sdio_get_drvdata(func);
+    hif_node->u.sdio.irq_cnt++;
+    hif_node->u.sdio.int_flag++;
+    hif_node->u.sdio.current_irq = current;
+    hif_node->u.sdio.sdio_hisr = 0;
+
+    isr_addr = sdio_get_destaddr(SDIO_BASE | WL_REG_HISR, &device_id, &val_set);
+
+    isr = sdio_readl(func,isr_addr,&err_ret);
+    if (err_ret)
+    {
+        if(-ENOMEDIUM == err_ret)
+        {
+            err_ret = WF_RETURN_REMOVED_FAIL;
+            LOG_W("[%s,%d] device removed warning.",__func__,__LINE__);
+        }
+        else
+        {
+            LOG_E("sderr: Failed to read word, Err: 0x%08x,%s, ret=%d\n", isr_addr, __func__, err_ret);
+        }
+
+         return;
+     }
+
+    if (isr == 0)
+    {
+        LOG_E("[%s] irq:0x%x error, check irq",__func__,isr);
+        hif_node->u.sdio.int_flag--;
+        return;
+    }
+
+    hif_node->u.sdio.sdio_hisr = isr;
+
+    /* tx dma err process */
+    if (hif_node->u.sdio.sdio_hisr & WF_BIT(2))
+    {
+        LOG_E("[%s] tx dma error!!",__func__);
+
+        isr_clean = WF_BIT(2);
+        sdio_writel(func, isr_clean, isr_addr, &err_ret);
+        if (err_ret < 0)
+        {
+            if(-ENOMEDIUM == err_ret)
+            {
+                err_ret = WF_RETURN_REMOVED_FAIL;
+                LOG_W("[%s,%d] device removed warning.",__func__,__LINE__);
+            }
+            else
+            {
+                LOG_E("sderr: Failed to write word, Err: 0x%08x,%s, ret:%d\n", isr_addr, __func__,err_ret);
+            }
+
+            return;
+        }
+        hif_node->u.sdio.sdio_hisr ^= WF_BIT(2);
+    }
+
+    /* rx dma err process */
+    if (hif_node->u.sdio.sdio_hisr & WF_BIT(3))
+    {          
+        LOG_E("[%s] rx dma error!!",__func__);
+
+        isr_clean = WF_BIT(3);
+        sdio_writel(func, isr_clean, isr_addr, &err_ret);
+        if (err_ret < 0)
+        {
+            if(-ENOMEDIUM == err_ret)
+            {
+                err_ret = WF_RETURN_REMOVED_FAIL;
+                LOG_W("[%s,%d] device removed warning.",__func__,__LINE__);
+            }
+            else
+            {
+                LOG_E("sderr: Failed to write word, Err: 0x%08x,%s, ret:%d\n", isr_addr, __func__,err_ret);
+            }
+
+            return;
+        }
+        hif_node->u.sdio.sdio_hisr ^= WF_BIT(3);
+    }
+
+    /* rx data process */
+    if (hif_node->u.sdio.sdio_hisr & (WF_BIT(8)|WF_BIT(0)))
+    {
+        while(1)
+        {
+            rcv_len_addr = sdio_get_destaddr(SDIO_BASE | WL_REG_SZ_RX_REQ, &device_id, &val_set);
+            rx_req_len = sdio_readl(func,rcv_len_addr,&err_ret);
+            if (err_ret)
+            {
+                if(-ENOMEDIUM == err_ret)
+                {
+                    err_ret = WF_RETURN_REMOVED_FAIL;
+                    LOG_W("[%s,%d] device removed warning.",__func__,__LINE__);
+                }
+                else
+                {
+                    LOG_E("sderr: Failed to read word, Err: 0x%08x,%s, ret=%d\n", rcv_len_addr, __func__, err_ret);
+                }
+
+                return;
+            }
+            
+            if (rx_req_len == 0)
+            {
+                break;
+            }
+
+            if ((rx_req_len < MIN_RXD_SIZE) || (rx_req_len > MAX_RXBUF_SZ) )
+            {
+                LOG_E("wf_sdio_recv error,rx_req_len:0x%x",rx_req_len);
+                break;
+            }
+
+            ret_type = wf_sdio_read_net_data_irq(hif_node, READ_QUEUE_INX, NULL, rx_req_len);
+            if (ret_type < 0)
+            {
+                break;
+            }
+
+            if (ret_type != TYPE_DATA)
+            {
+                isr_clean = WF_BIT(8);  /* clean CMD irq bit*/
+                sdio_writel(func, isr_clean, isr_addr, &err_ret);
+                hif_node->u.sdio.sdio_hisr ^= WF_BIT(8);
+            }
+        }
+
+        hif_node->u.sdio.sdio_hisr ^= WF_BIT(0);
+
+    }
+    hif_node->u.sdio.int_flag--;
+
+    sdio_release_host(func);
+
+#endif
 }
 
 
@@ -1979,4 +2362,5 @@ wf_s32 wf_sdioh_config(void *hif_info)
 
     return 0;
 }
+
 

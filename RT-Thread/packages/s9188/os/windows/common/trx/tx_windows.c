@@ -625,13 +625,13 @@ void wf_xmit_ndis_pkt(NDIS_HANDLE mp_ctx, PNET_BUFFER_LIST nbl, NDIS_PORT_NUMBER
 	mlme_info_t 		*mlme_info = NULL;
 	hw_info_st 			*hw_info = NULL;
     PNET_BUFFER_LIST    curr_nbl = NULL, next_nbl = NULL;
-	PNET_BUFFER     	curr_nb;
+	//PNET_BUFFER     	curr_nb;
 	LIST_ENTRY 			*plist;
 	wf_xmit_pkt_t 		*pkt = NULL;
 	wf_data_que_t 		*ppend, *pfree;
 	int 				ret = -1;
 	NDIS_STATUS     	failStatus = NDIS_STATUS_SUCCESS;
-	wf_dbg_info_t 		*dbg_info = pAdapter->dbg_info;
+	//wf_dbg_info_t 		*dbg_info = pAdapter->dbg_info;
 	BOOLEAN             DispatchLevel = (flag & NDIS_SEND_FLAGS_DISPATCH_LEVEL) ? TRUE : FALSE;
 	KIRQL irq = 0;
 
@@ -756,7 +756,7 @@ int wf_xmit_send_complete(nic_info_st *nic_info, wf_xmit_pkt_t *pkt)
 {
 	PADAPTER padapter = nic_info->hif_node;
 	wf_xmit_info_t *xmit_info = padapter->xmit_info;
-	wf_dbg_info_t *dbg_info = padapter->dbg_info;
+	//wf_dbg_info_t *dbg_info = padapter->dbg_info;
 
 	if(pkt == NULL) {
 		LOG_E("pkt is NULL");
@@ -772,7 +772,7 @@ int wf_xmit_send_complete(nic_info_st *nic_info, wf_xmit_pkt_t *pkt)
 	//has be setted NDIS_STATUS_SUCCESS, means the packet is process twice
 	if(NET_BUFFER_LIST_STATUS(pkt->nbl) == NDIS_STATUS_SUCCESS) {
 		LOG_E("the pkt has processed");
-		return;
+		return wf_false;
 	}
 
 	if(NET_BUFFER_LIST_STATUS(pkt->nbl) == NDIS_STATUS_PENDING) {
@@ -1121,10 +1121,10 @@ void wf_xmit_deinit(void *param)
 {
 	PADAPTER padapter = param;
 	wf_xmit_info_t *xmit_info = padapter->xmit_info;
-	PLIST_ENTRY plist;
-	wf_xmit_pkt_t *pkt;
+	//PLIST_ENTRY plist;
+	//wf_xmit_pkt_t *pkt;
 	wf_data_que_t *pque[2];
-	int i;
+	//int i;
 
 	LOG_D("start deinit xmit!\n");
 

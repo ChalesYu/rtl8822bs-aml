@@ -1,3 +1,19 @@
+/*
+ * nic.c
+ *
+ * used for Initialization logic
+ *
+ * Author: songqiang
+ *
+ * Copyright (c) 2020 SmartChip Integrated Circuits(SuZhou ZhongKe) Co.,Ltd
+ *
+ *
+ * This program is free software; you can redistribute  it and/or modify it
+ * under  the terms of  the GNU General  Public License as published by the
+ * Free Software Foundation;  either version 2 of the  License, or (at your
+ * option) any later version.
+ *
+ */
 #include "common.h"
 #include "wf_debug.h"
 
@@ -207,15 +223,6 @@ int nic_init(nic_info_st *nic_info)
         LOG_E("===>ars_init error");
         return WF_RETURN_FAIL;
     }
-#elif defined (CONFIG_ARS_FIRMWARE_SUPPORT)
-
-    /*odm mangment init*/
-    if (wf_odm_mgnt_init(nic_info) < 0)
-    {
-        LOG_E("===>wf_odm_mgnt_init error");
-        return WF_RETURN_FAIL;
-    }
-
 #endif
 
     /* wlan init */
@@ -250,8 +257,7 @@ int nic_init(nic_info_st *nic_info)
 
 int nic_term(nic_info_st *nic_info)
 {
-    //wf_wlan_info_t *pwlan_info = nic_info->wlan_info;
-    //wf_wlan_network_t *cur_network = &pwlan_info->cur_network;
+
 
     LOG_D("[NIC] nic_term - start");
 #ifdef CONFIG_MP_MODE
@@ -285,13 +291,6 @@ int nic_term(nic_info_st *nic_info)
     if (ars_term(nic_info) < 0)
     {
         LOG_E("===>ars_term error");
-        return WF_RETURN_FAIL;
-    }
-#elif defined CONFIG_ARS_FIRMWARE_SUPPORT
-    /* odm term */
-    if (wf_odm_mgnt_term(nic_info) < 0)
-    {
-        LOG_E("===>wf_odm_mgnt_term error");
         return WF_RETURN_FAIL;
     }
 #endif
@@ -393,14 +392,7 @@ int nic_enable(nic_info_st *nic_info)
         wf_mcu_enable_xmit(nic_info);
         nic_info->is_up = wf_true;
     }
-#if defined CONFIG_ARS_DRIVER_SUPPORT
-    //ars to do
-#elif defined CONFIG_ARS_FIRMWARE_SUPPORT
-    {
-        odm_mgnt_st *odm = nic_info->odm;
-        wf_os_api_timer_set(&odm->odm_wdg_timer, 5000);
-    }
-#endif
+
     return WF_RETURN_OK;
 }
 
@@ -482,7 +474,7 @@ int nic_suspend(nic_info_st *pnic_info)
             LOG_E("new message fail, error code: %d", rst);
         }
         wf_msg_push(pmsg_que, pnew_msg);
-        
+
         /* destory thread */
         if (pwlan_mgmt_info->tid)
         {
@@ -518,7 +510,7 @@ int nic_suspend(nic_info_st *pnic_info)
         pnic_info->is_up = wf_false;
         pnic_info->is_driver_stopped = wf_true;
     }
-    
+
     LOG_D("suspend success!!");
 
     return WF_RETURN_OK;

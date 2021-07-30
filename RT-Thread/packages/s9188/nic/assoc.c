@@ -1,4 +1,19 @@
-
+/*
+ * assoc.c
+ *
+ * impliment of IEEE80211 management frame association stage processing
+ *
+ * Author: luozhi
+ *
+ * Copyright (c) 2020 SmartChip Integrated Circuits(SuZhou ZhongKe) Co.,Ltd
+ *
+ *
+ * This program is free software; you can redistribute  it and/or modify it
+ * under  the terms of  the GNU General  Public License as published by the
+ * Free Software Foundation;  either version 2 of the  License, or (at your
+ * option) any later version.
+ *
+ */
 #include "common.h"
 #include "wf_debug.h"
 
@@ -250,46 +265,14 @@ int assoc_ap_xmit_frame (nic_info_st *pnic_info, wdn_net_info_st *pwdn_info,
     return 0;
 }
 
-static void ap_set_sta_ratid (nic_info_st *pnic_info, wdn_net_info_st *pwdn_info,
-                              wf_u8 bw, wf_u8 sgi, wf_u64 bitmap)
-{
-    wf_u32 rate_bitmap = (wf_u32) bitmap;
-    wf_u32 mask = rate_bitmap & 0x0FFFFFFF;
-    wf_mcu_rfconfig_set(pnic_info, pwdn_info->wdn_id, pwdn_info->raid, bw, sgi, mask);
-}
-
 void wf_ap_add_sta_ratid (nic_info_st *pnic_info, wdn_net_info_st *pwdn_info)
 {
-    wf_u8 sgi = 0;
-    wf_u64 tx_rate_mask;
-    wf_u8 bw = pwdn_info->bw_mode;
-    mcu_msg_sta_info_st msg_sta;
     ASSOC_DBG();
 
-    mcu_msg_sta_info_pars(pwdn_info,&msg_sta);
-    tx_rate_mask = wf_mcu_get_rate_bitmap(pnic_info, pwdn_info,&msg_sta, NULL);
-
-    sgi = wf_ra_sGI_get(pwdn_info, 1);
-
-    if (tx_rate_mask & 0xffff000)
+    if (pwdn_info->aid < 32)
     {
-        pwdn_info->network_type = WIRELESS_11_24N;
-    }
-    else if (tx_rate_mask & 0xff0)
-    {
-        pwdn_info->network_type = WIRELESS_11G;
-    }
-    else if (tx_rate_mask & 0x0f)
-    {
-        pwdn_info->network_type = WIRELESS_11B;
-    }
-    pwdn_info->raid = wf_wdn_get_raid_by_network_type(pwdn_info);
-
-    if (pwdn_info->aid < ODM_WDN_INFO_SIZE)
-    {
-        ASSOC_DBG("wdn_id:%d, raid: %d, shortGIrate: %d,tx_rate_mask:0x%016llx, networkType:0x%02x",
-                  pwdn_info->wdn_id, pwdn_info->raid, sgi, tx_rate_mask, pwdn_info->network_type);
-        ap_set_sta_ratid(pnic_info, pwdn_info, bw, sgi, tx_rate_mask);
+        pwdn_info->raid = wf_wdn_get_raid_by_network_type(pwdn_info);
+        wf_mcu_rate_table_update(pnic_info, pwdn_info);
     }
     else
     {
@@ -460,8 +443,11 @@ wf_pt_rst_t wf_assoc_ap_thrd (nic_info_st *pnic_info, wdn_net_info_st *pwdn_info
                 for (j = 0; j < WF_ARRAY_SIZE(pcur_network->rate); j++)
                 {
                     if (pcur_network->rate[j] == 0x0)
+                    {
                         break;
-                    if ( (pie->data[i] &(~IEEE80211_BASIC_RATE_MASK))  == (pcur_network->rate[j] &(~IEEE80211_BASIC_RATE_MASK)))
+                    }
+                    if ((pie->data[i] & (~IEEE80211_BASIC_RATE_MASK)) ==
+                        (pcur_network->rate[j] & (~IEEE80211_BASIC_RATE_MASK)))
                     {
                         if (pwdn_info->datarate_len <
                             WF_ARRAY_SIZE(pwdn_info->datarate))
@@ -500,6 +486,20 @@ wf_pt_rst_t wf_assoc_ap_thrd (nic_info_st *pnic_info, wdn_net_info_st *pwdn_info
                       (pwdn_info->datarate[5] & 0x7F) / 2,
                       (pwdn_info->datarate[6] & 0x7F) / 2,
                       (pwdn_info->datarate[7] & 0x7F) / 2);
+
+            /* get network type */
+            if ((only_cckrates(pwdn_info->datarate, pwdn_info->datarate_len)) == 1)
+            {
+                pwdn_info->network_type |= WIRELESS_11B;
+            }
+            else if ((have_cckrates(pwdn_info->datarate, pwdn_info->datarate_len)) == 1)
+            {
+                pwdn_info->network_type |= WIRELESS_11BG;
+            }
+            else
+            {
+                pwdn_info->network_type |= WIRELESS_11G;
+            }
         }
 
         else if (pie->element_id == WF_80211_MGMT_EID_EXT_SUPP_RATES)
@@ -521,7 +521,9 @@ wf_pt_rst_t wf_assoc_ap_thrd (nic_info_st *pnic_info, wdn_net_info_st *pwdn_info
                 for (j = 0; j < WF_ARRAY_SIZE(pcur_network->rate); j++)
                 {
                     if (pcur_network->rate[j] == 0x0)
+                    {
                         break;
+                    }
                     if (pie->data[i] == pcur_network->rate[j])
                     {
                         if (pwdn_info->ext_datarate_len <
@@ -559,6 +561,19 @@ wf_pt_rst_t wf_assoc_ap_thrd (nic_info_st *pnic_info, wdn_net_info_st *pwdn_info
                       (pwdn_info->ext_datarate[2] & 0x7F) / 2,
                       (pwdn_info->ext_datarate[3] & 0x7F) / 2);
 
+            /* get network type */
+            if ((only_cckrates(pwdn_info->ext_datarate, pwdn_info->ext_datarate_len)) == 1)
+            {
+                pwdn_info->network_type |= WIRELESS_11B;
+            }
+            else if ((have_cckrates(pwdn_info->ext_datarate, pwdn_info->ext_datarate_len)) == 1)
+            {
+                pwdn_info->network_type |= WIRELESS_11BG;
+            }
+            else
+            {
+                pwdn_info->network_type |= WIRELESS_11G;
+            }
         }
 
         else if (pie->element_id == WF_80211_MGMT_EID_RSN)
@@ -699,6 +714,8 @@ wf_pt_rst_t wf_assoc_ap_thrd (nic_info_st *pnic_info, wdn_net_info_st *pwdn_info
             }
             pwdn_info->ht_enable = wf_true;
             wf_memcpy(&pwdn_info->ht_cap, pie->data, pie->len);
+            /* set network type support N */
+            pwdn_info->network_type |= WIRELESS_11_24N;
         }
 
         else if (pie->element_id == WF_80211_MGMT_EID_HT_OPERATION)
@@ -723,6 +740,8 @@ wf_pt_rst_t wf_assoc_ap_thrd (nic_info_st *pnic_info, wdn_net_info_st *pwdn_info
     assoc_ap_xmit_frame(pnic_info, pwdn_info, frame_type, status_code);
     /* notify connection establish */
     wf_ap_odm_connect_media_status(pnic_info, pwdn_info);
+
+    /* set rate id */
     wf_ap_add_sta_ratid(pnic_info, pwdn_info);
 
     wf_assoc_ap_event_up(pnic_info, pwdn_info, pmsg);
@@ -992,6 +1011,8 @@ int wf_disassoc_frame_parse (nic_info_st *pnic_info, wdn_net_info_st *pwdn_info,
         case WF_INFRA_MODE :
             ASSOC_DBG("WF_80211_FRM_DISASSOC frame get, reason:%d",
                       pmgmt->disassoc.reason_code);
+            WF_MLME_INFO_REASON_CODE(pnic_info) =
+                (wf_80211_reasoncode_e)pmgmt->disassoc.reason_code; /* retrive reason code */
             rst = wf_mlme_deauth(pnic_info, wf_true);
             if (rst)
             {
@@ -1096,6 +1117,8 @@ wf_pt_rst_t wf_assoc_sta_thrd (wf_pt_t *pt, nic_info_st *pnic_info, int *prsn)
         {
             wf_80211_mgmt_t *pmgmt = (wf_80211_mgmt_t *)pmsg->value;
             wf_u16 mgmt_len = (wf_u16)pmsg->len;
+            WF_MLME_INFO_STATUS_CODE(pnic_info) =
+                (wf_80211_statuscode_e)pmgmt->assoc_resp.status_code; /* retrive status code */
             if (!pmgmt->assoc_resp.status_code)
             {
                 wf_wlan_mgmt_info_t *pwlan_info = pnic_info->wlan_mgmt_info;
