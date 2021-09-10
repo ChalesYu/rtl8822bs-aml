@@ -115,7 +115,7 @@ int wf_endpoint_init(struct usb_interface *pusb_intf, hif_usb_mngt *pusb_mngt)
 
             if (endpoint_is_bulk_in(pendpt_desc))
             {
-                USB_DBG("EP_IN  = num[%d]",endpoint_num(pendpt_desc));
+                USB_DBG("EP_IN  = num[%d]", endpoint_num(pendpt_desc));
 
                 pusb_mngt->in_endp_addr[pusb_mngt->n_in_pipes] = endpoint_num(pendpt_desc);
                 pusb_mngt->i_bulk_pipe_sz[pusb_mngt->n_in_pipes] =  pendpt_desc->bLength;
@@ -123,7 +123,7 @@ int wf_endpoint_init(struct usb_interface *pusb_intf, hif_usb_mngt *pusb_mngt)
             }
             else if (endpoint_is_bulk_out(pendpt_desc))
             {
-                USB_DBG("EP_OUT = num[%d]",endpoint_num(pendpt_desc));
+                USB_DBG("EP_OUT = num[%d]", endpoint_num(pendpt_desc));
                 pusb_mngt->out_endp_addr[pusb_mngt->n_out_pipes] = endpoint_num(pendpt_desc);
                 pusb_mngt->o_bulk_pipe_sz[pusb_mngt->n_out_pipes] = pendpt_desc->wMaxPacketSize;
                 pusb_mngt->n_out_pipes++;
@@ -241,7 +241,7 @@ static inline unsigned int wf_usb_ffaddr2pipe(hif_usb_mngt *usb, wf_u32 addr)
 
     if ((addr != BE_QUEUE_INX) && (addr != MGT_QUEUE_INX))
     {
-        //USB_DBG("USB write addr:%d  ep_num:%d",addr,ep_num);
+        //USB_DBG("USB write addr:%d  ep_num:%d", addr, ep_num);
     }
 
     return pipe;
@@ -255,12 +255,12 @@ static inline void usb_write_port_complete(struct urb *purb)
     hif_node_st   *hnode            = (hif_node_st*)qnode->hif_node;
     data_queue_mngt_st *dqm         = &hnode->trx_pipe;
 
-    if( 0 == purb->status) //usb work well
+    if (0 == purb->status) //usb work well
     {
         qnode->state = TX_STATE_COMPETE;
         if(qnode->tx_callback_func)
         {
-            ret = qnode->tx_callback_func(qnode->tx_info,qnode->param);
+            ret = qnode->tx_callback_func(qnode->tx_info, qnode->param);
         }
 
         //qnode->u.purb = NULL;
@@ -268,45 +268,45 @@ static inline void usb_write_port_complete(struct urb *purb)
     }
     else
     {
-        LOG_I("[%s]:usb write work bad, urb->status:%d",__func__,purb->status);
+        LOG_I("[%s]:usb write work bad, urb->status:%d", __func__, purb->status);
         switch(purb->status)
         {
             case -EINVAL:
-                USB_INFO("[%s] EINVAL",__func__);;
+                USB_INFO("[%s] EINVAL", __func__);;
                 break;
             case -EPIPE:
-                USB_INFO("[%s] EPIPE",__func__);;
+                USB_INFO("[%s] EPIPE", __func__);;
                 break;
             case -ENODEV:
-                USB_INFO("[%s] ENODEV",__func__);;
+                USB_INFO("[%s] ENODEV", __func__);;
                 break;
             case -ESHUTDOWN:
-                USB_INFO("[%s] ESHUTDOWN",__func__);;
+                USB_INFO("[%s] ESHUTDOWN", __func__);;
                 break;
 
             case -ENOENT:
-                USB_INFO("[%s] ENOENT",__func__);
+                USB_INFO("[%s] ENOENT", __func__);
                 break;
             case -EPROTO:
-                USB_INFO("[%s] EPROTO",__func__);;
+                USB_INFO("[%s] EPROTO", __func__);;
                 break;
             case -EILSEQ:
-                USB_INFO("[%s] EILSEQ",__func__);;
+                USB_INFO("[%s] EILSEQ", __func__);;
                 break;
             case -ETIME:
-                USB_INFO("[%s] ETIME",__func__);;
+                USB_INFO("[%s] ETIME", __func__);;
                 break;
             case -ECOMM:
-                USB_INFO("[%s] ECOMM",__func__);;
+                USB_INFO("[%s] ECOMM", __func__);;
                 break;
             case -EOVERFLOW:
-                USB_INFO("[%s] EOVERFLOW",__func__);;
+                USB_INFO("[%s] EOVERFLOW", __func__);;
                 break;
             case -EINPROGRESS:
                 USB_INFO("ERROR: URB IS IN PROGRESS!");
                 break;
             default:
-                USB_INFO("[%s] default",__func__);;
+                USB_INFO("[%s] default", __func__);;
                 break;
         }
     }
@@ -327,7 +327,7 @@ static inline void usb_read_port_complete(struct urb * purb)
     hif_usb_mngt * pusb_mngt        = &(hnode->u.usb);
     skb = (struct sk_buff *)qnode->buff;
 
-    if( 0 == purb->status) //usb work well
+    if (0 == purb->status) //usb work well
     {
 #ifdef CONFIG_RICHV200
 #define MIN_RXD_SIZE      16
@@ -351,7 +351,7 @@ static inline void usb_read_port_complete(struct urb * purb)
 
             if (hnode->nic_info[0] != NULL)
             {
-                ret = wf_rx_data_len_check(hnode->nic_info[0],skb->data, skb->len);
+                ret = wf_rx_data_len_check(hnode->nic_info[0], skb->data, skb->len);
             }
             else
             {
@@ -427,50 +427,50 @@ static inline void usb_read_port_complete(struct urb * purb)
     {
         skb_queue_tail(&hnode->trx_pipe.free_rx_queue_skb, skb);
         wf_data_queue_insert(&hnode->trx_pipe.free_rx_queue, qnode);
-        //LOG_I("[%s]:usb read work bad, urb->status:%d  node_id:%d",__func__,purb->status,qnode->node_id);
+        //LOG_I("[%s]:usb read work bad, urb->status:%d  node_id:%d", __func__, purb->status, qnode->node_id);
         switch(purb->status)
         {
             case -EINVAL:
             {
-                USB_WARN("[%s] EINVAL",__func__);
+                USB_WARN("[%s] EINVAL", __func__);
             }
             case -EPIPE:
             {
-                USB_WARN("[%s] EPIPE",__func__);
+                USB_WARN("[%s] EPIPE", __func__);
             }
             case -ENODEV:
             {
-                USB_WARN("[%s] ENODEV",__func__);
+                USB_WARN("[%s] ENODEV", __func__);
             }
             case -ESHUTDOWN:
             {
-                USB_WARN("[%s] ESHUTDOWN",__func__);
+                USB_WARN("[%s] ESHUTDOWN", __func__);
             }
             case -ENOENT:
             {
-                USB_WARN("[%s] ENOENT",__func__);
+                USB_WARN("[%s] ENOENT", __func__);
                 hnode->dev_removed = wf_true;
                 break;
             }
             case -EPROTO:
             {
-                USB_WARN("[%s] EPROTO",__func__);
+                USB_WARN("[%s] EPROTO", __func__);
             }
             case -EILSEQ:
             {
-                USB_WARN("[%s] EILSEQ",__func__);
+                USB_WARN("[%s] EILSEQ", __func__);
             }
             case -ETIME:
             {
-                USB_WARN("[%s] ETIME",__func__);
+                USB_WARN("[%s] ETIME", __func__);
             }
             case -ECOMM:
             {
-                USB_WARN("[%s] ECOMM",__func__);
+                USB_WARN("[%s] ECOMM", __func__);
             }
             case -EOVERFLOW:
             {
-                USB_WARN("[%s] EOVERFLOW",__func__);
+                USB_WARN("[%s] EOVERFLOW", __func__);
                 break;
             }
             case -EINPROGRESS:
@@ -480,7 +480,7 @@ static inline void usb_read_port_complete(struct urb * purb)
             }
             default:
             {
-                USB_WARN("Unknown status:%d",purb->status);
+                USB_WARN("Unknown status:%d", purb->status);
                 break;
             }
         }
@@ -499,9 +499,9 @@ static int wf_usb_read_port(hif_node_st *hif_node, wf_u32 addr, wf_u8 *rdata, wf
     struct urb * purb               = qnode->u.purb;
     struct sk_buff *pskb            = NULL;
     data_queue_mngt_st *trxq        = (data_queue_mngt_st *)&hif_node->trx_pipe;
-    //LOG_D("qnode->node_id:%d",qnode->node_id);
+    //LOG_D("qnode->node_id:%d", qnode->node_id);
 
-    if((hm_get_mod_removed() == wf_false) && (hif_node->dev_removed == wf_true))
+    if ((hm_get_mod_removed() == wf_false) && (hif_node->dev_removed == wf_true))
     {
         return WF_RETURN_FAIL;
     }
@@ -515,11 +515,11 @@ static int wf_usb_read_port(hif_node_st *hif_node, wf_u32 addr, wf_u8 *rdata, wf
 
     if(NULL == qnode->buff)
     {
-        if(hif_node->trx_pipe.alloc_cnt<HIF_MAX_ALLOC_CNT)
+        if(hif_node->trx_pipe.alloc_cnt < HIF_MAX_ALLOC_CNT)
         {
             LOG_W("[%s] wf_alloc_skb again", __func__);
             hif_node->trx_pipe.alloc_cnt++;
-            wf_hif_queue_alloc_skb(&hif_node->trx_pipe.free_rx_queue_skb,hif_node->hif_type);
+            wf_hif_queue_alloc_skb(&hif_node->trx_pipe.free_rx_queue_skb, hif_node->hif_type);
         }
         else
         {
@@ -536,7 +536,7 @@ static int wf_usb_read_port(hif_node_st *hif_node, wf_u32 addr, wf_u8 *rdata, wf
     ret = usb_submit_urb(purb, GFP_ATOMIC);
     if (ret && ret != (-EPERM))
     {
-        LOG_E("cannot submit rx in-token(ret = %d),urb_status = %d\n",ret, purb->status);
+        LOG_E("cannot submit rx in-token(ret = %d), urb_status = %d\n", ret, purb->status);
         if (pskb)
         {
             skb_reset_tail_pointer(pskb);
@@ -569,7 +569,7 @@ static int wf_usb_write_port(hif_node_st *hif_node, wf_u32 addr, wf_u8 *sdata, w
         wf_u16 icmp_seq = 0;
         static wf_u16 icmp_seq_recoder = 0;
 
-        if ( *(data_queue_node->buff + TXDESC_SIZE + 43) == 1)
+        if (*(data_queue_node->buff + TXDESC_SIZE + 43) == 1)
         {
             icmp_seq = (*(data_queue_node->buff + TXDESC_SIZE + 60) << 8) | (*(data_queue_node->buff + TXDESC_SIZE + 61));
 
@@ -578,12 +578,12 @@ static int wf_usb_write_port(hif_node_st *hif_node, wf_u32 addr, wf_u8 *sdata, w
 
             if (icmp_seq_recoder == icmp_seq)
             {
-                USB_INFO("[%s,%d] icmp_seq:%d",__func__,__LINE__, icmp_seq);
+                USB_INFO("[%s, %d] icmp_seq:%d", __func__, __LINE__, icmp_seq);
                 icmp_seq_recoder++;
             }
             else
             {
-                USB_WARN("[%s,%d] icmp_seq error:%d",__func__,__LINE__, icmp_seq);
+                USB_WARN("[%s, %d] icmp_seq error:%d", __func__, __LINE__, icmp_seq);
             }
 
         }
@@ -602,7 +602,7 @@ static int wf_usb_write_port(hif_node_st *hif_node, wf_u32 addr, wf_u8 *sdata, w
     data_queue_node->state = TX_STATE_SENDING;
     ret = usb_submit_urb(purb, GFP_ATOMIC);
 
-    if(!ret)
+    if (!ret)
     {
         ret = WF_RETURN_OK;
     }
@@ -636,7 +636,7 @@ static int usb_ctrl_write(struct usb_device *pusb_dev, char *ctlBuf, unsigned in
     wf_u16 wlength      = datalen;
     wf_u16 timeout      = USB_CONTROL_MSG_TIMEOUT;
     int ret             = 0;
-    wf_u32 pipe         = usb_sndctrlpipe(pusb_dev,0);
+    wf_u32 pipe         = usb_sndctrlpipe(pusb_dev, 0);
     wf_u8 retryCnt      = 0;
 
     WF_ASSERT(data != NULL);
@@ -648,12 +648,12 @@ static int usb_ctrl_write(struct usb_device *pusb_dev, char *ctlBuf, unsigned in
         return -1;
     }
 
-    memset(ctlBuf,0,datalen);
-    memcpy(ctlBuf,data,datalen);
+    memset(ctlBuf, 0, datalen);
+    memcpy(ctlBuf, data, datalen);
 
     for (retryCnt = 0; retryCnt < MAX_USBCTRL_VENDORREQ_TIMES; retryCnt++)
     {
-        ret = usb_control_msg(pusb_dev,pipe,brequest,brequesttype,wvalue,windex, \
+        ret = usb_control_msg(pusb_dev, pipe, brequest, brequesttype, wvalue, windex, \
                               ctlBuf, wlength, timeout);
         if(ret == datalen)
         {
@@ -667,7 +667,7 @@ static int usb_ctrl_write(struct usb_device *pusb_dev, char *ctlBuf, unsigned in
                 return -1;
             }
 
-            LOG_W("usb_control_msg: retry send %d times",retryCnt);
+            LOG_W("usb_control_msg: retry send %d times", retryCnt);
         }
     }
 
@@ -684,7 +684,7 @@ static int usb_ctrl_read(struct usb_device *pusb_dev, char *ctlBuf, unsigned int
     wf_u16 wlength      = datalen;
     wf_u16 timeout      = USB_CONTROL_MSG_TIMEOUT;
     int ret             = 0;
-    wf_u32 pipe         = usb_rcvctrlpipe(pusb_dev,0);
+    wf_u32 pipe         = usb_rcvctrlpipe(pusb_dev, 0);
     int vendorreq_times = 0;
 
     WF_ASSERT(ctlBuf != NULL);
@@ -697,10 +697,10 @@ static int usb_ctrl_read(struct usb_device *pusb_dev, char *ctlBuf, unsigned int
         return -1;
     }
 
-    wf_memset(ctlBuf,0,datalen);
+    wf_memset(ctlBuf, 0, datalen);
     while(++vendorreq_times <= MAX_USBCTRL_VENDORREQ_TIMES)
     {
-        ret = usb_control_msg(pusb_dev,pipe,brequest,brequesttype,wvalue,windex, ctlBuf, wlength, timeout);
+        ret = usb_control_msg(pusb_dev, pipe, brequest, brequesttype, wvalue, windex, ctlBuf, wlength, timeout);
         if(ret == datalen)
         {
             wf_memcpy(data, ctlBuf, datalen);
@@ -709,7 +709,7 @@ static int usb_ctrl_read(struct usb_device *pusb_dev, char *ctlBuf, unsigned int
         }
         else
         {
-            USB_DBG("reg 0x%x, usb %s %u fail, status:%d value=0x%x, vendorreq_times:%d\n", addr, "read", datalen, ret, *(wf_u32 *) data, vendorreq_times);
+            USB_DBG("reg 0x%x, usb %s %u fail, status:%d value = 0x%x, vendorreq_times:%d\n", addr, "read", datalen, ret, *(wf_u32 *) data, vendorreq_times);
         }
     }
 
@@ -737,18 +737,18 @@ static int usb_bulk_write_sync(struct hif_node_ *node, unsigned int addr, char *
     }
 
 //    LOG_D("before write :");
-//    LOG_D("reg 60E8 == %x",hif_io_read32(node,0x60E8, NULL));
-//    LOG_D("reg 60fc == %x",hif_io_read32(node,0x60fc, NULL));
-//    LOG_D("reg 60f8 == %x",hif_io_read32(node,0x60f8, NULL));
-//    LOG_D("reg 60f4 == %x\n\n",hif_io_read32(node,0x60f4, NULL));
+//    LOG_D("reg 60E8 == %x", hif_io_read32(node, 0x60E8, NULL));
+//    LOG_D("reg 60fc == %x", hif_io_read32(node, 0x60fc, NULL));
+//    LOG_D("reg 60f8 == %x", hif_io_read32(node, 0x60f8, NULL));
+//    LOG_D("reg 60f4 == %x\n\n", hif_io_read32(node, 0x60f4, NULL));
     pipe = wf_usb_ffaddr2pipe(&node->u.usb, addr);
-    status = usb_bulk_msg(pusb_dev,pipe,data,datalen,&actual_len,BULK_SYNC_TIMEOUT);
+    status = usb_bulk_msg(pusb_dev, pipe, data, datalen, &actual_len, BULK_SYNC_TIMEOUT);
 
 //    LOG_D("after write :");
-//    LOG_D("reg 60E8 == %x",hif_io_read32(node,0x60E8, NULL));
-//    LOG_D("reg 60fc == %x",hif_io_read32(node,0x60fc, NULL));
-//    LOG_D("reg 60f8 == %x",hif_io_read32(node,0x60f8, NULL));
-//    LOG_D("reg 60f4 == %x\n\n",hif_io_read32(node,0x60f4, NULL));
+//    LOG_D("reg 60E8 == %x", hif_io_read32(node, 0x60E8, NULL));
+//    LOG_D("reg 60fc == %x", hif_io_read32(node, 0x60fc, NULL));
+//    LOG_D("reg 60f8 == %x", hif_io_read32(node, 0x60f8, NULL));
+//    LOG_D("reg 60f4 == %x\n\n", hif_io_read32(node, 0x60f4, NULL));
     if (status)
     {
         USB_INFO("-->usb_write_port error, errno no is %d", status);
@@ -802,11 +802,11 @@ static int wf_usb_read(struct hif_node_ *node, unsigned char flag, unsigned int 
     {
         if(WF_USB_CTL_MSG == flag)
         {
-            ret = usb_ctrl_read( pusb_dev, pchar, addr, data, datalen);
+            ret = usb_ctrl_read(pusb_dev, pchar, addr, data, datalen);
         }
         else
         {
-            ret = wf_usb_read_port(node,addr,data,datalen);
+            ret = wf_usb_read_port(node, addr, data, datalen);
         }
     }
 
@@ -868,7 +868,7 @@ static int wf_usb_probe(struct usb_interface *pusb_intf, const struct usb_device
 
     /* create hif_node */
     hif_node_register(&hif_node, HIF_USB, &usb_node_ops);
-    if( NULL == hif_node)
+    if (NULL == hif_node)
     {
         USB_WARN("[usb] hif_node_register for HIF_USB failed");
         ret = 0;
@@ -915,14 +915,17 @@ static void wf_usb_disconnect(struct usb_interface *pusb_intf)
 
     LOG_D("************USB DISCONNECT*************");
 
+    /* ndev unregister should been do first */
+    ndev_unregister_all(hif_node->nic_info, hif_node->nic_number);
+
     hif_dev_removed(hif_node);
 
-    if( NULL != hif_node )
+    if (NULL != hif_node)
     {
         ret = hm_del_usb_id(hif_node->u.usb.usb_id);
         if(ret)
         {
-            USB_WARN("hm_del_usb_id [%d] failed",hif_node->u.usb.usb_id);
+            USB_WARN("hm_del_usb_id [%d] failed", hif_node->u.usb.usb_id);
         }
         wf_kfree(hif_node->u.usb.ctrl_msg_buffer);
         wf_endpoint_deinit(pusb_intf);
@@ -996,7 +999,7 @@ static int wf_usb_suspend(struct usb_interface *pusb_intf, pm_message_t message)
         USB_ERROR("power_suspend fail !!!");
         return WF_RETURN_FAIL;
     }
-    
+
     return 0;
 }
 
@@ -1080,7 +1083,7 @@ static struct usb_device_id wf_usb_id_tbl[] =
 {
 
     {
-        USB_DEVICE_AND_INTERFACE_INFO(WLAN_USB_VENDOR_ID, WLAN_USB_PRODUCT_ID, 0xff, 0xff, 0xff),.
+        USB_DEVICE_AND_INTERFACE_INFO(WLAN_USB_VENDOR_ID, WLAN_USB_PRODUCT_ID, 0xff, 0xff, 0xff), .
         driver_info = 1
     },
     {}
@@ -1104,7 +1107,7 @@ static struct usb_driver wf_usb_driver =
 
 int usb_init(void)
 {
-    int ret=0;
+    int ret = 0;
     USB_DBG("[usb] usb_init!!\n");
     ret = usb_register(&wf_usb_driver);
 

@@ -49,7 +49,8 @@
 
 static char *wf_cfg = "./wifi.cfg";
 
-#define CMD_PARAM_LENGTH       12
+#define RX_CMD_PARAM_LENGTH       8
+#define TX_CMD_PARAM_LENGTH       12
 #define TXDESC_OFFSET_NEW      20
 #define TXDESC_PACK_LEN        4
 #define RXDESC_OFFSET_NEW      16
@@ -62,7 +63,11 @@ static hif_mngent_st *gl_hif = NULL;
 static wf_bool gl_mode_removed = wf_true;
 
 #ifdef CONFIG_OS_ANDROID
+#ifdef CONFIG_RICHV200
+static char *fw = "/system/vendor/firmware/ram-fw-9188-old-r1703-enc.bin";
+#else
 static char *fw = "/system/vendor/firmware/ram-fw-908x-old-r1549.bin";
+#endif
 #else
 #ifdef CONFIG_RICHV200
 static char *fw = "";
@@ -98,7 +103,7 @@ wf_bool hm_get_mod_removed(void)
 
 wf_list_t *hm_get_list_head()
 {
-    if(NULL != gl_hif )
+    if (NULL != gl_hif)
     {
         return &(gl_hif->hif_usb_sdio);
     }
@@ -140,10 +145,10 @@ wf_u8 hm_new_id(int *err)
 {
     int ret = 0;
     wf_u8  id  = 0;
-    if(NULL != gl_hif )
+    if (NULL != gl_hif)
     {
-        ret = hif_create_id(&gl_hif->id_bitmap,&id);
-        if(err)
+        ret = hif_create_id(&gl_hif->id_bitmap, &id);
+        if (err)
         {
             *err = ret;
         }
@@ -155,7 +160,7 @@ wf_u8 hm_new_id(int *err)
 
 wf_u8 hm_del_id(wf_u8 id)
 {
-    return hif_destory_id(&gl_hif->id_bitmap,id);
+    return hif_destory_id(&gl_hif->id_bitmap, id);
 }
 
 
@@ -163,10 +168,10 @@ wf_u8 hm_new_usb_id(int *err)
 {
     int ret = 0;
     wf_u8  id  = 0;
-    if(NULL != gl_hif )
+    if (NULL != gl_hif)
     {
-        ret = hif_create_id(&gl_hif->usb_id_bitmap,&id);
-        if(err)
+        ret = hif_create_id(&gl_hif->usb_id_bitmap, &id);
+        if (err)
         {
             *err = ret;
         }
@@ -176,17 +181,17 @@ wf_u8 hm_new_usb_id(int *err)
 }
 wf_u8 hm_del_usb_id(wf_u8 id)
 {
-    return hif_destory_id(&gl_hif->usb_id_bitmap,id);
+    return hif_destory_id(&gl_hif->usb_id_bitmap, id);
 }
 
 wf_u8 hm_new_sdio_id(int *err)
 {
     int ret = 0;
     wf_u8  id  = 0;
-    if(NULL != gl_hif )
+    if (NULL != gl_hif)
     {
-        ret = hif_create_id(&gl_hif->sdio_id_bitmap,&id);
-        if(err)
+        ret = hif_create_id(&gl_hif->sdio_id_bitmap, &id);
+        if (err)
         {
             *err = ret;
         }
@@ -199,13 +204,13 @@ wf_u8 hm_new_sdio_id(int *err)
 
 wf_u8 hm_del_sdio_id(wf_u8 id)
 {
-    return hif_destory_id(&gl_hif->sdio_id_bitmap,id);
+    return hif_destory_id(&gl_hif->sdio_id_bitmap, id);
 }
 
 
 wf_lock_t *hm_get_lock(void)
 {
-    if(NULL != gl_hif )
+    if (NULL != gl_hif)
     {
         return &gl_hif->lock_mutex;
     }
@@ -217,14 +222,14 @@ wf_lock_t *hm_get_lock(void)
 
 wf_u8 hm_set_num(HM_OPERATION op)
 {
-    if(NULL != gl_hif )
+    if (NULL != gl_hif)
     {
-        if( HM_ADD == op )
+        if (HM_ADD == op)
         {
             return gl_hif->hif_num++;
         }
 
-        else if( HM_SUB == op )
+        else if (HM_SUB == op)
         {
             return gl_hif->hif_num--;
         }
@@ -236,13 +241,13 @@ wf_u8 hm_set_num(HM_OPERATION op)
 
 wf_u8 hm_set_usb_num(HM_OPERATION op)
 {
-    if(NULL != gl_hif )
+    if (NULL != gl_hif)
     {
-        if( HM_ADD == op )
+        if (HM_ADD == op)
         {
             return gl_hif->usb_num++;
         }
-        else if( HM_SUB == op )
+        else if (HM_SUB == op)
         {
             return gl_hif->usb_num--;
         }
@@ -254,13 +259,13 @@ wf_u8 hm_set_usb_num(HM_OPERATION op)
 wf_u8 hm_set_sdio_num(HM_OPERATION op)
 
 {
-    if(NULL != gl_hif )
+    if (NULL != gl_hif)
     {
-        if( HM_ADD == op )
+        if (HM_ADD == op)
         {
             return gl_hif->sdio_num++;
         }
-        else if( HM_SUB == op )
+        else if (HM_SUB == op)
         {
             return gl_hif->sdio_num--;
         }
@@ -286,8 +291,8 @@ static void dump_kernel_version(void)
     int a = LINUX_VERSION_CODE>>16;
     int c = (0x0000ffff & LINUX_VERSION_CODE)>>8;
     int e = 0x000000ff & LINUX_VERSION_CODE;
-    
-    LOG_I("Kernel_version: %d.%d.%d",a,c,e);
+
+    LOG_I("Kernel_version: %d.%d.%d", a, c, e);
 }
 
 static int __init hif_init(void)
@@ -307,7 +312,7 @@ static int __init hif_init(void)
 #endif
     dump_kernel_version();
 #ifdef MEMDBG_ENABLE
-    if(memdbg_init()<0)
+    if (memdbg_init() < 0)
     {
         LOG_E("memdbg_init failed");
         return -1;
@@ -315,38 +320,47 @@ static int __init hif_init(void)
 #endif
 
     gl_hif = wf_kzalloc(sizeof(hif_mngent_st));
-    if( NULL == gl_hif )
+    if (NULL == gl_hif)
     {
         LOG_E("wf_kzalloc failed");
         return -1;
     }
 
     file = wf_os_api_file_open(wf_cfg);
-    if(file == NULL) {
+    if (file == NULL)
+    {
         LOG_E("can't open cfg file");
         gl_hif->cfg_size = 0;
         gl_hif->cfg_content = NULL;
-    } else {
+    }
+    else
+    {
         gl_hif->cfg_size = wf_os_api_file_size(file);
-        if(gl_hif->cfg_size <= 0) {
+        if (gl_hif->cfg_size <= 0)
+        {
             gl_hif->cfg_size = 0;
             gl_hif->cfg_content = NULL;
-        } else {
-             gl_hif->cfg_content = wf_kzalloc(gl_hif->cfg_size);
-             if(gl_hif->cfg_content == NULL) {
-                 gl_hif->cfg_size = 0;
-             } else {
-                 wf_os_api_file_read(file, 0, gl_hif->cfg_content, gl_hif->cfg_size);
-             }
+        }
+        else
+        {
+            gl_hif->cfg_content = wf_kzalloc(gl_hif->cfg_size);
+            if (gl_hif->cfg_content == NULL)
+            {
+                gl_hif->cfg_size = 0;
+            }
+            else
+            {
+                wf_os_api_file_read(file, 0, gl_hif->cfg_content, gl_hif->cfg_size);
+            }
         }
 
-       wf_os_api_file_close(file);
+        wf_os_api_file_close(file);
     }
 
 #ifdef CONFIG_RICHV200
-    LOG_D("prase richv200 firmware!");
+    LOG_D("prase richv200 firmware! %s", fw);
     file = wf_os_api_file_open(fw);
-    if(file == NULL)
+    if (file == NULL)
     {
         LOG_E("firmware open failed");
         wf_kfree(gl_hif);
@@ -354,7 +368,7 @@ static int __init hif_init(void)
     }
     pos = 0;
     wf_os_api_file_read(file, pos, (unsigned char *)&fw_file_head, sizeof(fw_file_head));
-    if((fw_file_head.magic_number != 0xaffa) || (fw_file_head.interface_type != 0x9188))
+    if ((fw_file_head.magic_number != 0xaffa) || (fw_file_head.interface_type != 0x9188))
     {
         LOG_E("firmware format error, magic:0x%x, type:0x%x",
               fw_file_head.magic_number, fw_file_head.interface_type);
@@ -365,19 +379,19 @@ static int __init hif_init(void)
 
     gl_hif->fw_rom_type = fw_file_head.rom_type;
     pos += sizeof(fw_file_head);
-    for(i=0; i<fw_file_head.firmware_num; i++)
+    for(i = 0; i < fw_file_head.firmware_num; i++)
     {
         wf_memset(&fw_head, 0, sizeof(fw_head));
         wf_os_api_file_read(file, pos, (unsigned char *)&fw_head, sizeof(fw_head));
-        if(fw_head.type == 0)
+        if (fw_head.type == 0)
         {
             LOG_D("FW0 Ver: %d.%d.%d.%d, size:%dBytes",
                   fw_head.version & 0xFF, (fw_head.version >> 8) & 0xFF,
-                  (fw_head.version >> 16) & 0xFF,(fw_head.version >> 24) & 0xFF,
+                  (fw_head.version >> 16) & 0xFF, (fw_head.version >> 24) & 0xFF,
                   fw_head.length);
             gl_hif->fw0_size = fw_head.length;
             gl_hif->fw0 = wf_kzalloc(fw_head.length);
-            if(NULL == gl_hif->fw0)
+            if (NULL == gl_hif->fw0)
             {
                 LOG_E("firmware0 wf_kzalloc failed");
                 wf_os_api_file_close(file);
@@ -390,12 +404,12 @@ static int __init hif_init(void)
         {
             LOG_D("FW1 Ver: %d.%d.%d.%d, size:%dBytes",
                   fw_head.version & 0xFF, (fw_head.version >> 8) & 0xFF,
-                  (fw_head.version >> 16) & 0xFF,(fw_head.version >> 24) & 0xFF,
+                  (fw_head.version >> 16) & 0xFF, (fw_head.version >> 24) & 0xFF,
                   fw_head.length);
             fw_head.length -= 32;
             gl_hif->fw1_size = fw_head.length;
             gl_hif->fw1 = wf_kzalloc(fw_head.length);
-            if(NULL == gl_hif->fw1)
+            if (NULL == gl_hif->fw1)
             {
                 LOG_E("firmware1 wf_kzalloc failed");
                 wf_os_api_file_close(file);
@@ -409,9 +423,9 @@ static int __init hif_init(void)
     wf_os_api_file_close(file);
 
 #else
-    LOG_D("prase richv100 firmware!");
+    LOG_D("prase richv100 firmware! %s", fw);
     file = wf_os_api_file_open(fw);
-    if(file == NULL)
+    if (file == NULL)
     {
         LOG_E("firmware open failed");
         wf_kfree(gl_hif);
@@ -419,7 +433,7 @@ static int __init hif_init(void)
     }
     pos = 0;
     wf_os_api_file_read(file, pos, (unsigned char *)&fw_file_head, sizeof(fw_file_head));
-    if((fw_file_head.magic_number != 0xaffa) || (fw_file_head.interface_type != 0x9083))
+    if ((fw_file_head.magic_number != 0xaffa) || (fw_file_head.interface_type != 0x9083))
     {
         LOG_E("firmware format error, magic:0x%x, type:0x%x",
               fw_file_head.magic_number, fw_file_head.interface_type);
@@ -430,19 +444,19 @@ static int __init hif_init(void)
 
     gl_hif->fw_rom_type = fw_file_head.rom_type;
     pos += sizeof(fw_file_head);
-    for(i=0; i<fw_file_head.firmware_num; i++)
+    for(i = 0; i < fw_file_head.firmware_num; i++)
     {
         wf_memset(&fw_head, 0, sizeof(fw_head));
         wf_os_api_file_read(file, pos, (unsigned char *)&fw_head, sizeof(fw_head));
-        if(fw_head.type == 0)
+        if (fw_head.type == 0)
         {
             LOG_D("FW0 Ver: %d.%d.%d.%d, size:%dBytes",
                   fw_head.version & 0xFF, (fw_head.version >> 8) & 0xFF,
-                  (fw_head.version >> 16) & 0xFF,(fw_head.version >> 24) & 0xFF,
+                  (fw_head.version >> 16) & 0xFF, (fw_head.version >> 24) & 0xFF,
                   fw_head.length);
             gl_hif->fw0_size = fw_head.length;
             gl_hif->fw0 = wf_kzalloc(fw_head.length);
-            if(NULL == gl_hif->fw0)
+            if (NULL == gl_hif->fw0)
             {
                 LOG_E("firmware0 wf_kzalloc failed");
                 wf_os_api_file_close(file);
@@ -456,41 +470,41 @@ static int __init hif_init(void)
     wf_os_api_file_close(file);
 #endif
 
-//    LOG_D("Compile time:%s-%s",__DATE__,__TIME__);
+//    LOG_D("Compile time:%s-%s", __DATE__, __TIME__);
     wf_list_init(&gl_hif->hif_usb_sdio);
     gl_hif->usb_num     = 0;
     gl_hif->sdio_num    = 0;
     gl_hif->hif_num     = 0;
 
-    wf_lock_init(hm_get_lock(),WF_LOCK_TYPE_MUTEX);
+    wf_lock_init(hm_get_lock(), WF_LOCK_TYPE_MUTEX);
 
     gl_mode_removed = wf_false;
 
     ndev_notifier_register();
 #if defined(CONFIG_USB_FLAG)
     ret = usb_init();
-    if(ret)
+    if (ret)
     {
         ndev_notifier_unregister();
         return ret;
     }
 #elif defined(CONFIG_SDIO_FLAG)
     ret = sdio_init();
-    if(ret)
+    if (ret)
     {
         ndev_notifier_unregister();
         return ret;
     }
 #else
     ret = usb_init();
-    if(ret)
+    if (ret)
     {
         ndev_notifier_unregister();
         return ret;
     }
 
     ret = sdio_init();
-    if(ret)
+    if (ret)
     {
         ndev_notifier_unregister();
         return ret;
@@ -502,8 +516,21 @@ static int __init hif_init(void)
 
 static void __exit hif_exit(void)
 {
+    LOG_I("[%s] start ", __func__);
 
-    LOG_I("[%s] start ",__func__);
+    LOG_D("notifier unregister");
+    ndev_notifier_unregister();
+
+    {
+        wf_list_t *pos;
+        wf_list_for_each(pos, &gl_hif->hif_usb_sdio)
+        {
+            hif_node_st *phif_info = WF_CONTAINER_OF(pos, hif_node_st, next);
+            /* ndev modules unregister */
+            ndev_unregister_all(phif_info->nic_info, phif_info->nic_number);
+        }
+    }
+
     gl_mode_removed = wf_true;
 
     /* exit */
@@ -516,10 +543,7 @@ static void __exit hif_exit(void)
     sdio_exit();
 #endif
 
-    LOG_I("ndev_notifier_unregister");
-    ndev_notifier_unregister();
-
-    if(gl_hif->cfg_content != NULL)
+    if (gl_hif->cfg_content != NULL)
     {
         wf_kfree(gl_hif->cfg_content);
         gl_hif->cfg_content = NULL;
@@ -528,11 +552,11 @@ static void __exit hif_exit(void)
 
     gl_hif->fw0_size = 0;
     gl_hif->fw1_size = 0;
-    if(gl_hif->fw0)
+    if (gl_hif->fw0)
     {
         wf_kfree(gl_hif->fw0);
     }
-    if(gl_hif->fw1)
+    if (gl_hif->fw1)
     {
         wf_kfree(gl_hif->fw1);
     }
@@ -544,12 +568,12 @@ static void __exit hif_exit(void)
 #ifdef MEMDBG_ENABLE
     memdbg_term();
 #endif
-    LOG_I("[%s] end",__func__);
+    LOG_I("[%s] end", __func__);
 }
 
 
 
-static wf_s32 hif_add_nic(hif_node_st *hif_info,int num)
+static wf_s32 hif_add_nic(hif_node_st *hif_info, int num)
 {
     hif_mngent_st *hif_mngent = hif_mngent_get();
     struct sdio_func *psdio_func_tmp = hif_info->u.sdio.func;
@@ -570,7 +594,7 @@ static wf_s32 hif_add_nic(hif_node_st *hif_info,int num)
     hif_info->nic_info[num]->is_up   = 0;
     hif_info->nic_info[num]->virNic = num?wf_true:wf_false;
 
-    if(hif_info->hif_type == HIF_USB)
+    if (hif_info->hif_type == HIF_USB)
     {
         hif_info->nic_info[num]->nic_type = NIC_USB;
         hif_info->nic_info[num]->dev = &pusb_intf_tmp->dev;
@@ -604,6 +628,14 @@ static wf_s32 hif_add_nic(hif_node_st *hif_info,int num)
 
     hif_info->nic_number++;
     hif_info->nic_info[num]->nic_num = num;
+
+    hif_info->nic_info[num]->buddy_nic = NULL;
+    if (hif_info->nic_number == 2)
+    {
+        /*for buddy*/
+        hif_info->nic_info[0]->buddy_nic = hif_info->nic_info[1];
+        hif_info->nic_info[1]->buddy_nic = hif_info->nic_info[0];
+    }
 
     return 0;
 }
@@ -641,13 +673,13 @@ int hif_dev_insert(hif_node_st *hif_info)
         side_road_cfg(hif_info);
 #endif
 
-        if(HIF_SDIO ==hif_info->hif_type)
+        if (HIF_SDIO ==hif_info->hif_type)
         {
             // cmd53 is ok, next for side-road configue
-            #ifndef CONFIG_USB_FLAG
+#ifndef CONFIG_USB_FLAG
             wf_sdioh_config(hif_info);
             wf_sdioh_interrupt_enable(hif_info);
-            #endif
+#endif
         }
     }
 
@@ -664,60 +696,49 @@ int hif_dev_insert(hif_node_st *hif_info)
 
 #ifdef CONFIG_RICHV200
     ret = wf_hif_bulk_enable(hif_info);
-    if(WF_RETURN_FAIL == ret)
+    if (WF_RETURN_FAIL == ret)
     {
-        LOG_E("[%s] wf_hif_bulk_enable failed",__func__);
+        LOG_E("[%s] wf_hif_bulk_enable failed", __func__);
         return -1;
     }
 #endif
 
     ret = wf_hif_queue_enable(hif_info);
-    if(WF_RETURN_FAIL == ret)
+    if (WF_RETURN_FAIL == ret)
     {
-        LOG_E("[%s] wf_hif_queue_enable failed",__func__);
+        LOG_E("[%s] wf_hif_queue_enable failed", __func__);
         return -1;
     }
 
     /*ndev reg*/
     LOG_D("<< add nic to hif_node >>");
-    LOG_D("   node_id    :%d",hif_info->node_id);
-    LOG_D("   hif_type   :%d  [1:usb  2:sdio]",hif_info->hif_type);
+    LOG_D("   node_id    :%d", hif_info->node_id);
+    LOG_D("   hif_type   :%d  [1:usb  2:sdio]", hif_info->hif_type);
 
-    #ifdef CONFIG_STA_AND_AP_MODE
+#ifdef CONFIG_STA_AND_AP_MODE
     nic_num = 2;
-    #else
+#else
     nic_num = 1;
-    #endif
+#endif
 
     hif_hw_access_init(hif_info);
 
-    for(i=0;i<nic_num;i++)
+    for(i = 0; i < nic_num; i++)
     {
-        ret = hif_add_nic(hif_info,i);
-        if(ret != 0)
+        ret = hif_add_nic(hif_info, i);
+        if (ret != 0)
         {
-            LOG_E("[%s] ndev_register nic[%d] failed",__func__, i);
+            LOG_E("[%s] ndev_register nic[%d] failed", __func__, i);
             return -1;
         }
 
-        LOG_D("<< ndev register %d>>",i);
+        LOG_D("<< ndev register %d>>", i);
         ret = ndev_register(hif_info->nic_info[i]);
-        if(ret != 0)
+        if (ret != 0)
         {
-            LOG_E("[%s] ndev_register nic[%d] failed",__func__, i);
+            LOG_E("[%s] ndev_register nic[%d] failed", __func__, i);
             return -1;
         }
-    }
-
-    if (nic_num == 2)
-    {
-        /*for buddy*/
-        hif_info->nic_info[0]->buddy_nic = hif_info->nic_info[1];
-        hif_info->nic_info[1]->buddy_nic = hif_info->nic_info[0];
-    }
-    else
-    {
-        hif_info->nic_info[0]->buddy_nic = NULL;
     }
 
     return 0;
@@ -726,17 +747,14 @@ int hif_dev_insert(hif_node_st *hif_info)
 
 void  hif_dev_removed(hif_node_st *hif_info)
 {
-    nic_info_st *nic_info   = NULL;
-    int nic_cnt             = 0;
-
     hif_info->dev_removed = wf_true;
 
     LOG_D("************HIF DEV REMOVE [NODE:%d TYPE:%d]*************",
-          hif_info->node_id,hif_info->hif_type);
+          hif_info->node_id, hif_info->hif_type);
 #ifdef CONFIG_RICHV200
 #if 0
     wf_mcu_reset_chip(hif_info->nic_info[0]);
-    if(hif_info->cmd_completion_flag)
+    if (hif_info->cmd_completion_flag)
     {
         //wf_mdelay(HIF_BULK_MSG_TIMEOUT+10);
         LOG_D("<< wf_hif_bulk_cmd_post_exit >>");
@@ -747,45 +765,11 @@ void  hif_dev_removed(hif_node_st *hif_info)
 #endif
 #endif
 
-    /* ndev unreg */
-    LOG_D("<< ndev unregister >>");
-    for (nic_cnt=0; nic_cnt<MAX_NIC; nic_cnt++)
+    if (HIF_SDIO ==hif_info->hif_type)
     {
-        nic_info = hif_info->nic_info[nic_cnt];
-        if (nic_info)
-        {
-            LOG_D("[hif_dev_removed] nic_id    :%d",nic_info->ndev_id);
-            nic_info->is_surprise_removed = hif_info->dev_removed;
-            ndev_shutdown(nic_info);
-            if(wf_false == nic_info->is_init_commplete)
-            {
-                nic_term(nic_info);
-            }
-            ndev_unregister(nic_info);
-            if(0 == nic_cnt) //for concurrent mode
-            {
-                int i=0;
-                for (i=1; i<MAX_NIC; i++)
-                {
-                    if(hif_info->nic_info[i])
-                    {
-                        hif_info->nic_info[i]->buddy_nic = NULL;
-                    }
-                }
-            }
-
-            wf_kfree(nic_info);
-            hif_info->nic_info[nic_cnt] = NULL;
-
-        }
-        nic_info = NULL;
-    }
-
-    if(HIF_SDIO ==hif_info->hif_type)
-    {
-        #ifndef CONFIG_USB_FLAG
+#ifndef CONFIG_USB_FLAG
         wf_sdioh_interrupt_disable(hif_info);
-        #endif
+#endif
     }
     wf_hif_queue_disable(hif_info);
 
@@ -797,14 +781,13 @@ void  hif_dev_removed(hif_node_st *hif_info)
     LOG_D("<< term hif tx/rx queue >>");
     wf_data_queue_mngt_term(hif_info);
 
-
     /*proc term*/
     wf_proc_term(hif_info);
 
     /* power off */
     LOG_D("<< Power off >>");
 
-    if(power_off(hif_info)<0)
+    if (power_off(hif_info) < 0)
     {
         LOG_E("power_off failed");
     }
@@ -816,7 +799,7 @@ void hif_node_register(hif_node_st **node, hif_enum type, struct hif_node_ops *o
     hif_node_st  *hif_node = NULL;
 
     hif_node = wf_kzalloc(sizeof(hif_node_st));
-    if(NULL == hif_node )
+    if (NULL == hif_node)
     {
         LOG_E("wf_kzalloc for hif_node failed");
         return;
@@ -829,11 +812,11 @@ void hif_node_register(hif_node_st **node, hif_enum type, struct hif_node_ops *o
     wf_lock_lock(hm_get_lock());
     wf_list_insert_tail(&hif_node->next, hm_get_list_head());
 
-    if(HIF_SDIO == hif_node->hif_type)
+    if (HIF_SDIO == hif_node->hif_type)
     {
         hm_set_sdio_num(HM_ADD);
     }
-    else if( HIF_USB == hif_node->hif_type )
+    else if (HIF_USB == hif_node->hif_type)
     {
         hm_set_usb_num(HM_ADD);
     }
@@ -853,20 +836,20 @@ void hif_node_unregister(hif_node_st *pnode)
     hif_node_st *node       = NULL;
     int ret                 = 0;
 
-    LOG_I("[%s] start",__func__);
+    LOG_I("[%s] start", __func__);
     wf_lock_lock(hm_get_lock());
-    wf_list_for_each_safe(tmp,next,hm_get_list_head())
+    wf_list_for_each_safe(tmp, next, hm_get_list_head())
     {
-        node = wf_list_entry(tmp,hif_node_st, next);
-        if( NULL != node  && pnode == node )
+        node = wf_list_entry(tmp, hif_node_st, next);
+        if (NULL != node  && pnode == node)
         {
             wf_list_delete(&node->next);
             hm_set_num(HM_SUB);
-            if( HIF_USB == node->hif_type )
+            if (HIF_USB == node->hif_type)
             {
                 hm_set_usb_num(HM_SUB);
             }
-            else if(HIF_SDIO == node->hif_type)
+            else if (HIF_SDIO == node->hif_type)
             {
                 hm_set_sdio_num(HM_SUB);
             }
@@ -874,19 +857,19 @@ void hif_node_unregister(hif_node_st *pnode)
         }
     }
 
-    if(NULL != node)
+    if (NULL != node)
     {
         ret = hm_del_id(node->node_id);
-        if(ret)
+        if (ret)
         {
-            LOG_E("hm_del_id [%d] failed",node->node_id);
+            LOG_E("hm_del_id [%d] failed", node->node_id);
         }
         wf_kfree(node);
         node = NULL;
     }
 
     wf_lock_unlock(hm_get_lock());
-    LOG_I("[%s] end",__func__);
+    LOG_I("[%s] end", __func__);
 }
 
 #ifdef CONFIG_RICHV200
@@ -921,26 +904,26 @@ static wf_u16 io_firmware_chksum(wf_u8 *firmware, wf_u32 len)
 int wf_hif_bulk_enable(hif_node_st *hif_node)
 {
     hif_node->reg_buffer =  wf_kzalloc(512);
-    if(NULL == hif_node->reg_buffer)
+    if (NULL == hif_node->reg_buffer)
     {
         LOG_E("no memmory for hif reg buffer");
         return WF_RETURN_FAIL;
     }
     hif_node->fw_buffer =  wf_kzalloc(512);
-    if(NULL == hif_node->fw_buffer)
+    if (NULL == hif_node->fw_buffer)
     {
         LOG_E("no memmory for hif fw buffer");
         return WF_RETURN_FAIL;
     }
     hif_node->cmd_snd_buffer =  wf_kzalloc(512);
-    if(NULL == hif_node->cmd_snd_buffer)
+    if (NULL == hif_node->cmd_snd_buffer)
     {
         LOG_E("no memmory for hif cmd buffer");
         return WF_RETURN_FAIL;
     }
 
     hif_node->cmd_rcv_buffer =  wf_kzalloc(512);
-    if(NULL == hif_node->cmd_rcv_buffer)
+    if (NULL == hif_node->cmd_rcv_buffer)
     {
         LOG_E("no memmory for hif cmd buffer");
         return WF_RETURN_FAIL;
@@ -960,19 +943,19 @@ int wf_hif_bulk_enable(hif_node_st *hif_node)
 
 int wf_hif_bulk_disable(hif_node_st *hif_node)
 {
-    if(NULL != hif_node->reg_buffer)
+    if (NULL != hif_node->reg_buffer)
     {
         wf_kfree(hif_node->reg_buffer);
     }
-    if(NULL != hif_node->fw_buffer)
+    if (NULL != hif_node->fw_buffer)
     {
         wf_kfree(hif_node->fw_buffer);
     }
-    if(NULL != hif_node->cmd_snd_buffer)
+    if (NULL != hif_node->cmd_snd_buffer)
     {
         wf_kfree(hif_node->cmd_snd_buffer);
     }
-    if(NULL != hif_node->cmd_rcv_buffer)
+    if (NULL != hif_node->cmd_rcv_buffer)
     {
         wf_kfree(hif_node->cmd_rcv_buffer);
     }
@@ -996,7 +979,7 @@ int wf_hif_bulk_reg_wait(hif_node_st *hif_node, wf_u32 timeout)
 
 void wf_hif_bulk_reg_post(hif_node_st *hif_node, wf_u8 *buff, wf_u16 len)
 {
-    if(len <= 512)
+    if (len <= 512)
     {
         wf_memcpy(hif_node->reg_buffer, buff, len);
         hif_node->reg_size = len;
@@ -1017,7 +1000,7 @@ int wf_hif_bulk_fw_wait(hif_node_st *hif_node, wf_u32 timeout)
 
 void wf_hif_bulk_fw_post(hif_node_st *hif_node, wf_u8 *buff, wf_u16 len)
 {
-    if(len <= 512)
+    if (len <= 512)
     {
         wf_memcpy(hif_node->fw_buffer, buff, len);
         hif_node->fw_size = len;
@@ -1040,7 +1023,7 @@ int wf_hif_bulk_cmd_wait(hif_node_st *hif_node, wf_u32 timeout)
 
 void wf_hif_bulk_cmd_post(hif_node_st *hif_node, wf_u8 *buff, wf_u16 len)
 {
-    if(len <= 512)
+    if (len <= 512)
     {
         wf_memcpy(hif_node->cmd_rcv_buffer, buff, len);
         hif_node->cmd_size = len;
@@ -1054,7 +1037,7 @@ void wf_hif_bulk_cmd_post_exit(hif_node_st *hif_node)
 {
     hif_node->cmd_completion_flag = 0;
     hif_node->cmd_remove = 1;
-    if(wf_true == hif_node->bulk_enable)
+    if (wf_true == hif_node->bulk_enable)
     {
         complete(&hif_node->cmd_completion);
     }
@@ -1101,7 +1084,7 @@ int hif_write_firmware(void *node, wf_u8 which,  wf_u8 *firmware, wf_u32 len)
     LOG_D("firmware download length is %d", len);
     LOG_D("firmware download buffer size is %d", buffer_len);
     alloc_buffer = wf_kzalloc(buffer_len + 4);
-    if(alloc_buffer == NULL)
+    if (alloc_buffer == NULL)
     {
         LOG_E("can't wf_kzalloc memmory for download firmware");
         return -1;
@@ -1109,7 +1092,7 @@ int hif_write_firmware(void *node, wf_u8 which,  wf_u8 *firmware, wf_u32 len)
     use_buffer = (wf_u8 *) WF_N_BYTE_ALIGMENT((SIZE_PTR) (alloc_buffer), 4);
 
     block_num = align_len / FIRMWARE_BLOCK_SIZE;
-    if(align_len % FIRMWARE_BLOCK_SIZE)
+    if (align_len % FIRMWARE_BLOCK_SIZE)
     {
         block_num += 1;
     }
@@ -1124,19 +1107,19 @@ int hif_write_firmware(void *node, wf_u8 which,  wf_u8 *firmware, wf_u32 len)
     LOG_I("fwdownload block number is %d", block_num);
     wf_hif_bulk_fw_init(hif_node);
 
-    for(i=0; i<block_num; i++)
+    for(i = 0; i < block_num; i++)
     {
         wf_memset(use_buffer, 0, buffer_len);
         ptx_desc = use_buffer;
         /* set for fw xmit */
         wf_set_bits_to_le_u32(ptx_desc, 0, 2, TYPE_FW);
         /* set for first packet */
-        if(i == 0)
+        if (i == 0)
         {
             wf_set_bits_to_le_u32(ptx_desc, 11, 1, 1);
         }
         /* set for last packet */
-        if(i == (block_num - 1))
+        if (i == (block_num - 1))
         {
             wf_set_bits_to_le_u32(ptx_desc, 10, 1, 1);
         }
@@ -1145,7 +1128,7 @@ int hif_write_firmware(void *node, wf_u8 which,  wf_u8 *firmware, wf_u32 len)
         /* set for reg HWSEQ_EN */
         wf_set_bits_to_le_u32(ptx_desc, 18, 1, 1);
         /* set for pkt_len */
-        if(remain_size > FIRMWARE_BLOCK_SIZE)
+        if (remain_size > FIRMWARE_BLOCK_SIZE)
         {
             send_once = FIRMWARE_BLOCK_SIZE;
         }
@@ -1158,12 +1141,12 @@ int hif_write_firmware(void *node, wf_u8 which,  wf_u8 *firmware, wf_u32 len)
 
         send_len = TXDESC_OFFSET_NEW + send_once;
         /* set for  firmware checksum */
-        if(i == (block_num - 1))
+        if (i == (block_num - 1))
         {
             checksum = io_firmware_chksum(firmware, align_len);
-            LOG_I("cal checksum=%d",checksum);
+            LOG_I("cal checksum=%d", checksum);
             wf_set_bits_to_le_u32(ptx_desc + send_len, 0, 32, checksum);
-            LOG_D("my checksum is 0x%04x,fw_len=%d", checksum,align_len);
+            LOG_D("my checksum is 0x%04x, fw_len=%d", checksum, align_len);
             send_len += TXDESC_PACK_LEN;
             send_once += TXDESC_PACK_LEN;
         }
@@ -1172,7 +1155,7 @@ int hif_write_firmware(void *node, wf_u8 which,  wf_u8 *firmware, wf_u32 len)
         /* set for checksum */
         io_txdesc_chksum(ptx_desc);
 
-        if(hif_io_write(hif_node, 2, CMD_QUEUE_INX, ptx_desc, send_len) < 0)
+        if (hif_io_write(hif_node, 2, CMD_QUEUE_INX, ptx_desc, send_len) < 0)
         {
             LOG_E("bulk download firmware error");
             wf_kfree(alloc_buffer);
@@ -1183,7 +1166,7 @@ int hif_write_firmware(void *node, wf_u8 which,  wf_u8 *firmware, wf_u32 len)
         remain_size -= send_once;
     }
 
-    if(wf_hif_bulk_fw_wait(hif_node, HIF_BULK_MSG_TIMEOUT) == 0)
+    if (wf_hif_bulk_fw_wait(hif_node, HIF_BULK_MSG_TIMEOUT) == 0)
     {
         LOG_E("bulk access fw read timeout");
         wf_kfree(alloc_buffer);
@@ -1192,7 +1175,7 @@ int hif_write_firmware(void *node, wf_u8 which,  wf_u8 *firmware, wf_u32 len)
 
     prx_desc = use_buffer;
     back_len = RXDESC_OFFSET_NEW + RXDESC_PACK_LEN;
-    if(hif_node->fw_size != back_len)
+    if (hif_node->fw_size != back_len)
     {
         LOG_E("bulk access fw read length error");
         wf_kfree(alloc_buffer);
@@ -1202,7 +1185,7 @@ int hif_write_firmware(void *node, wf_u8 which,  wf_u8 *firmware, wf_u32 len)
     wf_memcpy(prx_desc, hif_node->fw_buffer, hif_node->fw_size);
 
     u8Value = wf_le_u8_read(prx_desc);
-    if((u8Value & 0x03) != TYPE_FW)
+    if ((u8Value & 0x03) != TYPE_FW)
     {
         LOG_E("bulk download firmware type error by read back");
         wf_kfree(alloc_buffer);
@@ -1210,7 +1193,7 @@ int hif_write_firmware(void *node, wf_u8 which,  wf_u8 *firmware, wf_u32 len)
     }
     u16Value = wf_le_u16_read(prx_desc + 4);
     u16Value &= 0x3FFF;
-    if(u16Value != RXDESC_PACK_LEN)
+    if (u16Value != RXDESC_PACK_LEN)
     {
         LOG_E("bulk download firmware length error, value: %d", u16Value);
         wf_kfree(alloc_buffer);
@@ -1218,20 +1201,20 @@ int hif_write_firmware(void *node, wf_u8 which,  wf_u8 *firmware, wf_u32 len)
     }
 
     u8Value = wf_le_u8_read(prx_desc + 16);
-    if(u8Value != 0x00)
+    if (u8Value != 0x00)
     {
         LOG_E("bulk download firmware status error");
         u16Value = wf_le_u16_read(prx_desc + 18);
         LOG_D("Read checksum is 0x%04x", u16Value);
-        if(u8Value == 0x01)
+        if (u8Value == 0x01)
         {
             LOG_E("bulk download firmware txd checksum error");
         }
-        else if(u8Value ==0x02)
+        else if (u8Value ==0x02)
         {
             LOG_E("bulk download firmware fw checksum error");
         }
-        else if(u8Value ==0x03)
+        else if (u8Value ==0x03)
         {
             LOG_E("bulk download firmware fw & txd checksum error");
         }
@@ -1240,11 +1223,11 @@ int hif_write_firmware(void *node, wf_u8 which,  wf_u8 *firmware, wf_u32 len)
     }
     wf_kfree(alloc_buffer);
 
-    if(which == FIRMWARE_M0)
+    if (which == FIRMWARE_M0)
     {
         LOG_I("bulk download m0 firmware ok");
     }
-    else if(which == FIRMWARE_DSP)
+    else if (which == FIRMWARE_DSP)
     {
         LOG_I("bulk download dsp firmware ok");
     }
@@ -1270,7 +1253,7 @@ int hif_write_cmd(void *node, wf_u32 cmd, wf_u32 *send_buf, wf_u32 send_len, wf_
     }
 
     ptx_desc = hif_node->cmd_snd_buffer;
-    wf_memset(ptx_desc, 0, TXDESC_OFFSET_NEW + CMD_PARAM_LENGTH);
+    wf_memset(ptx_desc, 0, TXDESC_OFFSET_NEW + TX_CMD_PARAM_LENGTH);
 
     /* set for reg xmit */
     wf_set_bits_to_le_u32(ptx_desc, 0, 2, TYPE_CMD);
@@ -1281,7 +1264,7 @@ int hif_write_cmd(void *node, wf_u32 cmd, wf_u32 *send_buf, wf_u32 send_len, wf_
     /* set SEQ  for test*/
     //wf_set_bits_to_le_u32(ptx_desc, 24, 8, __gmcu_cmd_count & 0xFF);
     /* set for pkt_len */
-    wf_set_bits_to_le_u32(ptx_desc + 8, 0, 16, CMD_PARAM_LENGTH + send_len * 4);
+    wf_set_bits_to_le_u32(ptx_desc + 8, 0, 16, TX_CMD_PARAM_LENGTH + send_len * 4);
     /* set for checksum */
     io_txdesc_chksum(ptx_desc);
 
@@ -1293,23 +1276,23 @@ int hif_write_cmd(void *node, wf_u32 cmd, wf_u32 *send_buf, wf_u32 send_len, wf_
     wf_set_bits_to_le_u32(ptx_desc + TXDESC_OFFSET_NEW + 8, 0, 32, recv_len);
 
     /* set for send content */
-    if(send_len != 0)
+    if (send_len != 0)
     {
-        wf_memcpy(ptx_desc + TXDESC_OFFSET_NEW + CMD_PARAM_LENGTH, send_buf, send_len * 4);
+        wf_memcpy(ptx_desc + TXDESC_OFFSET_NEW + TX_CMD_PARAM_LENGTH, send_buf, send_len * 4);
     }
 
-    snd_pktLen = TXDESC_OFFSET_NEW + CMD_PARAM_LENGTH + send_len * 4;
+    snd_pktLen = TXDESC_OFFSET_NEW + TX_CMD_PARAM_LENGTH + send_len * 4;
 
     wf_hif_bulk_cmd_init(hif_node);
     ret = wf_tx_queue_insert(hif_node, 1, ptx_desc, snd_pktLen, CMD_QUEUE_INX, NULL, NULL, NULL);
-    if(ret != 0)
+    if (ret != 0)
     {
         LOG_E("bulk access cmd error by send");
         ret = -1;
         goto mcu_cmd_communicate_exit;
     }
 
-    if(wf_hif_bulk_cmd_wait(hif_node, HIF_BULK_MSG_TIMEOUT) == 0)
+    if (wf_hif_bulk_cmd_wait(hif_node, HIF_BULK_MSG_TIMEOUT) == 0)
     {
         LOG_E("bulk access cmd read timeout");
         ret = -1;
@@ -1317,28 +1300,28 @@ int hif_write_cmd(void *node, wf_u32 cmd, wf_u32 *send_buf, wf_u32 send_len, wf_
     }
 
     prx_desc = hif_node->cmd_rcv_buffer;
-    rcv_pktLen = RXDESC_OFFSET_NEW + recv_len * 4 + CMD_PARAM_LENGTH;
-    if(hif_node->cmd_size > rcv_pktLen)
-    {
-        LOG_E("mcu cmd: 0x%08X", cmd);
-        LOG_E("bulk access cmd read length error, recv cmd size is %d, but need pkt_len is %d", hif_node->cmd_size, rcv_pktLen);
-        ret = -1;
-        goto mcu_cmd_communicate_exit;
-    }
+    rcv_pktLen = RXDESC_OFFSET_NEW + recv_len * 4 + RX_CMD_PARAM_LENGTH;
+    //if (hif_node->cmd_size > rcv_pktLen)
+    //{
+    //LOG_E("mcu cmd: 0x%08X", cmd);
+    //LOG_E("bulk access cmd read length error, recv cmd size is %d, but need pkt_len is %d", hif_node->cmd_size, rcv_pktLen);
+    //ret = -1;
+    // goto mcu_cmd_communicate_exit;
+    //}
 
     prx_desc = hif_node->cmd_rcv_buffer;
     u8Value = wf_le_u8_read(prx_desc);
-    if((u8Value & 0x03) != TYPE_CMD)
+    if ((u8Value & 0x03) != TYPE_CMD)
     {
         LOG_E("bulk access cmd read error");
         ret = -1;
         goto mcu_cmd_communicate_exit;
     }
 
-    #if 0
+#if 0
     u16Value = wf_le_u16_read(prx_desc + 4);
     u16Value &= 0x3FFF;
-    if(u16Value != (recv_len * 4 + CMD_PARAM_LENGTH))
+    if (u16Value != (recv_len * 4 + CMD_PARAM_LENGTH))
     {
         LOG_E("bulk access cmd read length error, value is %d, send cmd is 0x%x, cmd is 0x%x",
               u16Value, cmd, *((wf_u32 *)prx_desc + RXDESC_OFFSET_NEW));
@@ -1346,11 +1329,11 @@ int hif_write_cmd(void *node, wf_u32 cmd, wf_u32 *send_buf, wf_u32 send_len, wf_
         ret = -1;
         goto mcu_cmd_communicate_exit;
     }
-    #endif
+#endif
 
-    if(recv_len != 0)
+    if (recv_len != 0)
     {
-        wf_memcpy(recv_buf, prx_desc + RXDESC_OFFSET_NEW + CMD_PARAM_LENGTH, recv_len * 4);
+        wf_memcpy(recv_buf, prx_desc + RXDESC_OFFSET_NEW + RX_CMD_PARAM_LENGTH, recv_len * 4);
     }
 
 mcu_cmd_communicate_exit:

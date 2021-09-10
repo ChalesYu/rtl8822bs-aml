@@ -51,17 +51,5 @@ void wf_lock_unlock(wf_lock_t *plock);
 void wf_lock_init(wf_lock_t *plock, wf_lock_type_e lock_type);
 void wf_lock_term(wf_lock_t *plock);
 
-void wf_lock_mutex_init(wf_lock_mutex *mtx);
-void wf_lock_mutex_unlock(wf_lock_mutex *mtx);
-void wf_lock_mutex_lock(wf_lock_mutex *mtx);
-void wf_lock_spin_lock(wf_lock_spin *plock);
-void wf_lock_spin_unlock(wf_lock_spin *plock);
-void wf_lock_spin_init(wf_lock_spin *plock);
-void wf_lock_spin_free(wf_lock_spin *plock);
-void wf_lock_bh_lock(wf_lock_spin *plock);
-void wf_lock_bh_unlock(wf_lock_spin *plock);
-void wf_lock_irq_lock(wf_lock_spin *plock, wf_irq *pirqL);
-void wf_lock_irq_unlock(wf_lock_spin *plock, wf_irq *pirqL);
-
 #endif
 

@@ -62,6 +62,8 @@ void wf_cfg80211_scan_done_event_up(nic_info_st *pnic_info, wf_bool aborted);
 struct cfg80211_bss *inform_bss (nic_info_st *pnic_info, wf_wlan_mgmt_scan_que_node_t *pscaned_info);
 void wf_cfg80211_vir_nic_scan_finish(nic_info_st *pnic_info, wf_bool babort);
 
+int wf_cfg80211_p2p_cb_reg(nic_info_st *pnic_info);
+
 #define ndev_to_wdev(n) ((n)->ieee80211_ptr)
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(3,6,0))
 #define wf_cfg80211_ready_on_channel(ndev, cookie, chan, channel_type, duration, gfp)  cfg80211_ready_on_channel(ndev, cookie, chan, channel_type, duration, gfp)

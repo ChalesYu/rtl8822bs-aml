@@ -29,8 +29,9 @@
 #define SCAN_WARN(fmt, ...)     LOG_W("[%s:%d][%d]"fmt, __func__, __LINE__, pnic_info->ndev_id, ##__VA_ARGS__)
 #define SCAN_ERROR(fmt, ...)    LOG_E("[%s:%d][%d]"fmt, __func__, __LINE__, pnic_info->ndev_id, ##__VA_ARGS__)
 
-#define SCAN_CH_TIMEOUT             30
-#define SCAN_PROBE_RESEND_TIMES     5
+#define LOCAL_INFO                  ((local_info_st *)pnic_info->local_info)
+#define SCAN_CH_TIMEOUT             LOCAL_INFO->scan_ch_to
+#define SCAN_PROBE_RESEND_TIMES     LOCAL_INFO->scan_prb_times
 
 /* function declaration */
 
@@ -134,16 +135,16 @@ int scan_setting (nic_info_st *pnic_info)
                              pscan_que_node->channel);
                     pscan_info->preq->ch_num = 1;
                     pscan_info->preq->ch_map[0] = pscan_que_node->channel;
-                    /* set scan filte */
-                    if (wf_mcu_set_bssid(pnic_info, pscan_info->preq->bssid))
-                    {
-                        return -5;
-                    }
                 }
             }
-        }
 
-        if (!bfix_ch)
+            /* set scan filte */
+            if (wf_mcu_set_bssid(pnic_info, pscan_info->preq->bssid))
+            {
+                return -5;
+            }
+        }
+        else
         {
             SCAN_INFO("Disbale BSSID Filter");
             /* disable bssid filter of beacon and probe response */
@@ -173,6 +174,14 @@ int scan_setting (nic_info_st *pnic_info)
 //        wf_wlan_mgmt_scan_que_flush(pnic_info);
     }
 
+    /* backup current channel setting */
+    if (wf_hw_info_get_channnel_bw(pnic_info,
+                                   &pscan_info->chnl_bak.number,
+                                   &pscan_info->chnl_bak.width,
+                                   &pscan_info->chnl_bak.offset) != WF_RETURN_OK)
+    {
+        return -7;
+    }
 #ifdef CONFIG_LPS
     {
         wf_bool bConnected = wf_false;
@@ -190,25 +199,18 @@ int scan_setting (nic_info_st *pnic_info)
 
 wf_inline static int scan_setting_recover (nic_info_st *pnic_info)
 {
-    wdn_net_info_st *pwdn_info;
+    wf_scan_info_t *pscan_info = pnic_info->scan_info;
 
     wf_mcu_set_media_status(pnic_info, WIFI_FW_STATION_STATE);
 
-    /* recover channel set, according to the ap channel set which associated */
-    pwdn_info = wf_wdn_find_info(pnic_info, wf_wlan_get_cur_bssid(pnic_info));
-    if (pwdn_info)
+    /* recover channel setting from backup */
+    if (wf_hw_info_set_channnel_bw(pnic_info,
+                                   pscan_info->chnl_bak.number,
+                                   pscan_info->chnl_bak.width,
+                                   pscan_info->chnl_bak.offset) == WF_RETURN_FAIL)
     {
-        SCAN_DBG("recover channel set: %d bw:%u ",
-                 pwdn_info->channel, pwdn_info->bw_mode);
-        if (wf_hw_info_set_channnel_bw(pnic_info,
-                                       pwdn_info->channel,
-                                       pwdn_info->bw_mode,
-                                       pwdn_info->channle_offset) ==
-            WF_RETURN_FAIL)
-        {
-            SCAN_WARN("UMSG_OPS_HAL_CHNLBW_MODE failed");
-            return -1;
-        }
+        SCAN_WARN("UMSG_OPS_HAL_CHNLBW_MODE failed");
+        return -1;
     }
 
     /* enable bssid filter for beacon and probe response */
@@ -502,7 +504,6 @@ wf_pt_rst_t wf_scan_thrd (wf_pt_t *pt, nic_info_st *pnic_info, int *prsn)
     }
     while (wf_true);
     pscan_info->preq = (wf_scan_req_t *)pmsg->value;
-    pscan_info->brun = wf_true;
 
     /* stop framework data send behavior come into */
     tx_cutoff(pnic_info);
@@ -543,6 +544,7 @@ wf_pt_rst_t wf_scan_thrd (wf_pt_t *pt, nic_info_st *pnic_info, int *prsn)
 
     /* scan begin */
     SCAN_INFO("scanning...");
+    pscan_info->brun = wf_true;
     wf_timer_set(&pscan_info->pass_time, 0);
     for (pscan_info->ch_idx = 0;
          pscan_info->ch_idx < pscan_info->preq->ch_num;
@@ -574,6 +576,7 @@ wf_pt_rst_t wf_scan_thrd (wf_pt_t *pt, nic_info_st *pnic_info, int *prsn)
                     if(p2p_info->p2p_state == P2P_STATE_SCAN ||
                        p2p_info->p2p_state == P2P_STATE_FIND_PHASE_SEARCH)
                     {
+                        wf_wlan_set_cur_channel(pnic_info, pscan_info->preq->ch_map[pscan_info->ch_idx]);
                         rst = wf_p2p_issue_probereq(pnic_info,NULL);
                     }
                 }
@@ -590,7 +593,7 @@ wf_pt_rst_t wf_scan_thrd (wf_pt_t *pt, nic_info_st *pnic_info, int *prsn)
                 }
 
                 /* wait until channel scan timeout */
-                wf_timer_set(&pscan_info->timer, 50);
+                wf_timer_set(&pscan_info->timer, SCAN_CH_TIMEOUT);
                 do
                 {
                     PT_WAIT_UNTIL(pt, !wf_msg_pop(pmsg_que, &pmsg) ||
@@ -648,8 +651,11 @@ done:
                                   pscan_info->preq->ch_num);
 
 exit:
-    scan_setting_recover(pnic_info);
-    pscan_info->brun = wf_false;
+    if (pscan_info->brun)
+    {
+        scan_setting_recover(pnic_info);
+        pscan_info->brun = wf_false;
+    }
     /* resume tx */
     tx_resume(pnic_info);
     /* free scan request infomation */

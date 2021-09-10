@@ -59,8 +59,6 @@ struct sock_proto_ops {
     int (*accept)     (int s, struct sockaddr *addr, socklen_t *addrlen);
     int (*sendto)     (int s, const void *data, size_t size, int flags, const struct sockaddr *to, socklen_t tolen);
     int (*recvfrom)   (int s, void *mem, size_t len, int flags, struct sockaddr *from, socklen_t *fromlen);
-    int (*send)       (int s, const void *dataptr, size_t size, int flags);
-    int (*recv)       (int s, void *mem, size_t len, int flags);
     int (*sendmsg)    (int s, const struct msghdr *message, int flags);
     int (*recvmsg)    (int s, struct msghdr *message, int flags);
     int (*getsockopt) (int s, int level, int optname, void *optval, socklen_t *optlen);

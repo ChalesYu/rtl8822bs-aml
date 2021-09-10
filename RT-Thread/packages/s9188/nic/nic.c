@@ -83,18 +83,21 @@ static int prv_hardware_init(nic_info_st *nic_info)
         return WF_RETURN_FAIL;
     }
 
-    /* init hardware by default cfg */
-    if (wf_hw_info_set_default_cfg(nic_info) < 0)
+    if (nic_info->virNic==wf_false)
     {
-        LOG_E("===>wf_hw_info_set_default_cfg error");
-        return WF_RETURN_FAIL;
-    }
+        /* init hardware by default cfg */
+        if (wf_hw_info_set_default_cfg(nic_info) < 0)
+        {
+            LOG_E("===>wf_hw_info_set_default_cfg error");
+            return WF_RETURN_FAIL;
+        }
 
-    /* configure */
-    if (wf_local_cfg_set_default(nic_info) < 0)
-    {
-        LOG_E("===>wf_local_cfg_set_default error");
-        return WF_RETURN_FAIL;
+        /* configure */
+        if (wf_local_cfg_set_default(nic_info) < 0)
+        {
+            LOG_E("===>wf_local_cfg_set_default error");
+            return WF_RETURN_FAIL;
+        }
     }
 
     nic_info->ndev_num++;
@@ -218,7 +221,7 @@ int nic_init(nic_info_st *nic_info)
     }
 
 #if  defined (CONFIG_ARS_DRIVER_SUPPORT)
-    if(ars_init(nic_info) < 0)
+    if (ars_init(nic_info) < 0)
     {
         LOG_E("===>ars_init error");
         return WF_RETURN_FAIL;
@@ -350,13 +353,16 @@ int nic_term(nic_info_st *nic_info)
 
 
 #ifdef WF_CONFIG_P2P
-        if (wf_p2p_term(nic_info) < 0)
-        {
-            LOG_E("===>wf_p2p_term error");
-            return WF_RETURN_FAIL;
-        }
+    if (wf_p2p_term(nic_info) < 0)
+    {
+        LOG_E("===>wf_p2p_term error");
+        return WF_RETURN_FAIL;
+    }
 #endif
 
+#ifdef CONFIG_RICHV200
+    wf_mcu_reset_chip(nic_info);
+#endif
 
     /* hardware term */
     if (prv_hardware_term(nic_info) < 0)
@@ -365,12 +371,10 @@ int nic_term(nic_info_st *nic_info)
         return WF_RETURN_FAIL;
     }
 
-
-#ifdef CONFIG_RICHV200
-    wf_mcu_reset_chip(nic_info);
-#endif
-
-
+     wf_scan_start(nic_info, SCAN_TYPE_ACTIVE,
+                        NULL,
+                        NULL, 0,
+                        NULL, 0);
     LOG_D("[NIC] nic_term - end");
     return WF_RETURN_OK;
 }
@@ -379,7 +383,7 @@ int nic_term(nic_info_st *nic_info)
 int nic_enable(nic_info_st *nic_info)
 {
     //int ret = 0;
-    if(NULL == nic_info)
+    if (NULL == nic_info)
     {
         LOG_I("[NIC] nic_info is null");
         return WF_RETURN_OK;
@@ -387,7 +391,7 @@ int nic_enable(nic_info_st *nic_info)
 
     LOG_I("[NIC] nic_enable :"WF_MAC_FMT, WF_MAC_ARG(nic_to_local_addr(nic_info)));
 
-    if( 0 == nic_info->is_up)
+    if ( 0 == nic_info->is_up)
     {
         wf_mcu_enable_xmit(nic_info);
         nic_info->is_up = wf_true;
@@ -403,16 +407,16 @@ int nic_disable(nic_info_st *nic_info)
 
     LOG_D("[%d] nic_disable",nic_info->ndev_id);
 
-    if(nic_info->is_up)
+    if (nic_info->is_up)
     {
-        if(wf_local_cfg_get_work_mode(nic_info) == WF_MASTER_MODE)
+        if (wf_local_cfg_get_work_mode(nic_info) == WF_MASTER_MODE)
         {
 #ifdef CFG_ENABLE_AP_MODE
             wf_ap_work_stop(nic_info);
 #endif
         }
 
-        if(WF_CANNOT_RUN(nic_info))
+        if (WF_CANNOT_RUN(nic_info))
         {
             wf_mlme_abort(nic_info);
         }
@@ -440,8 +444,8 @@ int nic_suspend(nic_info_st *pnic_info)
     if (WF_CANNOT_RUN(pnic_info))
     {
         LOG_I("is_driver_stopped=%s is_surprise_removed = %s\n",
-                 pnic_info->is_driver_stopped ? "True" : "False",
-                 pnic_info->is_surprise_removed ? "True" : "False");
+              pnic_info->is_driver_stopped ? "True" : "False",
+              pnic_info->is_surprise_removed ? "True" : "False");
         return 0;
     }
 
@@ -505,7 +509,7 @@ int nic_suspend(nic_info_st *pnic_info)
         return WF_RETURN_FAIL;
     }
 
-    if(pnic_info->is_up == wf_true)
+    if (pnic_info->is_up == wf_true)
     {
         pnic_info->is_up = wf_false;
         pnic_info->is_driver_stopped = wf_true;
@@ -518,7 +522,7 @@ int nic_suspend(nic_info_st *pnic_info)
 
 int nic_resume(nic_info_st *nic_info)
 {
-    if(nic_info->is_up == wf_false)
+    if (nic_info->is_up == wf_false)
     {
         nic_info->is_up = wf_true;
         nic_info->is_driver_stopped = wf_false;
@@ -545,7 +549,7 @@ int nic_resume(nic_info_st *nic_info)
         while(wf_fw_download(nic_info))
         {
             i++;
-            if(i == 3)
+            if (i == 3)
             {
                 return WF_RETURN_FAIL;
             }
@@ -570,7 +574,7 @@ int nic_resume(nic_info_st *nic_info)
     nic_info->ndev_num++;
 
     /* create thread for rx frame handle */
-    if(wf_auth_init(nic_info) < 0)
+    if (wf_auth_init(nic_info) < 0)
     {
         LOG_E("===>wf_auth_init error");
         return -1;

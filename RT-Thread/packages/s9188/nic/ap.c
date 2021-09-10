@@ -17,7 +17,7 @@
 #include "common.h"
 #include "wf_debug.h"
 
-#if 0
+#if 1
 #define AP_DBG(fmt, ...)        LOG_D("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
 #define AP_WARN(fmt, ...)       LOG_E("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
 #define AP_ARRAY(data, len)     log_array(data, len)
@@ -242,6 +242,21 @@ static int ap_msg_que_init (nic_info_st *pnic_info)
         wf_enque_head(&pnode->list, pque);
     }
 
+#define WF_AP_MSG_BA_RSP_QUE_DEEP   TID_NUM
+#define WF_AP_MSG_BA_RSP_SIZE_MAX   WF_OFFSETOF(wf_ap_msg_t, mgmt)
+    pque = &pwlan_info->cur_network.ap_msg_free[WF_AP_MSG_TAG_BA_REQ_FRAME];
+    wf_que_init(pque, WF_LOCK_TYPE_SPIN);
+    for (i = 0; i < WF_AP_MSG_BA_RSP_QUE_DEEP; i++)
+    {
+        pnode = wf_kzalloc(WF_AP_MSG_BA_RSP_SIZE_MAX);
+        if (pnode == NULL)
+        {
+            AP_WARN("malloc failed");
+            return -1;
+        }
+        wf_enque_head(&pnode->list, pque);
+    }
+
     return 0;
 }
 
@@ -386,6 +401,16 @@ wf_pt_rst_t maintain_thrd (nic_info_st *pnic_info, wdn_net_info_st *pwdn_info)
                 wf_ap_odm_disconnect_media_status(pnic_info, pwdn_info);
             }
             break;
+        }
+        
+        else if (pmsg->tag == WF_AP_MSG_TAG_BA_REQ_FRAME)
+        {
+            AP_DBG("ba_req->"WF_MAC_FMT, WF_MAC_ARG(pwdn_info->mac));
+            wf_ap_msg_free(pnic_info, &pwdn_info->ap_msg, pmsg);
+
+            /* send action ba response frame to STA */
+            wf_action_frame_ba_to_issue(pnic_info,
+                                            WF_WLAN_ACTION_ADDBA_RESP);
         }
 
         else
@@ -633,6 +658,7 @@ int wf_ap_probe (nic_info_st *pnic_info,
                           pcur_network->hidden_ssid.length))
             {
                 wf_wlan_set_cur_ssid(pnic_info, &pcur_network->hidden_ssid);
+                pmgmt->beacon.variable[0] = WF_80211_MGMT_EID_SSID;
                 pmgmt->beacon.variable[1] = pcur_network->hidden_ssid.length;
                 wf_memcpy(pmgmt->beacon.variable + 2, pcur_network->hidden_ssid.data,
                           pcur_network->hidden_ssid.length);
@@ -734,7 +760,7 @@ static void ap_update_reg (nic_info_st *pnic_info)
     wf_wlan_network_t *pcur_network = &pwlan_info->cur_network;
     sec_info_st *psec_info = pnic_info->sec_info;
     wf_u32 tmp32u;
-    wf_u16 br_cfg;
+    wf_u16 br_cfg = 0;
 
     AP_DBG();
 
@@ -1457,6 +1483,7 @@ int wf_ap_work_stop (nic_info_st *pnic_info)
     memset(psec_info, 0, sizeof(sec_info_st));
     /* update ap status */
     wf_ap_status_set(pnic_info, WF_AP_STATUS_UNINITILIZED);
+    wf_os_api_disable_all_data_queue(pnic_info->ndev);
 
     return 0;
 }
@@ -1521,6 +1548,7 @@ int wf_ap_deauth_all_sta (nic_info_st *pnic_info, wf_u16 reason)
 
     reason = wf_cpu_to_le16(reason);
     pframe = set_fixed_ie(pframe, 2, (wf_u8 *)&reason, &pkt_len);
+    pxmit_buf->pkt_len = pkt_len;
     wf_nic_mgmt_frame_xmit(pnic_info, wdn_info, pxmit_buf, pxmit_buf->pkt_len);
 
     return 0;
@@ -1540,7 +1568,7 @@ int wf_ap_set_encryption (nic_info_st *pnic_info,
     param->u.crypt.alg[IEEE_CRYPT_ALG_NAME_LEN - 1] = '\0';
 
     if (param_len <
-        WF_FIELD_SIZEOF(ieee_param, u.crypt.key) + param->u.crypt.key_len)
+        (WF_OFFSETOF(ieee_param, u.crypt.key) + param->u.crypt.key_len))
     {
         AP_WARN("param_len invalid !!!!!!!");
         res = -WF_EINVAL;

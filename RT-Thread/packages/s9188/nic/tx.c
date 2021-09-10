@@ -17,10 +17,6 @@
 #include "common.h"
 #include "wf_debug.h"
 
-#define XMIT_DATA_BUFFER_CNT (4)
-#define XMIT_MGMT_BUFFER_CNT (8)
-#define XMIT_CMD_BUFFER_CNT  (4)
-
 #define XMIT_ACK_REG         0x0298
 
 #define ETHTYPE_ARP          0x0806
@@ -1013,6 +1009,10 @@ static void txdesc_fill(struct xmit_frame *pxmitframe, wf_u8 * pbuf, wf_bool bSe
         else
         {
             wf_set_bits_to_le_u32(pbuf + 8, 18, 7, DESC_RATE1M);
+            if(wf_p2p_is_valid(nic_info))
+            {
+                wf_set_bits_to_le_u32(pbuf + 8, 18, 7, DESC_RATE6M);
+            }
         }
     }
     
@@ -1345,6 +1345,7 @@ struct xmit_buf *wf_xmit_buf_new(tx_info_st *tx_info)
 
     return pxmitbuf;
 }
+
 #ifdef CONFIG_LPS
 static struct xmit_buf *__wnew_cmd_txbuf(tx_info_st *tx_info,
         enum cmdbuf_type buf_type)
@@ -1569,8 +1570,6 @@ wf_bool wf_xmit_frame_enqueue(tx_info_st *tx_info, struct xmit_frame * pxmitfram
     return wf_true;
 }
 
-
-
 void wf_tx_data_enqueue_tail(tx_info_st *tx_info, struct xmit_frame *pxmitframe)
 {
     wf_list_t *phead;
@@ -1667,7 +1666,8 @@ int wf_nic_beacon_xmit(nic_info_st *nic_info, struct xmit_buf *pxmitbuf, wf_u16 
 {
     wf_u8 *pbuf;
     wf_u8 *pwlanhdr;
-
+    wf_u8 pg_num = 0;
+    
     #ifndef CONFIG_RICHV200
     struct tx_desc *ptxdesc = NULL;
     #endif
@@ -1746,8 +1746,9 @@ int wf_nic_beacon_xmit(nic_info_st *nic_info, struct xmit_buf *pxmitbuf, wf_u16 
     // add txd checksum
     wf_txdesc_chksum(pbuf);
 
+    pg_num = (len + 40+127)/128;
     len += TXDESC_OFFSET_NEW;
-
+    
 #else
 
     // add txd
@@ -1800,9 +1801,10 @@ int wf_nic_beacon_xmit(nic_info_st *nic_info, struct xmit_buf *pxmitbuf, wf_u16 
 
 
     wf_txdesc_chksum(ptxdesc);
+    pg_num = (len + 40+127)/128;
+    len += sizeof(struct tx_desc);
 #endif
 
-    len += sizeof(struct tx_desc);
 #if 0
     LOG_I("[%s] txd data:",__func__);
     {
@@ -1814,7 +1816,8 @@ int wf_nic_beacon_xmit(nic_info_st *nic_info, struct xmit_buf *pxmitbuf, wf_u16 
         printk("\n");
     }
 #endif
-    pxmitbuf->pg_num   += (len+127)/128;
+    pxmitbuf->pg_num   = pg_num;
+    pxmitbuf->qsel     = QSLT_BEACON;
     LOG_I("[%s,%d] buffer_id:%d, pg_num:%d",__func__,__LINE__,(int)pxmitbuf->buffer_id,pxmitbuf->pg_num);
     // xmit the frame
 
@@ -1828,6 +1831,8 @@ int wf_nic_mgmt_frame_xmit (nic_info_st *nic_info, wdn_net_info_st *wdn,
 {
     wf_u8 *pbuf;
     wf_u8 *pwlanhdr;
+    wf_u8 pg_num = 0;
+    
 #ifndef CONFIG_RICHV200
     struct tx_desc *ptxdesc;
 #endif
@@ -1864,7 +1869,14 @@ int wf_nic_mgmt_frame_xmit (nic_info_st *nic_info, wdn_net_info_st *wdn,
     /* set DATA LONG or SHORT*/
 
     /* set TX RATE */
-    wf_set_bits_to_le_u32(pbuf + 8, 18, 7, DESC_RATE1M);
+    if(wf_p2p_is_valid(nic_info))
+    {
+        wf_set_bits_to_le_u32(pbuf + 8, 18, 7, DESC_RATE6M);
+    }
+    else
+    {
+        wf_set_bits_to_le_u32(pbuf + 8, 18, 7, DESC_RATE1M);
+    }
     /* set QOS QUEUE, must mgmt queue */
     wf_set_bits_to_le_u32(pbuf + 12, 12, 1, 1);
     wf_set_bits_to_le_u32(pbuf + 12, 6, 5, 0); //QSLT_MGNT);
@@ -1876,8 +1888,16 @@ int wf_nic_mgmt_frame_xmit (nic_info_st *nic_info, wdn_net_info_st *wdn,
     wf_set_bits_to_le_u32(pbuf + 12, 16, 2, 0);
     /* set rate mode, mgmt frame use fix mode */
     wf_set_bits_to_le_u32(pbuf + 16, 5, 1, 0);
-    /* set RATE ID, mgmt frame use 802.11 B, the number is 0 */
-    wf_set_bits_to_le_u32(pbuf + 16, 6, 3, 0);
+    if(wf_p2p_is_valid(nic_info))
+    {
+        /* set RATE ID, mgmt frame use 802.11 G, the number is 1 */
+        wf_set_bits_to_le_u32(pbuf + 16, 6, 3, 1);
+    }
+    else
+    {
+        /* set RATE ID, mgmt frame use 802.11 B, the number is 0 */
+        wf_set_bits_to_le_u32(pbuf + 16, 6, 3, 0);
+    }
     /* set mac id or sta index */
     wf_set_bits_to_le_u32(pbuf + 16, 0, 5, 0x01);
 
@@ -1926,6 +1946,7 @@ int wf_nic_mgmt_frame_xmit (nic_info_st *nic_info, wdn_net_info_st *wdn,
     // add txd checksum
     wf_txdesc_chksum(pbuf);
 
+    pg_num = (len + 40+127)/128;
     len += TXDESC_OFFSET_NEW;
 
 // #if 1
@@ -2031,6 +2052,7 @@ int wf_nic_mgmt_frame_xmit (nic_info_st *nic_info, wdn_net_info_st *wdn,
         wf_txdesc_chksum(ptxdesc);
     }
 
+    pg_num = (len + 40 +127)/128;
     len += sizeof(struct tx_desc);
 #if 0
     LOG_I("[%s] txd data:",__func__);
@@ -2044,7 +2066,7 @@ int wf_nic_mgmt_frame_xmit (nic_info_st *nic_info, wdn_net_info_st *wdn,
     }
 #endif
 #endif
-    pxmitbuf->pg_num   += (len+127)/128;
+    pxmitbuf->pg_num    = pg_num;
     pxmitbuf->qsel      = QSLT_MGNT;
 
     //LOG_I("[%s,%d] buffer_id:%d, pg_num:%d",__func__,__LINE__,(int)pxmitbuf->buffer_id,pxmitbuf->pg_num);
@@ -2064,6 +2086,7 @@ int wf_nic_mgmt_frame_xmit_with_ack(nic_info_st *nic_info, wdn_net_info_st *wdn,
     wf_u8 val;
     wf_u8 *pbuf;
     wf_u8 *pwlanhdr;
+    wf_u8 pg_num = 0;
 #ifndef CONFIG_RICHV200
     struct tx_desc *ptxdesc;
 #endif
@@ -2165,10 +2188,21 @@ int wf_nic_mgmt_frame_xmit_with_ack(nic_info_st *nic_info, wdn_net_info_st *wdn,
         wf_set_bits_to_le_u32(pbuf + 8, 16, 1, 1);
         /* set rate mode, mgmt frame use fix mode */
         wf_set_bits_to_le_u32(pbuf + 16, 5, 1, 0);
-        /* set RATE ID, mgmt frame use 802.11 B, the number is 0 */
-        wf_set_bits_to_le_u32(pbuf + 16, 6, 3, 0);
-        /* set TX RATE */
-        wf_set_bits_to_le_u32(pbuf + 8, 18, 7, DESC_RATE1M);
+        
+        if(wf_p2p_is_valid(nic_info))
+        {
+            /* set RATE ID, mgmt frame use 802.11 G, the number is 1 */
+            wf_set_bits_to_le_u32(pbuf + 16, 6, 3, 1);
+            /* set TX RATE */
+            wf_set_bits_to_le_u32(pbuf + 8, 18, 7, DESC_RATE6M);
+        }
+        else
+        {
+            /* set RATE ID, mgmt frame use 802.11 B, the number is 0 */
+            wf_set_bits_to_le_u32(pbuf + 16, 6, 3, 0);
+            /* set TX RATE */
+            wf_set_bits_to_le_u32(pbuf + 8, 18, 7, DESC_RATE1M);
+        }
     }
 
     /* set PKT_LEN */
@@ -2180,7 +2214,7 @@ int wf_nic_mgmt_frame_xmit_with_ack(nic_info_st *nic_info, wdn_net_info_st *wdn,
 
     // add txd checksum
     wf_txdesc_chksum(pbuf);
-
+    pg_num = (len + 40+127)/128;
     len += TXDESC_OFFSET_NEW;
 #else
     // add txd
@@ -2251,8 +2285,16 @@ int wf_nic_mgmt_frame_xmit_with_ack(nic_info_st *nic_info, wdn_net_info_st *wdn,
         WF_TX_DESC_DATA_SC_9086X(pbuf, HT_DATA_SC_DONOT_CARE);
 
         WF_TX_DESC_USE_RATE_9086X(pbuf, 1);
-        WF_TX_DESC_RATE_ID_9086X(pbuf, RATEID_IDX_B);
-        WF_TX_DESC_TX_RATE_9086X(pbuf, DESC_RATE1M);
+        if(wf_p2p_is_valid(nic_info))
+        {
+            WF_TX_DESC_RATE_ID_9086X(pbuf, RATEID_IDX_G);
+            WF_TX_DESC_TX_RATE_9086X(pbuf, DESC_RATE6M);
+        }
+        else
+        {
+            WF_TX_DESC_RATE_ID_9086X(pbuf, RATEID_IDX_B);
+            WF_TX_DESC_TX_RATE_9086X(pbuf, DESC_RATE1M);
+        }
 
         WF_TX_DESC_SPE_RPT_9086X(pbuf, 1);
         WF_TX_DESC_SW_DEFINE_9086X(pbuf, 0);
@@ -2268,11 +2310,11 @@ int wf_nic_mgmt_frame_xmit_with_ack(nic_info_st *nic_info, wdn_net_info_st *wdn,
 
     // add txd checksum
     wf_txdesc_chksum(ptxdesc);
-
+    pg_num = (len + 40+127)/128;
     len += sizeof(struct tx_desc);
 #endif
 
-    pxmitbuf->pg_num   = (len+127)/128;
+    pxmitbuf->pg_num   = pg_num;
     //LOG_I("[%s,%d] buffer_id:%d, pg_num:%d",__func__,__LINE__,(int)pxmitbuf->buffer_id,pxmitbuf->pg_num);
     // xmit the frame
     wf_io_write8(nic_info, XMIT_ACK_REG, 0);
@@ -2344,7 +2386,7 @@ int wf_tx_info_init(nic_info_st *nic_info)
         return -1;
     }
 
-    wf_lock_spin_init(&tx_info->lock);
+    wf_lock_init(&tx_info->lock, WF_LOCK_TYPE_BH);
     /* xmit_frame buffer init */
     wf_que_init(&tx_info->xmit_frame_queue, WF_LOCK_TYPE_IRQ);
 #if TX_AGG_QUEUE_ENABLE
@@ -2550,7 +2592,7 @@ int wf_tx_info_term(nic_info_st *nic_info)
         }
 
         wf_lock_term(&tx_info->pending_lock);
-        wf_lock_spin_free(&tx_info->lock);
+        wf_lock_term(&tx_info->lock);
         wf_kfree(tx_info);
         nic_info->tx_info = NULL;
     }
@@ -2987,19 +3029,19 @@ void wf_tx_xmit_stop(nic_info_st *nic_info)
 {
     tx_info_st *ptx_info = nic_info->tx_info;
 
-    wf_lock_bh_lock(&ptx_info->lock);
+    wf_lock_lock(&ptx_info->lock);
     ptx_info->xmit_stop_flag++;
-    wf_lock_bh_unlock(&ptx_info->lock);
+    wf_lock_unlock(&ptx_info->lock);
 }
 
 void wf_tx_xmit_start(nic_info_st *nic_info)
 {
     tx_info_st *ptx_info = nic_info->tx_info;
 
-    wf_lock_bh_lock(&ptx_info->lock);
+    wf_lock_lock(&ptx_info->lock);
     if(ptx_info->xmit_stop_flag > 0)
        ptx_info->xmit_stop_flag--;
-    wf_lock_bh_unlock(&ptx_info->lock);
+    wf_lock_unlock(&ptx_info->lock);
     wf_io_tx_xmit_wake(nic_info);
 }
 

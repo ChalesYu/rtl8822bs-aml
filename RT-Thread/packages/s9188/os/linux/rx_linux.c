@@ -642,16 +642,11 @@ void mpdu_process(struct net_device *ndev, wf_u32 tot_len, wf_u32 remain_len, wf
     /* process phystatus */
     if (pkt.pkt_info.phy_status)
     {
-        hw_info_st *hw_info = nic_info->hw_info;
-
         wf_rx_calc_str_and_qual(nic_info, (wf_u8 *)&phyStatus, pkt.pdata, &pkt);
 
-        if(hw_info && hw_info->use_drv_odm)
-        {
-#if defined CONFIG_ARS_DRIVER_SUPPORT
-            wf_ars_query_phystatus(nic_info, &phyStatus, pkt.pdata, &pkt);
+#ifdef CONFIG_ARS_DRIVER_SUPPORT
+        wf_ars_query_phystatus(nic_info, &phyStatus, pkt.pdata, &pkt);
 #endif
-        }
     }
 
     /* process frame*/

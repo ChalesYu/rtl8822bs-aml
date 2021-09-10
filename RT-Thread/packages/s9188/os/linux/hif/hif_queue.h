@@ -28,7 +28,7 @@
 
 #ifdef CONFIG_SOFT_RX_AGGREGATION
 #define WF_MAX_RECV_BUFF_LEN_USB        (1024 * 9)
-#define WF_MAX_RECV_BUFF_LEN_SDIO       (1024 * 16)
+#define WF_MAX_RECV_BUFF_LEN_SDIO       ((1024 * AGG_LEN)+512)
 #else
 #define WF_MAX_RECV_BUFF_LEN_USB        (1024 * 4)
 #define WF_MAX_RECV_BUFF_LEN_SDIO       (1024 * 4)
@@ -78,7 +78,7 @@ typedef struct
     int (*tx_callback_func)(void *tx_info, void *param);
     int node_id;
     hif_queue_node_state_enum state;
-}data_queue_node_st;
+} data_queue_node_st;
 
 
 typedef struct trx_queue_st_
@@ -105,6 +105,7 @@ typedef struct trx_queue_st_
     /*hif rx handle*/
     wf_workqueue_mgnt_st rx_wq;
     struct tasklet_struct recv_task;
+    wf_bool is_init;
 }data_queue_mngt_st;
 
 int wf_data_queue_mngt_init(void *hif_node);
@@ -118,7 +119,7 @@ int wf_tx_queue_empty(void *hif_info);
 
 
 int wf_data_queue_insert(wf_que_t *queue, data_queue_node_st *qnode);
-data_queue_node_st * wf_data_queue_remove(wf_que_t *queue);
+data_queue_node_st *wf_data_queue_remove(wf_que_t *queue);
 
 
 void wf_hif_queue_alloc_skb(struct sk_buff_head *skb_head,wf_u8 hif_type);

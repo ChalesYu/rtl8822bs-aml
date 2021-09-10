@@ -19,7 +19,7 @@
 
 #define WF_PUBLIC_ACTION_IE_OFFSET (8)
 
-#if 1
+#if 0
 #define P2P_FRAME_DBG(fmt, ...)      LOG_D("P2P_FRAME[%s:%d][%d]"fmt, __func__,__LINE__,pnic_info->ndev_id, ##__VA_ARGS__)
 #define P2P_FRAME_ARRAY(data, len)   log_array(data, len)
 #else
@@ -224,7 +224,7 @@ wf_s32 wf_p2p_fill_assoc_rsp(nic_info_st *pnic_info, wf_u8 *pframe, wf_u16 *pkt_
         wf_u32 wfdielen = 0;
         if(p2p_info->role == P2P_ROLE_GO)
         {
-            wfdielen = assoc_resp_wfd_ie_to_append_func(pnic_info, pframe, 1);
+            wfdielen = wf_p2p_wfd_append_assoc_resp_ie(pnic_info, pframe, 1);
             pframe += wfdielen;
             *pkt_len += wfdielen;
         }
@@ -264,7 +264,7 @@ wf_u8 * wf_p2p_fill_assoc_req(nic_info_st *pnic_info, wf_u8 *pframe, wf_u32 *pkt
     {
         wf_u32 wfdielen = 0;
         
-        wfdielen  = assoc_req_wfd_ie_to_append_func(pnic_info, pframe, 1);
+        wfdielen  = wf_p2p_wfd_append_assoc_req_ie(pnic_info, pframe, 1);
         pframe   += wfdielen;
         *pkt_len += wfdielen;
     }
@@ -333,8 +333,6 @@ wf_s32 p2p_issue_probereq(nic_info_st *pnic_info, wf_u8 * da, wf_s32 wait_ack, w
     var_len = 0;
     pvar = &pframe->probe_req.variable[0];
     /*1.SSID*/
-   
-    P2P_FRAME_DBG("p2p_wildcard_ssid:%s",p2p_info->p2p_wildcard_ssid);
     pvar = set_ie(pvar, PROBE_REQUEST_IE_SSID, P2P_WILDCARD_SSID_LEN, p2p_info->p2p_wildcard_ssid,&var_len);
 
     /*2.Supported Rates and BSS Membership Selectors*/
@@ -364,7 +362,7 @@ wf_s32 p2p_issue_probereq(nic_info_st *pnic_info, wf_u8 * da, wf_s32 wait_ack, w
     
     if(wf_p2p_wfd_is_valid(pnic_info))
     {
-        wfdielen = probe_req_wfd_ie_to_append_func(pnic_info, pvar, 1);
+        wfdielen = wf_p2p_wfd_append_probe_req_ie(pnic_info, pvar, 1);
         pvar += wfdielen;
         var_len += wfdielen;
     }
@@ -460,7 +458,7 @@ wf_s32 p2p_issue_probersp(nic_info_st *pnic_info, unsigned char *da, wf_u8 flag)
     wf_u16 capInfo = 0;
     wf_u32 wfdielen = 0;
 
-    P2P_FRAME_DBG("start");
+    P2P_FRAME_INFO("rsp to "WF_MAC_FMT,WF_MAC_ARG(da));
     
     /* aclloc xmit buf*/
     pxmit_buf = wf_xmit_extbuf_new(ptx_info);
@@ -499,30 +497,21 @@ wf_s32 p2p_issue_probersp(nic_info_st *pnic_info, unsigned char *da, wf_u8 flag)
 
     pvar =set_ie(pvar, WF_80211_MGMT_EID_DS_PARAMS, 1,(unsigned char *)&p2p_info->listen_channel, &var_len);
 
-    if (p2p_info->p2p_enabled) 
-    {
-        if (pmlme_info->wps_probe_resp_ie != NULL && p2p_info->p2p_ie[WF_P2P_IE_PROBE_RSP] != NULL) 
-        {
-            P2P_FRAME_INFO("p2p probersp CONFIG_IOCTL_CFG80211 send ");
-            wf_memcpy(pvar, pmlme_info->wps_probe_resp_ie,pmlme_info->wps_probe_resp_ie_len);
-            var_len += pmlme_info->wps_probe_resp_ie_len;
-            pvar += pmlme_info->wps_probe_resp_ie_len;
 
-            wf_memcpy(pvar, p2p_info->p2p_ie[WF_P2P_IE_PROBE_RSP],p2p_info->p2p_ie_len[WF_P2P_IE_PROBE_RSP]);
-            var_len += p2p_info->p2p_ie_len[WF_P2P_IE_PROBE_RSP];
-            pvar += p2p_info->p2p_ie_len[WF_P2P_IE_PROBE_RSP];
-        }
-    } 
-    else
+    if (pmlme_info->wps_probe_resp_ie != NULL && p2p_info->p2p_ie[WF_P2P_IE_PROBE_RSP] != NULL) 
     {
+        wf_memcpy(pvar, pmlme_info->wps_probe_resp_ie,pmlme_info->wps_probe_resp_ie_len);
+        var_len += pmlme_info->wps_probe_resp_ie_len;
+        pvar += pmlme_info->wps_probe_resp_ie_len;
 
-        P2P_FRAME_INFO("not support wext");
+        wf_memcpy(pvar, p2p_info->p2p_ie[WF_P2P_IE_PROBE_RSP],p2p_info->p2p_ie_len[WF_P2P_IE_PROBE_RSP]);
+        var_len += p2p_info->p2p_ie_len[WF_P2P_IE_PROBE_RSP];
+        pvar += p2p_info->p2p_ie_len[WF_P2P_IE_PROBE_RSP];
     }
-
-
+   
     if(wf_p2p_wfd_is_valid(pnic_info))
     {
-        wfdielen = probe_resp_wfd_ie_to_append_func(pnic_info, pvar, 1);
+        wfdielen = wf_p2p_wfd_append_probe_resp_ie(pnic_info, pvar, 1);
         pvar += wfdielen;
         var_len += wfdielen;
     }
@@ -532,6 +521,7 @@ wf_s32 p2p_issue_probersp(nic_info_st *pnic_info, unsigned char *da, wf_u8 flag)
     //P2P_FRAME_ARRAY(pframe,pxmit_buf->pkt_len);
 //    P2P_FRAME_DBG("p2p probersp frame send  pkt_len=%d",pxmit_buf->pkt_len);
 
+    P2P_FRAME_DBG("p2p probersp send ");
     if (wf_nic_mgmt_frame_xmit(pnic_info, NULL, pxmit_buf, pxmit_buf->pkt_len))
     {
         LOG_W("p2p probersp frame send fail");
@@ -547,17 +537,10 @@ static wf_u32 p2p_proc_listen_state(nic_info_st *pnic_info, unsigned char *da, w
 {
 
     p2p_info_st *p2p_info = pnic_info->p2p;
-    wf_bool response = wf_true;
+    
+    P2P_FRAME_DBG("response=%d, channel:%d",p2p_info->is_ro_ch,p2p_info->listen_channel);
 
-   if (p2p_info->is_ro_ch == wf_false || p2p_info->p2p_enabled == wf_false) 
-   {
-        response = wf_false;
-   }
-     
-       
-    P2P_FRAME_INFO("response=%d",response);
-
-    if (flag && response == wf_true) 
+    if (flag && p2p_info->is_ro_ch == wf_true) 
     {
         p2p_issue_probersp(pnic_info, da, 1);
     }
@@ -626,7 +609,7 @@ wf_s32 wf_p2p_proc_probereq(nic_info_st *pnic_info,wf_80211_mgmt_t *pframe, wf_u
         return -4;
     }
     
-    P2P_FRAME_INFO("%s,%s",wf_p2p_state_to_str(p2p_info->p2p_state),wf_p2p_role_to_str(p2p_info->role));
+    P2P_FRAME_DBG("%s,%s",wf_p2p_state_to_str(p2p_info->p2p_state),wf_p2p_role_to_str(p2p_info->role));
     if((p2p_info->p2p_state != P2P_STATE_NONE) &&
        (p2p_info->p2p_state != P2P_STATE_IDLE) &&
        (p2p_info->role      != P2P_ROLE_CLIENT) &&
@@ -941,6 +924,9 @@ wf_s32 p2p_check_nego_req(nic_info_st *pnic_info, p2p_frame_check_param_st *chec
     wf_s32 op_ch            = 0;
     wf_s32 listen_ch        = 0;
     wf_u8 intent            = 0;
+    wf_u16 capability       = 0;
+    wf_u8 go_timeout        = 0;
+    wf_u8 gc_timeout        = 0;
     p2p_info_st *p2p_info   = pnic_info->p2p;
     wf_widev_nego_info_t *nego_info = &p2p_info->nego_info;
     
@@ -964,7 +950,16 @@ wf_s32 p2p_check_nego_req(nic_info_st *pnic_info, p2p_frame_check_param_st *chec
     {
         intent = *cont;
     }
-
+    if ((cont =wf_p2p_get_attr_content(check_param->p2p_ie, check_param->p2p_ielen,P2P_ATTR_CAPABILITY, NULL,&cont_len)))
+    {
+        capability = *(wf_u16*)cont;
+    }
+    if ((cont =wf_p2p_get_attr_content(check_param->p2p_ie, check_param->p2p_ielen,P2P_ATTR_CONF_TIMEOUT, NULL,&cont_len)))
+    {
+        go_timeout = cont[0];
+        gc_timeout = cont[1];
+    }
+    
     if (nego_info->token != check_param->dialogToken)
     {
         
@@ -980,10 +975,10 @@ wf_s32 p2p_check_nego_req(nic_info_st *pnic_info, p2p_frame_check_param_st *chec
     nego_info->state            = 0;
 
     p2p_dump_attr_ch_list(check_param->p2p_ie, check_param->p2p_ielen, ch_list_buf, 128,1);
-    
-    P2P_FRAME_INFO("%s:P2P_GO_NEGO_REQ, dialogToken=%d, intent:%u%s, listen_ch:%d, op_ch:%d, ch_list:%s\n",
-         (check_param->is_tx == wf_true) ? "Tx" : "Rx", check_param->dialogToken,
-         (intent >> 1), intent & 0x1 ? "+" : "-", listen_ch,op_ch, ch_list_buf);
+    P2P_FRAME_INFO("%s(%d):P2P_GO_NEGO_REQ, dialogToken=%d, intent:%u%s, listen_ch:%d, op_ch:%d, ch_list:%s, capability:0x%x, go_t:%d,gc_t:%d\n",
+         (check_param->is_tx == wf_true) ? "Tx" : "Rx", wf_wlan_get_cur_channel(pnic_info),check_param->dialogToken,
+         (intent >> 1), intent & 0x1 ? "+" : "-", listen_ch,op_ch, ch_list_buf,
+         capability,go_timeout,gc_timeout);
 
     if (!check_param->is_tx) 
     {
@@ -1048,8 +1043,8 @@ wf_s32 p2p_check_nego_rsp(nic_info_st *pnic_info, p2p_frame_check_param_st *chec
     }
 
     p2p_dump_attr_ch_list(check_param->p2p_ie, check_param->p2p_ielen, ch_list_buf, 128,1);
-    P2P_FRAME_INFO("WF_%s:P2P_GO_NEGO_RESP, dialogToken=%d, intent:%u%s, status:%d, op_ch:%d, ch_list:%s\n",
-         (check_param->is_tx == wf_true) ? "Tx" : "Rx", check_param->dialogToken,
+    P2P_FRAME_INFO("WF_%s(%d):P2P_GO_NEGO_RESP, dialogToken=%d, intent:%u%s, status:%d, op_ch:%d, ch_list:%s\n",
+         (check_param->is_tx == wf_true) ? "Tx" : "Rx", wf_wlan_get_cur_channel(pnic_info),check_param->dialogToken,
          (intent >> 1), intent & 0x1 ? "+" : "-", status, op_ch,
          ch_list_buf);
 
@@ -1120,8 +1115,9 @@ wf_s32 p2p_check_nego_confirm(nic_info_st *pnic_info, p2p_frame_check_param_st *
     }
 
     p2p_dump_attr_ch_list(check_param->p2p_ie, check_param->p2p_ielen, ch_list_buf, 128, 1);
-    P2P_FRAME_INFO("WF_%s:P2P_GO_NEGO_CONF, dialogToken=%d, status:%d, op_ch:%d, ch_list:%s\n",
-         (check_param->is_tx == wf_true) ? "Tx" : "Rx", check_param->dialogToken, status,op_ch, ch_list_buf);
+    P2P_FRAME_INFO("WF_%s(%d):P2P_GO_NEGO_CONF, dialogToken=%d, status:%d, op_ch:%d, ch_list:%s\n",
+         (check_param->is_tx == wf_true) ? "Tx" : "Rx", wf_wlan_get_cur_channel(pnic_info),
+         check_param->dialogToken, status,op_ch, ch_list_buf);
 
     if (!check_param->is_tx) 
     {
@@ -1304,7 +1300,7 @@ wf_s32 wf_p2p_check_frames(nic_info_st *pnic_info, const wf_u8 * buf, wf_u32 len
             check_param.dialogToken     = dialogToken;
             if(p2p_ie)
             {
-                wf_p2p_dump_attrs(p2p_ie,p2p_ielen);
+                //wf_p2p_dump_attrs(p2p_ie,p2p_ielen);
             }
             
             switch (OUI_Subtype) 
@@ -1345,14 +1341,14 @@ wf_s32 wf_p2p_check_frames(nic_info_st *pnic_info, const wf_u8 * buf, wf_u32 len
                     break;
                 }
             case P2P_DEVDISC_REQ:
-                P2P_FRAME_INFO("WF_%s:P2P_DEVDISC_REQ, dialogToken=%d\n",(is_tx == wf_true) ? "Tx" : "Rx", dialogToken);
+                P2P_FRAME_DBG("WF_%s:P2P_DEVDISC_REQ, dialogToken=%d\n",(is_tx == wf_true) ? "Tx" : "Rx", dialogToken);
                 break;
             case P2P_DEVDISC_RESP:
             {
                 wf_u8 *cont = NULL;
                 wf_s32 cont_len = 0;
                 cont = wf_p2p_get_attr_content(p2p_ie, p2p_ielen, P2P_ATTR_STATUS,NULL, &cont_len);
-                P2P_FRAME_INFO("WF_%s:P2P_DEVDISC_RESP, dialogToken=%d, status:%d\n",(is_tx == wf_true) ? "Tx" : "Rx", dialogToken,cont ? *cont : -1);
+                P2P_FRAME_DBG("WF_%s:P2P_DEVDISC_RESP, dialogToken=%d, status:%d\n",(is_tx == wf_true) ? "Tx" : "Rx", dialogToken,cont ? *cont : -1);
                 break;
             }
             case P2P_PROVISION_DISC_REQ:
@@ -1362,7 +1358,7 @@ wf_s32 wf_p2p_check_frames(nic_info_st *pnic_info, const wf_u8 * buf, wf_u32 len
                     wf_u32 p2p_ielen = 0;
                     wf_u32 contentlen = 0;
 
-                    P2P_FRAME_INFO("WF_%s:P2P_PROVISION_DISC_REQ, dialogToken=%d\n",(is_tx == wf_true) ? "Tx" : "Rx", dialogToken);
+                    P2P_FRAME_DBG("WF_%s:P2P_PROVISION_DISC_REQ, dialogToken=%d\n",(is_tx == wf_true) ? "Tx" : "Rx", dialogToken);
 
                     p2p_info->provdisc_req_issued = wf_false;
                     if ((p2p_ie =wf_p2p_get_ie(frame_body + WF_PUBLIC_ACTION_IE_OFFSET,frame_body_len - WF_PUBLIC_ACTION_IE_OFFSET, NULL, &p2p_ielen))) 
@@ -1374,7 +1370,7 @@ wf_s32 wf_p2p_check_frames(nic_info_st *pnic_info, const wf_u8 * buf, wf_u32 len
                         } 
                         else 
                         {
-                            P2P_FRAME_INFO("provdisc_req_issued is wf_true\n");
+                            P2P_FRAME_DBG("provdisc_req_issued is wf_true\n");
                             p2p_info->provdisc_req_issued = wf_true;
                         }
 
@@ -1383,10 +1379,10 @@ wf_s32 wf_p2p_check_frames(nic_info_st *pnic_info, const wf_u8 * buf, wf_u32 len
                 }
                 break;
             case P2P_PROVISION_DISC_RESP:
-                P2P_FRAME_INFO("WF_%s:P2P_PROVISION_DISC_RESP, dialogToken=%d\n",(is_tx == wf_true) ? "Tx" : "Rx", dialogToken);
+                P2P_FRAME_DBG("WF_%s:P2P_PROVISION_DISC_RESP, dialogToken=%d\n",(is_tx == wf_true) ? "Tx" : "Rx", dialogToken);
                 break;
             default:
-                P2P_FRAME_INFO("WF_%s:OUI_Subtype=%d, dialogToken=%d\n",(is_tx == wf_true) ? "Tx" : "Rx", OUI_Subtype, dialogToken);
+                P2P_FRAME_DBG("WF_%s:OUI_Subtype=%d, dialogToken=%d\n",(is_tx == wf_true) ? "Tx" : "Rx", OUI_Subtype, dialogToken);
                 break;
             }
 
@@ -1408,19 +1404,19 @@ wf_s32 wf_p2p_check_frames(nic_info_st *pnic_info, const wf_u8 * buf, wf_u32 len
             switch (OUI_Subtype) 
             {
             case P2P_NOTICE_OF_ABSENCE:
-                P2P_FRAME_INFO("WF_%s:P2P_NOTICE_OF_ABSENCE, dialogToken=%d\n",(is_tx == wf_true) ? "TX" : "RX", dialogToken);
+                P2P_FRAME_DBG("WF_%s:P2P_NOTICE_OF_ABSENCE, dialogToken=%d\n",(is_tx == wf_true) ? "TX" : "RX", dialogToken);
                 break;
             case P2P_PRESENCE_REQUEST:
-                P2P_FRAME_INFO("WF_%s:P2P_PRESENCE_REQUEST, dialogToken=%d\n",(is_tx == wf_true) ? "TX" : "RX", dialogToken);
+                P2P_FRAME_DBG("WF_%s:P2P_PRESENCE_REQUEST, dialogToken=%d\n",(is_tx == wf_true) ? "TX" : "RX", dialogToken);
                 break;
             case P2P_PRESENCE_RESPONSE:
-                P2P_FRAME_INFO("WF_%s:P2P_PRESENCE_RESPONSE, dialogToken=%d\n",(is_tx == wf_true) ? "TX" : "RX", dialogToken);
+                P2P_FRAME_DBG("WF_%s:P2P_PRESENCE_RESPONSE, dialogToken=%d\n",(is_tx == wf_true) ? "TX" : "RX", dialogToken);
                 break;
             case P2P_GO_DISC_REQUEST:
-                P2P_FRAME_INFO("WF_%s:P2P_GO_DISC_REQUEST, dialogToken=%d\n", (is_tx == wf_true) ? "TX" : "RX", dialogToken);
+                P2P_FRAME_DBG("WF_%s:P2P_GO_DISC_REQUEST, dialogToken=%d\n", (is_tx == wf_true) ? "TX" : "RX", dialogToken);
                 break;
             default:
-                P2P_FRAME_INFO("WF_%s:OUI_Subtype=%d, dialogToken=%d\n", (is_tx == wf_true) ? "TX" : "RX", OUI_Subtype, dialogToken);
+                P2P_FRAME_DBG("WF_%s:OUI_Subtype=%d, dialogToken=%d\n", (is_tx == wf_true) ? "TX" : "RX", OUI_Subtype, dialogToken);
                 break;
             }
         }
@@ -1429,7 +1425,7 @@ wf_s32 wf_p2p_check_frames(nic_info_st *pnic_info, const wf_u8 * buf, wf_u32 len
     else 
     {
         is_p2p_frame = 0;
-        P2P_FRAME_INFO("WF_%s:action frame category=%d\n",(is_tx == wf_true) ? "TX" : "RX", category);
+        P2P_FRAME_DBG("WF_%s:action frame category=%d\n",(is_tx == wf_true) ? "TX" : "RX", category);
     }
 
     return is_p2p_frame;
@@ -1445,14 +1441,13 @@ wf_s32 wf_p2p_check_frames(nic_info_st *pnic_info, const wf_u8 * buf, wf_u32 len
  
      if(wf_p2p_is_valid(pnic_info))
      {
-         if (p2p_info->p2p_enabled ) 
-         {
-            if(wf_true == p2p_info->scb.init_flag && p2p_info->scb.rx_mgmt)
-            {
-                P2P_FRAME_INFO("report p2p rx action frame");
-                p2p_info->scb.rx_mgmt(pnic_info, pframe, len);
-            }
-         } 
+
+        if(wf_true == p2p_info->scb.init_flag && p2p_info->scb.rx_mgmt)
+        {
+            P2P_FRAME_DBG("report p2p rx action frame");
+            p2p_info->scb.rx_mgmt(pnic_info, pframe, len);
+        }
+ 
      }
      return WF_RETURN_OK;
  }
@@ -1531,24 +1526,15 @@ wf_s32 wf_p2p_parse_p2pie(nic_info_st *pnic_info, void *p2p, wf_u16 len, WF_P2P_
     
     if(NULL != p2p_info->p2p_ie[ie_type])
     {
-        wf_kfree(p2p_info->p2p_ie[ie_type]);
-        p2p_info->p2p_ie[ie_type] = NULL;
+        wf_memset(p2p_info->p2p_ie[ie_type],0,P2P_IE_BUF_LEN);
         p2p_info->p2p_ie_len[ie_type] = 0;
     }
 
     //P2P_FRAME_ARRAY(pie,2 + pie->len);
-    
+
     p2p_info->p2p_ie_len[ie_type] = 2 + pie->len;
-    p2p_info->p2p_ie[ie_type] = wf_kzalloc(p2p_info->p2p_ie_len[ie_type]);
-    if(NULL != p2p_info->p2p_ie[ie_type])
-    {
-        wf_memcpy(p2p_info->p2p_ie[ie_type],pie,p2p_info->p2p_ie_len[ie_type]);
-    }
-    else
-    {
-        LOG_E("wf_kzalloc for [%s] failed",wf_p2p_ie_to_str(ie_type));
-    }
-    
+    wf_memcpy(p2p_info->p2p_ie[ie_type],pie,p2p_info->p2p_ie_len[ie_type]);
+
      return ret;
  }
 

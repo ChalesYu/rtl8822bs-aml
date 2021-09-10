@@ -276,6 +276,8 @@ typedef enum _NIC_STATE
 #define     MP_ADAPTER_CONNECT_IN_PROGRESS          0x00004000
 #define     MP_ADAPTER_NETWORK_MONITOR_MODE         0x00008000
 
+#define     MP_ADAPTER_EXCEPTION_HANDLE             0x00010000
+
 #define     MP_ADAPTER_CANNOT_SEND_MASK                 \
     (MP_ADAPTER_RESET_IN_PROGRESS | MP_ADAPTER_HARDWARE_ERROR |    \
      MP_ADAPTER_REMOVE_IN_PROGRESS | MP_ADAPTER_HALT_IN_PROGRESS | MP_ADAPTER_SURPRISE_REMOVED |  \
@@ -611,6 +613,9 @@ typedef struct _ADAPTER
     WDFWORKITEM                         setWpaWorkitem;
     WDFWORKITEM                         writeKeyWorkitem;
 
+	/** Process OID asychronously. */
+    WDFWORKITEM                         asychOidWorkitem;
+
     /** The number of attempts that have been made to reset this NIC */
     ULONG                               NumResetAttempts;
 
@@ -622,6 +627,12 @@ typedef struct _ADAPTER
     PNDIS_OID_REQUEST                   PendedRequest;
 #else
 	PNDIS_OID							PendedRequest;
+	wf_bool								beSetOid;
+	NDIS_OID							oid;
+	PVOID								pvInfomationBuffer;
+	ULONG 								u4InformationBufferLength;
+	ULONG								*pu4ByteWrittenOrRead;
+	ULONG								*pu4ByteNeeded;
 #endif
     /** The Max MPDU length cached for quick access */
     ULONG                               MPDUMaxLength;
@@ -877,10 +888,11 @@ MpInterlockedSetClearBits (
 #define MP_RELEASE_SEND_LOCK(_Adapter, _DispatchLevel)      _Adapter->OwningThreadCaller = NULL; \
                                                             WdfSpinLockRelease(_Adapter->SendLock); //MP_RELEASE_SPIN_LOCK(&(_Adapter->SendLock), _DispatchLevel)
 
-//#define MP_ACQUIRE_RESET_PNP_LOCK(_Adapter)     MP_ACQUIRE_SPIN_LOCK(&_Adapter->ResetPnPLock, FALSE)
-//#define MP_RELEASE_RESET_PNP_LOCK(_Adapter)     MP_RELEASE_SPIN_LOCK(&_Adapter->ResetPnPLock, FALSE)
-#define MP_ACQUIRE_RESET_PNP_LOCK(_Adapter)   NDIS_WAIT_FOR_MUTEX(&_Adapter->ResetPnPMutex);
-#define MP_RELEASE_RESET_PNP_LOCK(_Adapter)   NDIS_RELEASE_MUTEX(&_Adapter->ResetPnPMutex);
+//#define MP_ACQUIRE_RESET_PNP_LOCK(_Adapter)   NDIS_WAIT_FOR_MUTEX(&_Adapter->ResetPnPMutex);
+//#define MP_RELEASE_RESET_PNP_LOCK(_Adapter)   NDIS_RELEASE_MUTEX(&_Adapter->ResetPnPMutex);
+#define MP_ACQUIRE_RESET_PNP_LOCK(_Adapter)   KeWaitForMutexObject(&_Adapter->ResetPnPMutex, Executive, KernelMode, \
+	FALSE, NULL);
+#define MP_RELEASE_RESET_PNP_LOCK(_Adapter)   KeReleaseMutex(&_Adapter->ResetPnPMutex, FALSE);
 
 
 #define MP_NIC_POWER_STATE_IS_OFF(_Adapter)  1

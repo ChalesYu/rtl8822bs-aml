@@ -61,6 +61,8 @@
 #define WF_MAX(x, y)    ((x) < (y) ? (y) : (x))
 #endif
 
+#define WF_UNUSED(x)    ((void)(x))
+
 /* type */
 /* function declaration */
 

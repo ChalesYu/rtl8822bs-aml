@@ -49,11 +49,11 @@ static int ndev_init(struct net_device *ndev)
     ndev_priv_st *ndev_priv;
     hw_info_st *hw_info;
 
-    NDEV_DBG("[NDEV]%p ndev_init ",ndev);
+    NDEV_DBG("[NDEV]%p ndev_init ", ndev);
 
     ndev_priv = netdev_priv(ndev);
 
-    if (nic_init(ndev_priv->nic)<0)
+    if (nic_init(ndev_priv->nic) < 0)
         return -1;
 
     tx_work_init(ndev);
@@ -61,28 +61,16 @@ static int ndev_init(struct net_device *ndev)
     hw_info = (hw_info_st *)ndev_priv->nic->hw_info;
     if (hw_info)
     {
-        //memcpy(hw_info->macAddr,macAddr1,6);
         if (!is_valid_ether_addr(hw_info->macAddr))
         {
-            NDEV_ERROR("[NDEV]%p mac addr is invalid ",ndev);
+            NDEV_ERROR("[NDEV]%p mac addr is invalid ", ndev);
             //return -1;
         }
 
-//      memcpy(ndev->dev_addr, hw_info->macAddr+flag, WF_ETH_ALEN);
-//      flag++;
-        NDEV_INFO("efuse_macaddr:"WF_MAC_FMT,WF_MAC_ARG(hw_info->macAddr));
-        if(ndev_priv->nic->nic_num == 0)
-        {
-            memcpy(ndev->dev_addr, hw_info->macAddr, WF_ETH_ALEN);
-        }
-        else if(ndev_priv->nic->nic_num == 1)
-        {
-            hw_info->macAddr[0] = hw_info->macAddr[0] + 0x2;
-            memcpy(ndev->dev_addr, hw_info->macAddr, WF_ETH_ALEN);
-        }
-        NDEV_INFO("[%d] macaddr:"WF_MAC_FMT,ndev_priv->nic->ndev_id,WF_MAC_ARG(hw_info->macAddr));
-        wf_mcu_set_macaddr(ndev_priv->nic,ndev->dev_addr);
-//        SET_NETDEV_DEV(ndev, ndev_priv->nic->dev);
+        NDEV_INFO("efuse_macaddr:"WF_MAC_FMT, WF_MAC_ARG(hw_info->macAddr));
+        memcpy(ndev->dev_addr, hw_info->macAddr, WF_ETH_ALEN);
+
+        NDEV_INFO("[%d] macaddr:"WF_MAC_FMT, ndev_priv->nic->ndev_id, WF_MAC_ARG(hw_info->macAddr));
     }
 
     return 0;
@@ -226,7 +214,7 @@ static inline nic_info_st *wiphy_to_nic_info (struct wiphy *pwiphy)
     return *(nic_info_st **)wiphy_priv(pwiphy);
 }
 
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(3,9,0))
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 9, 0))
 int wiphy_reg_notifier (struct wiphy *pwiphy, struct regulatory_request *request)
 #else
 void wiphy_reg_notifier (struct wiphy *pwiphy, struct regulatory_request *request)
@@ -246,7 +234,7 @@ void wiphy_reg_notifier (struct wiphy *pwiphy, struct regulatory_request *reques
         LOG_E("pnic_info null point !!!");
     }
 
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(3,9,0))
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 9, 0))
     return 0;
 #endif
 }
@@ -281,7 +269,7 @@ static void wiphy_regd_init (nic_info_st *pnic_info)
 
     pwiphy->reg_notifier = wiphy_reg_notifier;
 
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(3,14,0))
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 14, 0))
     pwiphy->flags |= WIPHY_FLAG_CUSTOM_REGULATORY;
     pwiphy->flags &= ~WIPHY_FLAG_STRICT_REGULATORY;
     pwiphy->flags &= ~WIPHY_FLAG_DISABLE_BEACON_HINTS;
@@ -323,18 +311,18 @@ int ndev_open(struct net_device *ndev)
 
     ndev_priv = netdev_priv(ndev);
     pnic_info = ndev_priv->nic;
-    if(NULL == pnic_info)
+    if (NULL == pnic_info)
     {
         return -1;
     }
 
-    NDEV_DBG("[%d] ndev_open ",pnic_info->ndev_id);
+    NDEV_DBG("[%d] ndev_open ", pnic_info->ndev_id);
     if (nic_enable(pnic_info) == WF_RETURN_FAIL)
     {
         return -1;
     }
 #if 0
-#if (LINUX_VERSION_CODE>=KERNEL_VERSION(2,6,35))
+#if (LINUX_VERSION_CODE>=KERNEL_VERSION(2, 6, 35))
     netif_tx_start_all_queues(ndev);
 #else
     netif_start_queue(ndev);
@@ -343,7 +331,7 @@ int ndev_open(struct net_device *ndev)
 
 #ifdef CONFIG_IOCTL_CFG80211
     wf_wiphy_init(pnic_info);
-#if (LINUX_VERSION_CODE>=KERNEL_VERSION(2,6,35))
+#if (LINUX_VERSION_CODE>=KERNEL_VERSION(2, 6, 35))
     netif_tx_wake_all_queues(ndev);
 #else
     netif_wake_queue(ndev);
@@ -354,9 +342,9 @@ int ndev_open(struct net_device *ndev)
     {
         nic_info_st *buddy_nic = NULL;
         buddy_nic = pnic_info->buddy_nic;
-        if(buddy_nic && buddy_nic->is_up == 0)
+        if (buddy_nic && buddy_nic->is_up == 0)
         {
-            if(buddy_nic->ndev)
+            if (buddy_nic->ndev)
             {
                 ndev_open(buddy_nic->ndev);
             }
@@ -367,7 +355,7 @@ int ndev_open(struct net_device *ndev)
         }
     }
 #endif
-    NDEV_DBG("[%d] ndev_open - end",pnic_info->ndev_id);
+    NDEV_DBG("[%d] ndev_open - end", pnic_info->ndev_id);
     return  0;
 }
 
@@ -379,12 +367,12 @@ static int ndev_stop(struct net_device *ndev)
     ndev_priv = netdev_priv(ndev);
     pnic_info = ndev_priv->nic;
 
-    if(NULL == pnic_info)
+    if (NULL == pnic_info)
     {
         return -1;
     }
 
-    //NDEV_DBG("[%d] ndev_stop",pnic_info->ndev_id);
+    //NDEV_DBG("[%d] ndev_stop", pnic_info->ndev_id);
 
     if (nic_disable(pnic_info) == WF_RETURN_FAIL)
     {
@@ -392,21 +380,21 @@ static int ndev_stop(struct net_device *ndev)
     }
 
 #if 0
-#if (LINUX_VERSION_CODE>=KERNEL_VERSION(2,6,35))
+#if (LINUX_VERSION_CODE>=KERNEL_VERSION(2, 6, 35))
     netif_tx_stop_all_queues(ndev);
 #else
     netif_stop_queue(ndev);
 #endif
 #endif
 
-    NDEV_DBG("[%d] ndev_stop - end",pnic_info->ndev_id);
+    NDEV_DBG("[%d] ndev_stop - end", pnic_info->ndev_id);
 
     return 0;
 }
 
 void ndev_tx_resource_enable (struct net_device *ndev, wf_pkt *pkt)
 {
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,35))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 35))
     wf_u16 qidx;
 
     qidx = skb_get_queue_mapping(pkt);
@@ -419,7 +407,7 @@ void ndev_tx_resource_enable (struct net_device *ndev, wf_pkt *pkt)
 
 void ndev_tx_resource_disable (struct net_device *ndev, wf_pkt *pkt)
 {
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,35))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 35))
     wf_u16 qidx;
 
     qidx = skb_get_queue_mapping(pkt);
@@ -437,14 +425,14 @@ static int ndev_start_xmit(struct sk_buff *skb, struct net_device *ndev)
     ndev_priv_st *ndev_priv;
     wf_bool bRet = wf_false;
 
-    if(!skb)
+    if (!skb)
     {
         return 0;
     }
 
     ndev_priv = netdev_priv(ndev);
 
-    if(WF_CANNOT_RUN(ndev_priv->nic))
+    if (WF_CANNOT_RUN(ndev_priv->nic))
     {
         return 0;
     }
@@ -460,7 +448,7 @@ static int ndev_start_xmit(struct sk_buff *skb, struct net_device *ndev)
     }
     else
     {
-        if(wf_false == wf_tx_data_check(ndev_priv->nic))
+        if (wf_false == wf_tx_data_check(ndev_priv->nic))
         {
             dev_kfree_skb_any(skb);
         }
@@ -470,16 +458,16 @@ static int ndev_start_xmit(struct sk_buff *skb, struct net_device *ndev)
             bRet = wf_need_stop_queue(ndev_priv->nic);
             if (bRet == wf_true)
             {
-            	tx_info_st *tx_info = ndev_priv->nic->tx_info;
-				if(tx_info)
-				{
-                	LOG_W(">>>>ndev tx stop queue,free:%d,pending:%d",tx_info->free_xmitframe_cnt,tx_info->pending_frame_cnt);
+                tx_info_st *tx_info = ndev_priv->nic->tx_info;
+                if (tx_info)
+                {
+                    LOG_W(">>>>ndev tx stop queue, free:%d, pending:%d", tx_info->free_xmitframe_cnt, tx_info->pending_frame_cnt);
                 }
-				ndev_tx_resource_disable(ndev, skb);
+                ndev_tx_resource_disable(ndev, skb);
             }
 
             /* actually xmit */
-            if(0 != wf_tx_msdu(ndev_priv->nic, skb->data, skb->len, skb))
+            if (0 != wf_tx_msdu(ndev_priv->nic, skb->data, skb->len, skb))
             {
                 /* failed xmit, must release the resource */
                 dev_kfree_skb_any(skb);
@@ -519,7 +507,7 @@ static unsigned int classify8021d(struct sk_buff *skb)
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)
 static wf_u16 ndev_select_queue(struct net_device *ndev, struct sk_buff *skb, struct net_device *sb_dev)
 #elif LINUX_VERSION_CODE >= KERNEL_VERSION(4, 19, 0)
-static wf_u16 ndev_select_queue(struct net_device *ndev, struct sk_buff *skb, struct net_device *sb_dev,select_queue_fallback_t fallback)
+static wf_u16 ndev_select_queue(struct net_device *ndev, struct sk_buff *skb, struct net_device *sb_dev, select_queue_fallback_t fallback)
 #elif LINUX_VERSION_CODE >= KERNEL_VERSION(3, 13, 0)
 static wf_u16 ndev_select_queue(struct net_device *ndev, struct sk_buff *skb, void *accel_priv, select_queue_fallback_t fallback)
 #else
@@ -568,7 +556,7 @@ static int ndev_set_mac_addr(struct net_device *pnetdev, void *addr)
     memcpy(pnetdev->dev_addr, sock_addr->sa_data, WF_ETH_ALEN);
 
     ndev_priv = netdev_priv(pnetdev);
-    wf_mcu_set_macaddr(ndev_priv->nic,pnetdev->dev_addr);
+    wf_mcu_set_macaddr(ndev_priv->nic, pnetdev->dev_addr);
     return 0;
 }
 
@@ -628,13 +616,13 @@ int wf_hostapd_ioctl(struct net_device *dev, struct iw_point *p)
         return -1;
     }
 
-    if(copy_from_user(param,p->pointer,p->length))
+    if (copy_from_user(param, p->pointer, p->length))
     {
         NDEV_DBG("memcpy error");
         wf_vfree(param);
         return -1;
     }
-    NDEV_DBG("[IOCTL] param->cmd:%d ",param->cmd);
+    NDEV_DBG("[IOCTL] param->cmd:%d ", param->cmd);
 
     ap_sta = wf_ap_status_get(nic_info);
 
@@ -705,12 +693,12 @@ static int ndev_ioctl(struct net_device *dev, struct ifreq *req, int cmd)
     int ret = 0;
 
     ndev_priv = netdev_priv(dev);
-    if(WF_CANNOT_RUN(ndev_priv->nic))
+    if (WF_CANNOT_RUN(ndev_priv->nic))
     {
         return 0;
     }
 
-    //NDEV_DBG("ndev_ioctl cmd:%x",cmd);
+    //NDEV_DBG("ndev_ioctl cmd:%x", cmd);
 
     switch (cmd)
     {
@@ -728,7 +716,7 @@ static int ndev_ioctl(struct net_device *dev, struct ifreq *req, int cmd)
         case (SIOCDEVPRIVATE + 1):     /* Android ioctl */
 #ifdef CONFIG_OS_ANDROID
             NDEV_DBG("ndev_ioctl SIOCDEVPRIVATE");
-            wf_android_priv_cmd_ioctl(dev, req,cmd);
+            ret = wf_android_priv_cmd_ioctl(dev, req, cmd);
 #endif
             break;
 
@@ -740,7 +728,7 @@ static int ndev_ioctl(struct net_device *dev, struct ifreq *req, int cmd)
     return ret;
 }
 
-#if (LINUX_VERSION_CODE>=KERNEL_VERSION(2,6,29))
+#if (LINUX_VERSION_CODE>=KERNEL_VERSION(2, 6, 29))
 static const struct net_device_ops ndev_ops =
 {
     .ndo_init = ndev_init,
@@ -748,7 +736,7 @@ static const struct net_device_ops ndev_ops =
     .ndo_open = ndev_open,
     .ndo_stop = ndev_stop,
     .ndo_start_xmit = ndev_start_xmit,
-#if (LINUX_VERSION_CODE>=KERNEL_VERSION(2,6,35))
+#if (LINUX_VERSION_CODE>=KERNEL_VERSION(2, 6, 35))
     .ndo_select_queue = ndev_select_queue,
 #endif
     .ndo_set_mac_address = ndev_set_mac_addr,
@@ -773,7 +761,7 @@ static void ndev_ops_init(struct net_device *ndev)
 #endif
 }
 
-#if (LINUX_VERSION_CODE>=KERNEL_VERSION(2,6,29))
+#if (LINUX_VERSION_CODE>=KERNEL_VERSION(2, 6, 29))
 static const struct net_device_ops ndev_vir_ops =
 {
     .ndo_init = ndev_init,
@@ -781,7 +769,7 @@ static const struct net_device_ops ndev_vir_ops =
     .ndo_open = ndev_open,
     .ndo_stop = ndev_stop,
     .ndo_start_xmit = ndev_start_xmit,
-#if (LINUX_VERSION_CODE>=KERNEL_VERSION(2,6,35))
+#if (LINUX_VERSION_CODE>=KERNEL_VERSION(2, 6, 35))
     .ndo_select_queue = ndev_select_queue,
 #endif
     .ndo_set_mac_address = ndev_set_mac_addr,
@@ -813,20 +801,20 @@ extern char *if2name;
 static int _ndev_notifier_cb(struct notifier_block *nb,
                              wf_ptr state, void *ptr)
 {
-#if (LINUX_VERSION_CODE>=KERNEL_VERSION(3,11,0))
+#if (LINUX_VERSION_CODE>=KERNEL_VERSION(3, 11, 0))
     struct net_device *ndev = netdev_notifier_info_to_dev(ptr);
 #else
     struct net_device *ndev = ptr;
 #endif
 
-    NDEV_DBG("ndev:%p",ndev);
+    NDEV_DBG("ndev:%p", ndev);
 
     if (ndev == NULL)
     {
         return NOTIFY_DONE;
     }
 
-#if (LINUX_VERSION_CODE>=KERNEL_VERSION(2,6,29))
+#if (LINUX_VERSION_CODE>=KERNEL_VERSION(2, 6, 29))
     if (ndev->netdev_ops == NULL)
     {
         return NOTIFY_DONE;
@@ -879,7 +867,7 @@ void ndev_notifier_unregister(void)
 
 int ndev_register (nic_info_st *pnic_info)
 {
-    int ret=0;
+    int ret = 0;
     struct net_device *pndev;
     wf_u8 dev_name[16];
     ndev_priv_st *pndev_priv;
@@ -887,14 +875,14 @@ int ndev_register (nic_info_st *pnic_info)
     NDEV_DBG("[NDEV] ndev_register --start <node_id:%d> <ndev_id:%d>",
              pnic_info->hif_node_id, pnic_info->ndev_id);
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,35))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 35))
     pndev = alloc_etherdev_mq(sizeof(ndev_priv_st), 4);
 #else
     pndev = alloc_etherdev(sizeof(ndev_priv_st));
 #endif
     if (pndev == NULL)
     {
-        NDEV_WARN("alloc_etherdev error [ret:%d]",ret);
+        NDEV_WARN("alloc_etherdev error [ret:%d]", ret);
         return -1;
     }
 
@@ -903,12 +891,12 @@ int ndev_register (nic_info_st *pnic_info)
     pnic_info->ndev = pndev;
     pnic_info->widev_priv = &pndev_priv->widev_priv;
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,24)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 24)
     SET_MODULE_OWNER(pndev);
 #endif
 
     /* regiest ethernet operation */
-    if(pnic_info->nic_num == 0)
+    if (pnic_info->nic_num == 0)
     {
         ndev_ops_init(pndev);
     }
@@ -946,10 +934,10 @@ int ndev_register (nic_info_st *pnic_info)
 #endif
 
 #ifdef CONFIG_ANDROID_HIF
-    if(1 == pnic_info->hif_node_id)
+    if (1 == pnic_info->hif_node_id)
     {
         sprintf(dev_name, if2name[0] ? if2name : "p2p0");
-        NDEV_DBG("dev_name:%s",dev_name);
+        NDEV_DBG("dev_name:%s", dev_name);
     }
     else
 #endif
@@ -991,7 +979,7 @@ int ndev_register (nic_info_st *pnic_info)
 //    ether_setup(pndev); /* no work ??????? */
 
     netif_carrier_off(pndev);
-#if (LINUX_VERSION_CODE>=KERNEL_VERSION(2,6,35))
+#if (LINUX_VERSION_CODE>=KERNEL_VERSION(2, 6, 35))
     netif_tx_stop_all_queues(pndev);
 #else
     netif_stop_queue(pndev);
@@ -1009,7 +997,7 @@ int ndev_register (nic_info_st *pnic_info)
         free_netdev(pndev);
         pndev = NULL;
         pnic_info->ndev = NULL;
-        NDEV_WARN("register_netdev error [ret:%d]",ret);
+        NDEV_WARN("register_netdev error [ret:%d]", ret);
         return ret;
     }
 
@@ -1028,7 +1016,7 @@ int ndev_unregister(nic_info_st *pnic_info)
 #ifdef CONFIG_IOCTL_CFG80211
         wf_cfg80211_widev_unreg(pnic_info);
 #endif
-        NDEV_DBG("[%d]",pnic_info->ndev_id);
+        NDEV_DBG("[%d]", pnic_info->ndev_id);
         unregister_netdev(pnic_info->ndev);
 #ifdef CONFIG_IOCTL_CFG80211
         wf_cfg80211_wiphy_unreg(pnic_info);
@@ -1062,6 +1050,47 @@ int ndev_shutdown(nic_info_st *pnic_info)
     }
 
     nic_shutdown(pnic_info);
+
+    return 0;
+}
+
+int ndev_unregister_all (nic_info_st *nic_info[], wf_u8 nic_num)
+{
+    wf_u8 i;
+
+    for (i = 0; i < nic_num; i++)
+    {
+        nic_info_st *pnic_info = nic_info[i];
+        if (!pnic_info || pnic_info->is_surprise_removed)
+        {
+            continue;
+        }
+
+        LOG_D("ndev unregister: ndev_id: %d", pnic_info->ndev_id);
+        pnic_info->is_surprise_removed = wf_true;
+        ndev_shutdown(pnic_info);
+        if (wf_false == pnic_info->is_init_commplete)
+        {
+            nic_term(pnic_info);
+        }
+        ndev_unregister(pnic_info);
+
+        /* if current is real nic, all virtual nic's buddy pointer need clear */
+        if (0 == i)
+        {
+            wf_u8 j = 0;
+            for (j = 1; j < nic_num; j++)
+            {
+                if (nic_info[j])
+                {
+                    nic_info[j]->buddy_nic = NULL;
+                }
+            }
+        }
+
+        wf_kfree(pnic_info);
+        nic_info[i] = NULL;
+    }
 
     return 0;
 }

@@ -28,8 +28,9 @@
 #define WLAN_MGMT_WARN(fmt, ...)    LOG_W("[%s:%d]"fmt, __FUNCTION__, __LINE__, ##__VA_ARGS__)
 #define WLAN_MGMT_ERROR(fmt, ...)   LOG_E("[%s:%d]"fmt, __FUNCTION__, __LINE__, ##__VA_ARGS__)
 
-#define WLAN_MGMT_SCAN_QUE_DEEP     64
-#define WLAN_MGMT_SCAN_NODE_TTL     5
+#define LOCAL_INFO                  ((local_info_st *)pnic_info->local_info)
+#define WLAN_MGMT_SCAN_QUE_DEEP     LOCAL_INFO->scan_que_deep
+#define WLAN_MGMT_SCAN_NODE_TTL     LOCAL_INFO->scan_que_node_ttl
 
 /* type define */
 typedef struct
@@ -203,11 +204,8 @@ wlan_mgmt_scan_que_node_new (nic_info_st *pnic_info, rx_frm_msg_t *pfrm_msg,
     wf_deque(&pscan_que_node->list, &pscan_que->ready);
     wlan_mgmt_scan_que_write_post(pscan_que);
 
-    /* clearup scan infomation, except node update operate */
-    if (rst != 1)
-    {
-        wf_memset(pscan_que_node, 0x0, sizeof(wf_wlan_mgmt_scan_que_node_t));
-    }
+    /* clearup node infomation */
+    wf_memset(pscan_que_node, 0x0, sizeof(wf_wlan_mgmt_scan_que_node_t));
 
 end:
     /* initialize node information */
@@ -676,7 +674,7 @@ static int rx_frame_handle (nic_info_st *pnic_info)
                 rst = wlan_mgmt_scan_que_node_new(pnic_info, pfrm_msg, &pnew_node);
                 if (rst < 0)
                 {
-                    WLAN_MGMT_WARN("new node fail, error code: %d", rst);
+                    WLAN_MGMT_DBG("new node fail, error code: %d", rst);
                     break;
                 }
                 rst = wlan_mgmt_scan_node_info(pnic_info, pfrm_msg, frm_msg_len,
@@ -690,7 +688,7 @@ static int rx_frame_handle (nic_info_st *pnic_info)
                 rst = wlan_mgmt_scan_que_node_push(pnic_info, pnew_node);
                 if (rst)
                 {
-                    WLAN_MGMT_WARN("node input scan queue fail, error code: %d", rst);
+                    WLAN_MGMT_DBG("node input scan queue fail, error code: %d", rst);
                     wlan_mgmt_scan_que_node_del(pnic_info, pnew_node);
                 }
                 break;
@@ -717,6 +715,26 @@ static int rx_frame_handle (nic_info_st *pnic_info)
                 }
                 break;
             }
+            case WF_WLAN_MGMT_TAG_PROBEREQ_P2P :
+            {
+                rx_frm_msg_t *pfrm_msg = (void *)pmsg->value;
+                wf_u16 frm_msg_len = pmsg->len;
+                wf_u16 mgmt_len = frm_msg_len - WF_OFFSETOF(rx_frm_msg_t, mgmt_frm);
+                wf_p2p_proc_probereq(pnic_info,  &pfrm_msg->mgmt_frm, mgmt_len);
+                break;
+            }
+            case WF_WLAN_MGMT_TAG_ACTION :
+            {
+                rx_frm_msg_t *pfrm_msg = (void *)pmsg->value;
+                wf_u16 frm_msg_len = pmsg->len;
+                wf_u16 mgmt_len = frm_msg_len - WF_OFFSETOF(rx_frm_msg_t, mgmt_frm);
+                wdn_net_info_st *pwdn_info = NULL;
+
+                /* retrive wdn_info */
+                pwdn_info = wf_wdn_find_info(pnic_info, pfrm_msg->mgmt_frm.sa);
+                wf_action_frame_process(pnic_info, pwdn_info, &pfrm_msg->mgmt_frm, mgmt_len);
+                break;
+            }
 
             case WF_WLAN_MGMT_TAG_UNINSTALL :
             {
@@ -725,6 +743,7 @@ static int rx_frame_handle (nic_info_st *pnic_info)
                 uninstalling = wf_true;
                 break;
             }
+            
 
             default :
                 WLAN_MGMT_ERROR("unknown message tag %d", pmsg->tag);
@@ -894,7 +913,19 @@ int wf_wlan_mgmt_rx_frame (void *ptr)
         case WF_80211_FRM_PROBE_REQ :
             if(wf_p2p_is_valid(pnic_info))
             {
-                wf_p2p_proc_probereq(pnic_info, pmgmt, mgmt_len);
+                if (mgmt_len > WF_WLAN_MGMT_TAG_PROBEREQ_P2P_SIZE_MAX)
+                {
+                    WLAN_MGMT_ERROR("probe req frame length(%d) over limited", mgmt_len);
+                    return -6;
+                }
+                /* send frame message */
+                rst = frm_msg_send(pwlan_mgmt_info, WF_WLAN_MGMT_TAG_PROBEREQ_P2P,
+                                   get_phy_status(ppkt), pmgmt, mgmt_len);
+                if (rst)
+                {
+                    WLAN_MGMT_DBG("probe req frame message send fail, error code: %d", rst);
+                    return -7;
+                }
             }
 #if defined(CFG_ENABLE_ADHOC_MODE)
             if (get_sys_work_mode(pnic_info) == WF_ADHOC_MODE)
@@ -962,7 +993,19 @@ int wf_wlan_mgmt_rx_frame (void *ptr)
             break;
 
         case WF_80211_FRM_ACTION :
-            wf_action_frame_process(pnic_info, pwdn_info, pmgmt, mgmt_len);
+            if (mgmt_len > WF_80211_MGMT_BEACON_SIZE_MAX)
+            {
+                WLAN_MGMT_ERROR("action frame length(%d) over limited", mgmt_len);
+                return -6;
+            }
+            /* send frame message */
+            rst = frm_msg_send(pwlan_mgmt_info, WF_WLAN_MGMT_TAG_ACTION,
+                               get_phy_status(ppkt), pmgmt, mgmt_len);
+            if (rst)
+            {
+                WLAN_MGMT_DBG("action frame message send fail, error code: %d", rst);
+                return -7;
+            }
             break;
 
         default :
@@ -973,8 +1016,9 @@ int wf_wlan_mgmt_rx_frame (void *ptr)
     return 0;
 }
 
-static int wlan_mgmt_scan_que_init (wf_wlan_mgmt_info_t *pwlan_mgmt_info)
+static int wlan_mgmt_scan_que_init (nic_info_st *pnic_info)
 {
+    wf_wlan_mgmt_info_t *pwlan_mgmt_info = pnic_info->wlan_mgmt_info;
     wf_wlan_mgmt_scan_que_t *pscan_que = &pwlan_mgmt_info->scan_que;
     int i;
 
@@ -1001,8 +1045,9 @@ static int wlan_mgmt_scan_que_init (wf_wlan_mgmt_info_t *pwlan_mgmt_info)
     return 0;
 }
 
-static int wlan_mgmt_scan_que_deinit (wf_wlan_mgmt_info_t *pwlan_mgmt_info)
+static int wlan_mgmt_scan_que_deinit (nic_info_st *pnic_info)
 {
+    wf_wlan_mgmt_info_t *pwlan_mgmt_info = pnic_info->wlan_mgmt_info;
     wf_wlan_mgmt_scan_que_t *pscan_que = &pwlan_mgmt_info->scan_que;
 
     WLAN_MGMT_DBG();
@@ -1046,6 +1091,12 @@ static int wlan_mgmt_msg_init (wf_wlan_mgmt_info_t *pwlan_mgmt_info)
             wf_msg_alloc(pmsg_que, WF_WLAN_MGMT_TAG_PROBERSP_FRAME,
                          WF_OFFSETOF(rx_frm_msg_t, mgmt_frm) +
                          WF_80211_MGMT_PROBERSP_SIZE_MAX, 8) ||
+            wf_msg_alloc(pmsg_que, WF_WLAN_MGMT_TAG_PROBEREQ_P2P,
+                         WF_OFFSETOF(rx_frm_msg_t, mgmt_frm) +
+                         WF_80211_MGMT_BEACON_SIZE_MAX, 8)||
+            wf_msg_alloc(pmsg_que, WF_WLAN_MGMT_TAG_ACTION,
+                         WF_OFFSETOF(rx_frm_msg_t, mgmt_frm) +
+                         WF_80211_MGMT_BEACON_SIZE_MAX, 8)||
             wf_msg_alloc(pmsg_que, WF_WLAN_MGMT_TAG_SCAN_QUE_FLUSH, 0, 1) ||
             wf_msg_alloc(pmsg_que, WF_WLAN_MGMT_TAG_UNINSTALL, 0, 1) ||
             wf_msg_alloc(pmsg_que, WF_WLAN_MGMT_TAG_SCAN_QUE_REFRESH,
@@ -1149,7 +1200,7 @@ int wf_wlan_mgmt_init (nic_info_st *pnic_info)
     }
     pnic_info->wlan_mgmt_info = pwlan_mgmt_info;
 
-    rst = wlan_mgmt_scan_que_init(pwlan_mgmt_info);
+    rst = wlan_mgmt_scan_que_init(pnic_info);
     if (rst)
     {
         WLAN_MGMT_ERROR("scan queue initilize fail, error code: %d", rst);
@@ -1213,7 +1264,7 @@ int wf_wlan_mgmt_term (nic_info_st *pnic_info)
     }
 
     /* free wlan info */
-    wlan_mgmt_scan_que_deinit(pwlan_mgmt_info);
+    wlan_mgmt_scan_que_deinit(pnic_info);
     wlan_mgmt_msg_deinit(pwlan_mgmt_info);
     wf_kfree(pwlan_mgmt_info);
     pnic_info->wlan_mgmt_info = NULL;

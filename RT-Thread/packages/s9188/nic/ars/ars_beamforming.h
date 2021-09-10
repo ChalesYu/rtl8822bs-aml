@@ -221,6 +221,7 @@ typedef struct _RT_BEAMFORMING_INFO
 
 typedef struct beamform_info_st_
 {
+	wf_u8 reserved;
 }ars_beamform_info_st;
 
 wf_s32 phydm_Beamforming_Watchdog(void *ars);

@@ -1789,7 +1789,7 @@ Arguments:
     //
     // Fault handling handlers
     //
-    //MPChar.CheckForHangHandlerEx        = MPCheckForHang;
+    MPChar.CheckForHangHandlerEx        = MPCheckForHang;
     MPChar.ResetHandlerEx               = MPReset;
     MPChar.Flags = NDIS_WDM_DRIVER;      
 
@@ -1936,6 +1936,7 @@ MPInitialize(
         
 		ndisStatus = wf_usb_dev_start(pAdapter);
         if(ndisStatus != NDIS_STATUS_SUCCESS) {
+            LOG_E("USB device start failed, status: 0x%x", ndisStatus);
             break;
         }
 
@@ -2241,99 +2242,10 @@ Note:
 --*/
 {
     PADAPTER        pAdapter = (PADAPTER) MiniportAdapterContext;
-    BOOLEAN         bNeedReset = FALSE;
-//    UNREFERENCED_PARAMETER(MiniportAdapterContext);
-	
-    do
-    {
-        //
-        // Invoke MpEventCheckForHang. See if reset is needed.
-        //
-//        if (MpEventCheckForHang(pAdapter))
-//        {
-//            LOG_D("MpEventCheckForHang has requested a reset");
-//			bNeedReset = TRUE;
-//            break;            
-//        }
-        //
-        // If a hardware error has occured, ask NDIS to reset us
-        //
-        if (MP_TEST_STATUS_FLAG(pAdapter, (MP_ADAPTER_NON_RECOVER_ERROR | MP_ADAPTER_HARDWARE_ERROR)))
-        {
-            LOG_E("Requesting reset since a hardware error has occured");
-            bNeedReset = TRUE;
-            break;
-        }
-        
-        //
-        // Check to see if packet are not getting sent. Ask for reset if stalled.
-        //
-        if (pAdapter->PendingSends > 0)
-        {
-            if (pAdapter->TotalTransmitsSnapShot == 0)
-            {
-                //
-                // Take a snap shot of the total transmits done so far. Sampling begins now
-                //
-                LOG_E("Restart monitoring the total transmit count");
-                pAdapter->TotalTransmitsSnapShot = pAdapter->TotalTransmits;
-            }
-            else if (pAdapter->TotalTransmitsSnapShot == pAdapter->TotalTransmits)
-            {
-                LOG_D("%d sample periods of total transmits have occured", pAdapter->NumStalledSendTicks);
-                //
-                // If the number of sends pended on the Hw11 has not changed we will
-                // count a tick interval of stalled send period.
-                //
-                pAdapter->NumStalledSendTicks++;
-
-                MPASSERTMSG(
-                    "If one more ChecForHang detects stalled sends, we will reset! Investigate\n",
-                    pAdapter->NumStalledSendTicks != MP_SENDS_HAVE_STALLED_PERIOD - 1
-                    );
-                
-                if(pAdapter->NumStalledSendTicks >= MP_SENDS_HAVE_STALLED_PERIOD)
-                {
-                    LOG_D("Send Engine seems to be stalled. Requesting reset");
-                    LOG_D("Requesting reset from NDIS");
-                    MPASSERTMSG("Reset should not occur normally! Investigate\n", FALSE);
-                    bNeedReset = TRUE;
-                    break;
-                }
-            }
-            else
-            {
-                //
-                // Everything is ok. Pended sends have been completing.
-                //
-                LOG_D("Transmissions are working properly.");
-                MPVERIFY(pAdapter->TotalTransmitsSnapShot < pAdapter->TotalTransmits);
-                pAdapter->TotalTransmitsSnapShot = 0;
-                pAdapter->NumStalledSendTicks = 0;
-            }
-        }
-            
-        //
-        // Sample the usage of Rx MSDU list. Will be used during MpReturnPackets to determine
-        // if we need to shrink the Rx MSDU list.
-        //
-        if (pAdapter->RxMSDUListSampleTicks < MP_RX_MSDU_LIST_SAMPLING_PERIOD)
-        {
-            pAdapter->RxMSDUListSampleTicks++;
-            pAdapter->NumRxMSDUNotUtilized += (pAdapter->TotalRxMSDUAllocated - pAdapter->PendingReceives);
-			//DbgPrint("********NumRxMSDUNotUtilized=%d\n", pAdapter->NumRxMSDUNotUtilized);
-			//DbgPrint("********TotalRxMSDUAllocated=%d\n", pAdapter->TotalRxMSDUAllocated);
-			//DbgPrint("********PendingReceives=%d\n", pAdapter->PendingReceives);
-        }
-        else
-        {
-            LOG_D("Percentage of Under Utilization = %d", (pAdapter->NumRxMSDUNotUtilized * 100) / (pAdapter->RxMSDUListSampleTicks * pAdapter->TotalRxMSDUAllocated));
-            pAdapter->RxMSDUListSampleTicks = 0;
-            pAdapter->NumRxMSDUNotUtilized = 0;
-        }
-        LOG_D("%d sample periods of Rx MSDU list have passed", pAdapter->RxMSDUListSampleTicks);
-    } while(FALSE);
-    return bNeedReset;
+	BOOLEAN			bHanged;
+	bHanged = TRUE;
+	if(pAdapter->dev_state == WF_DEV_STATE_RUN) bHanged = FALSE;
+    return bHanged;
 }
 
 VOID 

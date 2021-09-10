@@ -52,9 +52,32 @@
 #include "lwip/dns.h"
 #include "netif/etharp.h"
 
+#include "arch/sys_arch.h"
+
 #include "dhcp_server.h"
 
 #include <string.h>
+
+/* allocated client ip range */
+#ifndef DHCPD_CLIENT_IP_MIN
+    #define DHCPD_CLIENT_IP_MIN     2
+#endif
+#ifndef DHCPD_CLIENT_IP_MAX
+    #define DHCPD_CLIENT_IP_MAX     254
+#endif
+
+/* the DHCP server address */
+#ifndef DHCPD_SERVER_IP
+    #define DHCPD_SERVER_IP "192.168.125.1"
+#endif
+
+#define DHCP_DEBUG_PRINTF
+
+#ifdef  DHCP_DEBUG_PRINTF
+    #define DEBUG_PRINTF        rt_kprintf("[DHCP] "); rt_kprintf
+#else
+    #define DEBUG_PRINTF(...)
+#endif /* DHCP_DEBUG_PRINTF */
 
 /** Mac address length  */
 #define DHCP_MAX_HLEN                   6
@@ -623,5 +646,170 @@ dhcp_server_release(struct netif *netif)
   }
   /* free the buffer  */
   mem_free(dhcp_server);
+}
+
+
+extern void set_if(const char *netif_name, const char *ip_addr, const char *gw_addr, const char *nm_addr);
+
+void dhcpd_start(const char *netif_name)
+{
+    struct netif *netif = netif_list;
+    err_t res;
+
+    DEBUG_PRINTF("%s: %s\r\n", __FUNCTION__, netif_name);
+
+    LWIP_NETIF_LOCK();
+    if (strlen(netif_name) > sizeof(netif->name))
+    {
+        DEBUG_PRINTF("network interface name too long!\r\n");
+        goto _exit;
+    }
+
+    while (netif != RT_NULL)
+    {
+        if (strncmp(netif_name, netif->name, sizeof(netif->name)) == 0)
+            break;
+
+        netif = netif->next;
+        if (netif == RT_NULL)
+        {
+            DEBUG_PRINTF("network interface: %s not found!\r\n", netif_name);
+            break;
+        }
+    }
+
+    if (netif == RT_NULL)
+    {
+        goto _exit;
+    }
+
+    if (1)
+    {
+        dhcp_stop(netif);
+
+        set_if(netif_name, DHCPD_SERVER_IP, "0.0.0.0", "255.255.255.0");
+
+        netif_set_up(netif);
+    }
+
+    {
+        char str_tmp[4 * 4 + 4] = DHCPD_SERVER_IP;
+        char *p = str_tmp;
+        ip4_addr_t ip_start, ip_end;
+
+        p = strchr(str_tmp, '.');
+        if (p)
+        {
+            p = strchr(p + 1, '.');
+            if (p)
+            {
+                p = strchr(p + 1, '.');
+            }
+        }
+        if (!p)
+        {
+            DEBUG_PRINTF("DHCPD_SERVER_IP: %s error!\r\n", str_tmp);
+            goto _exit;
+        }
+        p = p + 1; /* move to xxx.xxx.xxx.^ */
+
+        sprintf(p, "%d", DHCPD_CLIENT_IP_MIN);
+        ip4addr_aton(str_tmp, &ip_start);
+        DEBUG_PRINTF("ip_start: [%s]\r\n", str_tmp);
+        sprintf(p, "%d", DHCPD_CLIENT_IP_MAX);
+        ip4addr_aton(str_tmp, &ip_end);
+        DEBUG_PRINTF("ip_start: [%s]\r\n", str_tmp);
+
+        res = dhcp_server_start(netif, &ip_start, &ip_end);
+        if (res != 0)
+        {
+            DEBUG_PRINTF("dhcp_server_start res: %s.\r\n", res);
+        }
+    }
+
+_exit:
+    LWIP_NETIF_UNLOCK();
+    return;
+}
+
+void dhcpd_stop(const char *netif_name)
+{
+    struct dhcp_server *dhcp_server, *server_node;
+    struct netif *netif = netif_list;
+    struct dhcp_client_node *node, *next;
+
+    DEBUG_PRINTF("%s: %s\r\n", __FUNCTION__, netif_name);
+
+    LWIP_NETIF_LOCK();
+    if (strlen(netif_name) > sizeof(netif->name))
+    {
+        DEBUG_PRINTF("network interface name too long!\r\n");
+        goto _exit;
+    }
+
+    while (netif != RT_NULL)
+    {
+        if (strncmp(netif_name, netif->name, sizeof(netif->name)) == 0)
+            break;
+
+        netif = netif->next;
+        if (netif == RT_NULL)
+        {
+            DEBUG_PRINTF("network interface: %s not found!\r\n", netif_name);
+            break;
+        }
+    }
+
+    if (netif == RT_NULL)
+    {
+        goto _exit;
+    }
+
+    /* If this netif alreday use the dhcp server. */
+    for (dhcp_server = lw_dhcp_server; dhcp_server != NULL; dhcp_server = dhcp_server->next)
+    {
+        if (dhcp_server->netif == netif)
+        {
+            break;
+        }
+    }
+    if (dhcp_server == RT_NULL)
+    {
+        goto _exit;
+    }
+
+    /* remove dhcp server */
+    if (dhcp_server == lw_dhcp_server)
+    {
+        lw_dhcp_server = lw_dhcp_server->next;
+    }
+    else
+    {
+        server_node = lw_dhcp_server;
+        while (server_node->next && server_node->next != dhcp_server)
+        {
+            server_node = server_node->next;
+        }
+        if (server_node->next != RT_NULL)
+        {
+            server_node->next = server_node->next->next;
+        }
+    }
+
+    udp_disconnect(dhcp_server->pcb);
+    udp_remove(dhcp_server->pcb);
+
+    /* remove all client node */
+    for (node = dhcp_server->node_list; node != NULL; node = next)
+    {
+        next = node->next;
+        mem_free(node);
+    }
+
+    mem_free(dhcp_server);
+    set_if(netif_name, "0.0.0.0", "0.0.0.0", "0.0.0.0");
+
+_exit:
+    LWIP_NETIF_UNLOCK();
 }
 #endif /* LWIP_DHCP_SERVER */

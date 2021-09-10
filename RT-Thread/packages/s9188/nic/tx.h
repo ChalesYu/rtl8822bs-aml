@@ -17,16 +17,26 @@
 #ifndef __TX_H__
 #define __TX_H__
 
+#ifndef MAX_XMITBUF_SZ
 #ifdef CONFIG_SOFT_TX_AGGREGATION
 #define MAX_XMITBUF_SZ      (8*1024)
 #else
 #define MAX_XMITBUF_SZ      (2048)
 #endif
+#endif
+
 #define MAX_AGG_NUM         (32)
 
 #define TX_AGG_QUEUE_ENABLE (0)
 
-#define NR_XMITBUFF         (4)
+#ifndef XMIT_DATA_BUFFER_CNT
+#define XMIT_DATA_BUFFER_CNT (8)
+#endif
+
+#ifndef XMIT_MGMT_BUFFER_CNT
+#define XMIT_MGMT_BUFFER_CNT (8)
+#endif
+
 #ifndef NR_XMITFRAME
 #define NR_XMITFRAME        256
 #endif
@@ -418,7 +428,7 @@ enum cmdbuf_type {
 };
 
 typedef struct tx_info {
-    wf_lock_spin lock;
+    wf_lock_t lock;
     wf_u64 tx_bytes;
     wf_u64 tx_pkts;
     wf_u64 tx_drop;

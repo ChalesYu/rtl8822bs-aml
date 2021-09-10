@@ -17,12 +17,11 @@
 #ifndef __COMMON_H__
 #define __COMMON_H__
 
+// configure
+#include "wf_config.h"
 
 // os porting define
 #include "wf_os_api.h"
-
-// configure
-#include "wf_config.h"
 
 // public define
 #include "wf_mix.h"
@@ -53,10 +52,6 @@
 #include "rx.h"
 #include "fw_download.h"
 #include "mcu_cmd.h"
-
-#if  defined (CONFIG_ARS_FIRMWARE_SUPPORT)
-//#include "odm.h"
-#endif
 
 #if  defined (CONFIG_ARS_DRIVER_SUPPORT)
 #include "ars_entry.h"

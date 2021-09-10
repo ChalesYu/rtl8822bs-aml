@@ -49,6 +49,13 @@ typedef struct
     wf_os_api_sema_t req_lock;
     wf_scan_req_t *preq;
     wf_msg_que_t msg_que;
+
+    struct
+    {
+        wf_u8 number;
+        CHANNEL_WIDTH width;
+        HAL_PRIME_CH_OFFSET offset;
+    } chnl_bak;
 } wf_scan_info_t;
 
 /* function declaration */

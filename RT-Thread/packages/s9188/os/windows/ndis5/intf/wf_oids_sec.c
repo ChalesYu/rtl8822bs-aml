@@ -127,11 +127,26 @@ wf_set_nic_key(PADAPTER prAdapter, P_WF_NDIS_802_11_KEY_T pNdisKey, BOOLEAN bPai
 		pNicKey->AlgoId = WF_DOT11_CIPHER_ALGO_CCMP;
 		wf_memcpy(pNicKey->KeyValue, pNdisKey->aucKeyMaterial, CCMP_KEY_LEN);
 		break;
+	case WF_DOT11_CIPHER_ALGO_WEP40:
+		if(pNicKey->KeyLength > 5){
+			LOG_E("Invalid key length for WEP40");
+			return NDIS_STATUS_FAILURE;
+		}
+		wf_memcpy(pNicKey->KeyValue, pNdisKey->aucKeyMaterial, 5);
+		break;
+	case WF_DOT11_CIPHER_ALGO_WEP104:
+		if(pNicKey->KeyLength > 13){
+			LOG_E("Invalid key length for WEP104");
+			return NDIS_STATUS_FAILURE;
+		}
+		wf_memcpy(pNicKey->KeyValue, pNdisKey->aucKeyMaterial, 13);
+		break;
 	default:
 		LOG_E("Unsupported cipher type.");
 		break;
 	}
-
+	
+	return NDIS_STATUS_SUCCESS;
 }
 
 VOID wf_sta_hw_set_unicast_key(nic_info_st *pnic_info, wdn_net_info_st *pwdn_info)

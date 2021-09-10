@@ -1,0 +1,15 @@
+
+<< ram-fw-9188-new-r1730-enc.bin >>
+* 调整DIG中的阈值
+* 从RXD中新的位置获取Seq Num
+* 在CMD_TEST命令字的Response末尾追加Magic Word: 0x0000_9188
+* RAM FW中的所有命令字处理函数都会设置response length。如果没有response data，会设置response length为0. 注意： ROM FW中的一些命令字处理函数可能没有设置response length。
+
+<<ram-fw-9188-new-r1741-enc.bin>>
+* 解决C2H数据包解密Key错误的问题
+* Get Channel命令字返回Primary channel，代替原来的Center Channel
+* 解决Test命令字返回数据内容错误问题
+
+<<ram-fw-9188-new-r1751-enc.bin>>
+* 删除部分不再使用的命令字：0x09, 0x0A, 0x24, 0x25, 0x27, 0x2A, 0x2B, 0x2C, 0x30, 0x52, 0x6B, 0x8B, 0x92, 0x93, 0x95, 0xAE
+* 增加新命令字Check Tx Buffer Empty

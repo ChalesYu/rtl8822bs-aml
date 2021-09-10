@@ -1,3 +1,15 @@
+/*
+ * tx_rtthread.h
+ *
+ * data frame tx xmit function declare.
+ *
+ * Author: hichard
+ *
+ * Copyright (c) 2020 SmartChip Integrated Circuits(SuZhou ZhongKe) Co.,Ltd
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ */
 #ifndef __TX_RTTHREAD__
 #define __TX_RTTHREAD__
 

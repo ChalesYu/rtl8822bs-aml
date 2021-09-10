@@ -99,6 +99,29 @@ static int hw_read_fw_file(PADAPTER                pAdapter)
 	return 0;
 }
 
+int nic_read_local_config(void *info)
+{
+	nic_info_st *pnic_info = info;
+	local_info_st *local_info;
+
+	if(pnic_info == NULL) {
+		LOG_E("nic info is NULL");
+		return -1;
+	}
+
+	if(pnic_info->local_info == NULL) {
+		LOG_E("local info is NULL");
+		return -2;
+	}
+
+	local_info = pnic_info->local_info;
+
+	local_info->scan_ch_to = 20;
+	local_info->scan_prb_times = 5;
+
+	return 0;
+}
+
 
 #ifdef CONFIG_RICHV200_FPGA
 
@@ -647,7 +670,7 @@ NDIS_STATUS wf_nic_dev_init(PADAPTER pAdapter)
 	nic_info->nic_write = wf_usb_write;
 	nic_info->nic_tx_queue_insert = wf_usb_xmit_insert;//hif_info->ops->hif_tx_queue_insert;
 	nic_info->nic_tx_queue_empty = wf_usb_xmit_empty;//hif_info->ops->hif_tx_queue_empty;
-
+	nic_info->nic_cfg_file_read = nic_read_local_config;
 
 
 #ifdef CONFIG_RICHV200_FPGA
@@ -674,7 +697,7 @@ NDIS_STATUS wf_nic_dev_init(PADAPTER pAdapter)
 	/* mcu hardware access hw lock */
     nic_info->mcu_hw_access_lock  = &pAdapter->mcu_hw_access_lock;
 	nic_info->mcu_hw_access_lock->lock_type = WF_LOCK_TYPE_MUTEX;
-	wf_lock_mutex_init(&nic_info->mcu_hw_access_lock->lock_mutex);
+	wf_lock_init(&nic_info->mcu_hw_access_lock->lock_mutex, WF_LOCK_TYPE_MUTEX);
 	
 	ret = wf_xmit_init(pAdapter);
 	if (ret != NDIS_STATUS_SUCCESS) {

@@ -29,11 +29,11 @@ typedef struct wf_xmit_pkt_s{
 
 	struct xmit_frame 	xframe;
 #if defined(NDIS60_MINIPORT)
-	PNET_BUFFER_LIST 	nbl;
+	PNET_BUFFER_LIST 	ndis_pkt;
 	BOOLEAN				is_last_nb;
 
 #else
-	PNDIS_PACKET		tx_pkt_desc;
+	PNDIS_PACKET		ndis_pkt;
 #endif
 	NDIS_HANDLE 		mp_handle;
 	ULONG 				xmit_flag;
@@ -54,6 +54,8 @@ typedef struct wf_xmit_info_s{
 	wf_thread_t *tx_thread;
 	KEVENT tx_evt;
 	void *padapter;	
+
+	ULONG		tx_byte;
 }wf_xmit_info_t;
 
 void wf_data_que_init(wf_data_que_t *que);

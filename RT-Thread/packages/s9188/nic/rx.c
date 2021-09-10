@@ -1825,10 +1825,11 @@ wf_s32 rx_pending_reorder_enqueue(wf_u16 current_seq, void *pskb, recv_ba_ctrl_s
     wf_lock_unlock(&queue_head->lock);
 
     new_pkt = rx_free_reorder_dequeue(ba_order);
-    if(NULL == new_pkt)
+    while(NULL == new_pkt)
     {
-        LOG_E("rx_free_reorder_dequeue is null");
-        return -1;
+        LOG_W("waite for rx_free_reorder_dequeue");
+        //wf_msleep(ba_order->wait_timeout);
+        new_pkt = rx_free_reorder_dequeue(ba_order);
     }
 
     new_pkt->seq_num = current_seq;

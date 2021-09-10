@@ -103,6 +103,424 @@ int wf_io_write_data(const nic_info_st *nic_info, wf_u8 agg_num, char *pbuf, wf_
     return ret;
 }
 
+//#ifdef MCU_CMD_TXD
+//
+// 
+// void txdesc_new_chksum(wf_u8 *ptx_desc)
+// {
+//	 wf_u16 *usPtr = (wf_u16 *) ptx_desc;
+//	 wf_u32 index;
+//	 wf_u16 checksum = 0;
+// 
+//	 for (index = 0; index < 9; index++)
+//		 checksum ^= le16_to_cpu(*(usPtr + index));
+// 
+//	 wf_set_bits_to_le_u32(ptx_desc + 16, 16, 16, checksum);
+// }
+// static wf_inline wf_u32 wf_io_bulk_read_one_reg(const nic_info_st *nic_info, struct xmit_buf *pxmit_buf, wf_u16 addr)
+// {
+//	 wf_u8	u8Value;
+//	 wf_u16 u16Value;
+//	 wf_u32 u32Value;
+//	 wf_u8 *ptx_desc;
+//	 wf_u8 *prx_desc;
+//	 hif_node_st *hif_node = nic_info->hif_node;
+//	 ptx_desc = pxmit_buf->pbuf;
+//	 wf_memset(pxmit_buf->pbuf, 0, 28 + 20);
+//	 /* set for reg xmit */
+//	 wf_set_bits_to_le_u32(ptx_desc, 0, 2, TYPE_REG);
+//	 /* set for reg read */
+//	 wf_set_bits_to_le_u32(ptx_desc, 14, 1, 0);
+//	 /* set for reg num */
+//	 wf_set_bits_to_le_u32(ptx_desc, 15, 3, 1);
+//	 /* set for reg HWSEQ_EN */
+//	 wf_set_bits_to_le_u32(ptx_desc, 18, 1, 1);
+//	 /* set for reg address */
+//	 wf_set_bits_to_le_u32(ptx_desc + 4, 0, 16, addr);
+//	 /* set for checksum */
+//	 txdesc_new_chksum(ptx_desc);
+//	 pxmit_buf->pkt_len = 20;
+// 
+//#if 0
+//	 register_addr = 0;
+//	 register_addr |= 3<<13;
+//	 register_addr |= (pxmit_buf->pkt_len / 4);
+//	 register_addr &= 0x1ffff;
+//#endif
+//
+//	 wf_lock_mutex_lock(&hif_node->reg_mutex);
+//	 wf_hif_bulk_reg_init(hif_node);
+//	 if(nic_info->nic_tx_queue_insert(nic_info->hif_node, 1, ptx_desc, pxmit_buf->pkt_len,
+//										   CMD_QUEUE_INX, NULL, NULL, NULL) != 0) {
+//	 // if(nic_info->nic_write(nic_info->hif_node, 2, register_addr, ptx_desc, pxmit_buf->pkt_len) < 0) {
+//		LOG_E("bulk access reg error by send addr");
+//		wf_lock_mutex_unlock(&hif_node->reg_mutex);
+//		return -1;
+//	 }
+// 
+//	 if(wf_hif_bulk_reg_wait(hif_node, HIF_BULK_MSG_TIMEOUT) == 0) {
+//		 LOG_E("bulk access reg read timeout");
+//		 wf_lock_mutex_unlock(&hif_node->reg_mutex);
+//		 return -1;
+//	 }
+//	 
+//	 prx_desc = pxmit_buf->pbuf;
+//	 pxmit_buf->pkt_len = 16 + 4 + 4;
+//	 if(hif_node->reg_size != pxmit_buf->pkt_len) {
+//		 LOG_E("bulk access reg read length error");
+//		 wf_lock_mutex_unlock(&hif_node->reg_mutex);
+//		 return -1;
+//	 }
+//	 wf_memcpy(prx_desc, hif_node->reg_buffer, hif_node->reg_size);
+// 
+//	 wf_lock_mutex_unlock(&hif_node->reg_mutex);
+// 
+//	  // {
+//	     //int i;
+//	     //wf_u32 *preg = (wf_u32 *)prx_desc;
+// 
+//	     //LOG_D("bulk read reg data: ");
+//	     //for(i=0; i<40; i++) {
+//	  	   //LOG_D("0x%x  ", prx_desc[i]);
+//	     //}
+//	     //LOG_D("\n");  
+//	  //}
+//	
+//	 u8Value = wf_le_u8_read(prx_desc);
+//	 if((u8Value & 0x03) != TYPE_REG) {
+//		LOG_E("bulk access reg read error");
+//		return -1;
+//	 }
+//	u16Value = wf_le_u16_read(prx_desc + 4);
+//	u16Value &= 0x3FFF;
+//	if(u16Value != (4 + 4)) {
+//		LOG_E("bulk access reg read length error, value is %d", u16Value);
+//		return -1; 
+//	}
+// 
+//	u8Value = wf_le_u8_read(prx_desc + 20);
+//	if(u8Value != 0x5a) {
+//		LOG_E("bulk access reg status error");
+//		if(u8Value == 0x01) {
+//		   LOG_E("bulk access reg txd checksum error");
+//		} else if(u8Value ==0xFF) {
+//		   LOG_E("bulk access reg timeout");
+//		}
+//		return -1;	
+//	}
+// 
+//	u32Value = wf_le_u32_read(prx_desc + 16);
+// 
+//	return u32Value;
+// }
+//
+//
+// static wf_inline int wf_io_bulk_write_one_reg(const nic_info_st *nic_info, struct xmit_buf *pxmit_buf, wf_u16 addr, wf_u32 value)
+// {
+//	 wf_u8	u8Value;
+//	 wf_u16 u16Value;
+//	 wf_u8 *ptx_desc;
+//	 wf_u8 *prx_desc;
+//	 hif_node_st *hif_node = nic_info->hif_node;
+// 
+//	 wf_memset(pxmit_buf->pbuf, 0, 28 + 20);
+//	 ptx_desc = pxmit_buf->pbuf;
+//	 /* set for reg xmit */
+//	 wf_set_bits_to_le_u32(ptx_desc, 0, 2, TYPE_REG);
+//	 /* set for reg read */
+//	 wf_set_bits_to_le_u32(ptx_desc, 14, 1, 1);
+//	 /* set for reg num */
+//	 wf_set_bits_to_le_u32(ptx_desc, 15, 3, 1);
+//	 /* set for reg HWSEQ_EN */
+//	 wf_set_bits_to_le_u32(ptx_desc, 18, 1, 1);
+//	 /* set for reg address */
+//	 wf_set_bits_to_le_u32(ptx_desc + 4, 0, 16, addr);
+// 
+//	 /* set for checksum */
+//	 txdesc_new_chksum(ptx_desc);
+// 
+//	 /* set for  reg value */
+//	 wf_set_bits_to_le_u32(ptx_desc + 20, 0, 32, value);
+// 
+//	 pxmit_buf->pkt_len = TXDESC_OFFSET_NEW + 4;
+// 
+//	#if 0
+//	 register_addr = 0;
+//	 register_addr |= 3<<13;
+//	 //register_addr |= 4<<13; //3->4
+//	 register_addr |= (pxmit_buf->pkt_len / 4);
+//	 register_addr &= 0x1ffff;
+//	#endif
+//	 
+//	 wf_lock_mutex_lock(&hif_node->reg_mutex);
+//	 wf_hif_bulk_reg_init(hif_node);
+//	 if(nic_info->nic_tx_queue_insert(nic_info->hif_node, 1, ptx_desc, pxmit_buf->pkt_len,
+//										   CMD_QUEUE_INX, NULL, NULL, NULL) != 0) {
+//	 // if(nic_info->nic_write(nic_info->hif_node, 2, CMD_QUEUE_INX, ptx_desc, pxmit_buf->pkt_len) < 0) {
+//		LOG_E("bulk access reg error by send addr");
+//		wf_lock_mutex_unlock(&hif_node->reg_mutex);
+//		return -1;
+//	 }
+// 
+//	 if(wf_hif_bulk_reg_wait(hif_node, HIF_BULK_MSG_TIMEOUT) == 0) {
+//		 LOG_E("bulk access reg read timeout");
+//		 wf_lock_mutex_unlock(&hif_node->reg_mutex);
+//		 return -1;
+//	 }
+// 
+//	 prx_desc = pxmit_buf->pbuf;
+//	 pxmit_buf->pkt_len = 16 + 4;
+//	 if(hif_node->reg_size != pxmit_buf->pkt_len) {
+//		 LOG_E("bulk access reg read length error");
+//		 wf_lock_mutex_unlock(&hif_node->reg_mutex);
+//		 return -1;
+//	 }
+//	 wf_memcpy(prx_desc, hif_node->reg_buffer, hif_node->reg_size);
+// 
+//	 wf_lock_mutex_unlock(&hif_node->reg_mutex);
+//	
+//	u8Value = wf_le_u8_read(prx_desc);
+//	if((u8Value & 0x03) != TYPE_REG) {
+//		LOG_E("bulk access reg read error");
+//		return -1;
+//	}
+//	u16Value = wf_le_u16_read(prx_desc + 4);
+//	u16Value &= 0x3FFF;
+//	if(u16Value != 4) {
+//		LOG_E("bulk access reg read length error, value is %d", u16Value);
+//		return -1; 
+//	}
+// 
+//	u8Value = wf_le_u8_read(prx_desc + 16);
+//	if(u8Value != 0x5a) {
+//		LOG_E("bulk access reg status error");
+//		if(u8Value == 0x01) {
+//		   LOG_E("bulk access reg txd checksum error");
+//		} else if(u8Value ==0xFF) {
+//		   LOG_E("bulk access reg timeout");
+//		}
+//		return -1;	
+//	}
+// 
+//	return sizeof(value);
+// }
+// 
+// wf_u8 wf_io_bulk_read8(const nic_info_st *nic_info, wf_u16 addr)
+// {
+//
+//	wf_u32 u32Value;
+//	wf_u16 align_addr;
+//	wf_u16 offset_addr;
+//	struct xmit_buf *pxmit_buf;
+//	WF_ASSERT(nic_info != NULL); 
+// 
+//	if (nic_info->func_check_flag != 0xAA55BB66)
+//	{
+//		 LOG_E("func_check_flag is not 0xAA55BB66, check the func ok?");
+//		 LOG_E("nic_info:%p  func_check_flag:%x  nic_write:%p  nic_read:%p x",
+//			 nic_info,nic_info->func_check_flag,nic_info->nic_write,nic_info->nic_read);
+//		 return -1;
+//	}
+// 
+//	/* alloc xmit_buf */
+//	 pxmit_buf = wf_xmit_extbuf_new(nic_info->tx_info);
+//	 if(pxmit_buf == NULL){
+//		 return -1;
+//	 }
+// 
+//	 align_addr = addr & 0xFFFC;
+//	 offset_addr = addr & 0x03;
+//	 u32Value = wf_io_bulk_read_one_reg(nic_info, pxmit_buf, align_addr);
+// 
+//	 wf_xmit_extbuf_delete(nic_info->tx_info, pxmit_buf);
+// 
+//	 return ((u32Value >> (offset_addr * 8)) & 0xFF);
+// }
+// 
+// wf_u16 wf_io_bulk_read16(const nic_info_st *nic_info, wf_u16 addr)
+// {
+//	wf_u32 u32Value;
+//	wf_u16 align_addr;
+//	wf_u16 offset_addr;
+//	struct xmit_buf *pxmit_buf;
+//	WF_ASSERT(nic_info != NULL); 
+// 
+//	 /* if not aligned addr, just return */
+//	 if(addr & 0x0001) {
+//		return -1;
+//	 }
+// 
+//	if (nic_info->func_check_flag != 0xAA55BB66)
+//	{
+//		 LOG_E("func_check_flag is not 0xAA55BB66, check the func ok?");
+//		 LOG_E("nic_info:%p  func_check_flag:%x  nic_write:%p  nic_read:%p x",
+//			 nic_info,nic_info->func_check_flag,nic_info->nic_write,nic_info->nic_read);
+//		 return -1;
+//	}
+// 
+//	/* alloc xmit_buf */
+//	 pxmit_buf = wf_xmit_extbuf_new(nic_info->tx_info);
+//	 if(pxmit_buf == NULL){
+//		 return -1;
+//	 }
+// 
+//	 align_addr = addr & 0xFFFC;
+//	 offset_addr = addr & 0x02;
+//	 u32Value = wf_io_bulk_read_one_reg(nic_info, pxmit_buf, align_addr);
+// 
+//	 wf_xmit_extbuf_delete(nic_info->tx_info, pxmit_buf);
+// 
+//	 return ((u32Value >> (offset_addr * 8)) & 0xFFFF);
+// }
+// 
+// 
+// wf_u32 wf_io_bulk_read32(const nic_info_st *nic_info, wf_u16 addr)
+// {
+//	wf_u32 u32Value;
+//	struct xmit_buf *pxmit_buf;
+//	
+//	WF_ASSERT(nic_info != NULL); 
+// 
+//	 /* if not aligned addr, just return */
+//	 if(addr & 0x0003) {
+//		return -1;
+//	 }
+// 
+//	if (nic_info->func_check_flag != 0xAA55BB66)
+//	{
+//		 LOG_E("func_check_flag is not 0xAA55BB66, check the func ok?");
+//		 LOG_E("nic_info:%p  func_check_flag:%x  nic_write:%p  nic_read:%p x",
+//			 nic_info,nic_info->func_check_flag,nic_info->nic_write,nic_info->nic_read);
+//		 return -1;
+//	}
+// 
+//	/* alloc xmit_buf */
+//	 pxmit_buf = wf_xmit_extbuf_new(nic_info->tx_info);
+//	 if(pxmit_buf == NULL){
+//		 return -1;
+//	 }
+// 
+//	 u32Value = wf_io_bulk_read_one_reg(nic_info, pxmit_buf, addr);
+// 
+//	 wf_xmit_extbuf_delete(nic_info->tx_info, pxmit_buf);
+// 
+//	 return u32Value;
+// }
+// 
+// int wf_io_bulk_write8(const nic_info_st *nic_info, wf_u16 addr, wf_u8 value)
+// {
+//	wf_u32 u32Value;
+//	wf_u16 align_addr;
+//	wf_u16 offset_addr;
+//	int ret;
+//	struct xmit_buf *pxmit_buf;
+//	WF_ASSERT(nic_info != NULL); 
+// 
+//	if (nic_info->func_check_flag != 0xAA55BB66)
+//	{
+//		 LOG_E("func_check_flag is not 0xAA55BB66, check the func ok?");
+//		 LOG_E("nic_info:%p  func_check_flag:%x  nic_write:%p  nic_read:%p x",
+//			 nic_info,nic_info->func_check_flag,nic_info->nic_write,nic_info->nic_read);
+//		 return -1;
+//	}
+// 
+//	/* alloc xmit_buf */
+//	 pxmit_buf = wf_xmit_extbuf_new(nic_info->tx_info);
+//	 if(pxmit_buf == NULL){
+//		 return -1;
+//	 }
+//	 
+//	 align_addr = addr & 0xFFFC;
+//	 offset_addr = addr & 0x03;
+//	 u32Value = wf_io_bulk_read_one_reg(nic_info, pxmit_buf, align_addr);
+//	 u32Value &= ~((wf_u32)(0xFFUL << (offset_addr * 8)));
+//	 u32Value |= ((wf_u32)((wf_u32)value << (offset_addr * 8)));
+// 
+//	 /* write back */
+//	 ret = wf_io_bulk_write_one_reg(nic_info, pxmit_buf, align_addr, u32Value);
+// 
+//	 wf_xmit_extbuf_delete(nic_info->tx_info, pxmit_buf);
+// 
+//	 return ret;
+// }
+// 
+// int wf_io_bulk_write16(const nic_info_st *nic_info, wf_u16 addr, wf_u16 value)
+// {
+//	wf_u32 u32Value;
+//	wf_u16 align_addr;
+//	wf_u16 offset_addr;
+//	int ret;
+//	struct xmit_buf *pxmit_buf;
+//	WF_ASSERT(nic_info != NULL); 
+// 
+//	/* if not aligned addr, just return */
+//	 if(addr & 0x0001) {
+//		return -1;
+//	 }
+// 
+//	if (nic_info->func_check_flag != 0xAA55BB66)
+//	{
+//		 LOG_E("func_check_flag is not 0xAA55BB66, check the func ok?");
+//		 LOG_E("nic_info:%p  func_check_flag:%x  nic_write:%p  nic_read:%p x",
+//			 nic_info,nic_info->func_check_flag,nic_info->nic_write,nic_info->nic_read);
+//		 return -1;
+//	}
+// 
+//	/* alloc xmit_buf */
+//	 pxmit_buf = wf_xmit_extbuf_new(nic_info->tx_info);
+//	 if(pxmit_buf == NULL){
+//		 return -1;
+//	 }
+// 
+//	 align_addr = addr & 0xFFFC;
+//	 offset_addr = addr & 0x02;
+//	 u32Value = wf_io_bulk_read_one_reg(nic_info, pxmit_buf, align_addr);
+//	 u32Value &= ~((wf_u32)(0xFFFFUL << (offset_addr * 8)));
+//	 u32Value |= ((wf_u32)((wf_u32)value << (offset_addr * 8)));
+// 
+//	 /* write back */
+//	 ret = wf_io_bulk_write_one_reg(nic_info, pxmit_buf, align_addr, u32Value);
+// 
+//	 wf_xmit_extbuf_delete(nic_info->tx_info, pxmit_buf);
+// 
+//	 return ret;
+// }
+// 
+// int wf_io_bulk_write32(const nic_info_st *nic_info, wf_u16 addr, wf_u32 value)
+// {
+//	int ret;
+//	struct xmit_buf *pxmit_buf;
+//
+//	WF_ASSERT(nic_info != NULL); 
+// 
+//	/* if not aligned addr, just return */
+//	 if(addr & 0x0003) {
+//		return -1;
+//	 }
+// 
+//	if (nic_info->func_check_flag != 0xAA55BB66)
+//	{
+//		 LOG_E("func_check_flag is not 0xAA55BB66, check the func ok?");
+//		 LOG_E("nic_info:%p  func_check_flag:%x  nic_write:%p  nic_read:%p x",
+//			 nic_info,nic_info->func_check_flag,nic_info->nic_write,nic_info->nic_read);
+//		 return -1;
+//	}
+// 
+//	/* alloc xmit_buf */
+//	 pxmit_buf = wf_xmit_extbuf_new(nic_info->tx_info);
+//	 if(pxmit_buf == NULL){
+//		 return -1;
+//	 }
+// 
+//	 /* write back */
+//	 ret = wf_io_bulk_write_one_reg(nic_info, pxmit_buf, addr, value);
+// 
+//	 wf_xmit_extbuf_delete(nic_info->tx_info, pxmit_buf);
+// 
+//	 return ret;
+// }
+//
+//#endif
 
 int wf_io_write_data_queue_check(const nic_info_st *nic_info)
 {
@@ -328,12 +746,20 @@ int wf_io_write_cmd_by_mailbox(nic_info_st *nic_info, wf_u32 cmd, wf_u32 *send_b
     int ret  = 0;
     wf_u32 mailbox_reg_addr = MAILBOX_ARG_START;
     wf_u8 tryCnt = 0;
+    wf_u32 temp_send_len = 0;
+
+    if (nic_info->is_surprise_removed || nic_info->is_driver_stopped)
+    {
+        return WF_RETURN_OK;
+    }
 
     nic_mcu_hw_access_lock(nic_info);
-//    LOG_I(">>>>> func_code:0x%08x,%s sema ret:%d",cmd,cmd_to_str(cmd), ret);
 
+    
     for (tryCnt = 0; tryCnt < 2; tryCnt++)
     {
+        temp_send_len = send_len;
+        mailbox_reg_addr = MAILBOX_ARG_START;
         ret = wf_io_write32(nic_info,MAILBOX_REG_START,cmd);
         if(WF_RETURN_FAIL == ret)
         {
@@ -358,7 +784,7 @@ int wf_io_write_cmd_by_mailbox(nic_info_st *nic_info, wf_u32 cmd, wf_u32 *send_b
 
         mailbox_reg_addr += MAILBOX_WORD_LEN;
 
-        while ((send_len--) && send_buf)
+        while ((temp_send_len--) && send_buf)
         {
             ret = wf_io_write32(nic_info, mailbox_reg_addr, *send_buf++);
             if(WF_RETURN_FAIL == ret)
@@ -418,6 +844,11 @@ int wf_io_write_cmd_by_mailbox_try(nic_info_st *nic_info, wf_u32 cmd, wf_u32 *se
 {
     int ret = 0;
     wf_u32 mailbox_reg_addr = MAILBOX_ARG_START;
+
+    if (nic_info->is_surprise_removed || nic_info->is_driver_stopped)
+    {
+        return WF_RETURN_OK;
+    }
 
     nic_mcu_hw_access_trylock(nic_info);
 
@@ -492,6 +923,7 @@ exit:
 
 int wf_io_write_cmd_by_txd(nic_info_st *nic_info, wf_u32 cmd, wf_u32 *send_buf, wf_u32 send_len, wf_u32 *recv_buf, wf_u32 recv_len)
 {
+	int ret=0;
     WF_ASSERT(nic_info != NULL);
 
     if (nic_info->nic_write_cmd == NULL)
@@ -499,8 +931,10 @@ int wf_io_write_cmd_by_txd(nic_info_st *nic_info, wf_u32 cmd, wf_u32 *send_buf, 
         LOG_E("nic_write_cmd is not register, please check!!");
         return -1;
     }
-
-    return nic_info->nic_write_cmd(nic_info->hif_node, cmd, send_buf, send_len, recv_buf, recv_len);
+	nic_mcu_hw_access_lock(nic_info);
+	ret = nic_info->nic_write_cmd(nic_info->hif_node, cmd, send_buf, send_len, recv_buf, recv_len);
+	nic_mcu_hw_access_unlock(nic_info);
+    return ret;
 }
 
 

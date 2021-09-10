@@ -10,5 +10,6 @@ typedef struct _ODM_NOISE_MONITOR_
 
 typedef struct nm_info_st_
 {
+	wf_u8 reserved;
 }ars_nm_info_st;
 #endif

@@ -15,7 +15,7 @@
  *
  */
 #ifndef __WF_OS_API_WORKQUEUE_H__
-
+#define __WF_OS_API_WORKQUEUE_H__
 
 typedef struct wf_workqueue_ops_st_
 {

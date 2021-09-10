@@ -830,7 +830,7 @@ int wf_iw_setOperationMode(struct net_device *ndev, struct iw_request_info *info
         return 0;
     }
 
-    wf_local_cfg_set_work_mode(pnic_info, wrqu->mode);
+    set_sys_work_mode(pnic_info, wrqu->mode);
 
     wf_mlme_get_connect(pnic_info, &bConnect);
     if(bConnect)
@@ -839,6 +839,8 @@ int wf_iw_setOperationMode(struct net_device *ndev, struct iw_request_info *info
     }
 
     wf_mcu_set_op_mode(pnic_info, wrqu->mode);
+
+	ndev->type = ARPHRD_ETHER;
 
     switch(wrqu->mode)
     {
@@ -1261,12 +1263,12 @@ int wf_iw_setMlme(struct net_device *ndev, struct iw_request_info *info, union i
     {
         case IW_MLME_DEAUTH:
             IW_FUNC_DBG("IW_MLME_DEAUTH");
-            wf_mlme_conn_abort(pnic_info, wf_false);
+            wf_mlme_conn_abort(pnic_info, wf_true);
             break;
 
         case IW_MLME_DISASSOC:
             IW_FUNC_DBG("IW_MLME_DISASSOC");
-            wf_mlme_conn_abort(pnic_info, wf_false);
+            wf_mlme_conn_abort(pnic_info, wf_true);
             break;
 
         default:
@@ -1394,10 +1396,11 @@ static wf_bool is_8021x_auth (wf_80211_mgmt_ie_t *pies, wf_u16 ies_len)
                 IW_FUNC_DBG("RSN");
                 return wf_true;
             case WF_80211_MGMT_EID_VENDOR_SPECIFIC:
-                if (!wf_80211_mgmt_wpa_parse(pie,
-                                             WF_OFFSETOF(wf_80211_mgmt_ie_t, data) + pie->len,
-                                             &pmulticast_cipher,
-                                             &punicast_cipher))
+                if (!wf_80211_mgmt_wpa_survey(pie,
+                                              WF_OFFSETOF(wf_80211_mgmt_ie_t, data) + pie->len,
+                                              NULL, NULL,
+                                              &pmulticast_cipher,
+                                              &punicast_cipher))
                 {
                     IW_FUNC_INFO("WPA");
                     return wf_true;
@@ -1493,7 +1496,7 @@ int wf_iw_setEssid (struct net_device *ndev, struct iw_request_info *info,
                 }
             }
 
-            if (psec_info->dot11AuthAlgrthm == _NO_PRIVACY_)
+            if (psec_info->dot11PrivacyAlgrthm == _NO_PRIVACY_)
             {
                 wf_memset(pnic_info->sec_info, 0x0, sizeof(sec_info_st));
             }
@@ -2110,19 +2113,26 @@ int wf_iw_set_wpa_ie (nic_info_st *pnic_info, wf_u8 *pie, size_t ielen)
             goto exit;
         }
 
-        if (!wf_80211_mgmt_wpa_parse(buf, ielen, &group_cipher, &pairwise_cipher))
         {
-            sec_info->dot11AuthAlgrthm = dot11AuthAlgrthm_8021X;
-            sec_info->ndisauthtype = wf_ndis802_11AuthModeWPAPSK;
-            sec_info->wpa_enable = wf_true;
-            memcpy(sec_info->supplicant_ie, &buf[0], ielen);
-        }
-        else if (!wf_80211_mgmt_rsn_parse(buf, ielen, &group_cipher, &pairwise_cipher))
-        {
-            sec_info->dot11AuthAlgrthm = dot11AuthAlgrthm_8021X;
-            sec_info->ndisauthtype = wf_ndis802_11AuthModeWPA2PSK;
-            sec_info->rsn_enable = wf_true;
-            memcpy(sec_info->supplicant_ie, &buf[0], ielen);
+            void *pdata;
+            wf_u16 data_len;
+
+            if (!wf_80211_mgmt_wpa_survey(buf, ielen, &pdata, &data_len,
+                                          &group_cipher, &pairwise_cipher))
+            {
+                sec_info->dot11AuthAlgrthm = dot11AuthAlgrthm_8021X;
+                sec_info->ndisauthtype = wf_ndis802_11AuthModeWPAPSK;
+                sec_info->wpa_enable = wf_true;
+                memcpy(sec_info->supplicant_ie, pdata, data_len);
+            }
+            else if (!wf_80211_mgmt_rsn_survey(buf, ielen, &pdata, &data_len,
+                                               &group_cipher, &pairwise_cipher))
+            {
+                sec_info->dot11AuthAlgrthm = dot11AuthAlgrthm_8021X;
+                sec_info->ndisauthtype = wf_ndis802_11AuthModeWPA2PSK;
+                sec_info->rsn_enable = wf_true;
+                memcpy(sec_info->supplicant_ie, pdata, data_len);
+            }
         }
 
         switch (group_cipher)

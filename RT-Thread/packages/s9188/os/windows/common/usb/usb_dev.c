@@ -400,7 +400,8 @@ wf_usb_xmit_pkt_async (
 
     WdfRequestSetCompletionRoutine(writeRequest, wf_usb_xmit_complete, writeContext);    
 
-    if (WdfRequestSend(writeRequest, writeContext->IoTarget, &usb_info->async_req_option ) == FALSE) {   // Failure - Return request
+	//&usb_info->async_req_option
+    if (WdfRequestSend(writeRequest, writeContext->IoTarget, NULL) == FALSE) {   // Failure - Return request
 		ntStatus = WdfRequestGetStatus(writeRequest);
 		LOG_E("HwUsbSendPacketAsync send failed, ntstatus=%x", ntStatus);
         goto error;
@@ -501,12 +502,22 @@ void wf_usb_xmit_thread(PADAPTER         padapter)
 	NDIS_STATUS ret = NDIS_STATUS_SUCCESS;
 	nic_info_st *nic_info = padapter->nic_info;
 	wf_data_que_t *pdata_pend, *pmgmt_pend, *pdata_free, *pmgmt_free;
+	PRKTHREAD pthread;
+	KPRIORITY prio;
 	
 	usb_info = padapter->usb_info;
 	pdata_pend = &usb_info->data_pend;
 	pmgmt_pend = &usb_info->mgmt_pend;
 	pdata_free = &usb_info->data_free;
 	pmgmt_free = &usb_info->mgmt_free;
+
+	pthread = KeGetCurrentThread();
+	if(pthread != NULL) {
+		prio = KeSetPriorityThread(pthread, LOW_REALTIME_PRIORITY);
+		LOG_D("old_prio=%d, new_prio=%d", prio, KeQueryPriorityThread(pthread));
+	} else {
+		LOG_W("pthread is NULL");
+	}
 	
 	while(1) {
 		KeWaitForSingleObject(&usb_info->usb_evt, Executive, KernelMode, TRUE, NULL);
@@ -541,7 +552,7 @@ void wf_usb_xmit_thread(PADAPTER         padapter)
 				continue;
 			}
 			//LOG_D("data_addr=%x len=%d", usb_req->data_buf, usb_req->data_len);
-			ret = wf_usb_xmit_pkt_async (padapter, usb_req->addr, usb_req->data_len, usb_req->data_buf, usb_req);
+			ret = wf_usb_xmit_pkt_async(padapter, usb_req->addr, usb_req->data_len, usb_req->data_buf, usb_req);
 			if(ret != NDIS_STATUS_SUCCESS) {
 				wf_usb_xmit_complet_callback(padapter->nic_info, usb_req);
 			}
@@ -961,7 +972,7 @@ Return Value:
 NTSTATUS wf_usb_dev_create(PADAPTER adapter)
 {
     WDF_USB_DEVICE_SELECT_CONFIG_PARAMS configParams;
-    NTSTATUS                            ntStatus;
+    NTSTATUS                            ntStatus = STATUS_SUCCESS;
     WDFUSBPIPE                          pipe;
     WDF_USB_PIPE_INFORMATION            pipeInfo;
     UCHAR                               index;
@@ -1146,11 +1157,17 @@ NDIS_STATUS wf_usb_dev_init(void *adapter)
 {
 	PADAPTER padapter = adapter;
 
-	wf_usb_dev_create(padapter);
+	if(wf_usb_dev_create(padapter) != STATUS_SUCCESS) {
+		return NDIS_STATUS_FAILURE;
+	}
 
-	wf_usb_xmit_init(padapter);
+	if (wf_usb_xmit_init(padapter) != NDIS_STATUS_SUCCESS) {
+		return NDIS_STATUS_FAILURE;
+	}
 
-	wf_usb_recv_init(padapter);
+	if (wf_usb_recv_init(padapter) != NDIS_STATUS_SUCCESS) {
+		return NDIS_STATUS_FAILURE;
+	}
 
 	return NDIS_STATUS_SUCCESS;
 }

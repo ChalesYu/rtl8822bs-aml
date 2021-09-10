@@ -1,7 +1,7 @@
 #include "common.h"
 #include "wf_debug.h"
 #ifdef CONFIG_ARS_DRIVER_SUPPORT
-#if 0
+#if 1
 #define ARS_THD_DBG(fmt, ...)      LOG_D("ARS_THD[%s,%d]"fmt, __func__, __LINE__,##__VA_ARGS__)
 #define ARS_THD_PRT(fmt, ...)      LOG_D("ARS_THD-"fmt,##__VA_ARGS__)
 #define ARS_THD_INFO(fmt, ...)      LOG_I("ARS_THD-"fmt,##__VA_ARGS__)

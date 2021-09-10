@@ -60,7 +60,7 @@ typedef struct _ADAPTIVITY_STATISTICS
 
 typedef struct adaptivity_statistics_info_st_
 {
-    
+	wf_u8 reserved;
 }adaptivity_statistics_info_st;
 
 wf_s32 Phydm_Adaptivity(void *ars,wf_u8 IGI);

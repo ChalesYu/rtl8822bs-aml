@@ -50,6 +50,8 @@ extern "C" {
 err_t
 dhcp_server_start(struct netif *netif, ip4_addr_t *start, ip4_addr_t *end);
 void dhcp_server_release(struct netif *netif);
+void dhcpd_start(const char *netif_name);
+void dhcpd_stop(const char *netif_name);
 
 #ifdef __cplusplus
 }

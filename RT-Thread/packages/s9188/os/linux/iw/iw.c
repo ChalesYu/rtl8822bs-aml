@@ -20,7 +20,7 @@
 #include "iw_priv_func.h"
 #include "mp.h"
 
-
+#ifdef CONFIG_WIRELESS_EXT
 static struct iw_statistics *wf_get_wireless_stats (struct net_device *ndev)
 {
     struct iw_statistics *piw_stats;
@@ -51,7 +51,9 @@ static struct iw_statistics *wf_get_wireless_stats (struct net_device *ndev)
 
     return piw_stats;
 }
+#endif
 
+#ifdef CONFIG_WIRELESS_EXT
 #ifndef CONFIG_MP_MODE
 static iw_handler wl_handlers[] =
 {
@@ -113,6 +115,7 @@ static iw_handler wl_handlers[] =
     NULL,//      NULL,                        /*---hole---*/
 };
 #endif
+#endif
 
 
 #if defined(CONFIG_WEXT_PRIV)
@@ -122,7 +125,7 @@ static iw_handler wl_private_handler[] =
     wf_iw_reg_read,
     wf_iw_reg_write,
     wf_iw_ars,
-    wf_iw_fwdl,
+    wf_iw_cmddl,
     wf_iw_txagg_timestart,
 #ifdef CONFIG_MP_MODE
     wf_mp,
@@ -137,7 +140,7 @@ static struct iw_priv_args wl_private_args[] =
     {IW_PRV_READ_REG_TEST  ,       IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK,              "read_reg_test"},
     {IW_PRV_WRITE_REG_TEST,        IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK,             "write_reg_test"},
     {IW_PRV_ARS,                       IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK,             "ars"},
-    {IW_PRV_TEST,                  IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK,             "tasklet"},
+    {IW_PRV_TEST,                  IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK,             "cmd_download"},
     {IW_PRV_TXAGG,                  IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK,              "txagg"},
 #ifdef CONFIG_MP_MODE
     {IW_PRV_MP_GET,                IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK,               ""},

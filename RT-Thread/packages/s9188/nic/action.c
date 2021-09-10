@@ -18,7 +18,7 @@
 #include "wf_debug.h"
 
 /* macro */
-#if 1
+#if 0
 #define ACTION_DBG(fmt, ...)        LOG_D("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
 #define ACTION_ARRAY(data, len)     log_array(data, len)
 #else
@@ -74,6 +74,30 @@ int action_frame_add_ba_response(nic_info_st *nic_info,
     return 0;
 }
 
+#ifdef CFG_ENABLE_AP_MODE
+static
+int action_ba_req_work_ap(nic_info_st *pnic_info, wdn_net_info_st *pwdn_info)
+{
+    if (pwdn_info == NULL)
+    {
+        ACTION_DBG("wdn_info null");
+        return -1;
+    }
+
+    ACTION_DBG("action ba request received");
+
+    if (wf_ap_msg_load(pnic_info, &pwdn_info->ap_msg,
+                       WF_AP_MSG_TAG_BA_REQ_FRAME, NULL, 0))
+    {
+        ACTION_WARN("action ba msg enque fail");
+        return -3;
+    }
+
+    return 0;
+}
+
+#endif
+
 static
 int action_frame_block_ack (nic_info_st *nic_info, wdn_net_info_st *pwdn_info,
                             wf_u8 *pkt, wf_u16 pkt_len)
@@ -103,26 +127,35 @@ int action_frame_block_ack (nic_info_st *nic_info, wdn_net_info_st *pwdn_info,
     {
         case WF_WLAN_ACTION_ADDBA_REQ:
         {
-            wf_add_ba_parm_st parm;
-            wf_add_ba_parm_st *barsp_parm = &parm;
+            if(wf_local_cfg_get_work_mode(nic_info) == WF_INFRA_MODE)
+            {
+                wf_add_ba_parm_st parm;
+                wf_add_ba_parm_st *barsp_parm = &parm;
 
-            frame_body = &pmgmt->action.variable[0];
-            preq = ( struct ADDBA_request *)frame_body;
-            barsp_parm->dialog = preq->dialog_token;
-            param = wf_le16_to_cpu(preq->BA_para_set);
-            barsp_parm->param = param;
-            barsp_parm->tid = (param & 0x3c) >> 2;
-            barsp_parm->policy = (param & 0x2) >> 1;
-            barsp_parm->size = (wf_u8)(param & (~0xe03f)) >> 6;
+                frame_body = &pmgmt->action.variable[0];
+                preq = ( struct ADDBA_request *)frame_body;
+                barsp_parm->dialog = preq->dialog_token;
+                param = wf_le16_to_cpu(preq->BA_para_set);
+                barsp_parm->param = param;
+                barsp_parm->tid = (param & 0x3c) >> 2;
+                barsp_parm->policy = (param & 0x2) >> 1;
+                barsp_parm->size = (wf_u8)(param & (~0xe03f)) >> 6;
 
-            barsp_parm->timeout = wf_le16_to_cpu(preq->BA_timeout_value);
-            barsp_parm->start_seq = wf_le16_to_cpu(preq->ba_starting_seqctrl) >> 4;
-            barsp_parm->status = 0;
+                barsp_parm->timeout = wf_le16_to_cpu(preq->BA_timeout_value);
+                barsp_parm->start_seq = wf_le16_to_cpu(preq->ba_starting_seqctrl) >> 4;
+                barsp_parm->status = 0;
 
-            ACTION_DBG("WF_WLAN_ACTION_ADDBA_REQ TID:%d dialog:%d size:%d policy:%d start_req:%d timeout:%d",
-                       barsp_parm->tid, barsp_parm->dialog, barsp_parm->size, barsp_parm->policy, barsp_parm->start_seq, barsp_parm->timeout);
+                ACTION_DBG("WF_WLAN_ACTION_ADDBA_REQ TID:%d dialog:%d size:%d policy:%d start_req:%d timeout:%d",
+                           barsp_parm->tid, barsp_parm->dialog, barsp_parm->size, barsp_parm->policy, barsp_parm->start_seq, barsp_parm->timeout);
+                action_frame_add_ba_response(nic_info, barsp_parm);
+            }
+#ifdef CFG_ENABLE_AP_MODE
+            else if(wf_local_cfg_get_work_mode(nic_info) == WF_MASTER_MODE)
+            {
+                action_ba_req_work_ap(nic_info, pwdn_info);
+            }
+#endif
 
-            action_frame_add_ba_response(nic_info, barsp_parm);
         }
         break;
 
@@ -209,13 +242,18 @@ wf_s32 proc_on_action_public_vendor_func(nic_info_st *pnic_info, wf_u8 *pkt,wf_u
     {
         return -1;
     }
-
+    
     if (wf_memcmp(frame_body + 2, P2P_OUI, 4) == 0)
     {
         if(wf_p2p_is_valid(pnic_info))
         {
             ret = wf_p2p_proc_action_public(pnic_info, pkt,pkt_len);
         }
+    }
+    else
+    {
+        ACTION_DBG("OUI:");
+        ACTION_ARRAY(frame_body + 2, 4);
     }
 
     return ret;
@@ -228,20 +266,23 @@ wf_s32 wf_action_frame_public(nic_info_st *nic_info, wf_u8 *pdata, wf_u16 pkt_le
     wf_u8 action;
     wf_u8 category;
     wf_s32 ret = 0;
-    ACTION_DBG("start");
+    ACTION_DBG("[%d] "WF_MAC_FMT,nic_info->ndev_id,WF_MAC_ARG(hw_info->macAddr));
 
     category = pmgmt->action.action_category;
     action = pmgmt->action.action_field;
 
     if(wf_memcmp(pmgmt->da,  hw_info->macAddr, WF_ETH_ALEN))
     {
+        ACTION_DBG("[%d] "WF_MAC_FMT,nic_info->ndev_id,WF_MAC_ARG(pmgmt->da));
         goto exit;
     }
 
+    ACTION_DBG("[%d] category=%d,action=%d",nic_info->ndev_id,category,action);
     if(category != WF_WLAN_CATEGORY_PUBLIC )
     {
         goto exit;
     }
+    
     if (action == WF_WLAN_ACTION_PUBLIC_VENDOR)
     {
         ret = proc_on_action_public_vendor_func(nic_info, pdata,pkt_len);
@@ -498,8 +539,8 @@ int wf_action_frame_ba_to_issue (nic_info_st *nic_info, wf_u8 action)
     }
     pxmit_buf->pkt_len = pkt_len;
 
-    rst = wf_nic_mgmt_frame_xmit_with_ack(nic_info, pwdn_info, pxmit_buf, pxmit_buf->pkt_len);
-    //rst = wf_nic_mgmt_frame_xmit(nic_info, pwdn_info, pxmit_buf,pxmit_buf->pkt_len);
+    //rst = wf_nic_mgmt_frame_xmit_with_ack(nic_info, pwdn_info, pxmit_buf, pxmit_buf->pkt_len);
+    rst = wf_nic_mgmt_frame_xmit(nic_info, pwdn_info, pxmit_buf,pxmit_buf->pkt_len);
 
     return rst;
 }

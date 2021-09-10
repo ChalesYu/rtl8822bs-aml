@@ -17,7 +17,7 @@
 #include "common.h"
 #include "wf_debug.h"
 
-#if 1
+#if 0
 #define WFD_DBG(fmt, ...)      LOG_D("WFD[%s:%d]"fmt, __func__,__LINE__, ##__VA_ARGS__)
 #define WFD_ARRAY(data, len)   log_array(data, len)
 #else
@@ -27,12 +27,23 @@
 #define WFD_INFO(fmt, ...)     LOG_I("WFD[%s:%d]"fmt, __func__,__LINE__, ##__VA_ARGS__)
 #define WFD_WARN(fmt, ...)     LOG_E("WFD[%s:%d]"fmt, __func__,__LINE__, ##__VA_ARGS__)
 
-int wifi_display_info_to_init_func(nic_info_st *pnic_info, wf_u8 flag)
+int wf_p2p_wfd_init(nic_info_st *pnic_info, wf_u8 flag)
 {
     int res = wf_true;
+    wf_u8 i=0;
     p2p_info_st *p2p_info = pnic_info->p2p;
-    struct wifi_display_info *pwfd_info = &p2p_info->wfd_info;
+    wfd_info_st *pwfd_info = &p2p_info->wfd_info;
 
+    for(i=0;i<WF_WFD_IE_MAX;i++)
+    {
+        pwfd_info->wfd_ie[i] = wf_kzalloc(P2P_IE_BUF_LEN);
+        if(NULL == pwfd_info->wfd_ie[i])
+        {
+            WFD_WARN("wf_kzalloc p2p_ie failed");
+            return WF_RETURN_FAIL;
+        }
+    }
+    
     pwfd_info->init_rtsp_ctrlport = 554;
 
 
@@ -46,8 +57,9 @@ int wifi_display_info_to_init_func(nic_info_st *pnic_info, wf_u8 flag)
 
     pwfd_info->peer_session_avail = wf_true;
     pwfd_info->wfd_pc = wf_false;
-
-    if (flag) {
+    
+    if (flag) 
+    {
         wf_memset(pwfd_info->ip_address, 0x00, 4);
         wf_memset(pwfd_info->peer_ip_address, 0x00, 4);
     }
@@ -56,40 +68,46 @@ int wifi_display_info_to_init_func(nic_info_st *pnic_info, wf_u8 flag)
 
 }
 
-void wfd_enable(nic_info_st *pnic_info, wf_bool on){
+void wf_p2p_wfd_enable(nic_info_st *pnic_info, wf_bool on)
+{
 
     p2p_info_st *p2p_info = pnic_info->p2p;
-    struct wifi_display_info *pwfd_info = &p2p_info->wfd_info; 
-    
-	if (on) {
-		pwfd_info->rtsp_ctrlport = pwfd_info->init_rtsp_ctrlport;
-		pwfd_info->wfd_enable = wf_true;
+    wfd_info_st *pwfd_info = &p2p_info->wfd_info; 
+    if (on) 
+    {
+        pwfd_info->rtsp_ctrlport = pwfd_info->init_rtsp_ctrlport;
+        pwfd_info->wfd_enable = wf_true;
 
-	} else {
-		pwfd_info->wfd_enable = wf_false;
-		pwfd_info->rtsp_ctrlport = 0;
-	}
+    } 
+    else 
+    {
+        pwfd_info->wfd_enable = wf_false;
+        pwfd_info->rtsp_ctrlport = 0;
+    }
  
 }
 
-void wfd_set_ctrl_port(nic_info_st *pnic_info, wf_u16 port){
+void wf_p2p_wfd_set_ctrl_port(nic_info_st *pnic_info, wf_u16 port)
+{
 
     p2p_info_st *p2p_info = pnic_info->p2p;
-    struct wifi_display_info *pwfd_info = &p2p_info->wfd_info;
+    wfd_info_st *pwfd_info = &p2p_info->wfd_info;
 
     pwfd_info->init_rtsp_ctrlport = port;
     if(pwfd_info->wfd_enable == wf_true)
+    {
         pwfd_info->rtsp_ctrlport = port;
+    }
 
 }
 
 
 
-wf_u8 *wfd_ie_to_get_func(wf_u8 flag, wf_u8 * in_ie, int in_len, wf_u8 * wfd_ie, wf_u32 * wfd_ielen)
+wf_u8 *wf_p2p_wfd_get_ie(wf_u8 flag, wf_u8 * in_ie, int in_len, wf_u8 * wfd_ie, wf_u32 * wfd_ielen)
 {
     wf_u32 cnt = 0;
     wf_u8 *wfd_ie_ptr = NULL;
-    wf_u8 eid, wfd_oui[4] = { 0x50, 0x6F, 0x9A, 0x0A };
+    wf_u8 eid;
 
     if (flag) 
     {
@@ -102,27 +120,35 @@ wf_u8 *wfd_ie_to_get_func(wf_u8 flag, wf_u8 * in_ie, int in_len, wf_u8 * wfd_ie,
         return wfd_ie_ptr;
     }
 
-    while (cnt + 1 + 4 < in_len) {
+    while (cnt + 1 + 4 < in_len) 
+    {
         eid = in_ie[cnt];
         /* cnt + 1 is the bit of length, + 4 means that atlest include wfdoui */
-        if (cnt + 1 + 4 >= MAX_IE_SZ) {
+        if (cnt + 1 + 4 >= MAX_IE_SZ)
+        {
             WFD_WARN(" NOT FIND WFD IE");
             return NULL;
         }
         
-        if (eid == WF_80211_MGMT_EID_VENDOR_SPECIFIC && wf_memcmp(&in_ie[cnt + 2], wfd_oui, 4) == 0) 
+        if (eid == WF_80211_MGMT_EID_VENDOR_SPECIFIC && wf_memcmp(&in_ie[cnt + 2], WFD_OUI, 4) == 0) 
         {
-            WFD_INFO("find wdf ie");   
+            WFD_DBG("find wdf ie");   
             wfd_ie_ptr = in_ie + cnt;
 
             if (wfd_ie)
+            {
                 wf_memcpy(wfd_ie, &in_ie[cnt], in_ie[cnt + 1] + 2);
+            }
 
             if (wfd_ielen)
+            {
                 *wfd_ielen = in_ie[cnt + 1] + 2;
+            }
 
             break;
-        } else {
+        } 
+        else 
+        {
             cnt += in_ie[cnt + 1] + 2;
         }
 
@@ -131,24 +157,27 @@ wf_u8 *wfd_ie_to_get_func(wf_u8 flag, wf_u8 * in_ie, int in_len, wf_u8 * wfd_ie,
     return wfd_ie_ptr;
 }
 
-static wf_u8 *wfd_attr_to_get_func(wf_u8 * wfd_ie, wf_u32 wfd_ielen, wf_u8 target_attr_id,
+static wf_u8 *wfd_get_attr(wf_u8 * wfd_ie, wf_u32 wfd_ielen, wf_u8 target_attr_id,
                      wf_u8 * buf_attr, wf_u32 * len_attr, wf_u8 flag)
 {
     wf_u8 *attr_ptr = NULL;
     wf_u8 *target_attr_ptr = NULL;
-    wf_u8 wfd_oui[4] = { 0x50, 0x6F, 0x9A, 0x0A };
 
-    if (flag) {
-        if (len_attr)
-            *len_attr = 0;
+    if (flag && len_attr) 
+    {
+       *len_attr = 0;
     }
+    
     if (!wfd_ie || wfd_ielen <= 6 || (wfd_ie[0] != WF_80211_MGMT_EID_VENDOR_SPECIFIC)
-        || (wf_memcmp(wfd_ie + 2, wfd_oui, 4) != wf_true))
+        || (wf_memcmp(wfd_ie + 2, WFD_OUI, 4) != wf_true))
+    {
         return attr_ptr;
+    }
 
     attr_ptr = wfd_ie + 6;
 
-    while ((attr_ptr - wfd_ie + 3) <= wfd_ielen) {
+    while ((attr_ptr - wfd_ie + 3) <= wfd_ielen) 
+    {
         wf_u8 attr_id = *attr_ptr;
         wf_u16 attr_data_len = WF_GET_BE16(attr_ptr + 1);
         wf_u16 attr_len = attr_data_len + 3;
@@ -156,19 +185,28 @@ static wf_u8 *wfd_attr_to_get_func(wf_u8 * wfd_ie, wf_u32 wfd_ielen, wf_u8 targe
         WFD_INFO("%s attr_ptr:%p, id:%u, length:%u\n", __func__, attr_ptr,attr_id, attr_data_len);
 
         if ((attr_ptr - wfd_ie + attr_len) > wfd_ielen)
+        {
             break;
+        }
 
-        if (attr_id == target_attr_id) {
+        if (attr_id == target_attr_id) 
+        {
             target_attr_ptr = attr_ptr;
 
             if (buf_attr)
+            {
                 wf_memcpy(buf_attr, attr_ptr, attr_len);
+            }
 
             if (len_attr)
+            {
                 *len_attr = attr_len;
+            }
 
             break;
-        } else {
+        } 
+        else 
+        {
             attr_ptr += attr_len;
         }
     }
@@ -177,131 +215,46 @@ static wf_u8 *wfd_attr_to_get_func(wf_u8 * wfd_ie, wf_u32 wfd_ielen, wf_u8 targe
 }
 
 
-wf_u8 *wfd_attr_content_to_get_func(wf_u8 * wfd_ie, wf_u32 wfd_ielen, wf_u8 target_attr_id,
+wf_u8 *wfd_get_attr_content(wf_u8 * wfd_ie, wf_u32 wfd_ielen, wf_u8 target_attr_id,
                              wf_u8 * buf_content, wf_u32 * len_content, wf_u8 flag)
 {
     wf_u8 *attr_ptr;
     wf_u32 attr_len;
 
-    if (flag) {
-        if (len_content)
-            *len_content = 0;
+    if (flag && len_content) 
+    {
+        *len_content = 0;
     }
-    attr_ptr =
-        wfd_attr_to_get_func(wfd_ie, wfd_ielen, target_attr_id, NULL, &attr_len, 1);
+    attr_ptr = wfd_get_attr(wfd_ie, wfd_ielen, target_attr_id, NULL, &attr_len, 1);
 
-    if (attr_ptr && attr_len) {
+    if (attr_ptr && attr_len) 
+    {
         if (buf_content)
+        {
             wf_memcpy(buf_content, attr_ptr + 3, attr_len - 3);
+        }
 
         if (len_content)
+        {
             *len_content = attr_len - 3;
+        }
 
         return attr_ptr + 3;
     }
 
     return NULL;
 }
-/*
-static wf_u32 beacon_wfd_ie_build_func(nic_info_st *pnic_info, wf_u8 * pbuf, wf_u8 flag)
-{
-    
-    wf_u8 wfdie[MAX_WFD_IE_LEN] = { 0x00 };
-    wf_u16 val16 = 0;
-    wf_u32 len = 0, wfdielen = 0;
-    p2p_info_st *p2p_info = pnic_info->p2p;
-    p2p_wd_info_st *pwdinfo = &p2p_info->wdinfo;
-    mlme_info_t *pmlme_info = (mlme_info_t *)pnic_info->mlme_info;
-    struct wifi_display_info *pwfd_info = &pwdinfo->wfd_info;
-    wdn_list *pwdn = (wdn_list *)pnic_info->wdn;
 
-    //if (!Func_Chip_Hw_Chk_Wl_Func(pwadptdata, WL_FUNC_MIRACAST))
-    //  goto exit;
-
-    wfdielen = 0;
-    wfdie[wfdielen++] = 0x50;
-    wfdie[wfdielen++] = 0x6F;
-    wfdie[wfdielen++] = 0x9A;
-    wfdie[wfdielen++] = 0x0A;   
-
-    wfdie[wfdielen++] = WFD_ATTR_DEVICE_INFO;
-
-    WF_PUT_BE16(wfdie + wfdielen, 0x0006);
-    wfdielen += 2;
-
-    if (P2P_ROLE_GO == pwdinfo->role) {
-        if (pwdn->cnt) {
-            val16 = pwfd_info->wfd_device_type | WFD_DEVINFO_WSD;
-            WF_PUT_BE16(wfdie + wfdielen, val16);
-        } else {
-            val16 =
-                pwfd_info->
-                wfd_device_type | WFD_DEVINFO_SESSION_AVAIL | WFD_DEVINFO_WSD;
-            WF_PUT_BE16(wfdie + wfdielen, val16);
-        }
-
-    } else {
-        val16 =
-            pwfd_info->
-            wfd_device_type | WFD_DEVINFO_SESSION_AVAIL | WFD_DEVINFO_WSD;
-        WF_PUT_BE16(wfdie + wfdielen, val16);
-    }
-    if (flag) {
-        wfdielen += 2;
-    }
-    WF_PUT_BE16(wfdie + wfdielen, pwfd_info->rtsp_ctrlport);
-    wfdielen += 2;
-
-    WF_PUT_BE16(wfdie + wfdielen, 300);
-    wfdielen += 2;
-
-    wfdie[wfdielen++] = WFD_ATTR_ASSOC_BSSID;
-
-    WF_PUT_BE16(wfdie + wfdielen, 0x0006);
-    wfdielen += 2;
-
-    if (check_fwstate(pmlmepriv, _FW_LINKED) == wf_true) {
-        wf_memcpy(wfdie + wfdielen, &pmlmepriv->assoc_bssid[0], WF_ETH_ALEN);
-    } else {
-        wf_memset(wfdie + wfdielen, 0x00, WF_ETH_ALEN);
-    }
-
-    wfdielen += ETH_ALEN;
-
-    wfdie[wfdielen++] = WFD_ATTR_COUPLED_SINK_INFO;
-
-    WL_PUT_BE16(wfdie + wfdielen, 0x0007);
-    wfdielen += 2;
-
-    wfdie[wfdielen++] = 0;
-    wfdie[wfdielen++] = 0;
-    wfdie[wfdielen++] = 0;
-    wfdie[wfdielen++] = 0;
-    wfdie[wfdielen++] = 0;
-    wfdie[wfdielen++] = 0;
-    wfdie[wfdielen++] = 0;
-
-    ie_to_set_func(pbuf, _VENDOR_SPECIFIC_IE_, wfdielen, (unsigned char *)wfdie,
-               &len);
-
-exit:
-    return len;
-}
-
-*/
-
-wf_u32 probe_req_wfd_ie_build_func(nic_info_st * pnic_info, wf_u8 * pbuf, wf_u8 flag)
+wf_u32 wfd_build_probe_req_ie(nic_info_st * pnic_info, wf_u8 * pbuf)
 {
     wf_u8 wfdie[MAX_WFD_IE_LEN] = { 0x00 };
     wf_u16 val16 = 0;
     wf_u32 len = 0, wfdielen = 0;
     p2p_info_st *p2p_info = pnic_info->p2p; 
-    struct wifi_display_info *pwfd_info = &p2p_info->wfd_info;
+    wfd_info_st *pwfd_info = &p2p_info->wfd_info;
     wdn_list *pwdn = (wdn_list *)pnic_info->wdn;
     wdn_net_info_st *pwdn_info = NULL;
     wdn_node_st *pwdn_node = NULL;
-    //if (!Func_Chip_Hw_Chk_Wl_Func(pwadptdata, WL_FUNC_MIRACAST))
-    //  goto exit;
 
     wfdielen = 0;
     wfdie[wfdielen++] = 0x50;
@@ -314,15 +267,10 @@ wf_u32 probe_req_wfd_ie_build_func(nic_info_st * pnic_info, wf_u8 * pbuf, wf_u8 
     WF_PUT_BE16(wfdie + wfdielen, 0x0006);
     wfdielen += 2;
 
-    {
-        val16 = pwfd_info->wfd_device_type |
-            WFD_DEVINFO_SESSION_AVAIL | WFD_DEVINFO_WSD;
-        WF_PUT_BE16(wfdie + wfdielen, val16);
-    }
-
-    if (flag) {
-        wfdielen += 2;
-    }
+    val16 = pwfd_info->wfd_device_type | WFD_DEVINFO_SESSION_AVAIL | WFD_DEVINFO_WSD;
+    WF_PUT_BE16(wfdie + wfdielen, val16);
+    wfdielen += 2;
+    
     WF_PUT_BE16(wfdie + wfdielen, pwfd_info->rtsp_ctrlport);
     wfdielen += 2;
 
@@ -334,11 +282,14 @@ wf_u32 probe_req_wfd_ie_build_func(nic_info_st * pnic_info, wf_u8 * pbuf, wf_u8 
     WF_PUT_BE16(wfdie + wfdielen, 0x0006);
     wfdielen += 2;
 
-    if (pwdn->cnt) {
+    if (pwdn->cnt) 
+    {
         pwdn_node = wf_list_entry(pwdn->head.pnext, wdn_node_st, list);
         pwdn_info = &pwdn_node->info;
         wf_memcpy(wfdie + wfdielen, &pwdn_info->bssid, WF_ETH_ALEN);
-    } else {
+    } 
+    else 
+    {
         wf_memset(wfdie + wfdielen, 0x00, WF_ETH_ALEN);
     }
 
@@ -357,26 +308,21 @@ wf_u32 probe_req_wfd_ie_build_func(nic_info_st * pnic_info, wf_u8 * pbuf, wf_u8 
     wfdie[wfdielen++] = 0;
     wfdie[wfdielen++] = 0;
 
-    set_ie(pbuf, WF_80211_MGMT_EID_VENDOR_SPECIFIC, wfdielen, (unsigned char *)wfdie,
-               &len);
+    set_ie(pbuf, WF_80211_MGMT_EID_VENDOR_SPECIFIC, wfdielen, (unsigned char *)wfdie,&len);
 
-//exit:
     return len;
 }
 
 
-wf_u32 probe_resp_wfd_ie_build_func(nic_info_st * pnic_info, wf_u8 * pbuf, wf_u8 tunneled, wf_u8 flag)
+wf_u32 wfd_build_probe_resp_ie(nic_info_st * pnic_info, wf_u8 * pbuf, wf_u8 tunneled, wf_u8 flag)
 {
     wf_u8 wfdie[MAX_WFD_IE_LEN] = { 0x00 };
     wf_u32 len = 0, wfdielen = 0;
     p2p_info_st *p2p_info = pnic_info->p2p;
-    struct wifi_display_info *pwfd_info = &p2p_info->wfd_info;
+    wfd_info_st *pwfd_info = &p2p_info->wfd_info;
     wdn_list *pwdn = (wdn_list *)pnic_info->wdn;
     wdn_net_info_st *pwdn_info = NULL;
     wdn_node_st *pwdn_node = NULL;
-
-    //if (!Func_Chip_Hw_Chk_Wl_Func(pwadptdata, WL_FUNC_MIRACAST))
-        //goto exit;
 
     wfdielen = 0;
     wfdie[wfdielen++] = 0x50;
@@ -440,11 +386,14 @@ wf_u32 probe_resp_wfd_ie_build_func(nic_info_st * pnic_info, wf_u8 * pbuf, wf_u8
     WF_PUT_BE16(wfdie + wfdielen, 0x0006);
     wfdielen += 2;
 
-    if (pwdn->cnt) {
+    if (pwdn->cnt) 
+    {
         pwdn_node = wf_list_entry(pwdn->head.pnext, wdn_node_st, list);
         pwdn_info = &pwdn_node->info;
         wf_memcpy(wfdie + wfdielen, &pwdn_info->bssid, WF_ETH_ALEN);
-    } else {
+    } 
+    else 
+    {
         wf_memset(wfdie + wfdielen, 0x00, WF_ETH_ALEN);
     }
 
@@ -463,27 +412,25 @@ wf_u32 probe_resp_wfd_ie_build_func(nic_info_st * pnic_info, wf_u8 * pbuf, wf_u8
     wfdie[wfdielen++] = 0;
     wfdie[wfdielen++] = 0;
 
-    if (p2p_info->role == P2P_ROLE_GO) {
+    if (p2p_info->role == P2P_ROLE_GO) 
+    {
         wfdie[wfdielen++] = WFD_ATTR_SESSION_INFO;
-
         WF_PUT_BE16(wfdie + wfdielen, 0x0000);
         wfdielen += 2;
-
     }
-#ifdef CONFIG_CONCURRENT_MODE
-#endif
+    
     set_ie(pbuf, WF_80211_MGMT_EID_VENDOR_SPECIFIC, wfdielen, (unsigned char *)wfdie,&len);
-//exit:
+
     return len;
 }
 
 
-static wf_u32 assoc_req_wfd_ie_build_func(nic_info_st * pnic_info, wf_u8 * pbuf, wf_u8 flag)
+static wf_u32 wfd_build_assoc_req_ie(nic_info_st * pnic_info, wf_u8 * pbuf, wf_u8 flag)
 {
     wf_u8 wfdie[MAX_WFD_IE_LEN] = { 0x00 };
     wf_u16 val16 = 0;
     wf_u32 len = 0, wfdielen = 0;
-    struct wifi_display_info *pwfd_info = NULL;    
+    wfd_info_st *pwfd_info = NULL;    
     wdn_net_info_st *pwdn_info = NULL;
     wdn_node_st *pwdn_node = NULL;
     wdn_list *pwdn = (wdn_list *)pnic_info->wdn;
@@ -491,9 +438,6 @@ static wf_u32 assoc_req_wfd_ie_build_func(nic_info_st * pnic_info, wf_u8 * pbuf,
 
     pwfd_info = &p2p_info->wfd_info;
     
-
-    //if (!Func_Chip_Hw_Chk_Wl_Func(pwadptdata, WL_FUNC_MIRACAST))
-    //  goto exit;
 
     if(p2p_info->p2p_state == P2P_STATE_NONE && p2p_info->p2p_state == P2P_STATE_IDLE)
         goto exit;
@@ -557,19 +501,16 @@ exit:
 }
 
 
-wf_u32 assoc_resp_wfd_ie_build_func(nic_info_st * pnic_info, wf_u8 * pbuf, wf_u8 flag)
+wf_u32 wfd_build_assoc_resp_ie(nic_info_st * pnic_info, wf_u8 * pbuf, wf_u8 flag)
 {
     wf_u8 wfdie[MAX_WFD_IE_LEN] = { 0x00 };
     wf_u32 len = 0, wfdielen = 0;
     wf_u16 val16 = 0;
     p2p_info_st *p2p_info = pnic_info->p2p;
-    struct wifi_display_info *pwfd_info = &p2p_info->wfd_info;
+    wfd_info_st *pwfd_info = &p2p_info->wfd_info;
     wdn_list *pwdn = (wdn_list *)pnic_info->wdn;
     wdn_net_info_st *pwdn_info = NULL;
     wdn_node_st *pwdn_node = NULL;
-
-    //if (!Func_Chip_Hw_Chk_Wl_Func(pwadptdata, WL_FUNC_MIRACAST))
-        //goto exit;
 
     wfdie[wfdielen++] = 0x50;
     wfdie[wfdielen++] = 0x6F;
@@ -581,8 +522,7 @@ wf_u32 assoc_resp_wfd_ie_build_func(nic_info_st * pnic_info, wf_u8 * pbuf, wf_u8
     WF_PUT_BE16(wfdie + wfdielen, 0x0006);
     wfdielen += 2;
 
-    val16 =
-        pwfd_info->wfd_device_type | WFD_DEVINFO_SESSION_AVAIL | WFD_DEVINFO_WSD;
+    val16 = pwfd_info->wfd_device_type | WFD_DEVINFO_SESSION_AVAIL | WFD_DEVINFO_WSD;
     WF_PUT_BE16(wfdie + wfdielen, val16);
     wfdielen += 2;
 
@@ -622,116 +562,132 @@ wf_u32 assoc_resp_wfd_ie_build_func(nic_info_st * pnic_info, wf_u8 * pbuf, wf_u8
     wfdie[wfdielen++] = 0;
     wfdie[wfdielen++] = 0;
 
-    set_ie(pbuf, WF_80211_MGMT_EID_VENDOR_SPECIFIC, wfdielen, (unsigned char *)wfdie,
-               &len);
+    set_ie(pbuf, WF_80211_MGMT_EID_VENDOR_SPECIFIC, wfdielen, (unsigned char *)wfdie, &len);
 
-//exit:
     return len;
 }
 
 
-wf_u32 probe_req_wfd_ie_to_append_func(nic_info_st * pnic_info, wf_u8 * pbuf, wf_u8 flag)
+wf_u32 wf_p2p_wfd_append_probe_req_ie(nic_info_st * pnic_info, wf_u8 * pbuf, wf_u8 flag)
 {
     p2p_info_st *p2p_info               = pnic_info->p2p;
-    struct wifi_display_info *wfd_info  = &p2p_info->wfd_info;
+    wfd_info_st *wfd_info  = &p2p_info->wfd_info;
     
     wf_u32 len = 0;
+    
+    WFD_DBG("adding wdf probe_req ie wfd_enable =%d",wfd_info->wfd_enable);
+    
     if (wfd_info->wfd_enable)
     {
-        len = probe_req_wfd_ie_build_func(pnic_info, pbuf, 1);
-    }
-    else if ( wfd_info->wfd_ie[WF_WFD_IE_PROBE_REQ] && wfd_info->wfd_ie_len[WF_WFD_IE_PROBE_REQ] > 0) 
-    {
-        len = wfd_info->wfd_ie_len[WF_WFD_IE_PROBE_REQ];
-        wf_memcpy(pbuf, wfd_info->wfd_ie[WF_WFD_IE_PROBE_REQ], len);
+        if ( wfd_info->wfd_ie[WF_WFD_IE_PROBE_REQ] && wfd_info->wfd_ie_len[WF_WFD_IE_PROBE_REQ] > 0) 
+        {
+            len = wfd_info->wfd_ie_len[WF_WFD_IE_PROBE_REQ];
+            wf_memcpy(pbuf, wfd_info->wfd_ie[WF_WFD_IE_PROBE_REQ], len);
+        }
+        else 
+        {   
+            WFD_DBG("build wfd probe_req by self");
+            len = wfd_build_probe_req_ie(pnic_info, pbuf);
+        }
+
     }
 
     return len;
 }
 
 
-wf_u32 probe_resp_wfd_ie_to_append_func(nic_info_st * pnic_info, wf_u8 * pbuf, wf_u8 flag)
+wf_u32 wf_p2p_wfd_append_probe_resp_ie(nic_info_st * pnic_info, wf_u8 * pbuf, wf_u8 flag)
 {
     p2p_info_st *p2p_info               = pnic_info->p2p;
-    struct wifi_display_info *wfd_info  = &p2p_info->wfd_info;
+    wfd_info_st *wfd_info  = &p2p_info->wfd_info;
     wf_u32 len = 0;
 
-    WFD_INFO("adding wdf ie build_ie_by_self =%d",wfd_info->wfd_enable);
     if (wfd_info->wfd_enable)
     {
-        len = probe_resp_wfd_ie_build_func(pnic_info, pbuf, 0, 1);
-    }
-    else if (wfd_info->wfd_ie[WF_WFD_IE_PROBE_RSP] && wfd_info->wfd_ie_len[WF_WFD_IE_PROBE_RSP] > 0) 
-    {
-        len = wfd_info->wfd_ie_len[WF_WFD_IE_PROBE_RSP];
-        wf_memcpy(pbuf, wfd_info->wfd_ie[WF_WFD_IE_PROBE_RSP], len);
-    }
-    
+        if (wfd_info->wfd_ie[WF_WFD_IE_PROBE_RSP] && wfd_info->wfd_ie_len[WF_WFD_IE_PROBE_RSP] > 0) 
+        {
+            len = wfd_info->wfd_ie_len[WF_WFD_IE_PROBE_RSP];
+            wf_memcpy(pbuf, wfd_info->wfd_ie[WF_WFD_IE_PROBE_RSP], len);
+        }
+        else
+        {
+            WFD_INFO("build wfd probe_resp by self");
+            len = wfd_build_probe_resp_ie(pnic_info, pbuf, 0, 1);
+        }
 
-//exit:
+    }   
+
+    WFD_DBG("adding wdf probe_resp ie len:%d",len);
+
     return len;
 }
 
 
-wf_u32 assoc_req_wfd_ie_to_append_func(nic_info_st * pnic_info, wf_u8 * pbuf, wf_u8 flag)
+wf_u32 wf_p2p_wfd_append_assoc_req_ie(nic_info_st * pnic_info, wf_u8 * pbuf, wf_u8 flag)
 {
     p2p_info_st *p2p_info  = pnic_info->p2p;
-    struct wifi_display_info *wfd_info = &p2p_info->wfd_info;
+    wfd_info_st *wfd_info = &p2p_info->wfd_info;
     
     wf_u32 len = 0;
+
+    WFD_INFO("adding wdf assoc_req ie wfd_enable =%d",wfd_info->wfd_enable);
 
     if (p2p_info->wfd_info.wfd_enable)
     {
-        len = assoc_req_wfd_ie_build_func(pnic_info, pbuf, 1);
-    }
-    
-    else if (wfd_info->wfd_ie[WF_WFD_IE_ASSOC_REQ] && wfd_info->wfd_ie_len[WF_WFD_IE_ASSOC_REQ] > 0) 
-    {
-        len = wfd_info->wfd_ie_len[WF_WFD_IE_ASSOC_REQ];
-        wf_memcpy(pbuf, wfd_info->wfd_ie[WF_WFD_IE_ASSOC_REQ], len);
-    }
-    
+        if (wfd_info->wfd_ie[WF_WFD_IE_ASSOC_REQ] && wfd_info->wfd_ie_len[WF_WFD_IE_ASSOC_REQ] > 0) 
+        {
+            len = wfd_info->wfd_ie_len[WF_WFD_IE_ASSOC_REQ];
+            wf_memcpy(pbuf, wfd_info->wfd_ie[WF_WFD_IE_ASSOC_REQ], len);
+        }
+        else 
+        {
+            WFD_INFO("build wfd assoc_req by self");
+            len = wfd_build_assoc_req_ie(pnic_info, pbuf, 1);
+        }
 
-//exit:
+    }
+
     return len;
 }
 
-wf_u32 assoc_resp_wfd_ie_to_append_func(nic_info_st * pnic_info, wf_u8 * pbuf, wf_u8 flag)
+wf_u32 wf_p2p_wfd_append_assoc_resp_ie(nic_info_st * pnic_info, wf_u8 * pbuf, wf_u8 flag)
 {
     p2p_info_st *p2p_info               = pnic_info->p2p;
-    struct wifi_display_info *wfd_info  = &p2p_info->wfd_info;
+    wfd_info_st *wfd_info  = &p2p_info->wfd_info;
     wf_u32 len = 0;
+
+    WFD_INFO("adding wdf assoc_resp ie wfd_enable =%d",wfd_info->wfd_enable);
     
     if (wfd_info->wfd_enable)
     {
-        len = assoc_resp_wfd_ie_build_func(pnic_info, pbuf, 1);
-    }
-    else if (wfd_info->wfd_ie[WF_WFD_IE_ASSOC_RSP] && wfd_info->wfd_ie_len[WF_WFD_IE_ASSOC_RSP] > 0) 
-    {
-        len = wfd_info->wfd_ie_len[WF_WFD_IE_ASSOC_RSP];
-        wf_memcpy(pbuf, wfd_info->wfd_ie[WF_WFD_IE_ASSOC_RSP], len);
+        if (wfd_info->wfd_ie[WF_WFD_IE_ASSOC_RSP] && wfd_info->wfd_ie_len[WF_WFD_IE_ASSOC_RSP] > 0) 
+        {
+            len = wfd_info->wfd_ie_len[WF_WFD_IE_ASSOC_RSP];
+            wf_memcpy(pbuf, wfd_info->wfd_ie[WF_WFD_IE_ASSOC_RSP], len);
+        }
+        else
+        {
+            WFD_INFO("build wfd assoc_resp by self");
+            len = wfd_build_assoc_resp_ie(pnic_info, pbuf, 1);
+        }
+
     }
     
-
-//exit:
     return len;
 }
 
 wf_s32 wf_p2p_wfd_update_ie(nic_info_st *pnic_info, WF_WFD_IE_E ie_type, wf_u8 * ie,wf_u32 ie_len, wf_u8 tag)
 {
     p2p_info_st *p2p_info               = pnic_info->p2p;
-    struct wifi_display_info *wfd_info  = &p2p_info->wfd_info;
+    wfd_info_st *wfd_info  = &p2p_info->wfd_info;
     wf_u8 clear = 0;
-    wf_s32 ret = wf_false;
     
     if (tag)
     {
-        //if (!Func_Chip_Hw_Chk_Wl_Func(wadptdata, WL_FUNC_MIRACAST))
-        //  goto success;
 
         if (wfd_info->wfd_enable == wf_false)
         {
-            goto success;
+            return wf_true;
         }
 
         if (!ie && !ie_len)
@@ -741,28 +697,21 @@ wf_s32 wf_p2p_wfd_update_ie(nic_info_st *pnic_info, WF_WFD_IE_E ie_type, wf_u8 *
         else if (!ie || !ie_len)
         {
             WFD_WARN(" type:%u, ie:%p, ie_len:%u", ie_type, ie, ie_len);
-            goto exit;
+            return wf_false;
         }
         if(WF_WFD_IE_MAX <= ie_type)
         {
             WFD_WARN("unknown ie type:%d",ie_type);
         }
         
-        if(NULL != wfd_info->wfd_ie[ie_type])
+        if(NULL != wfd_info->wfd_ie[ie_type] &&  wfd_info->wfd_ie_len[ie_type] > 0)
         {
-            wf_kfree(wfd_info->wfd_ie[ie_type]);
-            wfd_info->wfd_ie[ie_type] = NULL;
+            wf_memset(wfd_info->wfd_ie[ie_type],0,P2P_IE_BUF_LEN);
             wfd_info->wfd_ie_len[ie_type] = 0;
         }
 
         if (!clear)
         {
-            wfd_info->wfd_ie[ie_type] = wf_kzalloc(ie_len);
-            if (wfd_info->wfd_ie[ie_type] == NULL)
-            {
-                WFD_WARN(" ie_type:%u, wl_malloc() fail\n", ie_type);
-                goto exit;
-            }
             wf_memcpy(wfd_info->wfd_ie[ie_type], ie, ie_len);
             wfd_info->wfd_ie_len[ie_type] = ie_len;
         }
@@ -772,7 +721,7 @@ wf_s32 wf_p2p_wfd_update_ie(nic_info_st *pnic_info, WF_WFD_IE_E ie_type, wf_u8 *
             wf_u8 *attr_content;
             wf_u32 attr_contentlen = 0;
 
-            attr_content = wfd_attr_content_to_get_func(wfd_info->wfd_ie[ie_type], wfd_info->wfd_ie_len[ie_type],
+            attr_content = wfd_get_attr_content(wfd_info->wfd_ie[ie_type], wfd_info->wfd_ie_len[ie_type],
                                              WFD_ATTR_DEVICE_INFO, NULL, &attr_contentlen, 1);
             if (attr_content && attr_contentlen)
             {
@@ -784,11 +733,9 @@ wf_s32 wf_p2p_wfd_update_ie(nic_info_st *pnic_info, WF_WFD_IE_E ie_type, wf_u8 *
             }
         }
     }
-success:
-    ret = wf_true;
+    
+    return wf_true;
 
-exit:
-    return ret;
 }
 
 

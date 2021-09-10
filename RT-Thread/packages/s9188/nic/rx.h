@@ -18,6 +18,8 @@
 #define __RX_H__
 
 #define RX_REORDER_ENABLE (1)
+#define AGG_LEN  (8)   //kByte
+#define AGG_TIME (5) //ms
 
 #define ETHERNET_HEADER_SIZE                14  /* A-MSDU header ï¼? DA(6)+SA(6)+Length(2) */
 #define LLC_HEADER_SIZE                     6

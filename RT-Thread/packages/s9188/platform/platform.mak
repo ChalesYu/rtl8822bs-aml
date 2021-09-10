@@ -89,9 +89,9 @@ endif
 ifeq ($(CONFIG_PLATFORM_ARM_Smart210), y)
 EXTRA_CFLAGS += -DCONFIG_LITTLE_ENDIAN
 ARCH := arm
-KVER  := 2.6.35
+KVER  := 3.0.8
 CROSS_COMPILE :=/opt/FriendlyARM/toolschain/4.5.1/bin/arm-linux-
-KSRC ?= /home/hichard/renhaibo/001.smart210/linux-2.6.35.7
+KSRC ?= /home/syt/share/smart210/linux/linux-3.0.8
 endif
 
 ifeq ($(CONFIG_PLATFORM_ARM_tiny4412), y)
@@ -99,8 +99,8 @@ EXTRA_CFLAGS += -DCONFIG_LITTLE_ENDIAN
 EXTRA_CFLAGS += -DCONFIG_4412
 ARCH := arm
 KVER  := 3.0.86
-CROSS_COMPILE ?=/opt/FriendlyARM/toolschain/4.5.1/bin/arm-linux-
-KSRC ?= /home/syt/share/4412/linux/linux-3.0.86
+CROSS_COMPILE :=/opt/FriendlyARM/toolschain/4.5.1/bin/arm-linux-
+KSRC := /home/syt/share/4412/linux/linux-3.0.86
 #KSRC ?= /home/hichard/renhaibo/001.smart210/linux-3.0.86
 endif
 

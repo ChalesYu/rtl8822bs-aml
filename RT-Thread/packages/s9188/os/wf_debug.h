@@ -138,32 +138,99 @@ static wf_inline void log_array (void *ptr, wf_u16 len)
 
 #define WF_ASSERT(EX)
 
+#include "wf_os_api.h"
+	static wf_inline void log_array (void *ptr, wf_u16 len)
+	{
+		wf_u16 i = 0;
+		wf_u16 num;
+		wf_u8 *pdata = ptr;
+	
+        #define NUM_PER_LINE    8
+	//	for (i = 0, num = len / NUM_PER_LINE; i < num;
+	//		   i++, pdata = &pdata[i * NUM_PER_LINE]) {
+        DbgPrint("\r\n");
+		for (i = 0, num = len / NUM_PER_LINE; i < num;
+			 i++, pdata += 8) {
+			DbgPrint("%02X %02X %02X %02X %02X %02X %02X %02X\r\n",
+				   pdata[0], pdata[1], pdata[2], pdata[3],
+				   pdata[4], pdata[5], pdata[6], pdata[7]);
+		}
+		num = len % NUM_PER_LINE;
+		if (num) {
+			for (i = 0; i < num; i++) {
+				DbgPrint("%02X", pdata[i]);
+			}
+		}
+		DbgPrint( "\r\n");
+}
+
+
 	#ifdef _WIN64
       //define something for Windows (64-bit only)
    #endif
 #endif
 
 #ifdef __RTTHREAD__
+#if 1
+
 #define DBG_ENABLE
 #define DBG_COLOR
 #define DBG_SECTION_NAME    "WF"
 #define DBG_LVL              DBG_LOG
 #include <rtdbg.h>
 #define WF_ASSERT    RT_ASSERT
+
+//static inline void log_array_print(void *ptr, wf_u16 len)
+//{
+//    wf_u16 i = 0;
+//    wf_u16 num;
+//    wf_u8 *pdata = ptr;
+//
+//#define NUM_PER_LINE    8
+//    rt_kprintf("\r\n");
+//    for (i = 0, num = len / NUM_PER_LINE; i < num; i++, pdata += 8)
+//    {
+//        rt_kprintf("%02X %02X %02X %02X %02X %02X %02X %02X\r\n",
+//                 pdata[0], pdata[1], pdata[2], pdata[3],
+//                 pdata[4], pdata[5], pdata[6], pdata[7]);
+//    }
+//    num = len % NUM_PER_LINE;
+//    if (num)
+//    {
+//        for (i = 0; i < num; i++)
+//        {
+//            rt_kprintf("%02X", pdata[i]);
+//        }
+//    }
+//    rt_kprintf("\r\n");
+//}
+
+#else
+
+#define LOG_D(fmt,...)
+#define LOG_N(fmt,...)
+#define LOG_I(fmt,...)
+#define LOG_W(fmt,...)
+#define LOG_E(fmt,...)
+#define WF_ASSERT(EX)
+
+#endif
 #endif
 
 #ifdef __RTOS__
-#define LOG_D(...)
-#define LOG_I(...)
-#define LOG_W(...)
-#define LOG_E(...)
+#define LOG_D(...)      OS_LOG_D(__VA_ARGS__)
+#define LOG_I(...)      OS_LOG_I(__VA_ARGS__)
+#define LOG_W(...)      OS_LOG_W(__VA_ARGS__)
+#define LOG_E(...)      OS_LOG_E(__VA_ARGS__)
+#define log_array(...)  os_log_array(__VA_ARGS__)
 
 #define WF_ASSERT(EX)                                         \
 if (!(EX))                                                    \
 {                                                             \
     LOG_E("#EX assertion failed at function:%s, line number:%d \n", __FUNCTION__, __LINE__);\
-    OS_BUG_ON();                                              \
+    OS_BUG();                                              \
 }
 #endif
 
 #endif      /* END OF __WF_DEBUG_H__ */
+

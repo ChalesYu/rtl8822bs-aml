@@ -257,36 +257,6 @@ int wf_xmit_get_info(wf_xmit_pkt_t *ppkt, wf_u16 *peth_type, wf_u16 *phdr_len)
 #endif
 
 
-NDIS_STATUS wf_xmit_pkt_wlan2eth(PADAPTER padapter, void *ppkt)
-{
-	wf_xmit_pkt_t *pkt = ppkt;
-	struct wf_ethhdr *etherhdr;
-	//data_frame_header_t hdr_80211;
-	wf_u16 eth_type, hdr_len, msdu_len;
-	wf_u16 eth_type_temp;
-	wf_u8 mac_hdr[MAC_HDR_LEN_SHORT] = {0};
-
-	//save 802.11 mac header
-	NdisMoveMemory(mac_hdr, pkt->ptempbuf, MAC_HDR_LEN_SHORT);
-
-	wf_pkt_get_hdr_len(pkt->ptempbuf, pkt->data_len, &eth_type, &hdr_len);
-	//wf_xmit_get_info(pkt, &eth_type, &hdr_len);
-	eth_type_temp = ntohs((unsigned short)eth_type);
-	//LOG_D("eth_type=[%x][%x], hdr_len=%d", eth_type, eth_type_temp, hdr_len);
-
-	etherhdr = (struct wf_ethhdr *)(pkt->ptempbuf + hdr_len - sizeof(struct wf_ethhdr));
-	msdu_len = (wf_u16)(pkt->data_len - hdr_len + sizeof(struct wf_ethhdr));
-	pkt->data_len = msdu_len;
-	pkt->ptempbuf = (UCHAR *)etherhdr;
-	pkt->xframe.nic_info = padapter->nic_info;
-
-	NdisMoveMemory(&etherhdr->type, &eth_type, 2);
-	NdisMoveMemory(etherhdr->dest, GetAddr3Ptr(mac_hdr), MAC_ADDR_LEN);
-	NdisMoveMemory(etherhdr->src, GetAddr2Ptr(mac_hdr), MAC_ADDR_LEN);
-	
-	return NDIS_STATUS_SUCCESS;
-}
-
 
 char wf_xmit_cannot_send(void *adapter)
 {
@@ -455,8 +425,44 @@ static wf_bool wf_xmit_send_frag(nic_info_st *nic_info, wf_xmit_pkt_t *pkt, wf_b
 
 #if defined(MP_USE_NET_BUFFER_LIST)
 
-NDIS_STATUS wf_xmit_copy_nbl2buffer(PNET_BUFFER_LIST nbl, void *pkt_buff)
+#define NDIS_PKT_STATUE_SET(ndis_pkt, status) NET_BUFFER_LIST_STATUS(ndis_pkt) = status;
+#define NDIS_PKT_STATUE_GET(ndis_pkt) 		  NET_BUFFER_LIST_STATUS(ndis_pkt)
+
+
+NDIS_STATUS wf_xmit_pkt_wlan2eth(PADAPTER padapter, void *ppkt)
 {
+	wf_xmit_pkt_t *pkt = ppkt;
+	struct wf_ethhdr *etherhdr;
+	//data_frame_header_t hdr_80211;
+	wf_u16 eth_type, hdr_len, msdu_len;
+	wf_u16 eth_type_temp;
+	wf_u8 mac_hdr[MAC_HDR_LEN_SHORT] = {0};
+
+	//save 802.11 mac header
+	NdisMoveMemory(mac_hdr, pkt->ptempbuf, MAC_HDR_LEN_SHORT);
+
+	wf_pkt_get_hdr_len(pkt->ptempbuf, pkt->data_len, &eth_type, &hdr_len);
+	//wf_xmit_get_info(pkt, &eth_type, &hdr_len);
+	eth_type_temp = ntohs((unsigned short)eth_type);
+	//LOG_D("eth_type=[%x][%x], hdr_len=%d", eth_type, eth_type_temp, hdr_len);
+
+	etherhdr = (struct wf_ethhdr *)(pkt->ptempbuf + hdr_len - sizeof(struct wf_ethhdr));
+	msdu_len = (wf_u16)(pkt->data_len - hdr_len + sizeof(struct wf_ethhdr));
+	pkt->data_len = msdu_len;
+	pkt->ptempbuf = (UCHAR *)etherhdr;
+	//pkt->xframe.nic_info = padapter->nic_info;
+
+	NdisMoveMemory(&etherhdr->type, &eth_type, 2);
+	NdisMoveMemory(etherhdr->dest, GetAddr3Ptr(mac_hdr), MAC_ADDR_LEN);
+	NdisMoveMemory(etherhdr->src, GetAddr2Ptr(mac_hdr), MAC_ADDR_LEN);
+	
+	return NDIS_STATUS_SUCCESS;
+}
+
+
+NDIS_STATUS wf_xmit_copy_ndispkt2buffer(void *ndis_pkt, void *pkt_buff)
+{
+	PNET_BUFFER_LIST nbl = ndis_pkt;
     NDIS_STATUS     ndisStatus = NDIS_STATUS_SUCCESS;
 	wf_xmit_pkt_t *pkt = pkt_buff;
     PNET_BUFFER     curr_nb;
@@ -663,7 +669,7 @@ void wf_xmit_ndis_pkt(NDIS_HANDLE mp_ctx, PNET_BUFFER_LIST nbl, NDIS_PORT_NUMBER
 		ret = wf_xmit_cannot_send(pAdapter);
 		if(ret) {
 			//LOG_E("can't send data, reason=%d", ret);
-			NET_BUFFER_LIST_STATUS(curr_nbl) = NDIS_STATUS_RESOURCES;
+			NDIS_PKT_STATUE_SET(curr_nbl, NDIS_STATUS_RESOURCES);
 			NdisMSendNetBufferListsComplete(pAdapter->MiniportAdapterHandle, curr_nbl, DispatchLevel);
 			continue;
 		}
@@ -671,28 +677,30 @@ void wf_xmit_ndis_pkt(NDIS_HANDLE mp_ctx, PNET_BUFFER_LIST nbl, NDIS_PORT_NUMBER
 		plist = wf_pkt_data_deque(pfree, QUE_POS_HEAD);
 		if(plist == NULL) {
 			LOG_E("get tx buffer failed!");
-			NET_BUFFER_LIST_STATUS(curr_nbl) = NDIS_STATUS_RESOURCES;
+			NDIS_PKT_STATUE_SET(curr_nbl, NDIS_STATUS_RESOURCES);
 			NdisMSendNetBufferListsComplete(pAdapter->MiniportAdapterHandle, curr_nbl, DispatchLevel);
 			continue;
 		}
 
 		pkt = CONTAINING_RECORD(plist, wf_xmit_pkt_t, list);
-		InterlockedIncrement(&xmit_info->proc_cnt);
+		
 
 		pkt->ptempbuf = pkt->tempbuffer;
 		pkt->xmit_flag = DispatchLevel;
-		pkt->nbl = curr_nbl;
-		NET_BUFFER_LIST_STATUS(pkt->nbl) = NDIS_STATUS_PENDING;
+		pkt->ndis_pkt = curr_nbl;
+		NDIS_PKT_STATUE_SET(curr_nbl, NDIS_STATUS_PENDING);
 
-		failStatus = wf_xmit_copy_nbl2buffer(curr_nbl, pkt);//wf_xmit_copy_nb2buffer(curr_nb, pkt);
+		InterlockedIncrement(&xmit_info->proc_cnt);
+		failStatus = wf_xmit_copy_ndispkt2buffer(curr_nbl, pkt);//wf_xmit_copy_nb2buffer(curr_nb, pkt);
 		if(failStatus != NDIS_STATUS_SUCCESS) {
 			LOG_E("copy data from nb failed");
-			NET_BUFFER_LIST_STATUS(curr_nbl) = NDIS_STATUS_FAILURE;
+			NDIS_PKT_STATUE_SET(curr_nbl, NDIS_STATUS_FAILURE);
 			wf_xmit_send_complete(nic_info, pkt);
 			continue;
 		}
+		
 
-#if 1
+#if 0
 		if(!pkt->is_preproc) {
 			wf_xmit_pkt_wlan2eth(pAdapter, pkt);
 			wf_xmit_frame_init(pAdapter->nic_info, &pkt->xframe, pkt->ptempbuf, pkt->data_len);
@@ -735,7 +743,6 @@ void wf_xmit_ndis_pkt(NDIS_HANDLE mp_ctx, PNET_BUFFER_LIST nbl, NDIS_PORT_NUMBER
 		}
 #else
 			wf_pkt_data_enque(ppend, &pkt->list, QUE_POS_TAIL);
-			InterlockedDecrement(&xmit_info->proc_cnt);
 			KeSetEvent(&xmit_info->tx_evt, 0, FALSE);
 #endif
 	}
@@ -746,7 +753,7 @@ void wf_xmit_ndis_pkt(NDIS_HANDLE mp_ctx, PNET_BUFFER_LIST nbl, NDIS_PORT_NUMBER
 
 EXIT_ERROR:
 	for(next_nbl = nbl; next_nbl != NULL; next_nbl = next_nbl->Next) {
-    	NET_BUFFER_LIST_STATUS(next_nbl) = NDIS_STATUS_FAILURE;
+		NDIS_PKT_STATUE_SET(curr_nbl, NDIS_STATUS_FAILURE);
     }
 
 	NdisMSendNetBufferListsComplete(pAdapter->MiniportAdapterHandle, nbl, DispatchLevel);
@@ -763,28 +770,28 @@ int wf_xmit_send_complete(nic_info_st *nic_info, wf_xmit_pkt_t *pkt)
 		return wf_false;
 	}
 
-	if(pkt->nbl == NULL) {
+	if(pkt->ndis_pkt == NULL) {
 		LOG_E("nbl is NULL");
 		return wf_false;
 	}
 
 	//all packet is NDIS_STATUS_PENDING or error status, if the packet status
 	//has be setted NDIS_STATUS_SUCCESS, means the packet is process twice
-	if(NET_BUFFER_LIST_STATUS(pkt->nbl) == NDIS_STATUS_SUCCESS) {
-		LOG_E("the pkt has processed");
-		return wf_false;
-	}
+	//if(NDIS_PKT_STATUE_GET(pkt->ndis_pkt) == NDIS_STATUS_SUCCESS) {
+	//	LOG_E("the pkt has processed");
+	//	return wf_false;
+	//}
 
-	if(NET_BUFFER_LIST_STATUS(pkt->nbl) == NDIS_STATUS_PENDING) {
-		NET_BUFFER_LIST_STATUS(pkt->nbl) = NDIS_STATUS_SUCCESS;
+	if(NDIS_PKT_STATUE_GET(pkt->ndis_pkt) == NDIS_STATUS_PENDING) {
+		NDIS_PKT_STATUE_SET(pkt->ndis_pkt, NDIS_STATUS_SUCCESS);
 		pkt->xmit_flag = FALSE;
 	}
 	
-	NdisMSendNetBufferListsComplete(pkt->mp_handle, pkt->nbl, pkt->xmit_flag);
+	NdisMSendNetBufferListsComplete(pkt->mp_handle, pkt->ndis_pkt, pkt->xmit_flag);
 
 	pkt->ptempbuf = NULL;
 	pkt->is_preproc = wf_false;
-	pkt->nbl = NULL;
+	pkt->ndis_pkt = NULL;
 	
 	wf_pkt_data_enque(&xmit_info->data_free, &pkt->list, QUE_POS_HEAD);
 	InterlockedDecrement(&xmit_info->proc_cnt);
@@ -794,6 +801,60 @@ int wf_xmit_send_complete(nic_info_st *nic_info, wf_xmit_pkt_t *pkt)
 
 
 #else
+
+#define NDIS_PKT_STATUE_SET(ndis_pkt, status) NDIS_SET_PACKET_STATUS(ndis_pkt, status);
+#define NDIS_PKT_STATUE_GET(ndis_pkt) 		  NDIS_GET_PACKET_STATUS(ndis_pkt)
+
+
+NDIS_STATUS wf_xmit_pkt_wlan2eth(PADAPTER padapter, void *ppkt)
+{
+	return NDIS_STATUS_SUCCESS;
+}
+
+
+NDIS_STATUS wf_xmit_copy_ndispkt2buffer(void *ndis_pkt, void *pkt_buff)
+{
+	PNDIS_PACKET 		prNdisPacket = ndis_pkt;
+	wf_xmit_pkt_t *pkt = pkt_buff;
+    NDIS_STATUS     ndisStatus = NDIS_STATUS_SUCCESS;
+	UINT		tempBuffSize, totalBuffSize;
+	PNDIS_BUFFER NdisBuffer ;
+	PUCHAR tempBuffer = NULL;
+
+	NdisBuffer = prNdisPacket->Private.Head ;
+	totalBuffSize = 0;
+
+	NdisQueryBufferSafe(
+		NdisBuffer,
+		&tempBuffer,
+		&tempBuffSize,
+		NormalPagePriority
+		);
+	
+	NdisMoveMemory(pkt->ptempbuf, tempBuffer, tempBuffSize);
+	totalBuffSize += tempBuffSize;
+
+	while(1)
+	{
+		NdisGetNextBuffer(NdisBuffer , &NdisBuffer ) ;
+		if( NdisBuffer == NULL) 
+			break;
+
+		NdisQueryBufferSafe(
+			NdisBuffer,
+			&tempBuffer,
+			&tempBuffSize,
+			NormalPagePriority
+			);
+		
+		NdisMoveMemory(pkt->ptempbuf + totalBuffSize, tempBuffer, tempBuffSize);
+		totalBuffSize += tempBuffSize;
+	}
+	
+	pkt->data_len = totalBuffSize;
+
+    return ndisStatus;
+}
 
 void wf_xmit_ndis_pkt(NDIS_HANDLE       mp_ctx, PPNDIS_PACKET pkt_array, UINT pkt_num)
 {
@@ -810,6 +871,7 @@ void wf_xmit_ndis_pkt(NDIS_HANDLE       mp_ctx, PPNDIS_PACKET pkt_array, UINT pk
 	wf_data_que_t 		*ppend, *pfree;
 	int 				ret = -1;
 	int					i;
+	static wf_bool		resourceFlag = wf_true;
 	NDIS_STATUS     	failStatus = NDIS_STATUS_SUCCESS;
 	KIRQL irq = 0;
 
@@ -821,47 +883,51 @@ void wf_xmit_ndis_pkt(NDIS_HANDLE       mp_ctx, PPNDIS_PACKET pkt_array, UINT pk
 		LOG_E("xmit need be stoped\n");
     }
 
+	if(resourceFlag == wf_true){
+		NdisMSendResourcesAvailable(pAdapter->MiniportAdapterHandle);
+		resourceFlag = wf_false;
+	}
+	
 	KeAcquireSpinLock(&xmit_info->send_lock, &irq);
 
 	ppend = &xmit_info->data_pend;
 	pfree = &xmit_info->data_free;
-	totalBuffSize = 0;
 	
-
 	for(i=0; i < pkt_num; i++)
 	{
 		prNdisPacket = pkt_array[i];
-		NdisBuffer = prNdisPacket->Private.Head ;
-		NDIS_SET_PACKET_STATUS(prNdisPacket, NDIS_STATUS_PENDING);
-		
 		ret = wf_xmit_cannot_send(pAdapter);
 		if(ret) {
-			failStatus = NDIS_STATUS_RESOURCES;
-			//LOG_E("can't send data, reason=%d", ret);
+			//failStatus = NDIS_STATUS_NOT_ACCEPTED;
+			NDIS_PKT_STATUE_SET(prNdisPacket, NDIS_STATUS_FAILURE);
+			LOG_E("can't send data, reason=%d", ret);
 			NdisMSendComplete(prGlueInfo->rMiniportAdapterHandle,
                       prNdisPacket,
-                      NDIS_STATUS_NOT_ACCEPTED);
-
+                      NDIS_STATUS_FAILURE);
 			continue;
 		}
+		//totalBuffSize = 0;
+		
+		NdisBuffer = prNdisPacket->Private.Head ;
+
 		plist = wf_pkt_data_deque(pfree, QUE_POS_HEAD);
 		if(plist == NULL) {
-			failStatus = NDIS_STATUS_RESOURCES;
-			NDIS_SET_PACKET_STATUS(prNdisPacket, failStatus);
-			/*
+			//failStatus = NDIS_STATUS_RESOURCES;
+			NDIS_PKT_STATUE_SET(prNdisPacket, NDIS_STATUS_RESOURCES);
 			NdisMSendComplete(prGlueInfo->rMiniportAdapterHandle,
                       prNdisPacket,
-                      failStatus);
-            */
+                      NDIS_STATUS_FAILURE);
+            resourceFlag = wf_true;
 			LOG_E("get tx buffer failed!");
 			continue;
 		}
-
+	
 		pkt = CONTAINING_RECORD(plist, wf_xmit_pkt_t, list);
 		InterlockedIncrement(&xmit_info->proc_cnt);
 		pkt->ptempbuf = pkt->tempbuffer;
-		pkt->tx_pkt_desc = prNdisPacket;
+		pkt->ndis_pkt = prNdisPacket;
 
+#if 0
 		NdisQueryBufferSafe(
 			NdisBuffer,
 			&tempBuffer,
@@ -887,13 +953,16 @@ void wf_xmit_ndis_pkt(NDIS_HANDLE       mp_ctx, PPNDIS_PACKET pkt_array, UINT pk
 			NdisMoveMemory(pkt->ptempbuf + totalBuffSize, tempBuffer, tempBuffSize);
 			totalBuffSize += tempBuffSize;
 		}
-		pkt->data_len = totalBuffSize;
-		NDIS_SET_PACKET_STATUS(prNdisPacket, NDIS_STATUS_PENDING);
-		
-		pkt->xmit_flag = (KeGetCurrentIrql() == DISPATCH_LEVEL) ? 1 : 0;
+#endif
+		wf_xmit_copy_ndispkt2buffer(prNdisPacket, pkt);
+		NDIS_PKT_STATUE_SET(prNdisPacket, NDIS_STATUS_PENDING);
+		//pkt->data_len = totalBuffSize;
+
+#if 0		
+		//pkt->xmit_flag = (KeGetCurrentIrql() == DISPATCH_LEVEL) ? 1 : 0;
 		if(!pkt->is_preproc) {
 			//wf_xmit_pkt_wlan2eth(pAdapter, pkt);
-			pkt->xframe.nic_info = pAdapter->nic_info;
+			//pkt->xframe.nic_info = pAdapter->nic_info;
 			wf_xmit_frame_init(pAdapter->nic_info, &pkt->xframe, pkt->ptempbuf, pkt->data_len);
 
 			pkt->xframe.buf_addr = pkt->buffer;
@@ -905,7 +974,7 @@ void wf_xmit_ndis_pkt(NDIS_HANDLE       mp_ctx, PPNDIS_PACKET pkt_array, UINT pk
 			}
 
 			pkt->is_preproc = wf_true;
-		}
+		}			
 
 		if (mlme_info->link_info.num_tx_ok_in_period_with_tid[pkt->xframe.qsel] > 100 && (hw_info->ba_enable == wf_true)) {
             ret = wf_xmit_add_ba(nic_info, &pkt->xframe);
@@ -926,12 +995,14 @@ void wf_xmit_ndis_pkt(NDIS_HANDLE       mp_ctx, PPNDIS_PACKET pkt_array, UINT pk
 			failStatus = NDIS_STATUS_FAILURE;
 			goto ERROR_DEAL;
 		}
+	
 ERROR_DEAL:
 
 		if(failStatus != NDIS_STATUS_SUCCESS) {
+	
 			NdisMSendComplete(prGlueInfo->rMiniportAdapterHandle,
 								  prNdisPacket,
-								  NDIS_STATUS_FAILURE);
+								  NDIS_STATUS_NOT_ACCEPTED);
 			if(pkt != NULL) {
 				pkt->ptempbuf = NULL;
 				pkt->is_preproc = wf_false;
@@ -941,6 +1012,11 @@ ERROR_DEAL:
 				InterlockedIncrement(&mib_info->num_xmit_error.LowPart);
 			}
 		}
+#else
+		wf_pkt_data_enque(ppend, &pkt->list, QUE_POS_TAIL);
+		//InterlockedDecrement(&xmit_info->proc_cnt);
+		KeSetEvent(&xmit_info->tx_evt, 0, FALSE);
+#endif
 	}
 	KeReleaseSpinLock(&xmit_info->send_lock, irq);
 	return;
@@ -952,11 +1028,39 @@ int wf_xmit_send_complete(nic_info_st *nic_info, wf_xmit_pkt_t *pkt)
 	PADAPTER prAdapter = (PADAPTER)nic_info->hif_node;
 	wf_mib_info_t *mib_info = prAdapter->mib_info;
 	wf_xmit_info_t 	*xmit_info = prAdapter->xmit_info;
-	InterlockedIncrement(&mib_info->num_xmit_ok.LowPart);
+	NDIS_STATUS     	failStatus = NDIS_STATUS_SUCCESS;
 	
+	
+	
+	if(pkt == NULL) {
+			LOG_E("pkt is NULL");
+			return wf_false;
+	}
+
+	//if(NDIS_PKT_STATUE_GET(pkt->ndis_pkt) == NDIS_STATUS_SUCCESS) {
+	//	LOG_E("the pkt has processed");
+	//	return wf_false;
+	//}
+
+	if(NDIS_PKT_STATUE_GET(pkt->ndis_pkt) == NDIS_STATUS_PENDING) {
+		NDIS_PKT_STATUE_SET(pkt->ndis_pkt, NDIS_STATUS_SUCCESS);
+		pkt->xmit_flag = FALSE;
+		InterlockedIncrement(&mib_info->num_xmit_ok.LowPart);
+	} else {
+		InterlockedIncrement(&mib_info->num_xmit_error.LowPart);
+		failStatus = NDIS_STATUS_FAILURE;
+	}
+	
+	xmit_info->tx_byte += pkt->data_len;
 	NdisMSendComplete(prAdapter->MiniportAdapterHandle,
-                      (PNDIS_PACKET) pkt->tx_pkt_desc,
-                      NDIS_STATUS_SUCCESS);
+                      (PNDIS_PACKET) pkt->ndis_pkt,
+                      failStatus);
+	
+	pkt->ptempbuf = NULL;
+	pkt->is_preproc = wf_false;
+	
+	wf_pkt_data_enque(&xmit_info->data_free, &pkt->list, QUE_POS_HEAD);
+	
 	InterlockedDecrement(&xmit_info->proc_cnt);
 	return 0;
 }
@@ -972,16 +1076,35 @@ void wf_xmit_data_thread(PADAPTER         padapter)
 	wf_xmit_pkt_t *pkt = NULL;
 	mlme_state_e state;
 	nic_info_st *nic_info = padapter->nic_info;
+	wf_mib_info_t *mib_info;
 	mlme_info_t *mlme_info = nic_info->mlme_info;
     hw_info_st *hw_info = nic_info->hw_info;
 	wf_xmit_info_t *xmit_info = padapter->xmit_info;
 	wf_data_que_t *ppend, *pfree;
 	int addbaRet = -1;
+	PRKTHREAD pthread;
+	KPRIORITY prio;
+#ifdef NDIS51_MINIPORT
+	P_GLUE_INFO_T prGlueInfo = (P_GLUE_INFO_T)padapter->parent;
+	PNDIS_PACKET ndis_pkt; 
+#else
+	PNET_BUFFER_LIST ndis_pkt;
+#endif
+
+	pthread = KeGetCurrentThread();
+	if(pthread != NULL) {
+		prio = KeSetPriorityThread(pthread, LOW_REALTIME_PRIORITY);
+		LOG_D("old_prio=%d, new_prio=%d", prio, KeQueryPriorityThread(pthread));
+	} else {
+		LOG_W("pthread is NULL");
+	}
 
 	ppend = &xmit_info->data_pend;
 	pfree = &xmit_info->data_free;
-
+	mib_info = padapter->mib_info;
+			
 	while(1) {
+		
 		KeWaitForSingleObject(&xmit_info->tx_evt, Executive, KernelMode, TRUE, NULL);
 
 		if(xmit_info->tx_thread->stop) {
@@ -1005,31 +1128,39 @@ void wf_xmit_data_thread(PADAPTER         padapter)
 				break;
 			}
 			pkt = CONTAINING_RECORD(plist, wf_xmit_pkt_t, list);
-			InterlockedIncrement(&xmit_info->proc_cnt);
-
+			ndis_pkt = pkt->ndis_pkt;
+			//InterlockedIncrement(&xmit_info->proc_cnt);
+#if 0
 			//if the packet send is break in BA request process, we no need exec preproc
 			if(!pkt->is_preproc) {
+#ifdef MP_USE_NET_BUFFER_LIST
 				wf_xmit_pkt_wlan2eth(padapter, pkt);
-				wf_xmit_frame_init(padapter->nic_info, &pkt->xframe, pkt->ptempbuf, pkt->data_len);
+#endif
 
+				if(wf_xmit_frame_init(padapter->nic_info, &pkt->xframe, pkt->ptempbuf, pkt->data_len) == wf_false) {
+					LOG_E("xmit frame init error!");
+					ndis_ret = NDIS_STATUS_FAILURE;
+					break;
+				}
+				
 				pkt->xframe.buf_addr = pkt->buffer;
 
 				if(pkt->xframe.priority > 15) {
-		        	LOG_E("the tx priority error!\n");
+		        	LOG_E("the tx priority error!");
 					ndis_ret = NDIS_STATUS_FAILURE;
 					break;
 		        }
 
 				pkt->is_preproc = wf_true;
 			}			
-
+			
 			if (mlme_info->link_info.num_tx_ok_in_period_with_tid[pkt->xframe.qsel] > 100 && (hw_info->ba_enable == wf_true)) {
 	            addbaRet = wf_xmit_add_ba(nic_info, &pkt->xframe);
 	            if (addbaRet == 0) {
 		        	LOG_I("Send Msg to MLME for starting BA!!");
-					wf_pkt_data_enque(ppend, &pkt->list, QUE_POS_HEAD);
-					InterlockedDecrement(&xmit_info->proc_cnt);
-					break;
+					//wf_pkt_data_enque(ppend, &pkt->list, QUE_POS_HEAD);
+					//InterlockedDecrement(&xmit_info->proc_cnt);
+					//break;
 	            }
 	        }
 
@@ -1042,26 +1173,79 @@ void wf_xmit_data_thread(PADAPTER         padapter)
 
 			ret = wf_xmit_send_frag(nic_info, pkt, wf_false);
 			if(ret != wf_true) {
-	        	LOG_E("xmit packet error!\n");
+	        	LOG_E("xmit packet error!");
 				ndis_ret = NDIS_STATUS_FAILURE;
 				break;
 			}
+#endif
+			if(!pkt->is_preproc) {
+				wf_xmit_pkt_wlan2eth(padapter, pkt);
+				wf_xmit_frame_init(padapter->nic_info, &pkt->xframe, pkt->ptempbuf, pkt->data_len);
 
+				pkt->xframe.buf_addr = pkt->buffer;
+
+				if(pkt->xframe.priority > 15) {
+		        	LOG_E("the tx priority error!\n");
+					NDIS_PKT_STATUE_SET(ndis_pkt, NDIS_STATUS_FAILURE);
+					wf_xmit_send_complete(nic_info, pkt);
+					continue;
+		        }
+				
+				pkt->is_preproc = wf_true;
+			} else {
+				LOG_D("the pkt has preproced! skip init proc");
+			}		
+
+			if (mlme_info->link_info.num_tx_ok_in_period_with_tid[pkt->xframe.qsel] > 100 && (hw_info->ba_enable == wf_true)) {
+	            ret = wf_xmit_add_ba(nic_info, &pkt->xframe);
+	            if (ret == 0) {
+		        	LOG_I("Send Msg to MLME for starting BA!!");
+	            }
+	        }
+
+			ret = wf_tx_msdu_to_mpdu(nic_info, &pkt->xframe, pkt->ptempbuf, pkt->data_len);
+			if (ret != wf_true) {
+	        	LOG_E("wf_tx_msdu_to_mpdu error!!");
+				NDIS_PKT_STATUE_SET(ndis_pkt, NDIS_STATUS_FAILURE);
+				wf_xmit_send_complete(nic_info, pkt);
+				continue;
+			}
+
+			ret = wf_xmit_send_frag(nic_info, pkt, wf_false);
+			if(ret != wf_true) {
+	        	LOG_E("xmit packet error! ret=%d", ret);
+				NDIS_PKT_STATUE_SET(ndis_pkt, NDIS_STATUS_FAILURE);
+				wf_xmit_send_complete(nic_info, pkt);
+				continue;
+			}
 			//wf_dbg_counter_add(padapter->dbg_info, pkt->data_len-WF_ETH_HLEN, DBG_DIR_TX);
 
-			pkt = NULL;
-			ndis_ret = NDIS_STATUS_SUCCESS;
+			//pkt = NULL;
+			//ndis_ret = NDIS_STATUS_SUCCESS;
 		}
-
+#if 0
 		if(ndis_ret != NDIS_STATUS_SUCCESS && pkt != NULL) {
+#ifdef NDIS51_MINIPORT
+			LOG_D("---ZY_TEST--exit this send 1");
+			if(pkt->tx_pkt_desc != NULL)
+			{
+				NdisMSendComplete(prGlueInfo->rMiniportAdapterHandle,
+							  (PNDIS_PACKET)pkt->tx_pkt_desc,
+							  NDIS_STATUS_NOT_ACCEPTED);
+				pkt->tx_pkt_desc = NULL;
+			}
+			InterlockedIncrement(&mib_info->num_xmit_error.LowPart);
+#endif
+			
+			LOG_D("---ZY_TEST--exit this send 2");
 			pkt->ptempbuf = NULL;
 			pkt->is_preproc = wf_false;
-
 			wf_pkt_data_enque(pfree, &pkt->list, QUE_POS_TAIL);
 			InterlockedDecrement(&xmit_info->proc_cnt);
+			pkt = NULL;
 		}
+#endif
 	}
-
 	wf_os_api_thread_exit(xmit_info->tx_thread);
 }
 
@@ -1103,6 +1287,7 @@ NDIS_STATUS wf_xmit_init(void *param)
 		pkt->xframe.frame_tag = DATA_FRAMETAG;
 		pkt->xframe.pkt_offset = (PACKET_OFFSET_SZ / 8);
 		pkt->mp_handle = padapter->MiniportAdapterHandle;
+		pkt->xframe.nic_info = padapter->nic_info;
 		pkt->net_intf = padapter;
 		wf_pkt_data_enque(pfree, &pkt->list, QUE_POS_TAIL);
 	}

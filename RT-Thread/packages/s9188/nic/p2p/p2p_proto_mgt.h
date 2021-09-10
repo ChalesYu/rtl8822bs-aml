@@ -20,8 +20,7 @@
 enum
 {
     /* priority level 0 */
-    WF_P2P_MSG_TAG_TIMER_RO_CH_START = WF_MSG_TAG_SET(0, 0, 0),
-    WF_P2P_MSG_TAG_TIMER_RO_CH_STOP,
+    WF_P2P_MSG_TAG_TIMER_RO_CH = WF_MSG_TAG_SET(0, 0, 0),
     WF_P2P_MSG_TAG_NEGO,
     WF_P2P_MSG_TAG_RO_CH,
     WF_P2P_MSG_TAG_RO_CH_CANNEL,
@@ -30,13 +29,8 @@ enum
 
 typedef struct
 {
-    wf_que_t  proto_queue; //mcu cmd handle queue
-    wf_s8 proto_name[THD_NAME_LEN];
-    void *proto_tid;
     wf_os_api_sema_t thrd_sync_sema;
-    
-    wf_bool thrd_abort;
-    wf_bool thrd_abort_rsp;
+   
     wf_pt_t pt[10];
     wf_msg_que_t msg_que;
     wf_msg_t *pmsg;
@@ -50,13 +44,12 @@ typedef struct
     wf_u8 buf[512];
 }p2p_nego_param_st;
 
-wf_s32 wf_p2p_proto_proc_remain_channel(nic_info_st *pnic_info);
+wf_s32 wf_p2p_cannel_remain_on_channel(nic_info_st *pnic_info);
 wf_s32 p2p_proto_mgt_init(void *p2p);
 wf_s32 p2p_proto_mgt_term(void *p2p);
-wf_s32 wf_p2p_msg_send(nic_info_st *pnic_info,wf_msg_tag_t tag,void *value,wf_u32 len);
-wf_s32 wf_p2p_msg_timer_stop(nic_info_st *pnic_info,wf_msg_tag_t tag);
-wf_s32 wf_p2p_msg_timer_start(nic_info_st *pnic_info,wf_msg_tag_t tag,wf_u32 duration);
+wf_pt_rst_t wf_p2p_core_thrd (wf_pt_t *pt,nic_info_st *pnic_info,void *param);
 wf_s32 wf_p2p_proto_thrd_wait(nic_info_st *pnic_info);
 wf_s32 wf_p2p_proto_thrd_post(nic_info_st *pnic_info);
+wf_s32 wf_p2p_mgnt_nego(nic_info_st *pnic_info,void *param);
 
 #endif

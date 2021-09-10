@@ -109,9 +109,9 @@ void wf_Usleep(wf_u32 MilliSecond);
 #define wf_yield()                 wf_Msleep(1) //YieldProcessor()
 
 #ifdef NDIS51_MINIPORT
-#define wf_inline                   __inline
+#define wf_inline                   //__inline
 #else
-#define wf_inline                   __inline
+#define wf_inline                     //__inline
 #endif
 
 #define wf_memcpy                  memcpy

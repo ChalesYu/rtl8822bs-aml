@@ -2,7 +2,7 @@
 #include "pcomp.h"
 //#include "wf_debug.h"
 
-#define LOG_D(fmt,...) //DbgPrint("[%s,%d] "fmt"\n",__FUNCTION__,__LINE__,##__VA_ARGS__);
+#define LOG_D(fmt,...) DbgPrint("[%s,%d] "fmt"\n",__FUNCTION__,__LINE__,##__VA_ARGS__);
 #define LOG_N(fmt,...) DbgPrint("[%s,%d] "fmt"\n",__FUNCTION__,__LINE__,##__VA_ARGS__);
 #define LOG_I(fmt,...) DbgPrint("[%s,%d] "fmt"\n",__FUNCTION__,__LINE__,##__VA_ARGS__);
 #define LOG_W(fmt,...) DbgPrint("[%s,%d] "fmt"\n",__FUNCTION__,__LINE__,##__VA_ARGS__);
@@ -11,8 +11,8 @@
 
 NDIS_STATUS wf_oids_not_implemented_func(void *prAdapter, void *pvBuf, wf_u32 u4BufLen, wf_u32 *pu4OutInfoLen) 
 {
-	LOG_D("---OID not implemented!------------------------------");
-	return NDIS_STATUS_SUCCESS;
+	LOG_E("---OID not implemented!------------------------------");
+	return NDIS_STATUS_NOT_SUPPORTED;
 }
 
 
@@ -44,7 +44,7 @@ WLAN_REQ_ENTRY arWlanOidReqTable[] = {
     { OID_GEN_RECEIVE_BUFFER_SPACE,             DISP_STRING("OID_GEN_RECEIVE_BUFFER_SPACE"),        TRUE,   FALSE,  ENUM_OID_GLUE_ONLY,   4,                                          wf_oids_not_implemented_func,/*reqQueryRxBufferSpace,*/              NULL },
     { OID_GEN_TRANSMIT_BLOCK_SIZE,              DISP_STRING("OID_GEN_TRANSMIT_BLOCK_SIZE"),         TRUE,   FALSE,  ENUM_OID_GLUE_ONLY,   4,                                          wf_oids_not_implemented_func,/*wf_req_query_max_total_size,*/               NULL },
     { OID_GEN_RECEIVE_BLOCK_SIZE,               DISP_STRING("OID_GEN_RECEIVE_BLOCK_SIZE"),          TRUE,   FALSE,  ENUM_OID_GLUE_ONLY,   4,                                          wf_oids_not_implemented_func,/*wf_req_query_max_total_size,*/               NULL },
-    { OID_GEN_VENDOR_ID,                        DISP_STRING("OID_GEN_VENDOR_ID"),                   TRUE,   FALSE,  ENUM_OID_GLUE_EXTENSION,4,                                        wf_oids_not_implemented_func,/*wlanoidQueryVendorId,*/               NULL },
+    { OID_GEN_VENDOR_ID,                        DISP_STRING("OID_GEN_VENDOR_ID"),                   TRUE,   FALSE,  ENUM_OID_GLUE_EXTENSION,4,                                        wf_wlan_oid_query_vendor_id,               NULL },
     { OID_GEN_VENDOR_DESCRIPTION,               DISP_STRING("OID_GEN_VENDOR_DESCRIPTION"),          FALSE,  FALSE,  ENUM_OID_GLUE_ONLY,   0,                                          wf_oids_not_implemented_func,/*reqQueryVendorDescription,*/          NULL },
     { OID_GEN_CURRENT_PACKET_FILTER,            DISP_STRING("OID_GEN_CURRENT_PACKET_FILTER"),       TRUE,   TRUE,   ENUM_OID_DRIVER_CORE, 4,                                          wf_wlan_oid_query_cur_pkt_filter,    wf_wlan_oid_set_cur_pkt_filter },
     { OID_GEN_CURRENT_LOOKAHEAD,                DISP_STRING("OID_GEN_CURRENT_LOOKAHEAD"),           TRUE,   TRUE,   ENUM_OID_GLUE_ONLY,   4,                                          wf_req_query_max_frame_size,               wf_req_set_current_look_ahead },
@@ -54,7 +54,7 @@ WLAN_REQ_ENTRY arWlanOidReqTable[] = {
     { OID_GEN_MEDIA_CONNECT_STATUS,             DISP_STRING("OID_GEN_MEDIA_CONNECT_STATUS"),        TRUE,   FALSE,  ENUM_OID_GLUE_ONLY,   sizeof(NDIS_MEDIA_STATE),                   wf_req_query_media_connect_status,         NULL },
     { OID_GEN_MAXIMUM_SEND_PACKETS,             DISP_STRING("OID_GEN_MAXIMUM_SEND_PACKETS"),        TRUE,   FALSE,  ENUM_OID_GLUE_ONLY,   4,                                          wf_req_query_max_send_packets,             NULL },
     { OID_GEN_VENDOR_DRIVER_VERSION,            DISP_STRING("OID_GEN_VENDOR_DRIVER_VERSION"),       TRUE,   FALSE,  ENUM_OID_GLUE_ONLY,   4,                                          wf_req_query_vendor_driver_version,        NULL },
-    { OID_GEN_NETWORK_LAYER_ADDRESSES,          DISP_STRING("OID_GEN_NETWORK_LAYER_ADDRESSES"),     FALSE,  FALSE,  ENUM_OID_DRIVER_CORE, 0,                                          NULL,                               wf_oids_not_implemented_func,/*wlanoidSetNetworkAddress*/},
+    { OID_GEN_NETWORK_LAYER_ADDRESSES,          DISP_STRING("OID_GEN_NETWORK_LAYER_ADDRESSES"),     FALSE,  FALSE,  ENUM_OID_DRIVER_CORE, 0,                                          NULL,                              wf_wlan_oid_set_network_address},
     { OID_GEN_PHYSICAL_MEDIUM,                  DISP_STRING("OID_GEN_PHYSICAL_MEDIUM"),             TRUE,   FALSE,  ENUM_OID_GLUE_ONLY,   sizeof(NDIS_PHYSICAL_MEDIUM),               wf_req_query_physical_medium,             NULL },
     /* General Statistics */
     { OID_GEN_XMIT_OK,                          DISP_STRING("OID_GEN_XMIT_OK"),                     FALSE,  FALSE,  ENUM_OID_DRIVER_CORE,  0,                                          wf_wlan_oid_query_xmit_ok,                 NULL },
@@ -65,9 +65,9 @@ WLAN_REQ_ENTRY arWlanOidReqTable[] = {
     { OID_GEN_RCV_CRC_ERROR,                    DISP_STRING("OID_GEN_RCV_CRC_ERROR"),               FALSE,  FALSE,  ENUM_OID_DRIVER_CORE,  0,                                          wf_oids_not_implemented_func,/*wlanoidQueryRcvCrcError,*/            NULL },
 
     /* Ethernet Operational Characteristics */
-    { OID_802_3_PERMANENT_ADDRESS,              DISP_STRING("OID_802_3_PERMANENT_ADDRESS"),         TRUE,   TRUE,   ENUM_OID_DRIVER_CORE,  6,                                          wf_oids_not_implemented_func,/*wlanoidQueryPermanentAddr,*/          NULL },
+    { OID_802_3_PERMANENT_ADDRESS,              DISP_STRING("OID_802_3_PERMANENT_ADDRESS"),         TRUE,   TRUE,   ENUM_OID_DRIVER_CORE,  6,                                          wf_wlan_oid_query_permanent_addr,          NULL },
     { OID_802_3_CURRENT_ADDRESS,                DISP_STRING("OID_802_3_CURRENT_ADDRESS"),           TRUE,   TRUE,   ENUM_OID_DRIVER_CORE,  6,                                          wf_wlan_oid_query_cur_addr,            NULL },
-    { OID_802_3_MULTICAST_LIST,                 DISP_STRING("OID_802_3_MULTICAST_LIST"),            FALSE,  FALSE,  ENUM_OID_DRIVER_CORE,  0,                                          wf_oids_not_implemented_func,/*wlanoidQueryMulticastList, */         wf_oids_not_implemented_func,/*wlanoidSetMulticastList*/},
+    { OID_802_3_MULTICAST_LIST,                 DISP_STRING("OID_802_3_MULTICAST_LIST"),            FALSE,  FALSE,  ENUM_OID_DRIVER_CORE,  0,                                          wf_oids_not_implemented_func,/*wlanoidQueryMulticastList, */         wf_wlan_oid_set_multicast_list},
     { OID_802_3_MAXIMUM_LIST_SIZE,              DISP_STRING("OID_802_3_MAXIMUM_LIST_SIZE"),         FALSE,  FALSE,  ENUM_OID_GLUE_ONLY,   4,                                           wf_req_query_max_list_size,                NULL },
 
     /* Ethernet Statistics */
@@ -77,12 +77,12 @@ WLAN_REQ_ENTRY arWlanOidReqTable[] = {
     { OID_802_3_XMIT_MAX_COLLISIONS,            DISP_STRING("OID_802_3_XMIT_MAX_COLLISIONS"),       TRUE,   FALSE,  ENUM_OID_DRIVER_CORE,  4,                                          wf_oids_not_implemented_func,/*wlanoidQueryXmitMaxCollisions,*/      NULL },
 
     /* NDIS 802.11 Wireless LAN OIDs */
-    { OID_802_11_BSSID,                         DISP_STRING("OID_802_11_BSSID"),                    TRUE,   TRUE,   ENUM_OID_DRIVER_CORE,  sizeof(NDIS_802_11_MAC_ADDRESS),            wf_wlan_oid_query_bssid,                  wf_wlan_oid_set_bssid},
-    { OID_802_11_SSID,                          DISP_STRING("OID_802_11_SSID"),                     TRUE,   TRUE,   ENUM_OID_DRIVER_CORE,  sizeof(NDIS_802_11_SSID),                   wf_wlan_oid_query_ssid,                   wf_wlan_oid_set_ssid },
+    { OID_802_11_BSSID,                         DISP_STRING("OID_802_11_BSSID"),                    TRUE,   TRUE,   ENUM_OID_DRIVER_CORE,  sizeof(NDIS_802_11_MAC_ADDRESS),            wf_wlan_oid_query_bssid,                  wf_pseudo_wlan_oid_set_bssid},
+    { OID_802_11_SSID,                          DISP_STRING("OID_802_11_SSID"),                     TRUE,   TRUE,   ENUM_OID_DRIVER_CORE,  sizeof(NDIS_802_11_SSID),                   wf_wlan_oid_query_ssid,                   wf_pseudo_wlan_oid_set_ssid },
     { OID_802_11_INFRASTRUCTURE_MODE,           DISP_STRING("OID_802_11_INFRASTRUCTURE_MODE"),      TRUE,   TRUE,   ENUM_OID_DRIVER_CORE,  sizeof(NDIS_802_11_NETWORK_INFRASTRUCTURE), wf_wlan_oid_query_infra_mode,     wf_wlan_oid_set_infra_mode },
-    { OID_802_11_ADD_WEP,                       DISP_STRING("OID_802_11_ADD_WEP"),                  FALSE,  FALSE,  ENUM_OID_DRIVER_CORE,  0,                                          NULL,                               wf_oids_not_implemented_func,/*wlanoidSetAddWep*/ },
+    { OID_802_11_ADD_WEP,                       DISP_STRING("OID_802_11_ADD_WEP"),                  FALSE,  FALSE,  ENUM_OID_DRIVER_CORE,  0,                                          NULL,                               wf_wlan_oid_set_add_wep,/*wlanoidSetAddWep*/ },
     { OID_802_11_REMOVE_WEP,                    DISP_STRING("OID_802_11_REMOVE_WEP"),               FALSE,  TRUE,   ENUM_OID_DRIVER_CORE,  sizeof(NDIS_802_11_KEY_INDEX),              NULL,                               wf_oids_not_implemented_func,/*wlanoidSetRemoveWep*/ },
-    { OID_802_11_DISASSOCIATE,                  DISP_STRING("OID_802_11_DISASSOCIATE"),             FALSE,  FALSE,  ENUM_OID_DRIVER_CORE,  0,                                          NULL,                               wf_oids_not_implemented_func,/*wlanoidSetDisassociate*/},
+    { OID_802_11_DISASSOCIATE,                  DISP_STRING("OID_802_11_DISASSOCIATE"),             FALSE,  FALSE,  ENUM_OID_DRIVER_CORE,  0,                                          NULL,                               wf_wlan_oid_set_disassoc},
     { OID_802_11_AUTHENTICATION_MODE,           DISP_STRING("OID_802_11_AUTHENTICATION_MODE"),      TRUE,   TRUE,   ENUM_OID_DRIVER_CORE,  sizeof(NDIS_802_11_AUTHENTICATION_MODE),    wf_wlan_oid_query_auth_mode,               wf_wlan_oid_set_auth_mode },
 //    { OID_802_11_PRIVACY_FILTER,              DISP_STRING("OID_802_11_PRIVACY_FILTER"),           TRUE,   TRUE,   ENUM_OID_DRIVER_CORE,  sizeof(NDIS_802_11_PRIVACY_FILTER),         wf_oids_not_implemented_func,/*wlanoidQueryPrivacyFilter,*/          wlanoidSetPirvacyFilter },
     { OID_802_11_BSSID_LIST_SCAN,               DISP_STRING("OID_802_11_BSSID_LIST_SCAN"),          FALSE,  FALSE,  ENUM_OID_DRIVER_CORE,  0,                                          NULL,                               wf_wlan_oid_set_bssid_list_scan },
@@ -115,7 +115,7 @@ WLAN_REQ_ENTRY arWlanOidReqTable[] = {
     { OID_PNP_QUERY_POWER,                      DISP_STRING("OID_PNP_QUERY_POWER"),                 TRUE,   TRUE,   ENUM_OID_DRIVER_CORE,  sizeof(NDIS_DEVICE_POWER_STATE),            wf_oids_not_implemented_func,/*wlanoidQueryAcpiDevicePowerState,*/                  NULL },
 #if CFG_ENABLE_WAKEUP_ON_LAN
     { OID_PNP_ADD_WAKE_UP_PATTERN,              DISP_STRING("OID_PNP_ADD_WAKE_UP_PATTERN"),         FALSE,  FALSE,  ENUM_OID_GLUE_EXTENSION,0,                                      NULL,                               wf_oids_not_implemented_func,/*wlanoidSetAddWakeupPattern*/ },
-    { OID_PNP_REMOVE_WAKE_UP_PATTERN,           DISP_STRING("OID_PNP_REMOVE_WAKE_UP_PATTERN"),      FALSE,  FALSE,  ENUM_OID_GLUE_EXTENSION 0,                                      NULL,                               wf_oids_not_implemented_func,/*wlanoidSetRemoveWakeupPattern*/ },
+    { OID_PNP_REMOVE_WAKE_UP_PATTERN,           DISP_STRING("OID_PNP_REMOVE_WAKE_UP_PATTERN"),      FALSE,  FALSE,  ENUM_OID_GLUE_EXTENSION, 0,                                      NULL,                               wf_oids_not_implemented_func,/*wlanoidSetRemoveWakeupPattern*/ },
     { OID_PNP_ENABLE_WAKE_UP,                   DISP_STRING("OID_PNP_ENABLE_WAKE_UP"),              TRUE,   TRUE,   ENUM_OID_DRIVER_CORE,  sizeof(wf_u32),                         wf_oids_not_implemented_func,/*wlanoidQueryEnableWakeup,*/           wf_oids_not_implemented_func,/*wlanoidSetEnableWakeup*/ },
 #endif
     { OID_CUSTOM_OID_INTERFACE_VERSION,         DISP_STRING("OID_CUSTOM_OID_INTERFACE_VERSION"),    TRUE,   FALSE,  ENUM_OID_DRIVER_CORE,  4,                                          wf_oids_not_implemented_func,/*wlanoidQueryOidInterfaceVersion,*/    NULL },
@@ -396,10 +396,10 @@ wf_req_query_PnP_capabilities(
 	prPwrMgtCap->Flags = PARAM_DEVICE_WAKE_UP_ENABLE;
 
 	prPwrMgtCap->WakeUpCapabilities.MinMagicPacketWakeUp =
-		NdisDeviceStateD2;
+		ParamDeviceStateD3;
 
 	prPwrMgtCap->WakeUpCapabilities.MinPatternWakeUp =
-		NdisDeviceStateD2;
+		ParamDeviceStateD3;
 #else
 	prPwrMgtCap->Flags = 0;
 
@@ -488,7 +488,7 @@ wf_wlan_oid_query_link_speed(
 	NDIS_STATUS ndisStatus = NDIS_STATUS_SUCCESS;
 
 	*pu4QueryInfoLen = sizeof(wf_u32);		
-	*(wf_u32*)pvQueryBuffer = 0;
+	*((wf_u32*)pvQueryBuffer) = 0;
 	prGlueInfo = (P_GLUE_INFO_T)prAdapter->parent;
 	pnic_info = prAdapter->nic_info;
 	pmlme_info = pnic_info->mlme_info;
@@ -496,7 +496,7 @@ wf_wlan_oid_query_link_speed(
 	pwdn_info = pmlme_info->pwdn_info;
 	if(prGlueInfo->eParamMediaStateIndicated != PARAM_MEDIA_STATE_CONNECTED)
 	{
-		*(wf_u32*)pvQueryBuffer = 10000;
+		*((wf_u32*)pvQueryBuffer) = 0 * 10000;
 		return ndisStatus;
 	}
 
@@ -505,15 +505,15 @@ wf_wlan_oid_query_link_speed(
 	cur_network_type = pwdn_info->network_type;
 	if(cur_network_type == WIRELESS_11B)
 	{
-		*(wf_u32*)pvQueryBuffer = 11 * 10000;
+		*((wf_u32*)pvQueryBuffer) = 11 * 10000;
 	}
 	else if(cur_network_type >= WIRELESS_11G && cur_network_type < WIRELESS_11_24N)
 	{
-		*(wf_u32*)pvQueryBuffer = 54 * 10000;
+		*((wf_u32*)pvQueryBuffer) = 54 * 10000;
 	}
 	else if(cur_network_type >= WIRELESS_11_24N)
 	{
-		*(wf_u32*)pvQueryBuffer = 150 * 10000;
+		*((wf_u32*)pvQueryBuffer) = 150 * 10000;
 	}
 	return ndisStatus;
 } 
@@ -901,7 +901,7 @@ wf_wlan_oid_query_ssid (
 
 	prAssociatedSsid = (P_PARAM_SSID_T)pvQueryBuffer;
 
-	NdisZeroMemory(prAssociatedSsid->aucSsid, sizeof(prAssociatedSsid->aucSsid));
+	NdisZeroMemory(prAssociatedSsid->aucSsid, PARAM_MAX_LEN_SSID);
 	
 
 	// TODO: Initialize NIC module.
@@ -1072,7 +1072,7 @@ wf_wlan_oid_query_bssid_list (
 	u4BssidListExLen = 0;
 	for(idx=0; idx < mib_info->bss_cnt; idx++)
 	{
-		pscanned_info = (wf_wlan_mgmt_scan_que_node_t*) mib_info->bss_node[idx];
+		pscanned_info = (wf_wlan_mgmt_scan_que_node_t*) &mib_info->bss_node[idx];
 		u4BssidListExLen += (sizeof(PARAM_BSSID_EX_T) + pscanned_info->ie_len - 13);// Minus (12 + 1)
 	}	
 	if(u4BssidListExLen) {
@@ -1083,13 +1083,14 @@ wf_wlan_oid_query_bssid_list (
 	}
 	*pu4QueryInfoLen = u4BssidListExLen;
 	if (u4QueryBufferLen < *pu4QueryInfoLen) {
+		WdfSpinLockRelease(mib_info->bss_lock);
         return NDIS_STATUS_INVALID_LENGTH;
     }
 
 	prList = (P_PARAM_BSSID_LIST_EX_T) pvQueryBuffer;
 	cp = (wf_u8*)&prList->arBssid[0];
 	for(idx=0; idx < mib_info->bss_cnt; idx++) {
-		pscanned_info = (wf_wlan_mgmt_scan_que_node_t*) mib_info->bss_node[idx];
+		pscanned_info = (wf_wlan_mgmt_scan_que_node_t*) &mib_info->bss_node[idx];
 		prBssidEx = (P_PARAM_BSSID_EX_T)cp;	
 
 		wf_memcpy(prBssidEx->arMacAddress, pscanned_info->bssid, MAC_ADDR_LEN);
@@ -1220,6 +1221,8 @@ wf_req_query_assoc_info (
 	PUINT8 cp;
 #endif
 
+	LOG_D("Query association info.");
+
 	*pu4QueryInfoLen = sizeof(NDIS_802_11_ASSOCIATION_INFORMATION) +
 					   prGlueInfo->rNdisAssocInfo.RequestIELength +
 					   prGlueInfo->rNdisAssocInfo.ResponseIELength;
@@ -1315,8 +1318,84 @@ wf_wlan_oid_query_cur_pkt_filter (
 	return NDIS_STATUS_SUCCESS;
 }	/* wf_wlan_oid_query_cur_pkt_filter */
 
+NDIS_STATUS
+wf_wlan_oid_query_permanent_addr(
+    IN  PADAPTER prAdapter,
+    IN  PVOID    pvQueryBuffer,
+    IN  wf_u32   u4QueryBufferLen,
+    OUT wf_u32*  pu4QueryInfoLen
+)
+{
+	if (u4QueryBufferLen < MAC_ADDR_LEN) {
+        return NDIS_STATUS_BUFFER_TOO_SHORT;
+    }
+	
+    wf_memcpy(pvQueryBuffer, prAdapter->PermanentAddress, MAC_ADDR_LEN);
+    *pu4QueryInfoLen = MAC_ADDR_LEN;
+	
+	return NDIS_STATUS_SUCCESS;
+}
+
+NDIS_STATUS
+wf_wlan_oid_query_vendor_id(
+    IN  PADAPTER prAdapter,
+    IN  PVOID    pvQueryBuffer,
+    IN  wf_u32   u4QueryBufferLen,
+    OUT wf_u32*  pu4QueryInfoLen
+)
+{
+	if (u4QueryBufferLen < sizeof(wf_u32)) {
+        *pu4QueryInfoLen = sizeof(wf_u32);
+        return NDIS_STATUS_INVALID_LENGTH;
+    }
+	
+	wf_memcpy(pvQueryBuffer, prAdapter->PermanentAddress, 3);
+    *((wf_u8 *)pvQueryBuffer + 3) = 1;
+    *pu4QueryInfoLen = sizeof(wf_u32);
+
+	
+	return NDIS_STATUS_SUCCESS;
+}
 
 /* Set */
+
+NDIS_STATUS
+wf_wlan_oid_set_network_address(
+    IN  PADAPTER    prAdapter,
+    IN  PVOID       pvSetBuffer,
+    IN  wf_u32      u4SetBufferLen,
+    OUT wf_u32*      pu4SetInfoLen
+)
+{
+	NDIS_STATUS ndisStatus = NDIS_STATUS_SUCCESS;
+	*pu4SetInfoLen = 0;
+	ndisStatus = NDIS_STATUS_NOT_SUPPORTED;
+	return ndisStatus;
+}
+
+NDIS_STATUS
+wf_wlan_oid_set_multicast_list(
+	 IN  PADAPTER	 prAdapter,
+	 IN  PVOID		 pvSetBuffer,
+	 IN  wf_u32 	u4SetBufferLen,
+	 OUT wf_u32*	pu4SetInfoLen
+	 )
+{
+	NDIS_STATUS    ndisStatus = NDIS_STATUS_SUCCESS;
+	if ((u4SetBufferLen % MAC_ADDR_LEN)) {
+		*pu4SetInfoLen = (((u4SetBufferLen + MAC_ADDR_LEN) - 1) /
+			 MAC_ADDR_LEN) * MAC_ADDR_LEN;
+		 return NDIS_STATUS_INVALID_LENGTH;
+	}
+	*pu4SetInfoLen = u4SetBufferLen;
+	
+	if ((u4SetBufferLen / MAC_ADDR_LEN) > MAX_NUM_GROUP_ADDR) {
+			 LOG_E("Too many MC addresses");
+			 return NDIS_STATUS_MULTICAST_FULL;
+	}
+	
+	return ndisStatus;
+}
 	
 NDIS_STATUS
 wf_wlan_oid_set_auth_mode (
@@ -1535,6 +1614,21 @@ wf_wlan_oid_set_enc_status (
 } 
 
 NDIS_STATUS
+wf_pseudo_wlan_oid_set_ssid(
+	IN	PADAPTER 	  prAdapter,
+	IN	PVOID			  pvSetBuffer,
+	IN	wf_u32 		  u4SetBufferLen,
+	OUT wf_u32*		  pu4SetInfoLen
+	)
+{
+	UNREFERENCED_PARAMETER(prAdapter);
+	UNREFERENCED_PARAMETER(pvSetBuffer);
+	UNREFERENCED_PARAMETER(u4SetBufferLen);
+	UNREFERENCED_PARAMETER(pu4SetInfoLen);
+	return NDIS_STATUS_PENDING;
+}
+
+NDIS_STATUS
 wf_wlan_oid_set_ssid (
 	IN	PADAPTER 	  prAdapter,
 	IN	PVOID			  pvSetBuffer,
@@ -1572,6 +1666,10 @@ wf_wlan_oid_set_ssid (
 		if(wf_check_ssid_valid(prAdapter, pParamSsid) == wf_false)
 		{
 			LOG_D("Setting invalid SSID.");
+			if(wf_get_media_state_indicated(prGlueInfo) == PARAM_MEDIA_STATE_CONNECTED)
+			{
+				wf_set_start_deassoc(prAdapter, wf_true);
+			}
 			return NDIS_STATUS_INVALID_DATA;
 		}
 	}
@@ -1589,7 +1687,7 @@ wf_wlan_oid_set_ssid (
                     pParamSsid->u4SsidLen)))
         {
         	LOG_D("Deauth to connect to another AP.");
-			wf_set_start_deassoc(prAdapter);
+			wf_set_start_deassoc(prAdapter, wf_false);
 		 	ndisStatus = wf_set_start_assoc(prAdapter, pParamSsid);
 			if ((ndisStatus == NDIS_STATUS_SUCCESS))
 		    {
@@ -1610,6 +1708,26 @@ wf_wlan_oid_set_ssid (
 } /* end of wf_wlan_oid_set_ssid() */
 
 NDIS_STATUS
+wf_wlan_oid_set_disassoc (
+	IN  PADAPTER		  prAdapter,
+	IN	PVOID			  pvSetBuffer,
+	IN	wf_u32 			  u4SetBufferLen,
+	OUT wf_u32*			  pu4SetInfoLen
+	)
+{
+	P_GLUE_INFO_T prGlueInfo;
+	NDIS_STATUS   ndisStatus;
+	
+	prGlueInfo = (P_GLUE_INFO_T)prAdapter->parent;
+	ndisStatus = NDIS_STATUS_SUCCESS;
+	
+    if (wf_get_media_state_indicated(prGlueInfo) != PARAM_MEDIA_STATE_CONNECTED) return ndisStatus;
+	ndisStatus = wf_set_start_deassoc(prAdapter, wf_true);
+	
+	return ndisStatus;
+}
+	
+NDIS_STATUS
 wf_wlan_oid_set_bssid_list_scan (
 	IN	PADAPTER 	  prAdapter,
 	IN	PVOID			  pvSetBuffer,
@@ -1617,6 +1735,7 @@ wf_wlan_oid_set_bssid_list_scan (
 	OUT wf_u32*		  pu4SetInfoLen
 	)
 {
+	P_GLUE_INFO_T prGlueInfo;
 	nic_info_st *nic_info = prAdapter->nic_info;
 	mlme_state_e state;
 	NDIS_STATUS  ndisStatus = NDIS_STATUS_SUCCESS;
@@ -1633,6 +1752,12 @@ wf_wlan_oid_set_bssid_list_scan (
 		return NDIS_STATUS_ADAPTER_NOT_READY;
 	}
 
+	prGlueInfo = prAdapter->parent;
+	
+	if(wf_get_media_state_indicated(prGlueInfo) == PARAM_MEDIA_STATE_CONNECTED){
+		return ndisStatus;
+	}
+	
 	ASSERT(pu4SetInfoLen);
 	*pu4SetInfoLen = 0;
 
@@ -1651,6 +1776,21 @@ wf_wlan_oid_set_bssid_list_scan (
 } /* wf_wlan_oid_set_bssid_list_scan */
 
 NDIS_STATUS
+wf_pseudo_wlan_oid_set_bssid(
+	IN	PADAPTER	  prAdapter,
+	IN	PVOID			  pvSetBuffer,
+	IN	wf_u32		  u4SetBufferLen,
+	OUT wf_u32* 	  pu4SetInfoLen
+	)
+{
+	UNREFERENCED_PARAMETER(prAdapter);
+	UNREFERENCED_PARAMETER(pvSetBuffer);
+	UNREFERENCED_PARAMETER(u4SetBufferLen);
+	UNREFERENCED_PARAMETER(pu4SetInfoLen);
+	return NDIS_STATUS_PENDING;
+}
+
+NDIS_STATUS
 wf_wlan_oid_set_bssid (
 	IN	PADAPTER 	  prAdapter,
 	IN	PVOID			  pvSetBuffer,
@@ -1665,7 +1805,7 @@ wf_wlan_oid_set_bssid (
 	wf_wlan_mgmt_scan_que_node_t *scan_info;
 	P_PARAM_SSID_T pParamSsid;
 	NDIS_STATUS ndisStatus = NDIS_STATUS_SUCCESS;
-	*pu4SetInfoLen = MAC_ADDR_LEN;;
+	*pu4SetInfoLen = MAC_ADDR_LEN;
 	if (u4SetBufferLen != MAC_ADDR_LEN){
 		*pu4SetInfoLen = MAC_ADDR_LEN;
 		return NDIS_STATUS_INVALID_LENGTH;
@@ -1703,7 +1843,7 @@ wf_wlan_oid_set_bssid (
                     pParamSsid->aucSsid,
                     pParamSsid->u4SsidLen)))
         {
-			wf_set_start_deassoc(prAdapter);
+			wf_set_start_deassoc(prAdapter, wf_false);
 
 		 	ndisStatus = wf_set_start_assoc(prAdapter, pParamSsid);
 			if ((ndisStatus == NDIS_STATUS_SUCCESS))
@@ -1815,6 +1955,34 @@ wf_wlan_oid_set_add_key(
 } /* wf_wlan_oid_set_add_key */
 
 NDIS_STATUS
+wf_wlan_oid_set_add_wep (
+    IN  PADAPTER       prAdapter,
+    IN  PVOID    pvSetBuffer,
+    IN  wf_u32  u4SetBufferLen,
+    OUT wf_u32* pu4SetInfoLen
+    )
+{
+	NDIS_STATUS  ndisStatus =  NDIS_STATUS_SUCCESS;
+	P_WF_NDIS_802_11_KEY_T prSettingKey;
+	BOOLEAN  bPairwiseKey;
+	P_PARAM_WEP_T prNewWepKey;
+
+	prNewWepKey = (P_PARAM_WEP_T)pvSetBuffer;
+	
+	prSettingKey->u4KeyIndex = prNewWepKey->u4KeyIndex;
+
+	prSettingKey->u4KeyLength = prNewWepKey->u4KeyLength;
+	wf_memcpy(prSettingKey->aucKeyMaterial, prNewWepKey->aucKeyMaterial, prNewWepKey->u4KeyLength); 
+	
+	bPairwiseKey = (prSettingKey->u4KeyIndex & BIT(30)) ? TRUE : FALSE;
+	
+	wf_set_nic_key(prAdapter, prSettingKey, bPairwiseKey);
+	WdfWorkItemEnqueue(prAdapter->writeKeyWorkitem);
+
+	return ndisStatus;
+}
+
+NDIS_STATUS
 wf_wlan_oid_set_reload_defaults (
 	IN	PADAPTER 	  prAdapter,
 	IN	PVOID			  pvSetBuffer,
@@ -1839,13 +2007,14 @@ wf_wlan_oid_set_reload_defaults (
 		LOG_D("Fail in set ReloafDefault! (Adapter not ready). ");
 		return NDIS_STATUS_ADAPTER_NOT_READY;
 	}
-
 	ASSERT(pvSetBuffer);
 	/* Verify the available reload options and reload the settings. */
 	switch (*(P_PARAM_RELOAD_DEFAULTS)pvSetBuffer) {
 	case ENUM_RELOAD_WEP_KEYS:
 		// TODO: Determine whether to reload default keys.  2021/07/08
-		LOG_D("Reload WEP keys");
+		rStatus = NDIS_STATUS_NOT_SUPPORTED;
+		LOG_D("Reload WEP keys (No default keys is saved.)");
+		break;
 	default:
 		LOG_D("Invalid reload option %d", *(wf_u32*)pvSetBuffer);
 		rStatus = NDIS_STATUS_INVALID_DATA;

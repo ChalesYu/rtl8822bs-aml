@@ -87,7 +87,7 @@ static int dfs_net_read(struct dfs_fd* file, void *buf, size_t count)
     return -1;
   }
   
-  return proto_priv->ops->recv(proto_priv->socket, buf, count, 0);
+  return proto_priv->ops->recvfrom(proto_priv->socket, buf, count, 0, NULL, NULL);
 }
 
 /*********************************************************************************************************
@@ -109,7 +109,7 @@ static int dfs_net_write(struct dfs_fd *file, const void *buf, size_t count)
     return -1;
   }
   
-  return proto_priv->ops->send(proto_priv->socket, buf, count, 0);
+  return proto_priv->ops->sendto(proto_priv->socket, buf, count, 0, NULL, 0);
 }
 
 /*********************************************************************************************************
@@ -546,7 +546,7 @@ int recv(int s, void *mem, size_t len, int flags)
     return -1;
   }
   
-  return proto_priv->ops->recv(proto_priv->socket, mem, len, flags);
+  return proto_priv->ops->recvfrom(proto_priv->socket, mem, len, flags, NULL, NULL);
 }
 RTM_EXPORT(recv);
 
@@ -613,7 +613,7 @@ int send(int s, const void *dataptr, size_t size, int flags)
     return -1;
   }
   
-  return proto_priv->ops->send(proto_priv->socket, dataptr, size, flags);
+  return proto_priv->ops->sendto(proto_priv->socket, dataptr, size, flags, NULL, 0);
 }
 RTM_EXPORT(send);
 

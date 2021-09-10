@@ -1,4 +1,15 @@
-
+/*
+ * wf_os_api_mix.c
+ *
+ * os wlan mix operate realization.
+ *
+ * Author: hichard
+ *
+ * Copyright (c) 2020 SmartChip Integrated Circuits(SuZhou ZhongKe) Co.,Ltd
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ */
 /* include */
 #include "common.h"
 #include "hif/hif.h"
@@ -33,6 +44,10 @@ static rt_wlan_security_t wf_wlan_security_mode_get(wf_wlan_mgmt_scan_que_node_t
         else if ((group_cipher == CIPHER_SUITE_CCMP) && (pairwise_cipher == CIPHER_SUITE_CCMP))
         {
             mode = 0x02;
+        } 
+		else if ((group_cipher == CIPHER_SUITE_TKIP) && (pairwise_cipher == CIPHER_SUITE_CCMP))
+        {
+            mode = 0x08;
         }
     }
     
@@ -83,6 +98,8 @@ static rt_wlan_security_t wf_wlan_security_mode_get(wf_wlan_mgmt_scan_que_node_t
       return SECURITY_WPS_OPEN;
     case 7:
       return SECURITY_WPS_SECURE;
+	case 8:
+      return SECURITY_WPA_MIXED_PSK;
     default:
       return SECURITY_UNKNOWN;
     }
@@ -158,7 +175,24 @@ void wf_os_api_ind_connect (void *arg, wf_u8 arg1)
   nic_info_st *pnic_info = arg;
   struct rt_wlan_device *wlan_dev = pnic_info->ndev;
   
-  rt_wlan_dev_indicate_event_handle(wlan_dev, RT_WLAN_DEV_EVT_CONNECT, NULL);
+  switch(NIC_INFO_2_WORK_MODE(pnic_info))
+  {
+  case WF_INFRA_MODE :  //sta
+    rt_wlan_dev_indicate_event_handle(wlan_dev, RT_WLAN_DEV_EVT_CONNECT, NULL);
+    break;
+  case WF_MASTER_MODE : // ap
+    rt_wlan_dev_indicate_event_handle(wlan_dev, RT_WLAN_DEV_EVT_AP_START, NULL);
+    break;
+  case WF_ADHOC_MODE :
+  case WF_AUTO_MODE :
+  case WF_REPEAT_MODE :
+  case WF_SECOND_MODES :
+  case WF_MONITOR_MODE :
+  case WF_MESH_MODE :
+  default:
+    LOG_W("[%s]: error work mode", __func__);
+    break;
+  }
 }
 
 void wf_os_api_ind_disconnect (void *arg, wf_u8 arg1)
@@ -166,7 +200,26 @@ void wf_os_api_ind_disconnect (void *arg, wf_u8 arg1)
   nic_info_st *pnic_info = arg;
   struct rt_wlan_device *wlan_dev = pnic_info->ndev;
   
-  rt_wlan_dev_indicate_event_handle(wlan_dev, RT_WLAN_DEV_EVT_DISCONNECT, NULL);
+  wf_os_api_disable_all_data_queue(pnic_info->ndev);
+  
+  switch(NIC_INFO_2_WORK_MODE(pnic_info))
+  {
+  case WF_INFRA_MODE :  //sta
+    rt_wlan_dev_indicate_event_handle(wlan_dev, RT_WLAN_DEV_EVT_DISCONNECT, NULL);
+    break;
+  case WF_MASTER_MODE : // ap
+    rt_wlan_dev_indicate_event_handle(wlan_dev, RT_WLAN_DEV_EVT_AP_STOP, NULL);
+    break;
+  case WF_ADHOC_MODE :
+  case WF_AUTO_MODE :
+  case WF_REPEAT_MODE :
+  case WF_SECOND_MODES :
+  case WF_MONITOR_MODE :
+  case WF_MESH_MODE :
+  default:
+    LOG_W("[%s]: error work mode", __func__);
+    break;
+  }
 }
 
 #ifdef CFG_ENABLE_ADHOC_MODE
@@ -179,12 +232,21 @@ void wf_os_api_cfg80211_unlink_ibss(void *arg)
 
 void wf_os_api_ap_ind_assoc (void *arg, void *arg1, void *arg2, wf_u8 arg3)
 {
+  nic_info_st *pnic_info = arg;
+  struct rt_wlan_device *wlan_dev = pnic_info->ndev;
+  
   LOG_W("[%s]: enter", __func__);
+  rt_wlan_dev_indicate_event_handle(wlan_dev, RT_WLAN_DEV_EVT_AP_ASSOCIATED, NULL);
+  
 }
 
 void wf_os_api_ap_ind_disassoc (void *arg, void *arg1, wf_u8 arg2)
 {
-    LOG_W("[%s]: enter", __func__);
+  nic_info_st *pnic_info = arg;
+  struct rt_wlan_device *wlan_dev = pnic_info->ndev;
+  
+  LOG_W("[%s]: enter", __func__);
+  rt_wlan_dev_indicate_event_handle(wlan_dev, RT_WLAN_DEV_EVT_AP_DISASSOCIATED, NULL);
 }
 
 void wf_os_api_enable_all_data_queue (void *arg)

@@ -24,6 +24,8 @@ Notes:
 
 #define HW_BSSID_NUM				4
 
+EVT_WDF_DRIVER_DEVICE_ADD wf_EvtWdfDriverDeviceAdd;
+EVT_WDF_DRIVER_UNLOAD wf_EvtWdfDriverUnload;
 
 typedef enum _ENUM_NET_PORT_IDX_T {
     NET_PORT_WLAN_IDX = 0,
@@ -163,6 +165,13 @@ typedef struct _GLUE_INFO_T {
 //MINIPORT_UNLOAD DriverUnload;
 
 
+VOID
+mpPnPEventNotify (
+	IN NDIS_HANDLE			 miniportAdapterContext,
+	IN NDIS_DEVICE_PNP_EVENT pnpEvent,
+	IN PVOID				 informationBuffer_p,
+	IN wf_u32				 informationBufferLength
+);
 
 //
 // Handlers for Entry Points from NDIS
@@ -179,6 +188,8 @@ MPInitialize(
 );
 
 VOID mpHalt(NDIS_HANDLE miniportAdapterContext);
+
+void wf_mp_dev_stop(PADAPTER      pAdapter);
 
 INLINE 
 BOOLEAN
@@ -277,10 +288,6 @@ MpResetInternalRoutine(
     __in PADAPTER             Adapter,
     __in MP_RESET_TYPE        ResetType
     ) ;
-
-EVT_WDF_WORKITEM MpDot11ResetWorkItem;
-
-EVT_WDF_WORKITEM MpNdisResetWorkItem;
 
 VOID
 MpDot11ResetComplete(
@@ -396,5 +403,7 @@ WfEvtDeviceUnload(
 NDIS_STATUS wf_attr_init(void* pGlueInfo);
 
 NDIS_STATUS MpInitializeWorkitem(PADAPTER pAdapter);
+
+VOID wf_mp_suprise_removed(PADAPTER prAdapter);
 
 #endif  // _NATIVE_WIFI_MAIN_H_

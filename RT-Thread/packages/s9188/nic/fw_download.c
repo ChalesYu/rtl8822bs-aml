@@ -94,7 +94,7 @@ static int fwdl_wait_fw_startup(nic_info_st *nic_info)
 
     LOG_I("%s: Finish\n", __func__);
     return WF_RETURN_OK;
-	
+
 #else
 
 	int ret = 0;
@@ -139,7 +139,7 @@ static int fwdl_wait_fw_startup(nic_info_st *nic_info)
             LOG_I("fw go sucess!\n");
         }
     }
-    
+
     return WF_RETURN_OK;
 #endif
 }
@@ -253,7 +253,7 @@ int wf_fw_download(nic_info_st *nic_info)
         if(fwdl_info->fw_rom_type)
         {
             LOG_D("new rom select");
-            
+
             value8 = wf_io_read8(nic_info, 0xf4,NULL);
             value8 &= 0xFE;
             ret = wf_io_write8(nic_info, 0xf4, value8);
@@ -262,23 +262,23 @@ int wf_fw_download(nic_info_st *nic_info)
         else
         {
             LOG_D("old rom select");
-            
+
             value8 = wf_io_read8(nic_info, 0xf4,NULL);
             value8 |= 0x01;
             ret = wf_io_write8(nic_info, 0xf4, value8);
             value8 = wf_io_read8(nic_info, 0xf4,NULL);
         }
 
-        if(0 != wf_io_write_firmware(nic_info, 0, (wf_u8 *)fwdl_info->fw0, fwdl_info->fw0_size)) 
+        if(0 != wf_io_write_firmware(nic_info, 0, (wf_u8 *)fwdl_info->fw0, fwdl_info->fw0_size))
         {
             return -1;
         }
-        
-        if(0 != wf_io_write_firmware(nic_info, 1, (wf_u8 *)fwdl_info->fw1, fwdl_info->fw1_size)) 
+
+        if(0 != wf_io_write_firmware(nic_info, 1, (wf_u8 *)fwdl_info->fw1, fwdl_info->fw1_size))
         {
             return -1;
         }
-    }    
+    }
 #endif
 
     LOG_D("===>fw download elapsed:  %d ms", wf_timer_elapsed(&timer));
@@ -299,7 +299,7 @@ int wf_fw_download(nic_info_st *nic_info)
 
     /* close the fw debug info */
     wf_mcu_disable_fw_dbginfo(nic_info);
-    
+
     LOG_I("end");
 
     return 0;

@@ -84,8 +84,8 @@
 #include <netif/ethernetif.h>
 #include <lwip/netifapi.h>
 
-#elif defined ( __RTOS__ )
-#include "os_utility.h"
+#elif defined (__RTOS__)
+#include "global.h"
 #endif
 
 #include "os_priv.h"

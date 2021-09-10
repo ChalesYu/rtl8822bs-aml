@@ -539,7 +539,7 @@ wf_s32 MacIdConfig(nic_info_st *nic_info, wf_u8 mac_id, wf_u8 raid, wf_u8 bw, wf
     return ret;
 }
 
-wf_s32 UpdateHalRAMask8188F(nic_info_st *nic_info, wdn_net_info_st *pwdn, u8 rssi_level)
+wf_s32 UpdateHalRAMask8188F(nic_info_st *nic_info, wdn_net_info_st *pwdn, wf_u8 rssi_level)
 {
     wf_u32  mask            = 0;
     wf_u32 rate_bitmap      = 0;

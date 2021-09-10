@@ -134,11 +134,11 @@ typedef rt_base_t      wf_irq;
 #define wf_packed                 __attribute__((__packed__))
 
 #define WF_WORKQUEUE_PRIORITY_START  5
-#define WF_WORKQUEUE_PRIORITY_NUM    2
+#define WF_WORKQUEUE_PRIORITY_NUM    3
 #define WF_WORKQUEUE_STACK_SIZE      2048
 
-#define WF_THREAD_PRIORITY_START     7
-#define WF_THREAD_PRIORITY_NUM       3
+#define WF_THREAD_PRIORITY_START     8
+#define WF_THREAD_PRIORITY_NUM       4
 #define WF_THREAD_STACK_SIZE         2048
 
 typedef struct rt_work            wf_work_struct;

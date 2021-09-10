@@ -59,7 +59,6 @@ void wf_dbg_counter_handle(WDFTIMER WdfTimer)
 	nic_info_st *nic_info;
 	wf_u64 tx_cnt;
 	wf_u64 rx_cnt;
-
 	if(padapter == NULL) {
 		return;
 	}
@@ -78,14 +77,23 @@ void wf_dbg_counter_handle(WDFTIMER WdfTimer)
 		return;
 	}
 
+	tx_cnt = xmit_info->tx_byte;
+	xmit_info->tx_byte = 0;
+	tx_cnt >>= 12;
+	
+
+#if 0
 	KeAcquireSpinLock(&dbg_info->lock, &irq);
 	dbg_info->tx_counter = dbg_info->tx_cnt;
 	dbg_info->rx_counter = dbg_info->rx_cnt;
 	dbg_info->tx_cnt = 0;
 	dbg_info->rx_cnt = 0;
 	KeReleaseSpinLock(&dbg_info->lock, irq);
-	WdfTimerStart(dbg_info->counter_timer, WDF_REL_TIMEOUT_IN_MS(1000));
-	//LOG_D("tx=%dK rx=%dK", dbg_info->tx_counter>>10, dbg_info->rx_counter>>10);
+#endif	
+#if NDIS5_DBG
+	WdfTimerStart(dbg_info->counter_timer, WDF_REL_TIMEOUT_IN_MS(4000));
+	LOG_D("tx=%dK", tx_cnt);
+#endif
 #if 0
 	//we have get the counter value, then we can output info no lock
 	if(wf_dbg_start_ctrl(dbg_info)) {

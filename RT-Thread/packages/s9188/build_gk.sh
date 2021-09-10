@@ -6,7 +6,7 @@ if [ "clean" = "$1" ];then
     make V=1 clean
 	exit 0
 fi
-make -j4 V=1
+make -j4 
 
 cp *.ko ~/nfs_root/ -auv
 cp fw ~/nfs_root/ -auv

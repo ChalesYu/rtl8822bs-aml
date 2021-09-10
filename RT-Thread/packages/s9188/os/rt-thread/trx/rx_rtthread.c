@@ -99,7 +99,6 @@ rt_inline wf_u8 * pkt_pull(prx_pkt_t prx_pkt,int size)
 
 rt_inline wf_u8 * pkt_trim(prx_pkt_t prx_pkt,int size)
 {
-    wf_u8 * ptmp;
     struct pbuf *p = (struct pbuf *)prx_pkt->pskb;
 
     if(p->tot_len < size)

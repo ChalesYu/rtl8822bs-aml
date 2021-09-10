@@ -125,6 +125,7 @@ void ndev_notifier_unregister(void);
 int ndev_unregister(nic_info_st *nic_info);
 int ndev_register(nic_info_st *nic_info);
 int ndev_shutdown(nic_info_st *nic_info);
+int ndev_unregister_all (nic_info_st *nic_info[], wf_u8 nic_num);
 
 int ndev_rx(nic_info_st *nic_info, struct sk_buff *skb);
 ndev_priv_st *ndev_get_priv(nic_info_st *nic_info);

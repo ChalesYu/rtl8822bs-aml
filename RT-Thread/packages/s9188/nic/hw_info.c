@@ -632,7 +632,10 @@ wf_u8 do_query_center_ch(wf_u8 chnl_bw, wf_u8 channel, wf_u8 chnl_offset)
     return center_ch;
 }
 
-int wf_hw_info_set_channnel_bw(nic_info_st *nic_info, wf_u8 channel, CHANNEL_WIDTH cw, wf_u8 offset)
+int wf_hw_info_set_channnel_bw(nic_info_st *nic_info,
+                               wf_u8 channel,
+                               CHANNEL_WIDTH cw,
+                               HAL_PRIME_CH_OFFSET offset)
 {
     int ret = 0;
     wf_u8 center_ch;
@@ -640,7 +643,7 @@ int wf_hw_info_set_channnel_bw(nic_info_st *nic_info, wf_u8 channel, CHANNEL_WID
 
     center_ch = do_query_center_ch(cw, channel, offset);
 
-    if(NIC_USB == nic_info->nic_type)
+    if (NIC_USB == nic_info->nic_type)
     {
         uarg[0] =   0;
     }
@@ -659,6 +662,16 @@ int wf_hw_info_set_channnel_bw(nic_info_st *nic_info, wf_u8 channel, CHANNEL_WID
     ret = wf_mcu_set_ch_bw(nic_info, uarg, 7);
 
     //LOG_I("[%s] channel:%d  bw:%d  offset:%d",__func__,channel, cw, offset);
+    return ret ;
+}
+
+int wf_hw_info_get_channnel_bw(nic_info_st *nic_info,
+                               wf_u8 *channel, CHANNEL_WIDTH *cw,
+                               HAL_PRIME_CH_OFFSET *offset)
+{
+    int ret = 0;
+
+    ret = wf_mcu_get_ch_bw(nic_info, channel, cw, offset);
 
     return ret ;
 }
@@ -687,13 +700,24 @@ int wf_hw_info_get_default_cfg(nic_info_st *pnic_info)
     LOG_D("pid:0x%x ", phw_info->efuse.pid);
 
     /*get mac in efuse*/
-    ret = wf_mcu_efuse_get(pnic_info, WLAN_EEPORM_MAC, (wf_u32 *)phw_info->macAddr, 6);
-    if(wf_memcmp(bmc_macAddr, phw_info->macAddr, WF_ETH_ALEN) == 0)
+    if (!pnic_info->virNic)
     {
-       LOG_E("efuse read mac fail,use default addr");
-       wf_memcpy(phw_info->macAddr, macAddr, WF_ETH_ALEN);
-       phw_info->macAddr[4] = wf_os_api_rand32()%0xFF;
-       phw_info->macAddr[5] = wf_os_api_rand32()%0xFF;
+        ret = wf_mcu_efuse_get(pnic_info, WLAN_EEPORM_MAC, (wf_u32 *)phw_info->macAddr, 6);
+        if (wf_memcmp(bmc_macAddr, phw_info->macAddr, WF_ETH_ALEN) == 0)
+        {
+            LOG_E("efuse read mac fail, use default addr");
+            wf_memcpy(phw_info->macAddr, macAddr, WF_ETH_ALEN);
+            phw_info->macAddr[4] = wf_os_api_rand32()%0xFF;
+            phw_info->macAddr[5] = wf_os_api_rand32()%0xFF;
+        }
+    }
+    else
+    {
+        nic_info_st *pnic_info_r = pnic_info->buddy_nic;
+        hw_info_st *phw_info_r = pnic_info_r->hw_info;
+        memcpy(phw_info->macAddr, phw_info_r->macAddr, WF_ETH_ALEN); /* make virtual mac copy from realy nic_info */
+        phw_info->macAddr[0] |= 0x02; /* switch virtual MAC to no global type */
+        LOG_D("make virtual mac");
     }
 
     LOG_D("macaddr :"WF_MAC_FMT, WF_MAC_ARG(phw_info->macAddr));
@@ -741,67 +765,64 @@ int wf_hw_info_set_default_cfg(nic_info_st *nic_info)
 {
     int ret;
     hw_info_st *hw_info = nic_info->hw_info;
-	local_info_st *local_info = nic_info->local_info;
-	hw_param_st hw_param;
+    local_info_st *local_info = nic_info->local_info;
+    hw_param_st hw_param;
 #ifdef CONFIG_RICHV100
-	phy_config_t phy_cfg;
-	mcu_msg_body_st msg_val;
+    phy_config_t phy_cfg;
+    mcu_msg_body_st msg_val;
 #else
-	hw_info_st *hwinfo = (hw_info_st *)nic_info->hw_info;
-	int i;
+    hw_info_st *hwinfo = (hw_info_st *)nic_info->hw_info;
+    int i;
 
-#endif	
+#endif
     LOG_D("[HW_CFG] channel_plan: 0x%x",hw_info->channel_plan);
     LOG_D("[HW_CFG] ba_func: %d",hw_info->ba_enable);
-	wf_memset(&hw_param,0,sizeof(hw_param_st));
+    wf_memset(&hw_param,0,sizeof(hw_param_st));
 
-    /* set channel plan */
-    channel_init(nic_info);
-    
-#ifdef CONFIG_RICHV200	
-	ret = wf_mcu_set_hw_invalid_all(nic_info);
-	if (ret != WF_RETURN_OK)
-	{
-		return WF_RETURN_FAIL;
-	}
-	ret = wf_mcu_ars_init(nic_info);
-	if (ret != WF_RETURN_OK)
-	{
-		return WF_RETURN_FAIL;
-	}
-	if (local_info->work_mode == WF_INFRA_MODE)
-	{
-		hw_param.work_mode = WIFI_STATION_STATE;
-	}
-	else if (local_info->work_mode == WF_MASTER_MODE)
-	{
-		hw_param.work_mode = WIFI_AP_STATE;
-	}
-	else if (local_info->work_mode == WF_MONITOR_MODE)
-	{
-		hw_param.work_mode = WIFI_SITE_MONITOR;
-	}
-	for (i = 0; i < WF_ETH_ALEN; i++)
+#ifdef CONFIG_RICHV200
+    ret = wf_mcu_set_hw_invalid_all(nic_info);
+    if (ret != WF_RETURN_OK)
+    {
+        return WF_RETURN_FAIL;
+    }
+    ret = wf_mcu_ars_init(nic_info);
+    if (ret != WF_RETURN_OK)
+    {
+        return WF_RETURN_FAIL;
+    }
+    if (local_info->work_mode == WF_INFRA_MODE)
+    {
+        hw_param.work_mode = WIFI_STATION_STATE;
+    }
+    else if (local_info->work_mode == WF_MASTER_MODE)
+    {
+        hw_param.work_mode = WIFI_AP_STATE;
+    }
+    else if (local_info->work_mode == WF_MONITOR_MODE)
+    {
+        hw_param.work_mode = WIFI_SITE_MONITOR;
+    }
+    for (i = 0; i < WF_ETH_ALEN; i++)
     {
         hw_param.mac_addr[i] = hwinfo->macAddr[i];
     }
-	if (nic_info->buddy_nic)
-    {
+    
+    #ifdef CONFIG_STA_AND_AP_MODE
         hw_param.concurrent_mode = 1;
-    }
+    #endif
 
 #ifdef CONFIG_SOFT_RX_AGGREGATION
-	hw_param.rx_agg_enable = 1;
+    hw_param.rx_agg_enable = 1;
 #else
     hw_param.rx_agg_enable = 0;
 #endif
 
     // hardware init end
-	ret = wf_mcu_hw_init(nic_info, &hw_param);
-	if (ret != WF_RETURN_OK)
-	{
-		return WF_RETURN_FAIL;
-	}
+    ret = wf_mcu_hw_init(nic_info, &hw_param);
+    if (ret != WF_RETURN_OK)
+    {
+        return WF_RETURN_FAIL;
+    }
 
 #else
 
@@ -811,34 +832,34 @@ int wf_hw_info_set_default_cfg(nic_info_st *nic_info)
         ret = wf_mcu_set_concurrent_mode(nic_info, wf_true);
     }
 
-	// hardware init start
-	ret = wf_mcu_init_hardware1(nic_info);
-	if (ret != WF_RETURN_OK)
-	{
-		return WF_RETURN_FAIL;
-	}
+    // hardware init start
+    ret = wf_mcu_init_hardware1(nic_info);
+    if (ret != WF_RETURN_OK)
+    {
+        return WF_RETURN_FAIL;
+    }
 
-	// bcn configue
-	ret = wf_mcu_cca_config(nic_info);
-	if (ret != WF_RETURN_OK)
-	{
-		return WF_RETURN_FAIL;
-	}
+    // bcn configue
+    ret = wf_mcu_cca_config(nic_info);
+    if (ret != WF_RETURN_OK)
+    {
+        return WF_RETURN_FAIL;
+    }
 
-	// burst pktlen configue
-	ret = wf_mcu_burst_pktlen_init(nic_info);
-	if (ret != WF_RETURN_OK)
-	{
-		return WF_RETURN_FAIL;
-	}
+    // burst pktlen configue
+    ret = wf_mcu_burst_pktlen_init(nic_info);
+    if (ret != WF_RETURN_OK)
+    {
+        return WF_RETURN_FAIL;
+    }
 
-	ret = wf_mcu_set_hw_invalid_all(nic_info);
-	if (ret != WF_RETURN_OK)
-	{
-		return WF_RETURN_FAIL;
-	}
+    ret = wf_mcu_set_hw_invalid_all(nic_info);
+    if (ret != WF_RETURN_OK)
+    {
+        return WF_RETURN_FAIL;
+    }
 
-	// phy configue
+    // phy configue
     ret = wf_mcu_ant_sel_init(nic_info);
     if (ret != WF_RETURN_OK)
     {
@@ -846,14 +867,14 @@ int wf_hw_info_set_default_cfg(nic_info_st *nic_info)
     }
 
     ret = wf_mcu_msg_init_default(nic_info);
-	if (ret != WF_RETURN_OK)
-	{
-	    return WF_RETURN_FAIL;
-	}
+    if (ret != WF_RETURN_OK)
+    {
+        return WF_RETURN_FAIL;
+    }
 
-	phy_cfg.is_normal_chip = 1;
+    phy_cfg.is_normal_chip = 1;
     phy_cfg.customer_id    = 0;
-	phy_cfg.wifi_spec      = 0;
+    phy_cfg.wifi_spec      = 0;
     phy_cfg.cut_version    = 0;
     phy_cfg.Regulation2_4G = hw_info->Regulation2_4G;
     phy_cfg.TypeGPA        = 0;
@@ -863,10 +884,10 @@ int wf_hw_info_set_default_cfg(nic_info_st *nic_info)
     phy_cfg.RFEType        = 0;
     phy_cfg.PackageType    = 15;
     phy_cfg.boardConfig    = 0;
-    
-    #ifndef CONFIG_MP_MODE
+
+#ifndef CONFIG_MP_MODE
     ret = wf_mcu_set_phy_config(nic_info, &phy_cfg);
-    #endif
+#endif
 
     msg_val.tx_bytes = 0;
     msg_val.rx_bytes = 0;
@@ -890,10 +911,10 @@ int wf_hw_info_set_default_cfg(nic_info_st *nic_info)
     msg_val.msgWdgStateVal = 0;
     msg_val.Rssi_Min = 0;
     ret = wf_mcu_msg_body_init(nic_info, &msg_val);
-	if (ret != WF_RETURN_OK)
-	{
-	   return WF_RETURN_FAIL;
-	}
+    if (ret != WF_RETURN_OK)
+    {
+        return WF_RETURN_FAIL;
+    }
 
     ret = wf_mcu_msg_init(nic_info);
     if (ret != WF_RETURN_OK)
@@ -901,51 +922,32 @@ int wf_hw_info_set_default_cfg(nic_info_st *nic_info)
         return WF_RETURN_FAIL;
     }
 
-	if (local_info->work_mode == WF_INFRA_MODE)
-	{
-		hw_param.send_msg[0] = WIFI_STATION_STATE;
-	}
-	else if (local_info->work_mode == WF_MASTER_MODE)
-	{
-		hw_param.send_msg[0] = WIFI_AP_STATE;
-	}
-	else if (local_info->work_mode == WF_MONITOR_MODE)
-	{
-		hw_param.send_msg[0] = WIFI_SITE_MONITOR;
-	}
+    if (local_info->work_mode == WF_INFRA_MODE)
+    {
+        hw_param.send_msg[0] = WIFI_STATION_STATE;
+    }
+    else if (local_info->work_mode == WF_MASTER_MODE)
+    {
+        hw_param.send_msg[0] = WIFI_AP_STATE;
+    }
+    else if (local_info->work_mode == WF_MONITOR_MODE)
+    {
+        hw_param.send_msg[0] = WIFI_SITE_MONITOR;
+    }
 
     // hardware init end
-	ret = wf_mcu_init_hardware2(nic_info, &hw_param);
-	if (ret != WF_RETURN_OK)
-	{
-		return WF_RETURN_FAIL;
-	}
-    
-	ret = wf_mcu_update_tx_fifo(nic_info);
-	if (ret != WF_RETURN_OK)
-	{
-		return WF_RETURN_FAIL;
-	}
-#endif
-
-    // tx configue
-	ret = wf_mcu_set_config_xmit(nic_info,WF_XMIT_AGG_MAXNUMS, 0x1F);
-	if (ret != WF_RETURN_OK)
-	{
-		return WF_RETURN_FAIL;
-	}
-
-	ret = wf_mcu_set_config_xmit(nic_info, WF_XMIT_OFFSET, 40);
+    ret = wf_mcu_init_hardware2(nic_info, &hw_param);
     if (ret != WF_RETURN_OK)
-	{
-		return WF_RETURN_FAIL;
-	}	
+    {
+        return WF_RETURN_FAIL;
+    }
 
-	ret = wf_mcu_set_config_xmit(nic_info, WF_XMIT_PKT_OFFSET, 0);
-	if (ret != WF_RETURN_OK)
-	{
-		return WF_RETURN_FAIL;
-	}
+    ret = wf_mcu_update_tx_fifo(nic_info);
+    if (ret != WF_RETURN_OK)
+    {
+        return WF_RETURN_FAIL;
+    }
+#endif
 
     return WF_RETURN_OK;
 }

@@ -27,9 +27,9 @@ static wf_bool tx_work_need_stop(nic_info_st *nic_info)
     wf_u16 stop_flag;
     tx_info_st *ptx_info = nic_info->tx_info;
 
-    wf_lock_bh_lock(&ptx_info->lock);
+    wf_lock_lock(&ptx_info->lock);
     stop_flag = ptx_info->xmit_stop_flag;
-    wf_lock_bh_unlock(&ptx_info->lock);
+    wf_lock_unlock(&ptx_info->lock);
 
     return stop_flag;
 }
@@ -45,219 +45,6 @@ static wf_bool mpdu_send_complete_cb(nic_info_st *nic_info, struct xmit_buf *pxm
     return wf_true;
 }
 
-#ifdef CONFIG_SOFT_TX_AGGREGATION
-static int  mpdu_agg_insert_sending_queue(nic_info_st *nic_info, struct xmit_buf *pxmitbuf)
-{
-    int ret = WF_RETURN_FAIL;
-    tx_info_st *tx_info         = NULL;
-
-    if(NULL == nic_info)
-    {
-        LOG_E("[%s,%d] nic_info null", __func__, __LINE__);
-        return WF_RETURN_FAIL;
-    }
-
-    if(NULL == pxmitbuf)
-    {
-        LOG_E("[%s,%d] pxmitbuf null", __func__, __LINE__);
-        return WF_RETURN_FAIL;
-    }
-
-    tx_info = nic_info->tx_info;
-
-    wf_tx_agg_num_fill(pxmitbuf->agg_num, pxmitbuf->pbuf);
-
-    ret = wf_io_write_data(nic_info, pxmitbuf->agg_num, pxmitbuf->pbuf, pxmitbuf->pkt_len, pxmitbuf->ff_hwaddr, (void *)mpdu_send_complete_cb, nic_info, pxmitbuf);
-
-    return ret;
-}
-
-
-
-int tx_work_mpdu_xmit_agg(nic_info_st *nic_info)
-{
-    struct xmit_frame *pxframe  = NULL;
-    tx_info_st *tx_info         = nic_info->tx_info;
-    struct xmit_buf *pxmitbuf   = NULL;
-    mlme_info_t *mlme_info     = nic_info->mlme_info;
-    wf_s32 res                  = 0;
-    int addbaRet                = -1;
-    wf_u8 pre_qsel = 0xFF;
-    wf_u8 next_qsel = 0xFF;
-    int packet_index       = 0;
-    wf_u32 txlen   = 0;
-    hw_info_st *hw_info = nic_info->hw_info;
-    struct sk_buff *skb;
-    wf_bool bRet = wf_true;
-
-    while((NULL != (pxframe = wf_tx_data_dequeue(tx_info))) && pxframe->pkt)
-    {
-        if(WF_CANNOT_RUN(nic_info))
-        {
-            return -1;
-        }
-
-        if(tx_work_need_stop(nic_info)) 
-        {
-            LOG_D("wf_tx_send_need_stop in tx_agg xmit, just return it");
-            if(pxmitbuf)
-            {
-                wf_xmit_buf_delete(tx_info, pxmitbuf);
-                pxmitbuf = NULL;
-            }
-
-            wf_tx_data_enqueue_head(tx_info,pxframe);
-            return -1;
-        }
-
-        if(NULL == pxmitbuf)
-        {
-            pxmitbuf = wf_xmit_buf_new(tx_info);
-            if (pxmitbuf == NULL)
-            {
-                //LOG_W("[%s,%d] pxmitbuf is null",__func__,__LINE__);
-                wf_tx_data_enqueue_head(tx_info,pxframe);
-                break;
-            }
-
-        }
-
-        if (pxframe->priority > 15)
-        {
-            LOG_E("[%s] priority:%d",__func__,pxframe->priority);
-            if(pxmitbuf)
-            {
-                wf_xmit_buf_delete(tx_info, pxmitbuf);
-                pxmitbuf = NULL;
-            }
-            //wf_tx_data_enqueue_head(tx_info,pxframe); this is wrong frame, drop it .
-            break;
-        }
-
-        //LOG_I("[%d] buffer_addr:%p, [%d] frame_addr:%p, packet_index:%d",pxmitbuf->buffer_id,pxmitbuf, pxframe->frame_id ,pxframe, packet_index);
-
-        if (mlme_info->link_info.num_tx_ok_in_period_with_tid[pxframe->qsel] > 100  && (hw_info->ba_enable == wf_true))
-        {
-            addbaRet = wf_action_frame_add_ba_request(nic_info, pxframe);
-            if (addbaRet == 0)
-            {
-                if(pxmitbuf)
-                {
-                    wf_xmit_buf_delete(tx_info, pxmitbuf);
-                    pxmitbuf = NULL;
-                }
-
-                wf_tx_data_enqueue_head(tx_info,pxframe);
-                break;
-            }
-        }
-
-        next_qsel = pxframe->qsel;
-        if((pxmitbuf->pkt_len+ wf_get_wlan_pkt_size(pxframe) > wf_nic_get_tx_max_len(nic_info,pxframe))
-            || (0 != packet_index && WF_RETURN_FAIL == wf_nic_tx_qsel_check(pre_qsel,next_qsel))
-            || (MAX_AGG_NUM <= packet_index) 
-            || (nic_info->nic_type == NIC_USB && (0 < packet_index)))
-        {
-            wf_tx_data_enqueue_head(tx_info,pxframe);
-            break;
-        }
-
-        pxframe->pxmitbuf   = pxmitbuf;
-        pxframe->buf_addr   = pxmitbuf->ptail;
-        pre_qsel = pxframe->qsel;
-        pxmitbuf->encrypt_algo = pxframe->encrypt_algo;
-        pxmitbuf->qsel         = pxframe->qsel;
-        skb = (struct sk_buff *)pxframe->pkt;
-        
-        res = wf_tx_msdu_to_mpdu(nic_info, pxframe, skb->data, skb->len);
-                
-        pxframe->agg_num = 1;
-        wf_tx_txdesc_init(pxframe, pxframe->buf_addr, pxframe->last_txcmdsz,wf_true,1);
-
-        txlen = pxframe->last_txcmdsz;
-
-        /* data encrypt */
-        if (wf_sec_encrypt(pxframe, pxframe->buf_addr, TXDESC_SIZE + txlen))
-        {
-            LOG_E("encrypt fail!!!!!!!!!!!");
-        }
-
-        wf_tx_stats_cnt(nic_info, pxframe, txlen);
-
-        pxmitbuf->pg_num   += (TXDESC_SIZE+txlen+127)/128;
-        pxmitbuf->ptail   += (TXDESC_SIZE+WF_RND_MAX(txlen, 8));
-        pxmitbuf->pkt_len = pxmitbuf->pkt_len + TXDESC_SIZE + WF_RND_MAX(txlen, 8);
-
-        #if TX_AGG_QUEUE_ENABLE
-        wf_tx_agg_enqueue_head(tx_info, pxframe);
-        #else
-        wf_xmit_frame_enqueue(tx_info, pxframe);
-   
-        /* check tx resource */
-        bRet = wf_need_wake_queue(nic_info);
-        if (bRet == wf_true)
-        {
-            LOG_W("<<<<ndev tx start queue");
-            ndev_tx_resource_enable(nic_info->ndev, pxframe->pkt);
-        }
-        
-        dev_kfree_skb_any(pxframe->pkt);
-        pxframe->pkt = NULL;
-        #endif
-        packet_index++;
-    }
-
-    if (pxmitbuf && pxmitbuf->pkt_len > 0)
-    {
-        pxmitbuf->agg_num = packet_index;
-        pxmitbuf->ff_hwaddr = wf_quary_addr(pre_qsel);
-        wf_timer_set(&pxmitbuf->time, 0);
-
-       //LOG_I("[%s,%d] buffer_id:%d,pg_num:%d,packet_index:%d,pkt_len:%d",__func__,__LINE__, (int)pxmitbuf->buffer_id,pxmitbuf->pg_num,packet_index,pxmitbuf->pkt_len);
-        res = mpdu_agg_insert_sending_queue(nic_info, pxmitbuf);
-        if(WF_RETURN_OK != res)
-        {
-            LOG_E("[%s,%d] mpdu_agg_insert_sending_queue failed",__func__,__LINE__);
-            wf_xmit_buf_delete(tx_info, pxmitbuf);
-        }
-        #if TX_AGG_QUEUE_ENABLE
-        {
-            struct xmit_frame *tmp_frame  = NULL;
-            while( (NULL != (tmp_frame = wf_tx_agg_dequeue(tx_info))))
-            {
-                wf_xmit_frame_enqueue(tx_info, tmp_frame);
-
-                /* check tx resource */
-                bRet = wf_need_wake_queue(nic_info);
-                if (bRet == wf_true)
-                {
-                    LOG_W("<<<<ndev tx start queue");
-                    ndev_tx_resource_enable(nic_info->ndev, tmp_frame->pkt);
-                }
-        
-                dev_kfree_skb_any(tmp_frame->pkt);
-                tmp_frame->pkt = NULL;
-            }
-        }
-        #endif
-    }
-    else
-    {
-        #if TX_AGG_QUEUE_ENABLE
-        {
-            struct xmit_frame *tmp_frame  = NULL;
-            while( (NULL != (tmp_frame = wf_tx_agg_dequeue(tx_info))))
-            {
-                wf_tx_data_enqueue_head(tx_info, tmp_frame);
-            }
-        }
-        #endif
-    }
-
-    return 0;
-}
-
-#endif
 static wf_bool mpdu_insert_sending_queue(nic_info_st *nic_info, struct xmit_frame *pxmitframe, wf_bool ack)
 {
     wf_u8 *mem_addr;
@@ -311,9 +98,10 @@ static wf_bool mpdu_insert_sending_queue(nic_info_st *nic_info, struct xmit_fram
         ff_hwaddr = wf_quary_addr(pxmitframe->qsel);
 
         txlen = TXDESC_SIZE + pxmitframe->last_txcmdsz;
-        pxmitbuf->pg_num   += (txlen+127)/128;
+        pxmitbuf->pg_num   += (txlen+20+127)/128;
         pxmitbuf->ether_type = pxmitframe->ether_type;
         pxmitbuf->icmp_pkt   = pxmitframe->icmp_pkt;
+        pxmitbuf->qsel       = pxmitframe->qsel;
         wf_timer_set(&pxmitbuf->time, 0);
 
         if(blast)
@@ -473,12 +261,7 @@ void tx_work_init(struct net_device *ndev)
     ndev_priv = netdev_priv(ndev);
     nic_info = ndev_priv->nic;
 
-//#ifdef CONFIG_SOFT_TX_AGGREGATION
-#if 0
-    tasklet_init(&ndev_priv->get_tx_data_task, (void (*)(unsigned long))tx_work_mpdu_xmit_agg,(unsigned long)nic_info);
-#else
     tasklet_init(&ndev_priv->get_tx_data_task, (void (*)(unsigned long))tx_work_mpdu_xmit,(unsigned long)nic_info);
-#endif
 }
 
 void tx_work_term(struct net_device *ndev)

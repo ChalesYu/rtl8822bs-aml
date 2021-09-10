@@ -39,7 +39,7 @@ extern void print_buffer(PUCHAR title, LONG idx, PUCHAR src, LONG length);
 
 NDIS_STATUS wf_recv_get_pre_info(wf_u8 *pkt_buf, wf_recv_preproc_t *pkt_pre)
 {
-	//struct rx_pkt_info *pinfo = &pkt->nic_pkt.pkt_info;
+	//struct rx_pkt_info *pinfo = &pkt->nic_pkt->pkt_info;
 #ifdef CONFIG_RICHV200_FPGA
     struct rxd_detail_new *prxd = (struct rxd_detail_new *)pkt_buf;
 
@@ -148,7 +148,7 @@ NDIS_STATUS wf_recv_parser_phy_status(nic_info_st *nic_info, wf_recv_pkt_t *pkt)
 		wf_rx_calc_str_and_qual(nic_info, (wf_u8*)physts, pkt->nic_pkt.pdata, &pkt->nic_pkt);
 
 	    //if(hw_info && hw_info->use_drv_odm) {
-	    //    wf_odm_handle_phystatus(nic_info, physts, pkt->nic_pkt.pdata, &pkt->nic_pkt);
+	    //    wf_odm_handle_phystatus(nic_info, physts, pkt->nic_pkt->pdata, &pkt->nic_pkt);
 	    //}
 
 		wf_free(physts);
@@ -173,7 +173,7 @@ NDIS_STATUS wf_recv_release_source(PADAPTER          padapter, wf_recv_pkt_t *pk
 	recv_info = padapter->recv_info;
 
 	if(pkt->buf_hdl != NULL) {
-		WdfObjectDereference(pkt->buf_hdl);
+		WdfObjectDereference(pkt->buf_hdl);	
 		pkt->buf_hdl = NULL;
 	}
 
@@ -350,7 +350,7 @@ void wf_recv_proc_header(PADAPTER          padapter, wf_recv_pkt_t *pkt)
 
 	//LOG_D("prt=%d, algo=%d, hdr_len=%d, len=%d, iv=%d, icv=%d",
 	//	protected_flag, prx_info->encrypt_algo, prx_info->wlan_hdr_len,
-	//	pkt->nic_pkt.len, prx_info->iv_len, prx_info->icv_len);
+	//	pkt->nic_pkt->len, prx_info->iv_len, prx_info->icv_len);
 
 	if(protected_flag) {
 		switch (prx_info->encrypt_algo) {
@@ -390,14 +390,14 @@ void wf_recv_proc_header(PADAPTER          padapter, wf_recv_pkt_t *pkt)
 
 #if 0
 	wdn_net_info_st *wdn_info;
-	wdn_info = wf_wdn_find_info(padapter->nic_info, get_ta(pkt->nic_pkt.pdata));
-	if(GET_HDR_Type(pkt->nic_pkt.pdata) == MAC_FRAME_TYPE_DATA && 
+	wdn_info = wf_wdn_find_info(padapter->nic_info, get_ta(pkt->nic_pkt->pdata));
+	if(GET_HDR_Type(pkt->nic_pkt->pdata) == MAC_FRAME_TYPE_DATA && 
 		wdn_info->ieee8021x_blocked == wf_false) {
 		LOG_D("hif_hdr_len=%d wlan_hdr=%d iv=%d", 
-			pkt->nic_pkt.pkt_info.hif_hdr_len, 
-			pkt->nic_pkt.pkt_info.wlan_hdr_len,
-			pkt->nic_pkt.pkt_info.iv_len);
-		print_buffer("rx", 0, pkt->nic_pkt.pdata, pkt->nic_pkt.len);
+			pkt->nic_pkt->pkt_info.hif_hdr_len, 
+			pkt->nic_pkt->pkt_info.wlan_hdr_len,
+			pkt->nic_pkt->pkt_info.iv_len);
+		print_buffer("rx", 0, pkt->nic_pkt->pdata, pkt->nic_pkt->len);
 	}
 #endif
 }
@@ -495,6 +495,7 @@ NDIS_STATUS wf_recv_data_submit(PADAPTER         padapter, wf_recv_pkt_t *pkt)
 	wf_mib_info_t *mib_info = padapter->mib_info;
 	wf_u32 u4SysTime;
 	struct wf_ethhdr *cur_etherhdr;
+	KIRQL oldIrql;
 
 	nic_pkt = &pkt->nic_pkt;
 	prNdisPacket = pkt->prPktDescriptor;
@@ -502,14 +503,16 @@ NDIS_STATUS wf_recv_data_submit(PADAPTER         padapter, wf_recv_pkt_t *pkt)
 
 	wf_wlan_to_eth(nic_pkt);
 	kalUpdateRxCSUMOffloadParam (prNdisPacket);
-
 	cur_etherhdr = (struct wf_ethhdr *) nic_pkt->pdata;
 	if(ntohs(cur_etherhdr->type) == 0x888e)
 	{
+#if SET_ORG_PKT 
 		GLUE_SET_PKT_FLAG_1X(prNdisPacket);
+#endif
 		LOG_D("EAPol frame received.");
 	}
-
+	
+#if SET_ORG_PKT
 	u4SysTime = (OS_SYSTIME)wf_get_time_tick();
 	GLUE_SET_PKT_ARRIVAL_TIME(prNdisPacket, u4SysTime);
 
@@ -518,8 +521,7 @@ NDIS_STATUS wf_recv_data_submit(PADAPTER         padapter, wf_recv_pkt_t *pkt)
 	
 	/* Set the value of Frame Length */
 	GLUE_SET_PKT_FRAME_LEN(prNdisPacket, (wf_u16)nic_pkt->len);
-
-
+#endif
 	NdisAllocateBuffer(&rStatus,
                        &prNdisBuf,
                        padapter->hBufPool,
@@ -527,19 +529,32 @@ NDIS_STATUS wf_recv_data_submit(PADAPTER         padapter, wf_recv_pkt_t *pkt)
                        nic_pkt->len);
 
 	if (rStatus != NDIS_STATUS_SUCCESS) {
-		LOG_E("Allocate buffer failed");
+		LOG_E("NDIS allocate buffer failed");
         return NDIS_STATUS_FAILURE;
     }
 	
 	NdisChainBufferAtBack(prNdisPacket, prNdisBuf);
 	NDIS_SET_PACKET_STATUS(prNdisPacket, NDIS_STATUS_RESOURCES);
 
+	//wf_memcpy(prNdisPacket->MiniportReserved, pkt, sizeof(PVOID));
+	//NDIS_SET_PACKET_STATUS(prNdisPacket, NDIS_STATUS_SUCCESS);
 
+	KeRaiseIrql(DISPATCH_LEVEL, &oldIrql);
 	NdisMIndicateReceivePacket(padapter->MiniportAdapterHandle,
         apvPkts,
         1);
-	mib_info->num_recv_ok.LowPart ++;	
-
+	KeLowerIrql(oldIrql);
+	InterlockedIncrement(&mib_info->num_recv_ok.LowPart);
+#if 0
+	rStatus = NDIS_GET_PACKET_STATUS(prNdisPacket);
+	if(rStatus == NDIS_STATUS_SUCCESS){
+		LOG_D("---ZY_TEST---recv indication success");
+	}
+	else if(rStatus == NDIS_STATUS_PENDING)
+	{
+		LOG_D("---ZY_TEST---recv indication pending");
+	}
+#endif
 	NdisUnchainBufferAtBack(prNdisPacket, &prNdisBuf);
 
 	if (prNdisBuf) {
@@ -547,12 +562,8 @@ NDIS_STATUS wf_recv_data_submit(PADAPTER         padapter, wf_recv_pkt_t *pkt)
 	}
 	
 	NdisReinitializePacket(prNdisPacket);
-
-	
-	wf_dbg_counter_add(padapter->dbg_info, nic_pkt->len-WLAN_HDR_A3_QOS_LEN, DBG_DIR_RX);
-
 	wf_recv_release_source(padapter, pkt);
-
+	
 	return NDIS_STATUS_SUCCESS;
 }
 
@@ -719,8 +730,6 @@ NDIS_STATUS wf_recv_frame_dispatch(PADAPTER padapter, wf_recv_pkt_t *pkt)
 	return ret;
 }
 
-
-//#pragma LOCKEDCODE
 NDIS_STATUS wf_recv_data_dispatch(PADAPTER padapter, wf_recv_preproc_t *pre_info)
 {
 	NDIS_STATUS ret = NDIS_STATUS_SUCCESS;
@@ -760,7 +769,7 @@ NDIS_STATUS wf_recv_data_dispatch(PADAPTER padapter, wf_recv_preproc_t *pre_info
 	case WF_PKT_TYPE_FRAME:	
 		if(pre_info->rpt_sel) {
 			//LOG_D("c2h frame");
-			//wf_rx_notice_process(pkt->nic_pkt.pdata, (wf_u16)(pkt->nic_pkt.len-32));
+			//wf_rx_notice_process(pkt->nic_pkt->pdata, (wf_u16)(pkt->nic_pkt->len-32));
 		} else {
 			if(padapter->dev_state != WF_DEV_STATE_RUN) {
 				LOG_D("can not recv data");
@@ -769,7 +778,8 @@ NDIS_STATUS wf_recv_data_dispatch(PADAPTER padapter, wf_recv_preproc_t *pre_info
 			}
 			
 			if(IsListEmpty(&recv_info->comm_free.head) || WF_CANNOT_RUN(nic_info)) {
-				LOG_E("free=%d", recv_info->comm_free.cnt);
+				LOG_E("free=%d, mgmt_pend=%d, data_pend=%d", 
+					recv_info->comm_free.cnt, recv_info->mgmt_pend.cnt, recv_info->data_pend.cnt);
 				dbg_info->drop_by_que++;
 				ret = NDIS_STATUS_FAILURE;
 				break;
@@ -817,7 +827,6 @@ NDIS_STATUS wf_recv_data_dispatch(PADAPTER padapter, wf_recv_preproc_t *pre_info
 	
 	return ret;
 }
-
 
 
 void wf_recv_complete_callback(void *adapter, WDFMEMORY BufferHdl, ULONG data_len, ULONG offset)
@@ -874,7 +883,58 @@ void wf_recv_complete_callback(void *adapter, WDFMEMORY BufferHdl, ULONG data_le
 	}
 }
 
+VOID wf_recv_data_release_thread(PADAPTER padapter)
+{
+	wf_recv_info_t *recv_info ;
+	PLIST_ENTRY plist = NULL;
+	wf_recv_pkt_t *pkt = NULL;
+	NDIS_STATUS ret = NDIS_STATUS_SUCCESS;
+	nic_info_st *nic_info = padapter->nic_info;
+	wf_data_que_t *to_be_released;
+	//struct rx_pkt_info *pinfo;
+	wf_dbg_info_t *dbg_info;
+	PRKTHREAD pthread;
+	KPRIORITY prio;
+	
+	recv_info = padapter->recv_info;
+	to_be_released = &recv_info->to_be_released;
 
+	pthread = KeGetCurrentThread();
+	if(pthread != NULL) {
+		prio = KeSetPriorityThread(pthread, LOW_REALTIME_PRIORITY);
+		LOG_D("old_prio=%d, new_prio=%d", prio, KeQueryPriorityThread(pthread));
+	} else {
+		LOG_W("pthread is NULL");
+	}
+	
+	while(1) {
+		KeWaitForSingleObject(&recv_info->rx_release_evt, Executive, KernelMode, TRUE, NULL);
+
+		if(recv_info->rx_release_thread->stop) {
+			LOG_D("stop recv resource release proc");
+			break;
+		}
+
+		dbg_info = padapter->dbg_info;
+
+		while(!IsListEmpty(&to_be_released->head)) {
+			plist = wf_pkt_data_deque(to_be_released, QUE_POS_HEAD);
+			
+			if(plist == NULL) {
+				LOG_E("get recv list failed");
+				continue;
+			}
+			pkt = CONTAINING_RECORD(plist, wf_recv_pkt_t, list);
+			//InterlockedIncrement(&recv_info->proc_cnt);
+			// TODO: Delete this dbg function to improve the performance.  2021/09/03
+			// wf_dbg_counter_add(prAdapter->dbg_info, nic_pkt->len-WLAN_HDR_A3_QOS_LEN, DBG_DIR_RX);
+			wf_recv_release_source(padapter, pkt);
+			
+		}
+	}
+
+	wf_os_api_thread_exit(recv_info->rx_release_thread);
+}
 
 
 VOID wf_recv_data_thread(PADAPTER padapter)
@@ -887,11 +947,21 @@ VOID wf_recv_data_thread(PADAPTER padapter)
 	wf_data_que_t *pdata, *pmgmt, *pfree;
 	//struct rx_pkt_info *pinfo;
 	wf_dbg_info_t *dbg_info;
+	PRKTHREAD pthread;
+	KPRIORITY prio;
 	
 	recv_info = padapter->recv_info;
 	pdata = &recv_info->data_pend;
 	pmgmt = &recv_info->mgmt_pend;
 	pfree = &recv_info->comm_free;
+
+	pthread = KeGetCurrentThread();
+	if(pthread != NULL) {
+		prio = KeSetPriorityThread(pthread, LOW_REALTIME_PRIORITY);
+		LOG_D("old_prio=%d, new_prio=%d", prio, KeQueryPriorityThread(pthread));
+	} else {
+		LOG_W("pthread is NULL");
+	}
 	
 	while(1) {
 		KeWaitForSingleObject(&recv_info->rx_evt, Executive, KernelMode, TRUE, NULL);
@@ -964,9 +1034,10 @@ NDIS_STATUS wf_recv_pkt_init(void *param)
 	wf_recv_info_t *recv_info = padapter->recv_info;
 	//wf_data_que_t *pfree = &recv_info->comm_free;
 	wf_recv_pkt_t *pkt;
-	//NDIS_STATUS           status;
 	int i;
-	
+#ifdef MP_USE_NDIS5
+	NDIS_STATUS           status;
+#endif // MP_USE_NDIS5
 #if defined(MP_USE_NET_BUFFER_LIST)
 	NET_BUFFER_LIST_POOL_PARAMETERS     nbl_pool_param;
     NET_BUFFER_POOL_PARAMETERS          nb_pool_param;
@@ -1001,6 +1072,12 @@ NDIS_STATUS wf_recv_pkt_init(void *param)
 		pkt = &recv_info->packet[i];
 		NdisZeroMemory(pkt, sizeof(wf_recv_pkt_t));
 		pkt->nbl = NdisAllocateNetBufferList(recv_info->nbl_pool, MP_RECEIVE_NBL_CONTEXT_SIZE, 0);
+		pkt->tmp_data = wf_malloc(MAX_RECV_PKT_SIZE);
+		if(pkt->tmp_data == NULL)
+		{
+			LOG_E("malloc temp data failed!\n");
+			return NDIS_STATUS_FAILURE;
+		}
 		if(pkt->nbl == NULL) {
 			LOG_E("malloc packet net buffer list failed!\n");
 			return NDIS_STATUS_FAILURE;
@@ -1057,7 +1134,7 @@ void wf_recv_pkt_deinit(void *param)
 	wf_data_que_t *pdata, *pmgmt, *pfree;
 	PLIST_ENTRY plist;
 	wf_recv_pkt_t *pkt;
-	//int i;
+	int i;
 
 	pdata = &recv_info->data_pend;
 	pmgmt = &recv_info->mgmt_pend;
@@ -1080,6 +1157,11 @@ void wf_recv_pkt_deinit(void *param)
 	}
 	
 #if defined(MP_USE_NET_BUFFER_LIST)
+	for(i=0; i<RECV_QUEUE_DEPTH; i++) {
+		pkt = &recv_info->packet[i];
+		wf_free(pkt->tmp_data);
+	}
+
 	if (recv_info->nb_pool) {
         NdisFreeNetBufferPool(recv_info->nb_pool);
         recv_info->nb_pool = NULL;
@@ -1092,6 +1174,7 @@ void wf_recv_pkt_deinit(void *param)
 #else
 	for(i=0; i<RECV_QUEUE_DEPTH; i++) {
 		pkt = &recv_info->packet[i];
+		wf_free(pkt->tmp_data);
 		NdisFreePacket(pkt->prPktDescriptor);
 	}
 	if(padapter->hBufPool){		
@@ -1111,11 +1194,17 @@ NDIS_STATUS wf_recv_init(void *param)
 	wf_recv_info_t *recv_info = NULL;
 
 	LOG_D("start init recv!\n");
-
+#if NDIS51_MINIPORT
+	//recv_info = ExAllocatePoolWithTagPriority(NonPagedPool, sizeof(wf_recv_info_t), MP_RX_NET_BUFFER_POOL_TAG, NormalPoolPriority);
 	recv_info = wf_malloc(sizeof(wf_recv_info_t));
+#else
+	recv_info = wf_malloc(sizeof(wf_recv_info_t));
+#endif
 	if(recv_info == NULL) {
 		LOG_E("malloc recv info failed!\n");
 		return NDIS_STATUS_FAILURE;
+	}else{
+		NdisZeroMemory(recv_info, sizeof(wf_recv_info_t));
 	}
 
 	padapter->recv_info = recv_info;
@@ -1129,14 +1218,25 @@ NDIS_STATUS wf_recv_init(void *param)
 		LOG_E("recv pkt init failed");
 		return NDIS_STATUS_FAILURE;
 	}
-
+	
 	KeInitializeEvent(&recv_info->rx_evt, SynchronizationEvent, FALSE);
+
 	recv_info->rx_thread = wf_os_api_thread_create(NULL, "recv_thread", wf_recv_data_thread, padapter);
 	if (NULL == recv_info->rx_thread) {
-        LOG_E("[wf_mlme_init] create mlme thread failed");
-        return NDIS_STATUS_FAILURE;
-    }
+			LOG_E("[wf_recv_init] create recv data thread failed");
+			return NDIS_STATUS_FAILURE;
+	}
 
+#if NDIS51_MINIPORT
+	KeInitializeEvent(&recv_info->rx_release_evt, SynchronizationEvent, FALSE);
+
+	recv_info->rx_release_thread = wf_os_api_thread_create(NULL, "recv_resource_release_thread", wf_recv_data_release_thread, padapter);
+	
+	if (recv_info->rx_release_thread == NULL) {
+				LOG_E("[wf_recv_init] create recv release thread failed");
+				return NDIS_STATUS_FAILURE;
+	}
+#endif	
 	return NDIS_STATUS_SUCCESS;
 }
 
@@ -1157,7 +1257,14 @@ void wf_recv_deinit(void *param)
 		wf_os_api_thread_destory(recv_info->rx_thread);
 		recv_info->rx_thread = NULL;
 	}
-	
+#if NDIS51_MINIPORT
+	if(recv_info->rx_release_thread != NULL){
+		recv_info->rx_release_thread->stop =wf_true;
+		KeSetEvent(&recv_info->rx_release_evt, 0 , FALSE);
+		wf_os_api_thread_destory(recv_info->rx_release_thread);
+		recv_info->rx_release_thread = NULL;
+	}		
+#endif
 	wf_recv_pkt_deinit(param);
 
 	wf_free(recv_info);

@@ -371,77 +371,6 @@ struct scan_limit_info
 #endif
 };
 
-
-
-typedef struct
-{
-    struct tx_provdisc_req_info tx_prov_disc_info;
-    struct rx_provdisc_req_info rx_prov_disc_info;
-    struct tx_invite_req_info invitereq_info;
-    struct profile_info profileinfo[P2P_MAX_PERSISTENT_GROUP_NUM];
-    struct tx_invite_resp_info inviteresp_info;
-    struct tx_nego_req_info nego_req_info;
-    struct group_id_info groupid_info;
-    struct scan_limit_info rx_invitereq_info;
-    struct scan_limit_info p2p_info;
-
-    struct wifi_display_info wfd_info;
-
-    struct p2p_wowlan_info p2p_wow_info;
-
-    wf_widev_invit_info_t invit_info;
-    wf_widev_nego_info_t nego_info;
-    wf_u8 provdisc_req_issued;
-    wf_u16 report_mgmt;
-
-    enum P2P_ROLE role;
-    enum P2P_STATE pre_p2p_state;
-    enum P2P_STATE p2p_state;
-    wf_u8 device_addr[WF_ETH_ALEN];
-    wf_u8 interface_addr[WF_ETH_ALEN];
-    wf_u8 social_chan[4];
-    wf_u8 listen_channel;
-    wf_u8 current_chan;
-    wf_u8 operating_channel;
-    wf_u8 listen_dwell;
-    wf_u8 p2p_support_rate[8];
-    wf_u8 p2p_wildcard_ssid[P2P_WILDCARD_SSID_LEN];
-    wf_u8 intent;
-    wf_u8 p2p_peer_interface_addr[WF_ETH_ALEN];
-    wf_u8 p2p_peer_device_addr[WF_ETH_ALEN];
-    wf_u8 peer_intent;
-    wf_u8 device_name[WPS_MAX_DEVICE_NAME_LEN];
-    wf_u8 device_name_len;
-    wf_u8 profileindex;
-    wf_u8 peer_operating_ch;
-    wf_u8 find_phase_state_exchange_cnt;
-    wf_u16 device_password_id_for_nego;
-    wf_u8 negotiation_dialog_token;
-    wf_u8 nego_ssid[WF_80211_MAX_SSID_LEN];
-    wf_u8 nego_ssidlen;
-    wf_u8 p2p_group_ssid[WF_80211_MAX_SSID_LEN];
-    wf_u8 p2p_group_ssid_len;
-    wf_u8 persistent_supported;
-    wf_u8 session_available;
-
-    enum P2P_WPSINFO ui_got_wps_info;
-    wf_u16 supported_wps_cm;
-    wf_u8 external_uuid;
-    wf_u8 uuid[16];
-    wf_u32 channel_list_attr_len;
-    wf_u8 channel_list_attr[100];
-    wf_u8 driver_interface;
-
-    wf_u16 ext_listen_interval;
-    wf_u16 ext_listen_period;
-
-    wf_bool is_ro_ch;
-    wf_u32 last_ro_ch_time;
-    wf_u8 restore_channel;
-    wf_u8 remain_ch;
-    wf_u32 ro_ch_duration;
-}p2p_wd_info_st;
-
 typedef wf_s32 (*sys_priv_callback)(void *nic_info, void *param, wf_u32 param_len);
 typedef struct
 {
@@ -458,10 +387,16 @@ typedef struct
 
 typedef struct
 {
-    wf_u32 duration;
-}p2p_timer_param_st;
+    wf_msg_tag_t tag;
+    wf_u32 len;
+    union
+    {
+        wf_u32 duration;
+        wf_u8 buf[512];
+    }u;
+}p2p_msg_param_st;
 
-
+#define P2P_IE_BUF_LEN (1024)
 typedef struct p2p_info_st_
 {
     void *nic_info;
@@ -477,6 +412,8 @@ typedef struct p2p_info_st_
     wf_u8 device_addr[WF_ETH_ALEN];
     wf_u8 interface_addr[WF_ETH_ALEN];
     wf_u8 listen_channel;
+    wf_u8 operating_channel;
+    wf_u8 action;
     wf_u8 find_phase_state_exchange_cnt;
     wf_u8 intent;
     wf_u16 ext_listen_interval;
@@ -496,7 +433,7 @@ typedef struct p2p_info_st_
     /*wfd*/
     wf_u8 session_available;
     wf_u8 stack_wfd_mode;
-    struct wifi_display_info wfd_info;
+    wfd_info_st wfd_info;
     
     //p2p_wd_info_st wdinfo;
 

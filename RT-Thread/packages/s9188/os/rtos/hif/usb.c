@@ -26,8 +26,8 @@
 #define MAX_CONTINUAL_IO_ERR 4
 #define N_BYTE_ALIGMENT(value, aligment) ((aligment == 1) ? (value) : (((value + aligment - 1) / aligment) * aligment))
 
-static int wf_usb_read_port(hif_node_st *hif_node, wf_u32 addr, wf_u8 *rdata, wf_u32 rlen);
-static int wf_usb_read(struct hif_node_ *node, unsigned char flag, unsigned int addr, char *data, int datalen);
+static int wf_usb_read_port(hif_node_t *hif_node, wf_u32 addr, wf_u8 *rdata, wf_u32 rlen);
+static int wf_usb_read(hif_node_t *node, unsigned char flag, unsigned int addr, char *data, int datalen);
 
 static int usb_ctrl_read(struct usb_device *pusb_dev, char *ctlBuf, unsigned int addr, char *data, int datalen);
 static int usb_ctrl_write(struct usb_device *pusb_dev, char *ctlBuf, unsigned int addr, char *data, int datalen);
@@ -147,7 +147,7 @@ int wf_endpoint_init(struct usb_interface *pusb_intf, hif_usb_mngt *pusb_mngt)
 
 int wf_endpoint_deinit(struct usb_interface *pusb_intf)
 {
-    hif_node_st  *hif_node = usb_get_intfdata(pusb_intf);
+    hif_node_t  *hif_node = usb_get_intfdata(pusb_intf);
     hif_usb_mngt *pusb_mngt = &hif_node->u.usb;
 
     usb_set_intfdata(pusb_intf, NULL);
@@ -170,12 +170,12 @@ int wf_endpoint_deinit(struct usb_interface *pusb_intf)
 }
 
 
-int wf_usb_init(struct hif_node_  *hif_node)
+int wf_usb_init(hif_node_t  *hif_node)
 {
     return 0;
 }
 
-int wf_usb_deinit(struct hif_node_  *hif_node)
+int wf_usb_deinit(hif_node_t  *hif_node)
 {
     USB_DBG("usb_deinit");
     return 0;
@@ -229,7 +229,7 @@ static inline void usb_write_port_complete(struct urb *purb)
 {
     int ret                         = 0;
     data_queue_node_st  * qnode     = (data_queue_node_st *)purb->context;
-    hif_node_st   *hnode            = (hif_node_st*)qnode->hif_node;
+    hif_node_t   *hnode            = (hif_node_t*)qnode->hif_node;
     data_queue_mngt_st *dqm         = &hnode->trx_pipe;
 
     if( 0 == purb->status) //usb work well
@@ -298,7 +298,7 @@ static inline void usb_write_port_complete(struct urb *purb)
 static inline void usb_read_port_complete(struct urb * purb)
 {
     data_queue_node_st  * qnode     = (data_queue_node_st *)purb->context;
-    hif_node_st   *hnode            = (hif_node_st*)qnode->hif_node;
+    hif_node_t   *hnode            = (hif_node_t*)qnode->hif_node;
     struct   sk_buff *skb           = NULL;
     int ret                         = -1;
     hif_usb_mngt * pusb_mngt        = &(hnode->u.usb);
@@ -467,7 +467,7 @@ static inline void usb_read_port_complete(struct urb * purb)
 
 }
 
-static int wf_usb_read_port(hif_node_st *hif_node, wf_u32 addr, wf_u8 *rdata, wf_u32 rlen)
+static int wf_usb_read_port(hif_node_t *hif_node, wf_u32 addr, wf_u8 *rdata, wf_u32 rlen)
 {
     int ret                         = 0;
     data_queue_node_st * qnode      = (data_queue_node_st *)rdata;
@@ -530,7 +530,7 @@ static int wf_usb_read_port(hif_node_st *hif_node, wf_u32 addr, wf_u8 *rdata, wf
     return WF_RETURN_OK;
 }
 
-static int wf_usb_write_port(hif_node_st *hif_node, wf_u32 addr, wf_u8 *sdata, wf_u32 slen)
+static int wf_usb_write_port(hif_node_t *hif_node, wf_u32 addr, wf_u8 *sdata, wf_u32 slen)
 {
 
     int ret                                 = 0;
@@ -695,7 +695,7 @@ static int usb_ctrl_read(struct usb_device *pusb_dev, char *ctlBuf, unsigned int
 
 
 #define BULK_SYNC_TIMEOUT   1000
-static int usb_bulk_write_sync(struct hif_node_ *node, unsigned int addr, char *data, int datalen)
+static int usb_bulk_write_sync(hif_node_t *node, unsigned int addr, char *data, int datalen)
 {
     wf_u32 pipe                 = 0;
     int status                  = 0;
@@ -725,7 +725,7 @@ static int usb_bulk_write_sync(struct hif_node_ *node, unsigned int addr, char *
     return actual_len;
 }
 
-static int wf_usb_write(struct hif_node_ *node, unsigned char flag, unsigned int addr, char *data, int datalen)
+static int wf_usb_write(hif_node_t *node, unsigned char flag, unsigned int addr, char *data, int datalen)
 {
     int ret                     = 0;
     hif_usb_mngt *pusb_mngt     = &(node->u.usb);
@@ -754,7 +754,7 @@ static int wf_usb_write(struct hif_node_ *node, unsigned char flag, unsigned int
     return ret;
 }
 
-static int wf_usb_read(struct hif_node_ *node, unsigned char flag, unsigned int addr, char *data, int datalen)
+static int wf_usb_read(hif_node_t *node, unsigned char flag, unsigned int addr, char *data, int datalen)
 {
     int ret                     = 0;
     hif_usb_mngt *pusb_mngt     = &(node->u.usb);
@@ -780,13 +780,13 @@ static int wf_usb_read(struct hif_node_ *node, unsigned char flag, unsigned int 
     return ret;
 }
 
-static int wf_usb_show(struct hif_node_ *node)
+static int wf_usb_show(hif_node_t *node)
 {
     return 0;
 }
 
 
-static struct hif_node_ops  usb_node_ops=
+static hif_node_ops_t  usb_node_ops=
 {
     .hif_read                   = wf_usb_read,
     .hif_show                   = wf_usb_show,
@@ -799,7 +799,7 @@ static struct hif_node_ops  usb_node_ops=
 
 static int wf_usb_probe(struct usb_interface *pusb_intf, const struct usb_device_id *pdid)
 {
-    hif_node_st  *hif_node  = NULL;
+    hif_node_t  *hif_node  = NULL;
     wf_u8 *pctrl_buffer     = NULL;
     hif_usb_mngt *pusb_mngt = NULL;
     //wf_u32 version          = 0;
@@ -877,7 +877,7 @@ exit :
 
 static void wf_usb_disconnect(struct usb_interface *pusb_intf)
 {
-    hif_node_st *hif_node   = usb_get_intfdata(pusb_intf);
+    hif_node_t *hif_node   = usb_get_intfdata(pusb_intf);
     int ret                 = 0;
 
     LOG_D("************USB DISCONNECT*************");
@@ -903,11 +903,11 @@ static void wf_usb_disconnect(struct usb_interface *pusb_intf)
 
 static int wf_usb_suspend(struct usb_interface *pusb_intf, pm_message_t message)
 {
-    hif_node_st  *hif_node = usb_get_intfdata(pusb_intf);
+    hif_node_t  *hif_node = usb_get_intfdata(pusb_intf);
     hif_usb_mngt *pusb_mngt = &hif_node->u.usb;
     nic_info_st *pnic_info	= NULL;
     pwr_info_st *ppwr_info	= NULL;
-    hif_node_st *usb_node   = NULL;
+    hif_node_t *usb_node   = NULL;
 	wf_u32 i = 0;
 
     USB_DBG();
@@ -918,7 +918,7 @@ static int wf_usb_suspend(struct usb_interface *pusb_intf, pm_message_t message)
         return WF_RETURN_FAIL;
     }
 
-    usb_node = container_of(pusb_mngt, hif_node_st, u.usb);
+    usb_node = container_of(pusb_mngt, hif_node_t, u.usb);
 
 	do
 	{
@@ -963,17 +963,17 @@ static int wf_usb_suspend(struct usb_interface *pusb_intf, pm_message_t message)
         USB_ERROR("power_suspend fail !!!");
         return WF_RETURN_FAIL;
     }
-    
+
     return 0;
 }
 
 static int wf_usb_resume(struct usb_interface *pusb_intf)
 {
-	hif_node_st  *hif_node = usb_get_intfdata(pusb_intf);
+	hif_node_t  *hif_node = usb_get_intfdata(pusb_intf);
     hif_usb_mngt *pusb_mngt = &hif_node->u.usb;
     nic_info_st *pnic_info	= NULL;
     pwr_info_st *ppwr_info	= NULL;
-    hif_node_st *usb_node   = NULL;
+    hif_node_t *usb_node   = NULL;
 	wf_u32 i = 0;
 
 	USB_DBG();
@@ -984,7 +984,7 @@ static int wf_usb_resume(struct usb_interface *pusb_intf)
         return WF_RETURN_FAIL;
     }
 
-    usb_node = container_of(pusb_mngt, hif_node_st, u.usb);
+    usb_node = container_of(pusb_mngt, hif_node_t, u.usb);
 	if(usb_node == NULL)
 	{
 		return WF_RETURN_FAIL;
@@ -1036,7 +1036,7 @@ static int wf_usb_resume(struct usb_interface *pusb_intf)
 static void wf_usb_shutdown(struct device *dev)
 {
     struct usb_interface *usb_intf = container_of(dev, struct usb_interface, dev);
-    hif_node_st *hif_node   = usb_get_intfdata(usb_intf);
+    hif_node_t *hif_node   = usb_get_intfdata(usb_intf);
 
     USB_DBG("usb_shutdown");
 

@@ -56,15 +56,15 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <TargetVersion>Windows10</TargetVersion>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>WindowsKernelModeDriver10.0</PlatformToolset>
-    <ConfigurationType>Driver</ConfigurationType>
+    <PlatformToolset>v141_xp</PlatformToolset>
     <DriverType>WDM</DriverType>
+    <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <TargetVersion>Windows10</TargetVersion>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>WindowsKernelModeDriver10.0</PlatformToolset>
-    <ConfigurationType>Driver</ConfigurationType>
+    <PlatformToolset>v141_xp</PlatformToolset>
+    <ConfigurationType>Application</ConfigurationType>
     <DriverType>WDM</DriverType>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
@@ -112,7 +112,7 @@
   <PropertyGroup />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
-    <ExecutablePath>C:\WinDDK\7600.16385.1\bin\x86;C:\WinDDK\7600.16385.1\bin\x86\x86;$(WindowsSdk_71A_ExecutablePath);$(WindowsSDK_ExecutablePath);$(VS_ExecutablePath)</ExecutablePath>
+    <ExecutablePath>$(ExecutablePath)</ExecutablePath>
     <IncludePath>C:\WinDDK\7600.16385.1\src\general\toaster\wdm\func;C:\WinDDK\7600.16385.1\src\general\toaster\kmdf\func;..\..\..\..\..\nic\p2p;..\..\..\..\..\nic\ars;..\..\..\..\..\nic\utility;..\..\..\..\..\os;..\..\..\..\..\nic;..\..\intf;..\..\mp;..\..\..\common\usb;..\..\..\common\trx;..\..\..\common\pwr;..\..\..\common\os_porting;..\..\..\common\inc;..\..\common;C:\WinDDK\7600.16385.1\inc\wdf\kmdf\1.9;C:\WinDDK\7600.16385.1\inc\wdf;C:\WinDDK\7600.16385.1\inc\crt;C:\WinDDK\7600.16385.1\inc\api\crt;C:\WinDDK\7600.16385.1\inc\api;C:\WinDDK\7600.16385.1\inc\ddk</IncludePath>
     <LibraryPath>C:\WinDDK\7600.16385.1\lib\wdf\kmdf\i386\1.9;C:\WinDDK\7600.16385.1\lib\wxp\i386;$(WindowsSdk_71A_LibraryPath_x86)</LibraryPath>
     <LinkIncremental>false</LinkIncremental>
@@ -122,9 +122,18 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
+    <IncludePath>C:\WinDDK\7600.16385.1\src\general\toaster\wdm\func;C:\WinDDK\7600.16385.1\src\general\toaster\kmdf\func;..\..\..\..\..\nic\p2p;..\..\..\..\..\nic\ars;..\..\..\..\..\nic\utility;..\..\..\..\..\os;..\..\..\..\..\nic;..\..\intf;..\..\mp;..\..\..\common\usb;..\..\..\common\trx;..\..\..\common\pwr;..\..\..\common\os_porting;..\..\..\common\inc;..\..\common;C:\WinDDK\7600.16385.1\inc\wdf\kmdf\1.9;C:\WinDDK\7600.16385.1\inc\wdf;C:\WinDDK\7600.16385.1\inc\crt;C:\WinDDK\7600.16385.1\inc\api\crt;C:\WinDDK\7600.16385.1\inc\api;C:\WinDDK\7600.16385.1\inc\ddk;$(IncludePath)</IncludePath>
+    <LibraryPath>$(WindowsSdk_71A_LibraryPath_x86);C:\WinDDK\7600.16385.1\lib\wdf\kmdf\i386\1.9;C:\WinDDK\7600.16385.1\lib\wxp\i386;$(LibraryPath)</LibraryPath>
+    <LinkIncremental>false</LinkIncremental>
+    <IgnoreImportLibrary>true</IgnoreImportLibrary>
+    <GenerateManifest>false</GenerateManifest>
+    <TargetExt>.sys</TargetExt>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
+    <ExecutablePath>C:\WinDDK\7600.16385.1\bin\x86;C:\WinDDK\7600.16385.1\bin\x86\x86;$(WindowsSdk_71A_ExecutablePath);$(WindowsSDK_ExecutablePath);$(VS_ExecutablePath);$(ExecutablePath)</ExecutablePath>
+    <IncludePath>C:\WinDDK\7600.16385.1\src\general\toaster\wdm\func;C:\WinDDK\7600.16385.1\src\general\toaster\kmdf\func;..\..\..\..\..\nic\p2p;..\..\..\..\..\nic\ars;..\..\..\..\..\nic\utility;..\..\..\..\..\os;..\..\..\..\..\nic;..\..\intf;..\..\mp;..\..\..\common\usb;..\..\..\common\trx;..\..\..\common\pwr;..\..\..\common\os_porting;..\..\..\common\inc;..\..\common;C:\WinDDK\7600.16385.1\inc\wdf\kmdf\1.9;C:\WinDDK\7600.16385.1\inc\wdf;C:\WinDDK\7600.16385.1\inc\crt;C:\WinDDK\7600.16385.1\inc\api\crt;C:\WinDDK\7600.16385.1\inc\api;C:\WinDDK\7600.16385.1\inc\ddk;$(IncludePath)</IncludePath>
+    <LibraryPath>C:\WinDDK\7600.16385.1\lib\wdf\kmdf\ia64\1.9;C:\WinDDK\7600.16385.1\lib\wxp\ia64;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
@@ -142,9 +151,7 @@
     <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <Link>
-      <AdditionalDependencies>BufferOverflowK.lib;ntoskrnl.lib;Hal.lib;ndis.lib;wmilib.lib;wdfdriverentry.lib;wdfldr.lib;ntstrsafe.lib;wdm.lib;%(AdditionalDependencies)</AdditionalDependencies>
-    </Link>
+    <Link />
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <Link>
@@ -161,9 +168,10 @@
       <DataExecutionPrevention />
       <AdditionalOptions>/SECTION:INIT,D /IGNORE:4078 /safeseh:no </AdditionalOptions>
       <GenerateDebugInformation>DebugFull</GenerateDebugInformation>
+      <AdditionalDependencies>BufferOverflowK.lib;ntoskrnl.lib;Hal.lib;ndis.lib;wmilib.lib;wdfdriverentry.lib;wdfldr.lib;ntstrsafe.lib;wdm.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <ClCompile>
-      <PreprocessorDefinitions>WIN32=100;_X86_=1;WINVER=0x501;DBG=1;BINARY_COMPATIBLE=0;NDIS50_MINIPORT=1;NDIS51_MINIPORT=1;NDIS_MINIPORT_DRIVER=1;MCU_CMD_MAILBOX=1;CONFIG_LITTLE_ENDIAN=1;CONFIG_SOFT_RX_AGGREGATION=1;CONFIG_ARS_FIRMWARE_SUPPORT=1;KMDF_VERSION_MAJOR=1;CONFIG_RICHV100=1</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32=100;_X86_=1;WINVER=0x501;DBG=1;BINARY_COMPATIBLE=0;NDIS50_MINIPORT=1;NDIS51_MINIPORT=1;NDIS_MINIPORT_DRIVER=1;MCU_CMD_MAILBOX=1;CONFIG_LITTLE_ENDIAN=1;CONFIG_SOFT_RX_AGGREGATION=1;CONFIG_ARS_FIRMWARE_SUPPORT=1;KMDF_VERSION_MAJOR=1;CONFIG_RICHV200=1;CONFIG_RICHV200_FPGA=1</PreprocessorDefinitions>
       <CallingConvention>StdCall</CallingConvention>
       <DebugInformationFormat>OldStyle</DebugInformationFormat>
       <MinimalRebuild>false</MinimalRebuild>
@@ -172,6 +180,37 @@
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <WarningLevel>Level1</WarningLevel>
     </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Link>
+      <EntryPointSymbol>FxDriverEntry</EntryPointSymbol>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <PreprocessorDefinitions>WIN32=100;WINVER=0x501;DBG=1;BINARY_COMPATIBLE=0;NDIS50_MINIPORT=1;NDIS51_MINIPORT=1;NDIS_MINIPORT_DRIVER=1;MCU_CMD_MAILBOX=1;CONFIG_LITTLE_ENDIAN=1;CONFIG_SOFT_RX_AGGREGATION=1;CONFIG_ARS_FIRMWARE_SUPPORT=1;KMDF_VERSION_MAJOR=1;CONFIG_RICHV200=1;CONFIG_RICHV200_FPGA=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <AdditionalDependencies>BufferOverflowK.lib;ntoskrnl.lib;Hal.lib;ndis.lib;wmilib.lib;wdfdriverentry.lib;wdfldr.lib;ntstrsafe.lib;wdm.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <PreprocessorDefinitions>WIN32=100;_X86_=1;WINVER=0x501;DBG=1;BINARY_COMPATIBLE=0;NDIS50_MINIPORT=1;NDIS51_MINIPORT=1;NDIS_MINIPORT_DRIVER=1;MCU_CMD_MAILBOX=1;CONFIG_LITTLE_ENDIAN=1;CONFIG_SOFT_RX_AGGREGATION=1;CONFIG_ARS_FIRMWARE_SUPPORT=1;KMDF_VERSION_MAJOR=1;CONFIG_RICHV200=1;CONFIG_RICHV200_FPGA=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <DebugInformationFormat>OldStyle</DebugInformationFormat>
+      <CallingConvention>StdCall</CallingConvention>
+      <Optimization>MinSpace</Optimization>
+      <PreprocessToFile>false</PreprocessToFile>
+    </ClCompile>
+    <Link>
+      <IgnoreAllDefaultLibraries>true</IgnoreAllDefaultLibraries>
+      <AdditionalOptions>/SECTION:INIT,D /IGNORE:4078 /safeseh:no </AdditionalOptions>
+      <EntryPointSymbol>FxDriverEntry</EntryPointSymbol>
+      <Driver>Driver</Driver>
+      <SetChecksum>true</SetChecksum>
+      <SubSystem>Console</SubSystem>
+      <AdditionalDependencies>BufferOverflowK.lib;ntoskrnl.lib;Hal.lib;ndis.lib;wmilib.lib;wdfdriverentry.lib;wdfldr.lib;ntstrsafe.lib;wdm.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
     <Inf Include="usbwifi_ndis5.inf" />
@@ -182,7 +221,6 @@
   <ItemGroup>
     <ClCompile Include="..\..\..\..\..\nic\action.c" />
     <ClCompile Include="..\..\..\..\..\nic\ap.c" />
-    <ClCompile Include="..\..\..\..\..\nic\ars\odm.c" />
     <ClCompile Include="..\..\..\..\..\nic\assoc.c" />
     <ClCompile Include="..\..\..\..\..\nic\auth.c" />
     <ClCompile Include="..\..\..\..\..\nic\efuse.c" />
@@ -199,7 +237,6 @@
     <ClCompile Include="..\..\..\..\..\nic\p2p\p2p.c" />
     <ClCompile Include="..\..\..\..\..\nic\p2p\p2p_frame_mgt.c" />
     <ClCompile Include="..\..\..\..\..\nic\p2p\p2p_proto_mgt.c" />
-    <ClCompile Include="..\..\..\..\..\nic\p2p\p2p_timer.c" />
     <ClCompile Include="..\..\..\..\..\nic\p2p\p2p_wfd.c" />
     <ClCompile Include="..\..\..\..\..\nic\p2p\p2p_wowlan.c" />
     <ClCompile Include="..\..\..\..\..\nic\rx.c" />
@@ -208,7 +245,6 @@
     <ClCompile Include="..\..\..\..\..\nic\sec_arc4.c" />
     <ClCompile Include="..\..\..\..\..\nic\sec_tkip.c" />
     <ClCompile Include="..\..\..\..\..\nic\sec_wep.c" />
-    <ClCompile Include="..\..\..\..\..\nic\trx.c" />
     <ClCompile Include="..\..\..\..\..\nic\tx.c" />
     <ClCompile Include="..\..\..\..\..\nic\utility\wf_msg.c" />
     <ClCompile Include="..\..\..\..\..\nic\utility\wf_que.c" />

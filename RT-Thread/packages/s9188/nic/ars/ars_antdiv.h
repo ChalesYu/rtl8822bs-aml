@@ -45,6 +45,7 @@ typedef struct _SW_Antenna_Switch_
 
 typedef struct antdiv_info_st_
 {
+	wf_u8 reserved;
 }ars_antdiv_info_st;
 
 wf_s32 odm_AntennaDiversity(void *ars);

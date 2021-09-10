@@ -39,12 +39,15 @@
 #define OID_802_11_SET_WAPI_KEY                         0xFFA0CA02
 #endif
 
-#define MAX_ARRAY_SEND_PACKETS						8
+#define MAX_ARRAY_SEND_PACKETS						64
 
 #define PARAM_MAX_LEN_RATES                     8
 #define PARAM_MAX_LEN_RATES_EX                  16
 
 #define MAX_NUM_GROUP_ADDR                      	32
+
+
+#define PARAM_DEVICE_WAKE_UP_ENABLE                     0x00000001
 
 /* Packet filter bit definitioin (wf_u32 bit-wise definition) */
 #define PARAM_PACKET_FILTER_DIRECTED            0x00000001
@@ -115,6 +118,15 @@ typedef enum _ENUM_PARAM_AUTH_MODE_T
     AUTH_MODE_WPA2_PSK,
     AUTH_MODE_NUM                       /*!< Upper bound, not real case */
 } ENUM_PARAM_AUTH_MODE_T, *P_ENUM_PARAM_AUTH_MODE_T;
+
+typedef struct _PARAM_WEP_T
+{
+    wf_u32             u4Length;             /*!< Length of structure */
+    wf_u32             u4KeyIndex;           /*!< 0: pairwise key, others group keys */
+    wf_u32             u4KeyLength;          /*!< Key length in bytes */
+    wf_u8              aucKeyMaterial[32];    /*!< Key content by above setting */
+} PARAM_WEP_T, *P_PARAM_WEP_T;
+
 
 /* NDIS_802_11_ENCRYPTION_STATUS *//* Encryption types */
 typedef enum _ENUM_WEP_STATUS_T
@@ -315,6 +327,14 @@ typedef struct _CMD_LINK_ATTRIB {
     wf_u8      aucReserved[1];
 } CMD_LINK_ATTRIB, *P_CMD_LINK_ATTRIB;
 
+typedef struct wf_cache_info_s{
+	wf_u8  dev_mac[6];
+	wf_bool  ap_valid;
+	PARAM_SSID_T ap_ssid;
+	wf_u8  ap_mac[6];
+}wf_cache_info_t;
+
+
 
 typedef struct wf_mib_info_s
 {
@@ -328,6 +348,8 @@ typedef struct wf_mib_info_s
 	P_PARAM_BSSID_EX_T 			curApInfo;
 	CMD_LINK_ATTRIB             eLinkAttr;
 	wf_u8						rRssi;
+	
+	BOOLEAN 					connect_state;
 
 	// Authentication, association and encryption.
 	ENUM_PARAM_AUTH_MODE_T auth_mode;
@@ -344,8 +366,15 @@ typedef struct wf_mib_info_s
 	// BSS list.
 	WDFSPINLOCK 						bss_lock;
 	ULONG								bss_cnt;
-	void* bss_node[64];
+	wf_wlan_mgmt_scan_que_node_t 		bss_node[64];
 
+	// To handle the unexpected situation.
+	WDFTIMER                			exception_timer;
+
+	// Event to notify that some work is finished.
+	KEVENT 								halt_deauth_finish;
+	
+	KEVENT 								scan_hidden_finish;
 } wf_mib_info_t, * pwf_mib_info_t;
 
 #define PARAM_WHQL_RSSI_MAX_DBM                 (-10)
@@ -368,7 +397,8 @@ Mp11CompletePendedRequest(
 	);
 
 NDIS_STATUS wf_mp_oids_init(PADAPTER	   pAdapter);
-void wf_mp_oids_deinit(PADAPTER	  pAdapter);
+
+VOID wf_mp_oids_deinit(PADAPTER	  	  pAdapter);
 
 static wf_wlan_mgmt_scan_que_node_t *wf_find_scan_info_by_bssid(PADAPTER adapter, wf_u8* destBssid);
 
@@ -682,8 +712,52 @@ wf_wlan_oid_query_cur_pkt_filter (
 	OUT wf_u32*	pu4QueryInfoLen
 );
 
+/**
+* Query the mac address of the physical device.
+*/
+NDIS_STATUS
+wf_wlan_oid_query_permanent_addr(
+    IN  PADAPTER prAdapter,
+    IN  PVOID    pvQueryBuffer,
+    IN  wf_u32   u4QueryBufferLen,
+    OUT wf_u32*  pu4QueryInfoLen
+);
+
+/**
+* Query the vendor id of the device.
+*/
+NDIS_STATUS
+wf_wlan_oid_query_vendor_id(
+    IN  PADAPTER prAdapter,
+    IN  PVOID    pvQueryBuffer,
+    IN  wf_u32   u4QueryBufferLen,
+    OUT wf_u32*  pu4QueryInfoLen
+);
+
 
 /* Set */
+
+/**
+* Set network address. (Empty function )
+*/
+NDIS_STATUS
+wf_wlan_oid_set_network_address(
+    IN  PADAPTER    prAdapter,
+    IN  PVOID       pvSetBuffer,
+    IN  wf_u32      u4SetBufferLen,
+    OUT wf_u32*     pu4SetInfoLen
+);
+
+/**
+* Set multicast list. (Empty function )
+*/
+NDIS_STATUS
+wf_wlan_oid_set_multicast_list(
+     IN  PADAPTER    prAdapter,
+     IN  PVOID       pvSetBuffer,
+     IN  wf_u32     u4SetBufferLen,
+     OUT wf_u32*    pu4SetInfoLen
+);
 
 /**
 * Set authentication mode.
@@ -695,7 +769,6 @@ wf_wlan_oid_set_auth_mode (
 	IN	wf_u32 		  u4SetBufferLen,
 	OUT wf_u32*		  pu4SetInfoLen
 );
-
 
 /**
 * Set the NIC running mode.
@@ -720,6 +793,17 @@ wf_wlan_oid_set_enc_status (
 );
 
 /**
+* Return NDIS_STATUS_PENDING to OID_802_11_SSID;
+*/
+NDIS_STATUS
+wf_pseudo_wlan_oid_set_ssid(
+	IN	PADAPTER 	  prAdapter,
+	IN	PVOID			  pvSetBuffer,
+	IN	wf_u32 		  u4SetBufferLen,
+	OUT wf_u32*		  pu4SetInfoLen
+);
+
+/**
 * Set the service set identifier (SSID) of the BSS with which the device can associate.
 */
 NDIS_STATUS
@@ -728,6 +812,17 @@ wf_wlan_oid_set_ssid (
 	IN	PVOID			  pvSetBuffer,
 	IN	wf_u32 		  u4SetBufferLen,
 	OUT wf_u32*		  pu4SetInfoLen
+);
+
+/**
+* Set diasssociation.
+*/
+NDIS_STATUS
+wf_wlan_oid_set_disassoc (
+	IN  PADAPTER		  prAdapter,
+	IN	PVOID			  pvSetBuffer,
+	IN	wf_u32 			  u4SetBufferLen,
+	OUT wf_u32*			  pu4SetInfoLen
 );
 
 /**
@@ -750,6 +845,28 @@ wf_wlan_oid_set_add_key (
 	IN	PVOID	 pvSetBuffer,
 	IN	wf_u32  u4SetBufferLen,
 	OUT wf_u32* pu4SetInfoLen
+);
+
+/**
+* Set a WEP key to a specified value.
+*/
+NDIS_STATUS
+wf_wlan_oid_set_add_wep (
+    IN  PADAPTER       prAdapter,
+    IN  PVOID    pvSetBuffer,
+    IN  wf_u32  u4SetBufferLen,
+    OUT wf_u32* pu4SetInfoLen
+);
+
+/**
+* Return NDIS_STATUS_PENDING to OID_802_11_BSSID;
+*/
+NDIS_STATUS
+wf_pseudo_wlan_oid_set_bssid(
+	IN	PADAPTER 	  prAdapter,
+	IN	PVOID			  pvSetBuffer,
+	IN	wf_u32 		  u4SetBufferLen,
+	OUT wf_u32*		  pu4SetInfoLen
 );
 
 /**

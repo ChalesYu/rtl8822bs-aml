@@ -1,4 +1,15 @@
-
+/*
+ * wf_os_api_thread.c
+ *
+ * os thread realization.
+ *
+ * Author: hichard
+ *
+ * Copyright (c) 2020 SmartChip Integrated Circuits(SuZhou ZhongKe) Co.,Ltd
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ */
 /* include */
 #include "wf_os_api.h"
 #include "wf_debug.h"
@@ -23,7 +34,7 @@ void* wf_os_api_thread_create (void *tid, char *name, void *func, void *param)
   static wf_u8 wf_thread_prio = 0;
   wf_thread_t *thread_id;
   
-  if(wf_thread_prio > WF_THREAD_PRIORITY_NUM) {
+  if(wf_thread_prio > (WF_THREAD_PRIORITY_NUM - 1)) {
     LOG_E("create thread error, please reconfig WF_THREAD_PRIORITY_NUM");
     return NULL;
   }

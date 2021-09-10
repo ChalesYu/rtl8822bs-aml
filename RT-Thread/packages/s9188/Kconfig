@@ -1,0 +1,63 @@
+
+menuconfig PKG_USING_S9188
+    bool "s9188: wifi driver for RT-Thread"
+    select RT_USING_SDIO
+    select RT_USING_WIFI
+    select RT_USING_LWIP
+    select RT_USING_DFS
+    default n
+
+if PKG_USING_S9188
+    choice
+        prompt "s9188 interface"
+        help
+            Select the wifi using interface
+        default PKG_S9188_USING_SDIO
+        
+        config PKG_S9188_USING_SDIO
+            bool "SDIO"
+
+        config PKG_S9188_USING_USB
+            bool "Not support"
+
+        config PKG_S9188_USING_BOTH
+            bool "Not support"
+    endchoice
+
+  config PKG_S9188_FILE_FIRMWARE
+      string "The firmware path"
+      default  "/lib/firmware/fw_9188_r1751.bin"
+
+  config PKG_S9188_FILE_CFG
+      string "The configure file path"
+      default  "/etc/wifi.cfg"
+
+    choice
+        prompt "s9188 wifi mode"
+        help
+            Select the wifi work mode
+        default PKG_S9188_MODE_STA
+        
+        config PKG_S9188_MODE_STA
+            bool "STA"
+
+        config PKG_S9188_MODE_AP
+            bool "AP"
+
+    endchoice
+
+    config PKG_S9188_XMIT_FRAME_NUM
+        int "xmit frame num"
+        default  32
+
+   config PKG_S9188_XMIT_DATA_NUM
+        int "xmit data num"
+        default  8
+
+    config PKG_S9188_TX_AGG
+        bool "tx agg function"
+        default  y
+   config PKG_S9188_RX_AGG
+        bool "rx agg function"
+        default  y
+endif

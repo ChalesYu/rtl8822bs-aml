@@ -249,7 +249,7 @@ extern "C" {
 #define RT_USING_DFS
 
 // 使能自动挂载表
-//#define RT_USING_DFS_MNTTABLE
+#define RT_USING_DFS_MNTTABLE
 
 #define RT_USING_DFS_DEVFS
 
@@ -306,6 +306,8 @@ extern "C" {
 #define RT_USING_SAL
 #define SAL_USING_POSIX
 #endif
+  
+#define LWIP_USING_DHCPD
 
 /*********************************************************************************************************
 **  以太网支持
@@ -382,6 +384,28 @@ extern "C" {
 //#define CORE_MARK_HAS_FLOAT     1
 #define COMPILER_VERSION        "iar ewarm"
 #define COREMARK_ITERATIONS     36000
+  
+/*********************************************************************************************************
+**  vi工具配置
+*********************************************************************************************************/ 
+#define VI_SANDBOX_SIZE_KB   20 /* KB */
+#define VI_MAX_LEN           4096
+//#define VI_ENABLE_8BIT
+#define VI_ENABLE_COLON
+#define VI_ENABLE_COLON_EXPAND
+#define VI_ENABLE_YANKMARK
+#define VI_ENABLE_SEARCH
+#define VI_ENABLE_DOT_CMD
+#define VI_ENABLE_READONLY
+#define VI_ENABLE_SETOPTS
+#define VI_ENABLE_SET
+//#define VI_ENABLE_WIN_RESIZE  
+#define VI_ENABLE_VI_ASK_TERMINAL
+#define VI_ENABLE_UNDO
+#define VI_ENABLE_UNDO_QUEUE
+#define VI_UNDO_QUEUE_MAX   256
+#define VI_ENABLE_VERBOSE_STATUS
+  
   
 /*********************************************************************************************************
 **  MQTT协议栈配置

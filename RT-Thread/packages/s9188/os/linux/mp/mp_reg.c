@@ -203,7 +203,22 @@ int wf_mp_reg_read(struct net_device *dev, struct iw_request_info *info, union i
     LOG_D("byte:%d addr:%x",byte,addr);
     switch(byte)
     {
+#ifdef MCU_CMD_TXD    
         case 1:
+            data = wf_io_bulk_read8(pnic_info,addr);
+            break;
+        case 2:
+            data = wf_io_bulk_read16(pnic_info,addr);
+            break;
+        case 4:
+            data = wf_io_bulk_read32(pnic_info,addr);
+            break;
+        default:
+            MP_WARN("byte error");
+            ret = WF_RETURN_FAIL;
+            break;
+#else
+		case 1:
             data = wf_io_read8(pnic_info,addr, NULL);
             break;
         case 2:
@@ -216,6 +231,7 @@ int wf_mp_reg_read(struct net_device *dev, struct iw_request_info *info, union i
             MP_WARN("byte error");
             ret = WF_RETURN_FAIL;
             break;
+#endif
     }
     LOG_D("reg:%x --%08X", addr, data);
     if(ret != WF_RETURN_FAIL)
@@ -257,7 +273,22 @@ int wf_mp_reg_write(struct net_device *dev, struct iw_request_info *info, union 
     sscanf(pch,"%d,%x,%x",&byte,&addr,&data);
     switch(byte)
     {
+#ifdef	MCU_CMD_TXD
         case 1:
+            ret = wf_io_bulk_write8(pnic_info,addr, data);
+            break;
+        case 2:
+            ret = wf_io_bulk_write16(pnic_info,addr, data);
+            break;
+        case 4:
+            ret = wf_io_bulk_write32(pnic_info,addr, data);
+            break;
+        default:
+            MP_WARN("byte error");
+            ret = WF_RETURN_FAIL;
+            break;
+#else
+	    case 1:
             ret = wf_io_write8(pnic_info,addr, data);
             break;
         case 2:
@@ -270,6 +301,7 @@ int wf_mp_reg_write(struct net_device *dev, struct iw_request_info *info, union 
             MP_WARN("byte error");
             ret = WF_RETURN_FAIL;
             break;
+#endif
     }
     if(ret == 0)
     {

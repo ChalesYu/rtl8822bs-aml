@@ -178,6 +178,9 @@ int wf_iw_reg_write(struct net_device *dev, struct iw_request_info *info, union 
 {
     ndev_priv_st *pndev_priv = netdev_priv(dev);
     nic_info_st *pnic_info = pndev_priv->nic;
+	#ifdef MCU_CMD_TXD
+	void *hif = pnic_info->hif_node;
+	#endif
     struct iw_point *wrqu;
     wf_u8 *pch;
     wf_u32 byte,addr,data;
@@ -196,6 +199,22 @@ int wf_iw_reg_write(struct net_device *dev, struct iw_request_info *info, union 
     sscanf(pch,"%d,%x,%x",&byte,&addr,&data);
     switch(byte)
     {
+
+#ifdef MCU_CMD_TXD
+        case 1:
+            ret = wf_io_bulk_write8(hif,addr, data);
+            break;
+        case 2:
+            ret = wf_io_bulk_write16(hif,addr, data);
+            break;
+        case 4:
+            ret = wf_io_bulk_write32(hif,addr, data);
+            break;
+        default:
+            LOG_E("byte error");
+            ret = WF_RETURN_FAIL;
+            break;
+#else
         case 1:
             ret = wf_io_write8(pnic_info,addr, data);
             break;
@@ -209,6 +228,7 @@ int wf_iw_reg_write(struct net_device *dev, struct iw_request_info *info, union 
             LOG_D("byte error");
             ret = WF_RETURN_FAIL;
             break;
+#endif			
     }
     if(ret == WF_RETURN_OK)
     {
@@ -245,35 +265,6 @@ int wf_iw_ars(struct net_device *dev, struct iw_request_info *info, union iwreq_
     return 0;
 }
 
-int wf_iw_txagg_timestart(struct net_device *dev, struct iw_request_info *info, union iwreq_data *wdata, char *extra)
-{
-    ndev_priv_st *pndev_priv = netdev_priv(dev);
-    nic_info_st *pnic_info = pndev_priv->nic;
-    hif_node_st *hif_info   = pnic_info->hif_node;
-    wf_u8 *pch;
-    wf_s32 time_start;
-    struct iw_point *wrqu;
-    wrqu = (struct iw_point *)wdata;
-
-    if (copy_from_user(extra, wrqu->pointer, wrqu->length))
-    {
-        LOG_D("copy_from_user fail");
-        return WF_RETURN_FAIL;
-    }
-    pch = extra;
-    LOG_D("txagg= %s",extra);
-    sscanf(pch,"%d",&time_start);
-    LOG_D("time_start %d",time_start);
-    hif_info->u.sdio.count_start = time_start;
-    if(0 == hif_info->u.sdio.count_start)
-    {
-        hif_info->u.sdio.tx_agg_send_time = 0;
-        hif_info->u.sdio.tx_flow_ctl_time = 0;
-        hif_info->u.sdio.tx_all_time = 0;
-    }
-    return 0;
-}
-
 int wf_iw_reg_read(struct net_device *dev, struct iw_request_info *info, union iwreq_data *wdata, char *extra)
 {
     ndev_priv_st *pndev_priv = netdev_priv(dev);
@@ -284,6 +275,9 @@ int wf_iw_reg_read(struct net_device *dev, struct iw_request_info *info, union i
     wf_u32 addr_reg = 0x0;
     wf_u32 start = 0x0,end = 0xff;
     wf_u32 ret=WF_RETURN_OK;
+	#ifdef MCU_CMD_TXD
+	void *hif = pnic_info->hif_node;
+	#endif
     wrqu = (struct iw_point *)wdata;
 
     if (copy_from_user(extra, wrqu->pointer, wrqu->length))
@@ -308,6 +302,21 @@ int wf_iw_reg_read(struct net_device *dev, struct iw_request_info *info, union i
     LOG_D("byte:%d addr:%x",byte,addr);
     switch(byte)
     {
+#ifdef MCU_CMD_TXD
+        case 1:
+            data = wf_io_bulk_read8(hif,addr);
+            break;
+        case 2:
+            data = wf_io_bulk_read16(hif,addr);
+            break;
+        case 4:
+            data = wf_io_bulk_read32(hif,addr);
+            break;
+        default:
+            LOG_E("byte error");
+            ret = WF_RETURN_FAIL;
+            break;
+#else
         case 1:
             data = wf_io_read8(pnic_info,addr, NULL);
             break;
@@ -321,6 +330,7 @@ int wf_iw_reg_read(struct net_device *dev, struct iw_request_info *info, union i
             LOG_D("byte error");
             ret = WF_RETURN_FAIL;
             break;
+#endif			
     }
     LOG_D("reg:%x --%08X", addr, data);
     if(ret != WF_RETURN_FAIL)
@@ -386,13 +396,138 @@ int atoi(const char *nptr)
 }
 
 
-int wf_iw_fwdl(struct net_device *dev, struct iw_request_info *info, union iwreq_data *wrqu, char *extra)
+int wf_iw_cmddl(struct net_device *dev, struct iw_request_info *info, union iwreq_data *wrqu, char *extra)
 {
-    ndev_priv_st *ndev_priv = netdev_priv(dev);
-    nic_info_st *pnic_info = ndev_priv->nic;
-    hif_node_st *hif_node = (hif_node_st *)pnic_info->hif_node;
+	ndev_priv_st *pndev_priv = netdev_priv(dev);
+    nic_info_st *pnic_info = pndev_priv->nic;
+
+	wf_u32 count;
+	wf_u32 ret;
+	char *ptr = NULL;
+	wf_u8 data[40] = "cmdtest";
+	wf_u32 data321[40];
+	wf_u32 out_buf[40] = {0};
+	wf_u32 failed_times=0;
+	wf_u32 ok_times=0;
+	wf_u32 data32 = 0;
+	LOG_D("%s",__func__);
+	
+	ptr = extra;
+	sscanf(ptr,"%d",&count);
+
+	for(;count>0;count--)
+	{
+		int i = 0;
+		int tmlen= strlen(data);
+		wf_memset(out_buf,0,40);
+		for(i=0;i<tmlen;i++)
+		{
+			data321[i]= data[i];
+		}
+		//LOG_I("%s  tmlen:%d",__func__,tmlen);
+		ret = mcu_cmd_communicate(pnic_info, UMSG_OPS_CMD_TEST, (wf_u32 *)data321,tmlen, (wf_u32 *)out_buf, tmlen+1);
+		if (WF_RETURN_FAIL == ret)
+    	{
+    		LOG_E("[%s] UMSG_OPS_CMD_TEST failed", __func__);
+			data32 = wf_io_read32(pnic_info, 0x9008, NULL);
+			LOG_D("9008:%x",data32);
+			data32 = wf_io_read32(pnic_info, 0x9010, NULL);
+			LOG_D("9010:%x",data32);
+			data32 = wf_io_read32(pnic_info, 0x904c, NULL);
+			LOG_D("904c:%x",data32);
+			data32 = wf_io_read32(pnic_info, 0x60e0, NULL);
+			LOG_D("0x60e0:%x",data32);
+			data32 = wf_io_read32(pnic_info, 0x60e4, NULL);
+			LOG_D("0x60e4:%x",data32);
+			data32 = wf_io_read32(pnic_info, 0x60e8, NULL);
+			LOG_D("0x60e8:%x",data32);
+			data32 = wf_io_read32(pnic_info, 0x60ec, NULL);
+			LOG_D("0x60ec:%x",data32);
+			data32 = wf_io_read32(pnic_info, 0x60d4, NULL);
+			LOG_D("0x60d4:%x",data32);
+			data32 = wf_io_read32(pnic_info, 0x6024, NULL);
+			LOG_D("0x6024:%x",data32);
+        	return ret;
+    	}
+		//log_array(out_buf, (tmlen+1)*4);
+		if(wf_memcmp(data321,out_buf,tmlen) == 0)
+		{
+			//LOG_D("OK");
+			ok_times++;
+		}
+		else
+		{
+			LOG_D("FAIL");
+			failed_times++;
+		}
+		//wf_msleep(500);
+	}
+	LOG_D("cmddl:%d ok:%d fail:%d",(ok_times+failed_times),ok_times,failed_times);
+	sprintf(extra, "cmddl:%d ok:%d fail:%d",(ok_times+failed_times),ok_times,failed_times);
+	return 0;
+
+}
+int wf_iw_txagg_timestart(struct net_device *dev, struct iw_request_info *info, union iwreq_data *wdata, char *extra)
+{
+    ndev_priv_st *pndev_priv = netdev_priv(dev);
+    nic_info_st *pnic_info = pndev_priv->nic;
+    hif_node_st *hif_info   = pnic_info->hif_node;
+    char *pch;
+	char cmd[128];
+	char *param1[3] = {0x00,0x00,0x00};
+	char *token;
+	int i = 0;
+    struct iw_point *wrqu;
+	
+    wrqu = (struct iw_point *)wdata;
+    if (copy_from_user(extra, wrqu->pointer, wrqu->length))
+    {
+        LOG_D("copy_from_user fail");
+        return WF_RETURN_FAIL;
+    }
+	sscanf(extra, "%s", cmd);
+    pch = cmd;
+    while ((token = strsep(&pch, ",")) != NULL) 
+	{
+        if (i > 2)
+            break;
+        param1[i] = token;
+        i++;
+    }
+
+    if(0 == strcmp(param1[0],"help"))
+	{
+        LOG_D("cmd :");        
+        return 0;
+    }
+    if(0 == strcmp(param1[0],"switch"))
+	{
+		LOG_D("txagg= %s",extra);
+	    hif_info->u.sdio.count_start = atoi(param1[1]);
+		LOG_D("count_start= %d",hif_info->u.sdio.count_start);
+	    if(0 == hif_info->u.sdio.count_start)
+	    {
+	        hif_info->u.sdio.tx_agg_send_time = 0;
+	        hif_info->u.sdio.tx_flow_ctl_time = 0;
+	        hif_info->u.sdio.tx_all_time = 0;
+			hif_info->u.sdio.count = 0;
+			hif_info->u.sdio.tx_agg_num = 0;
+			hif_info->u.sdio.tx_pkt_num = 0;
+			hif_info->u.sdio.rx_time 	= 0;
+			hif_info->u.sdio.rx_count = 0;
+			hif_info->u.sdio.rx_pkt_num = 0;
+	    }
+    }
+	else if( 0 == strcmp(param1[0],"config"))
+	{
+		LOG_D("txagg= %s",extra);
+		pnic_info->agg_size = atoi(param1[1]);
+		pnic_info->agg_time = atoi(param1[2]);
+		LOG_D("agg_size= %x, agg_time=%x",pnic_info->agg_size,pnic_info->agg_time);
+		wf_rx_config_agg(pnic_info);
+	}
+	
     
-    wf_tasklet_hi_sched(&hif_node->trx_pipe.send_task);
     return 0;
 }
 

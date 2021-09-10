@@ -1193,16 +1193,6 @@ void sdio_irq_wakeup(struct rt_mmcsd_host *host)
         rt_sem_release(host->sdio_irq_sem);
 }
 
-void sdio_claim_host(struct rt_sdio_function *func)
-{
-    mmcsd_host_lock(func->card->host);
-}
-
-void sdio_release_host(struct rt_sdio_function *func)
-{
-    mmcsd_host_unlock(func->card->host);
-}
-
 rt_int32_t sdio_enable_func(struct rt_sdio_function *func)
 {
     rt_int32_t ret;

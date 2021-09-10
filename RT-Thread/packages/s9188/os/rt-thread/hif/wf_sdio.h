@@ -1,3 +1,15 @@
+/*
+ * wf_sdio.h
+ *
+ * sdio card register and io operate function declare.
+ *
+ * Author: hichard
+ *
+ * Copyright (c) 2020 SmartChip Integrated Circuits(SuZhou ZhongKe) Co.,Ltd
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ */
 #ifndef __WF_SDIO_H__
 #define __WF_SDIO_H__
 
@@ -23,11 +35,11 @@
 
 #define WL_REG_AC0_FREEPG           0x9014
 
-#define WL_REG_TXCTL				0x9000
+#define WL_REG_TXCTL		    0x9000
 #define WL_REG_AC_OQT_FREEPG        0x9030
 
-#define WL_LPS_CTL1					0x9058
-#define WL_LPS_CTL2 			    0x905C
+#define WL_LPS_CTL1		    0x9058
+#define WL_LPS_CTL2 	            0x905C
 
 #define WL_REG_QUE_PRI_SEL          0x906C
 
@@ -36,10 +48,12 @@
 #define SDIO_RD                     1
 #define SDIO_WD                     0
 
-#define SDIO_FIFO_TYP_NUM 6
+#define SDIO_FIFO_TYP_NUM           6
 
-#define TX_FLOW_WF_DATA            3
-#define TX_RESERVED_PG_NUM         65
+#define TX_FLOW_WF_DATA             3
+#define TX_RESERVED_PG_NUM          0
+
+#define size_to_pg(x)               ((x+127)/128)
 
 enum WF_SDIO_OPERATION_FLAG
 {
@@ -64,11 +78,11 @@ typedef struct hif_sdio_management_
     wf_u8 SdioTxFIFOFreePage[SDIO_FIFO_TYP_NUM];
     wf_u8 SdioTxOQTMaxFreeSpace;
     wf_u8 tx_no_low_queue;
-    wf_u8 tx_fifo_ppg_num;
-    wf_u8 tx_fifo_lpg_num;
-    wf_u8 tx_fifo_epg_num;
-    wf_u8 tx_fifo_mpg_num;
-    wf_u8 tx_fifo_hpg_num;
+    wf_s32 tx_fifo_ppg_num;
+    wf_s32 tx_fifo_lpg_num;
+    wf_s32 tx_fifo_epg_num;
+    wf_s32 tx_fifo_mpg_num;
+    wf_s32 tx_fifo_hpg_num;
     wf_u16 tx_fifo_all_use_num;
     wf_u8 last_tx_ppg_num;
     wf_work_struct irq_work;
@@ -76,18 +90,50 @@ typedef struct hif_sdio_management_
     wf_u64 irq_cnt;
     int int_flag;
     wf_bool isr_triggered;
+    
+    wf_u8 *tx_agg_buffer;
+    wf_s32 free_tx_page;
+    wf_s32 tx_state;
+
+    wf_bool count_start;
+    wf_u64 count;
+    wf_u64 tx_flow_ctl_time;
+    wf_u64 tx_agg_send_time;
+    wf_u64 tx_all_time;
+    wf_u64 tx_pkt_num;
+    wf_u64 tx_agg_num;
+    wf_u64 rx_time;
+    wf_u64 rx_count;
+    wf_u64 rx_pkt_num;
+    void *current_irq;
 }hif_sdio_st;
 
 int sdio_init(void);
 int sdio_exit(void);
 
-
-
-
 int wf_sdioh_interrupt_disable(void *hif_info);
 int wf_sdioh_interrupt_enable(void *hif_info);
 int wf_sdioh_config(void *hif_info);
 
+#if defined(CONFIG_SDIO_FLAG) || defined(CONFIG_BOTH_FLAG)
 
+wf_s32 wf_sdio_update_txbuf_size(void*hif_info,void *qnode,wf_s32 *max_page_num,wf_s32 *max_agg_num);
+wf_s32 wf_sdio_tx_flow_free_pg_ctl(void *hif_info, wf_u32 hw_queue, wf_u8 pg_num);
+wf_s32 wf_sdio_tx_flow_agg_num_ctl(void *hif_info, wf_u8 agg_num);
+
+#else
+wf_inline static wf_s32 wf_sdio_update_txbuf_size(void*hif_info,void *qnode,wf_s32 *max_page_num,wf_s32 *max_agg_num)
+{
+    return 0;
+}
+wf_inline static wf_s32 wf_sdio_tx_flow_free_pg_ctl(void *hif_info, wf_u32 hw_queue, wf_u8 pg_num)
+{
+    return 0;
+}
+wf_inline static wf_s32 wf_sdio_tx_flow_agg_num_ctl(void *hif_info, wf_u8 agg_num)
+{
+    return 0;
+}
+#endif
 
 #endif

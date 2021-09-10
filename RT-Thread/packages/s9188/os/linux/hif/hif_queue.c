@@ -40,6 +40,7 @@ int wf_data_queue_insert(wf_que_t *queue, data_queue_node_st *qnode)
     wf_enque_tail(&qnode->node,queue);
     return queue->cnt;
 }
+
 data_queue_node_st * wf_data_queue_remove(wf_que_t *queue)
 {
     data_queue_node_st *rb_node     = NULL;
@@ -55,7 +56,7 @@ data_queue_node_st * wf_data_queue_remove(wf_que_t *queue)
 }
 
 
-data_queue_node_st * wf_queue_node_malloc(void *hif_node,int cnt )
+data_queue_node_st * wf_queue_node_malloc(int cnt)
 {
     data_queue_node_st *node = NULL;
 
@@ -281,16 +282,17 @@ wf_bool pkt_is_agg_disable(data_queue_node_st *qnode)
 static void agg_update_send_core(hif_node_st *hif_info,data_queue_node_st *agg_qnode,wf_u8  agg_num,wf_u32 pkt_len)
 {
     hif_sdio_st *sd = &hif_info->u.sdio;
+    wf_u8 send_pg_num = WF_RND4(agg_qnode->pg_num);
     
     wf_tx_agg_num_fill(agg_num, sd->tx_agg_buffer);
     agg_qnode->buff         = sd->tx_agg_buffer;
     agg_qnode->real_size = pkt_len;
     agg_qnode->agg_num  = agg_num;
-    sd->free_tx_page -= agg_qnode->pg_num;
+    sd->free_tx_page -= send_pg_num;
     sd->tx_state = TX_STATE_SENDING;
     hif_info->ops->hif_write(hif_info,WF_SDIO_TRX_QUEUE_FLAG,agg_qnode->addr,(char*)agg_qnode,agg_qnode->real_size);
     sd->tx_state = TX_STATE_COMPETE;
-    wf_sdio_tx_flow_free_pg_ctl(hif_info,agg_qnode->hw_queue,agg_qnode->pg_num);
+    wf_sdio_tx_flow_free_pg_ctl(hif_info,agg_qnode->hw_queue,send_pg_num);
     wf_sdio_tx_flow_agg_num_ctl(hif_info, agg_qnode->agg_num);
 }
 static void wf_tx_work_agg(struct work_struct *work)
@@ -332,10 +334,14 @@ static void wf_tx_work_agg(struct work_struct *work)
     if(sd->count_start)
     {
         wf_timer_set(&timer,0);
+        sd->count++;
     }   
     while(NULL != (qnode = wf_tx_queue_remove(dqm)))
     {
-
+        if(sd->count_start)
+        {
+            sd->tx_pkt_num++;
+        }
         sd->tx_state=qnode->state = TX_STATE_FLOW_CTL;
 #ifdef CONFIG_RICHV200
         if(WF_PKT_TYPE_FRAME != (qnode->buff[0] & 0x03) ) //not need flow control
@@ -364,17 +370,21 @@ static void wf_tx_work_agg(struct work_struct *work)
             }
 
             align_size = TXDESC_SIZE + WF_RND_MAX((qnode->real_size-TXDESC_SIZE), 8);
-            if( (0 != agg_num && agg_qnode.pg_num+qnode->pg_num > max_page_num) ||
+            if( (0 != agg_num && WF_RND4(agg_qnode.pg_num+qnode->pg_num) > max_page_num) ||
                 (0 != agg_num &&  agg_qnode.qsel != qnode->qsel)                ||
                 (0 != agg_num && agg_num > max_agg_num )                        ||
                 (0 != agg_num && wf_true == agg_break)
                 )
             {
-
-                if(agg_num>17)
-                LOG_I("agg_num:%d,pg_num:%d,qsel:%d,hw_queu:%d,max_page_num:%d,max_agg_num:%d,free_node_num:%d",
-                    agg_num,agg_qnode.pg_num,agg_qnode.qsel,agg_qnode.hw_queue,max_page_num,max_agg_num,wf_que_count(&dqm->free_tx_queue));
-                
+                if(sd->count_start)
+                {
+                    sd->tx_agg_num++;
+                }
+                if(0)
+                {
+                    LOG_I("agg_num:%d,pg_num:%d,qsel:%d,hw_queu:%d,max_page_num:%d,max_agg_num:%d,free_node_num:%d",
+                        agg_num,agg_qnode.pg_num,agg_qnode.qsel,agg_qnode.hw_queue,max_page_num,max_agg_num,wf_que_count(&dqm->free_tx_queue));
+                }
                 agg_update_send_core(hif_info,&agg_qnode,agg_num,pkt_len);          
                 agg_num = 0;
                 pkt_len = 0;
@@ -426,19 +436,20 @@ static void wf_tx_work_agg(struct work_struct *work)
         
         qnode->state = TX_STATE_COMPETE;
         wf_data_queue_insert(&hif_info->trx_pipe.free_tx_queue, qnode);
-        if(wf_true == agg_break)
-        {
-            break;
-        }
     }
 
     if(pkt_len>0 && agg_num>0)
     {
-        if(agg_num>17 || wf_true == agg_break)
-         LOG_I("%s agg_num:%d,pg_num:%d,qsel:%d,hw_queu:%d, max_page_num:%d,max_agg_num:%d,free_tx_node_num:%d",
+        if(sd->count_start)
+        {
+            sd->tx_agg_num++;
+        }
+        if( wf_true == agg_break)
+        {
+            LOG_I("%s agg_num:%d,pg_num:%d,qsel:%d,hw_queu:%d, max_page_num:%d,max_agg_num:%d,free_tx_node_num:%d",
                     (wf_true == agg_break) ?"agg_break":"agg_enable",
                     agg_num,agg_qnode.pg_num,agg_qnode.qsel,agg_qnode.hw_queue,max_page_num,max_agg_num,wf_que_count(&dqm->free_tx_queue));
-        
+        } 
         agg_update_send_core(hif_info,&agg_qnode,agg_num,pkt_len);
     }
 
@@ -677,22 +688,15 @@ int wf_data_queue_mngt_init(void *hif_node)
 #else
     static wf_workqueue_func_param_st wq_tx_param   ={"wf_tx_workqueue",wf_tx_work};
 #endif
+
     skb_queue_head_init(&data_queue_mngt->rx_queue);
     skb_queue_head_init(&data_queue_mngt->free_rx_queue_skb);
     wf_que_init(&data_queue_mngt->free_rx_queue,WF_LOCK_TYPE_IRQ);
 
-    if(HIF_USB == hif_info->hif_type)
-    {
+    
         wf_que_init(&data_queue_mngt->free_tx_queue, WF_LOCK_TYPE_IRQ);
         wf_que_init(&data_queue_mngt->tx_queue, WF_LOCK_TYPE_IRQ);
         wf_lock_init(&data_queue_mngt->queu_txop_lock,WF_LOCK_TYPE_NONE);
-    }
-    else
-    {
-        wf_que_init(&data_queue_mngt->free_tx_queue, WF_LOCK_TYPE_NONE);
-        wf_que_init(&data_queue_mngt->tx_queue, WF_LOCK_TYPE_NONE);
-        wf_lock_init(&data_queue_mngt->queu_txop_lock,WF_LOCK_TYPE_IRQ);
-    }
     
     data_queue_mngt->alloc_cnt=0;
 
@@ -722,7 +726,7 @@ int wf_data_queue_mngt_init(void *hif_node)
     wf_hif_queue_alloc_skb(&data_queue_mngt->free_rx_queue_skb,hif_info->hif_type);
 
     /*rx queue init */
-    hif_info->trx_pipe.all_rx_queue = wf_queue_node_malloc(hif_node,WF_RX_MAX_DATA_QUEUE_NODE_NUM);
+    hif_info->trx_pipe.all_rx_queue = wf_queue_node_malloc(WF_RX_MAX_DATA_QUEUE_NODE_NUM);
     for(i=0; i<WF_RX_MAX_DATA_QUEUE_NODE_NUM; i++)
     {
         recv_node = hif_info->trx_pipe.all_rx_queue + i;
@@ -751,9 +755,7 @@ int wf_data_queue_mngt_init(void *hif_node)
         recv_node = NULL;
     }
 
-
-
-    hif_info->trx_pipe.all_tx_queue = wf_queue_node_malloc(hif_node,WF_TX_MAX_DATA_QUEUE_NODE_NUM);
+    hif_info->trx_pipe.all_tx_queue = wf_queue_node_malloc(WF_TX_MAX_DATA_QUEUE_NODE_NUM);
     for(i=0; i<WF_TX_MAX_DATA_QUEUE_NODE_NUM; i++)
     {
 
@@ -783,6 +785,7 @@ int wf_data_queue_mngt_init(void *hif_node)
     }
 
 
+    data_queue_mngt->is_init = wf_true;
 
     return WF_RETURN_OK;
 }

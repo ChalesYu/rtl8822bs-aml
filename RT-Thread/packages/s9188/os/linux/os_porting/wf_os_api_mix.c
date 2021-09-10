@@ -105,6 +105,8 @@ void wf_os_api_ind_disconnect (void *arg, wf_u8 arg1)
         wrqu.ap_addr.sa_family = ARPHRD_ETHER;
         wf_memset(wrqu.ap_addr.sa_data, 0, ETH_ALEN);
         wireless_send_event(pnic_info->ndev, SIOCGIWAP, &wrqu, NULL);
+
+        wf_os_api_disable_all_data_queue(pnic_info->ndev);
     }
 #endif
 #ifdef CONFIG_IOCTL_CFG80211
@@ -190,6 +192,7 @@ void wf_os_api_enable_all_data_queue (void *arg)
 #else
     netif_start_queue(ndev);
 #endif
+    LOG_W("The netif carrier on");
 }
 
 void wf_os_api_disable_all_data_queue (void *arg)

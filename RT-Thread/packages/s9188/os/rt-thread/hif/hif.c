@@ -1,3 +1,15 @@
+/*
+ * hif.c
+ *
+ * hif, the driver init.
+ *
+ * Author: hichard
+ *
+ * Copyright (c) 2020 SmartChip Integrated Circuits(SuZhou ZhongKe) Co.,Ltd
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ */
 #include "common.h"
 #include "hif.h"
 #include "cfg_parse.h"
@@ -17,7 +29,8 @@
 #define WIFI_FW_DIR   "/lib/firmware/fw_s9083.bin"
 #endif
 
-#define CMD_PARAM_LENGTH       12
+#define CMD_PARAM_LENGTH_TX    12
+#define CMD_PARAM_LENGTH_RX    8
 #define TXDESC_OFFSET_NEW      20
 #define TXDESC_PACK_LEN        4
 #define RXDESC_OFFSET_NEW      16
@@ -416,7 +429,6 @@ static wf_s32 hif_add_nic(hif_node_st *hif_info,int num)
         return -1;
     }
 
-
     hif_info->nic_info[num]->hif_node = hif_info;
     hif_info->nic_info[num]->hif_node_id = hif_info->node_id;
     hif_info->nic_info[num]->ndev_id = num;
@@ -457,6 +469,14 @@ static wf_s32 hif_add_nic(hif_node_st *hif_info,int num)
 
     hif_info->nic_number++;
     hif_info->nic_info[num]->nic_num = num;
+    
+    hif_info->nic_info[num]->buddy_nic = NULL;
+    if (hif_info->nic_number == 2)
+    {
+      /*for buddy*/
+      hif_info->nic_info[0]->buddy_nic = hif_info->nic_info[1];
+      hif_info->nic_info[1]->buddy_nic = hif_info->nic_info[0];
+    }
 
     return 0;
 }
@@ -477,20 +497,18 @@ int hif_dev_insert(hif_node_st *hif_info)
     LOG_E("===>power_on error, exit!!");
     return WF_RETURN_FAIL;
   }
-  else
-  {
-    LOG_D("wf_power_on success");
-    
+
+  LOG_D("wf_power_on success");
+  
 #ifdef CONFIG_RICHV200
-    side_road_cfg(hif_info);
+  side_road_cfg(hif_info);
 #endif
-    
-    if(HIF_SDIO ==hif_info->hif_type)
-    {
-      // cmd53 is ok, next for side-road configue
-      wf_sdioh_config(hif_info);
-      wf_sdioh_interrupt_enable(hif_info);
-    }
+  
+  if(HIF_SDIO ==hif_info->hif_type)
+  {
+    // cmd53 is ok, next for side-road configue
+    wf_sdioh_config(hif_info);
+    wf_sdioh_interrupt_enable(hif_info);
   }
   
   /*create hif trx func*/
@@ -518,7 +536,7 @@ int hif_dev_insert(hif_node_st *hif_info)
   LOG_D("   node_id    :%d",hif_info->node_id);
   LOG_D("   hif_type   :%d  [1:usb  2:sdio]",hif_info->hif_type);
   
-#ifdef CFG_ENABLE_AP_MODE
+#ifdef CONFIG_STA_AND_AP_MODE
   nic_num = 2;
 #else 
   nic_num = 1;
@@ -534,24 +552,24 @@ int hif_dev_insert(hif_node_st *hif_info)
     }
     
     LOG_D("<< wlan register %d>>",i);
+#ifdef CFG_ENABLE_AP_MODE
+    rt_wlan_register(hif_info->nic_info[i], RT_WLAN_DEVICE_STA_NAME);
+    rt_wlan_set_mode(RT_WLAN_DEVICE_STA_NAME,RT_WLAN_AP);
+#endif
+    
+#ifdef CFG_ENABLE_STA_MODE 
+    rt_wlan_register(hif_info->nic_info[i], RT_WLAN_DEVICE_STA_NAME);
+    rt_wlan_set_mode(RT_WLAN_DEVICE_STA_NAME,RT_WLAN_STATION);
+#endif
+    
+#ifdef CONFIG_STA_AND_AP_MODE
     rt_wlan_register(hif_info->nic_info[i], (i==0)?RT_WLAN_DEVICE_STA_NAME:RT_WLAN_DEVICE_AP_NAME);
     rt_wlan_set_mode((i==0)?RT_WLAN_DEVICE_STA_NAME:RT_WLAN_DEVICE_AP_NAME,(i==0)?RT_WLAN_STATION:RT_WLAN_AP);
-  }
-  
-  if (nic_num == 2)
-  {
-    /*for buddy*/
-    hif_info->nic_info[0]->buddy_nic = hif_info->nic_info[1];
-    hif_info->nic_info[1]->buddy_nic = hif_info->nic_info[0];
-  }
-  else
-  {
-    hif_info->nic_info[0]->buddy_nic = NULL;
+#endif
   }
 
   return 0;
 }
-
 
 void  hif_dev_removed(hif_node_st *hif_info)
 {
@@ -591,13 +609,24 @@ void  hif_dev_removed(hif_node_st *hif_info)
         nic_term(nic_info);
       }
       rt_wlan_unregister(nic_info);
+      if (0 == nic_cnt) //for concurrent mode
+      {
+        int i=0;
+        for (i=1; i<MAX_NIC; i++)
+        {
+          if (hif_info->nic_info[i])
+          {
+            hif_info->nic_info[i]->buddy_nic = NULL;
+          }
+        }
+      }
       wf_kfree(nic_info);
       hif_info->nic_info[nic_cnt] = NULL;
     }
     nic_info = NULL;
   }
   
-  if(HIF_SDIO ==hif_info->hif_type)
+  if(HIF_SDIO == hif_info->hif_type)
   {
     wf_sdioh_interrupt_disable(hif_info);
   }
@@ -1107,7 +1136,7 @@ int hif_write_cmd(void *node, wf_u32 cmd, wf_u32 *send_buf, wf_u32 send_len, wf_
   }
   
   ptx_desc = hif_node->cmd_snd_buffer;
-  wf_memset(ptx_desc, 0, TXDESC_OFFSET_NEW + CMD_PARAM_LENGTH);
+  wf_memset(ptx_desc, 0, TXDESC_OFFSET_NEW + CMD_PARAM_LENGTH_TX);
   
   /* set for reg xmit */
   wf_set_bits_to_le_u32(ptx_desc, 0, 2, TYPE_CMD);
@@ -1118,7 +1147,7 @@ int hif_write_cmd(void *node, wf_u32 cmd, wf_u32 *send_buf, wf_u32 send_len, wf_
   /* set SEQ  for test*/
   //wf_set_bits_to_le_u32(ptx_desc, 24, 8, __gmcu_cmd_count & 0xFF);
   /* set for pkt_len */
-  wf_set_bits_to_le_u32(ptx_desc + 8, 0, 16, CMD_PARAM_LENGTH + send_len * 4);
+  wf_set_bits_to_le_u32(ptx_desc + 8, 0, 16, CMD_PARAM_LENGTH_TX + send_len * 4);
   /* set for checksum */
   io_txdesc_chksum(ptx_desc);
   
@@ -1132,10 +1161,10 @@ int hif_write_cmd(void *node, wf_u32 cmd, wf_u32 *send_buf, wf_u32 send_len, wf_
   /* set for send content */
   if(send_len != 0)
   {
-    wf_memcpy(ptx_desc + TXDESC_OFFSET_NEW + CMD_PARAM_LENGTH, send_buf, send_len * 4);
+    wf_memcpy(ptx_desc + TXDESC_OFFSET_NEW + CMD_PARAM_LENGTH_TX, send_buf, send_len * 4);
   }
   
-  snd_pktLen = TXDESC_OFFSET_NEW + CMD_PARAM_LENGTH + send_len * 4;
+  snd_pktLen = TXDESC_OFFSET_NEW + CMD_PARAM_LENGTH_TX + send_len * 4;
   
   wf_hif_bulk_cmd_init(hif_node);
   ret = wf_tx_queue_insert(hif_node, 1, (char *)ptx_desc, snd_pktLen, wf_quary_addr(CMD_QUEUE_INX), NULL, NULL, NULL);
@@ -1154,7 +1183,7 @@ int hif_write_cmd(void *node, wf_u32 cmd, wf_u32 *send_buf, wf_u32 send_len, wf_
   }
   
   prx_desc = hif_node->cmd_rcv_buffer;
-  rcv_pktLen = RXDESC_OFFSET_NEW + recv_len * 4 + CMD_PARAM_LENGTH;
+  rcv_pktLen = RXDESC_OFFSET_NEW + recv_len * 4 + CMD_PARAM_LENGTH_RX;
   if(hif_node->cmd_size != rcv_pktLen)
   {
     LOG_E("mcu cmd: 0x%08X", cmd);
@@ -1173,7 +1202,7 @@ int hif_write_cmd(void *node, wf_u32 cmd, wf_u32 *send_buf, wf_u32 send_len, wf_
   }
   u16Value = wf_le_u16_read(prx_desc + 4);
   u16Value &= 0x3FFF;
-  if(u16Value != (recv_len * 4 + CMD_PARAM_LENGTH))
+  if(u16Value != (recv_len * 4 + CMD_PARAM_LENGTH_RX))
   {
     LOG_E("bulk access cmd read length error, value is %d, send cmd is 0x%x, cmd is 0x%x",
           u16Value, cmd, *((wf_u32 *)prx_desc + RXDESC_OFFSET_NEW));
@@ -1184,7 +1213,7 @@ int hif_write_cmd(void *node, wf_u32 cmd, wf_u32 *send_buf, wf_u32 send_len, wf_
   
   if(recv_len != 0)
   {
-    wf_memcpy(recv_buf, prx_desc + RXDESC_OFFSET_NEW + CMD_PARAM_LENGTH, recv_len * 4);
+    wf_memcpy(recv_buf, prx_desc + RXDESC_OFFSET_NEW + CMD_PARAM_LENGTH_RX, recv_len * 4);
   }
   
 mcu_cmd_communicate_exit:

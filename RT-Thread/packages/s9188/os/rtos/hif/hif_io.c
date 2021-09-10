@@ -1,11 +1,11 @@
 
-#include "wf_os_api.h"
-#include "hif.h"
 #include "wf_debug.h"
+#include "common.h"
+#include "hif.h"
 
 int hif_io_write(void *node,  unsigned char flag, unsigned int addr, char *data, int datalen)
 {
-    struct hif_node_ *hif_node = node;
+    hif_node_t *hif_node = node;
 
     WF_ASSERT(hif_node != NULL);
     WF_ASSERT(hif_node->ops != NULL);
@@ -17,7 +17,7 @@ int hif_io_write(void *node,  unsigned char flag, unsigned int addr, char *data,
 
 int hif_io_read(void *node,  unsigned char flag, unsigned int addr, char *data, int datalen)
 {
-    struct hif_node_ *hif_node = node;
+    hif_node_t *hif_node = node;
 
     WF_ASSERT(hif_node != NULL);
     WF_ASSERT(hif_node->ops != NULL);
@@ -28,7 +28,7 @@ int hif_io_read(void *node,  unsigned char flag, unsigned int addr, char *data, 
 
 unsigned char hif_io_read8(void *node, unsigned int addr, int *err)
 {
-    struct hif_node_ *hif_node = node;
+    hif_node_t *hif_node = node;
     int ret = 0;
     wf_u8 value;
 
@@ -46,7 +46,7 @@ unsigned char hif_io_read8(void *node, unsigned int addr, int *err)
 
 unsigned long hif_io_read16(void *node, unsigned int addr,int *err)
 {
-    struct hif_node_ *hif_node = node;
+    hif_node_t *hif_node = node;
     wf_u16 value;
     int ret = 0;
 
@@ -64,7 +64,7 @@ unsigned long hif_io_read16(void *node, unsigned int addr,int *err)
 
 unsigned int hif_io_read32(void *node, unsigned int addr, int *err)
 {
-    struct hif_node_ *hif_node = node;
+    hif_node_t *hif_node = node;
     wf_u32 value;
     int ret = 0;
 
@@ -83,7 +83,7 @@ unsigned int hif_io_read32(void *node, unsigned int addr, int *err)
 
 int hif_io_write8(void *node, unsigned int addr, unsigned char value)
 {
-	struct hif_node_ *hif_node = node;
+	hif_node_t *hif_node = node;
 
     WF_ASSERT(hif_node != NULL);
     WF_ASSERT(hif_node->ops != NULL);
@@ -94,7 +94,7 @@ int hif_io_write8(void *node, unsigned int addr, unsigned char value)
 
 int hif_io_write16(void *node, unsigned int addr, unsigned long value)
 {
-    struct hif_node_ *hif_node = node;
+    hif_node_t *hif_node = node;
 
     WF_ASSERT(hif_node != NULL);
     WF_ASSERT(hif_node->ops != NULL);
@@ -105,7 +105,7 @@ int hif_io_write16(void *node, unsigned int addr, unsigned long value)
 
 int hif_io_write32(void *node, unsigned int addr, unsigned int value)
 {
-    struct hif_node_ *hif_node = node;
+    hif_node_t *hif_node = node;
 
     WF_ASSERT(hif_node != NULL);
     WF_ASSERT(hif_node->ops != NULL);

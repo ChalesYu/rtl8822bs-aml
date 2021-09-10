@@ -105,9 +105,15 @@ typedef struct hif_sdio_management_
     wf_s32 tx_state;
 
     wf_bool count_start;
+	wf_u64 count;
     wf_u64 tx_flow_ctl_time;
     wf_u64 tx_agg_send_time;
     wf_u64 tx_all_time;
+	wf_u64 tx_pkt_num;
+	wf_u64 tx_agg_num;
+	wf_u64 rx_time;
+	wf_u64 rx_count;
+	wf_u64 rx_pkt_num;
     void *current_irq;
 }hif_sdio_st;
 
@@ -120,8 +126,26 @@ int sdio_exit(void);
 int wf_sdioh_interrupt_disable(void *hif_info);
 int wf_sdioh_interrupt_enable(void *hif_info);
 int wf_sdioh_config(void *hif_info);
+
+#if defined(CONFIG_SDIO_FLAG) || defined(CONFIG_BOTH_FLAG)
+
 wf_s32 wf_sdio_update_txbuf_size(void*hif_info,void *qnode,wf_s32 *max_page_num,wf_s32 *max_agg_num);
 wf_s32 wf_sdio_tx_flow_free_pg_ctl(void *hif_info, wf_u32 hw_queue, wf_u8 pg_num);
 wf_s32 wf_sdio_tx_flow_agg_num_ctl(void *hif_info, wf_u8 agg_num);
+
+#else
+wf_inline static wf_s32 wf_sdio_update_txbuf_size(void*hif_info,void *qnode,wf_s32 *max_page_num,wf_s32 *max_agg_num)
+{
+    return 0;
+}
+wf_inline static wf_s32 wf_sdio_tx_flow_free_pg_ctl(void *hif_info, wf_u32 hw_queue, wf_u8 pg_num)
+{
+    return 0;
+}
+wf_inline static wf_s32 wf_sdio_tx_flow_agg_num_ctl(void *hif_info, wf_u8 agg_num)
+{
+    return 0;
+}
+#endif
 
 #endif

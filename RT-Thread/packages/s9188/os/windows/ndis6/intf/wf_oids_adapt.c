@@ -340,7 +340,7 @@ static void wf_update_bss_list(void  *      adapter)
 	while (!WF_CANNOT_RUN(pnic_info)) {
 		mib_info->bss_cnt = 0;
 		wf_wlan_mgmt_scan_que_for_begin(pnic_info, pscanned_info) {
-			memcpy(&mib_info->bss_node[mib_info->bss_cnt++], pscanned_info, sizeof(wf_wlan_mgmt_scan_que_node_t));
+			wf_memcpy(&mib_info->bss_node[mib_info->bss_cnt++], pscanned_info, sizeof(wf_wlan_mgmt_scan_que_node_t));
 		}
 		wf_wlan_mgmt_scan_que_for_end(scanned_ret);
 
@@ -1071,7 +1071,6 @@ NDIS_STATUS wf_set_start_assoc (PADAPTER adapter, PDOT11_SSID_LIST pDot11SSIDLis
     /* retrive bssid */
     wf_wlan_set_cur_bssid(pnic_info, mac_addr);
 	wf_wlan_set_cur_ssid(pnic_info, &scan_info->ssid);
-	LOG_D("---ZY_TEST---Current IRQL:%d", KeGetCurrentIrql());
 	wf_set_auth(adapter);
 	wf_set_wpa_ie(adapter);
     wf_set_auth_cipher(adapter);
@@ -2486,11 +2485,6 @@ void wf_oids_exception_handle(WDFTIMER WdfTimer)
 
 	mib_info = padapter->mib_info;
 	pnic_info = padapter->nic_info;
-
-	if(pnic_info == NULL || mib_info == NULL) {
-		LOG_E("param is NULL");
-		return;
-	}
 
 	if(MP_TEST_STATUS_FLAG(padapter, MP_ADAPTER_SURPRISE_REMOVED)) {
 		return;

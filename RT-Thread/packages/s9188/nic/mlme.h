@@ -44,11 +44,13 @@ enum
     WF_MLME_TAG_CONN_ABORT,
     WF_MLME_TAG_DEAUTH,
     WF_MLME_TAG_DEASSOC,
-
+    WF_MLME_TAG_P2P,
+    
     /* priority level 1 */
     WF_MLME_TAG_SCAN            = WF_MSG_TAG_SET(0, 1, 0),
     WF_MLME_TAG_CONN,
     WF_MLME_TAG_CONN_IBSS,
+    
 
     /* priority level 2 */
     WF_MLME_TAG_ADD_BA_REQ      = WF_MSG_TAG_SET(0, 2, 0),
@@ -127,6 +129,7 @@ typedef struct
     wf_msg_t *pconn_msg;
     wf_msg_t *pscan_msg;
     wf_msg_t *pba_rsp_msg;
+    wf_msg_t *pp2p_msg;
 
     wf_bool babort_thrd;
     wf_bool abort_thrd_finished;
@@ -158,6 +161,8 @@ static wf_bool wf_mlme_check_mode(nic_info_st* pnic_info, sys_work_mode_e mode)
 
     return (wf_bool)(plocal_info->work_mode == mode);
 }
+
+int wf_mlme_p2p_msg(nic_info_st *pnic_info,wf_msg_tag_t p2p_tag,void *value,wf_u32 len);
 int wf_mlme_get_state (nic_info_st *pnic_info, mlme_state_e *state);
 int wf_mlme_set_connect (nic_info_st *pnic_info, wf_bool bconnect);
 int wf_mlme_get_connect (nic_info_st *pnic_info, wf_bool *bconnect);

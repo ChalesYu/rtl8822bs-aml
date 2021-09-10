@@ -1,4 +1,15 @@
-
+/*
+ * wf_os_api_lock.c
+ *
+ * os lock realization.
+ *
+ * Author: hichard
+ *
+ * Copyright (c) 2020 SmartChip Integrated Circuits(SuZhou ZhongKe) Co.,Ltd
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ */
 /* include */
 #include "wf_typedef.h"
 #include "wf_os_api.h"
@@ -9,36 +20,36 @@
 
 /* function declaration */
 
-wf_inline void wf_lock_spin_lock (wf_lock_spin *plock)
+static wf_inline void wf_lock_spin_lock (wf_lock_spin *plock)
 {
     rt_hw_spin_lock(plock);
 }
 
-wf_inline void wf_lock_spin_unlock (wf_lock_spin *plock)
+static wf_inline void wf_lock_spin_unlock (wf_lock_spin *plock)
 {
     rt_hw_spin_unlock(plock);
 }
 
-wf_inline void wf_lock_spin_init (wf_lock_spin *plock)
+static wf_inline void wf_lock_spin_init (wf_lock_spin *plock)
 {
 #ifdef RT_USING_SMP
     rt_hw_spin_lock_init(plock);
 #endif
 }
 
-wf_inline void wf_lock_spin_free (wf_lock_spin *plock) {}
+static wf_inline void wf_lock_spin_free (wf_lock_spin *plock) {}
 
-wf_inline void wf_lock_bh_lock (wf_lock_spin *plock)
+static wf_inline void wf_lock_bh_lock (wf_lock_spin *plock)
 {
     rt_hw_spin_lock(plock);
 }
 
-wf_inline void wf_lock_bh_unlock (wf_lock_spin *plock)
+static wf_inline void wf_lock_bh_unlock (wf_lock_spin *plock)
 {
     rt_hw_spin_unlock(plock);
 }
 
-wf_inline void wf_lock_irq_lock (wf_lock_spin *plock, wf_irq *pirqL)
+static wf_inline void wf_lock_irq_lock (wf_lock_spin *plock, wf_irq *pirqL)
 {
   *pirqL = rt_hw_interrupt_disable();
 #ifdef RT_USING_SMP
@@ -46,7 +57,7 @@ wf_inline void wf_lock_irq_lock (wf_lock_spin *plock, wf_irq *pirqL)
 #endif
 }
 
-wf_inline void wf_lock_irq_unlock (wf_lock_spin *plock, wf_irq *pirqL)
+static wf_inline void wf_lock_irq_unlock (wf_lock_spin *plock, wf_irq *pirqL)
 {
 #ifdef RT_USING_SMP
     rt_hw_spin_unlock(plock);
@@ -54,17 +65,17 @@ wf_inline void wf_lock_irq_unlock (wf_lock_spin *plock, wf_irq *pirqL)
     rt_hw_interrupt_enable(*pirqL);
 }
 
-wf_inline void wf_lock_mutex_lock (wf_lock_mutex *mtx)
+static wf_inline void wf_lock_mutex_lock (wf_lock_mutex *mtx)
 {
     rt_mutex_take(mtx, RT_WAITING_FOREVER);
 }
 
-wf_inline void wf_lock_mutex_unlock (wf_lock_mutex *mtx)
+static wf_inline void wf_lock_mutex_unlock (wf_lock_mutex *mtx)
 {
     rt_mutex_release(mtx);
 }
 
-wf_inline void wf_lock_mutex_init (wf_lock_mutex *mtx)
+static wf_inline void wf_lock_mutex_init (wf_lock_mutex *mtx)
 {
   static int seq = 0;
   char name[RT_NAME_MAX] = {0};

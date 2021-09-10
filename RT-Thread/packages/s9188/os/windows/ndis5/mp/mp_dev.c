@@ -4,8 +4,10 @@
 #pragma NDIS_PAGEABLE_FUNCTION(MPInitialize)
 #pragma NDIS_PAGEABLE_FUNCTION(mpHalt)
 
+NDIS_HANDLE 				  ndisWrapperHandle;
+LONG						  Gloabal_NIC_Count = 0;
 
-#define LOG_D(fmt,...) //DbgPrint("[%s,%d] "fmt"\n",__FUNCTION__,__LINE__,##__VA_ARGS__);
+#define LOG_D(fmt,...) DbgPrint("[%s,%d] "fmt"\n",__FUNCTION__,__LINE__,##__VA_ARGS__);
 #define LOG_N(fmt,...) DbgPrint("[%s,%d] "fmt"\n",__FUNCTION__,__LINE__,##__VA_ARGS__);
 #define LOG_I(fmt,...) DbgPrint("[%s,%d] "fmt"\n",__FUNCTION__,__LINE__,##__VA_ARGS__);
 #define LOG_W(fmt,...) DbgPrint("[%s,%d] "fmt"\n",__FUNCTION__,__LINE__,##__VA_ARGS__);
@@ -21,14 +23,37 @@ static unsigned char mp_ndis_major = 5;
 static unsigned char mp_ndis_minor = 0;
 #endif
 
+NTSTATUS wf_EvtWdfDriverDeviceAdd(
+  WDFDRIVER Driver,
+  PWDFDEVICE_INIT DeviceInit
+)
+{
+	LOG_D("Wdf driver device added.");
+}
+
+VOID wf_EvtWdfDriverUnload(
+  WDFDRIVER Driver
+)
+{
+	LOG_D("Wdf driver unload.");
+}
+
 VOID mpHalt(NDIS_HANDLE miniportAdapterContext) 
 {
 	P_GLUE_INFO_T prGlueInfo;
 	PADAPTER prAdapter;
+	nic_info_st *nic_info;
+	
 	prGlueInfo = (P_GLUE_INFO_T)miniportAdapterContext;
 	prAdapter = prGlueInfo->prAdapter;
+	nic_info = prAdapter->nic_info;
 	LOG_D("Start to halt this dirver.");
 	if(prAdapter){
+
+		nic_info->is_surprise_removed = wf_true;
+	
+		wf_mp_dev_stop(prAdapter);
+
 		wf_dbg_deinit(prAdapter);
 
 		wf_nic_dev_deinit(prAdapter);
@@ -36,14 +61,124 @@ VOID mpHalt(NDIS_HANDLE miniportAdapterContext)
 		wf_usb_dev_stop(prAdapter);
 
 		wf_usb_dev_deinit(prAdapter);
+
+		wf_mp_oids_deinit(prAdapter);
 	}
+	prAdapter->dev_state = WF_DEV_STATE_STOP;
 	
 	MpFreeGlue(prGlueInfo);
+	LOG_D("---NIC(%d) remove success.", Gloabal_NIC_Count);
+	InterlockedDecrement(&Gloabal_NIC_Count);
+	if(Gloabal_NIC_Count == 0)
+	{
+		NdisTerminateWrapper(ndisWrapperHandle, NULL);
+		WdfDriverMiniportUnload(WdfGetDriver());
+		LOG_D("---Drvier unload success.");
+	}
 }
+
+void wf_mp_dev_stop(PADAPTER      pAdapter)
+{
+	wf_usb_info_t *usb_info = pAdapter->usb_info;
+	wf_xmit_info_t *xmit_info = pAdapter->xmit_info;
+	wf_recv_info_t *recv_info = pAdapter->recv_info;
+	P_GLUE_INFO_T prGlueInfo = (P_GLUE_INFO_T)pAdapter->parent;
+	wf_data_que_t 		*queue = NULL;
+	wf_usb_req_t 		*usb_req = NULL;
+	PLIST_ENTRY 		plist = NULL;
+	wf_xmit_pkt_t *tx_pkt = NULL;
+	wf_recv_pkt_t *pkt = NULL;
+	int timeout;
+
+	wf_usb_dev_stop(pAdapter);
+
+	//complete the tx data
+	queue = &usb_info->data_pend;
+	while(!IsListEmpty(&queue->head)) {
+		plist = wf_pkt_data_deque(queue, QUE_POS_HEAD);
+		if(plist == NULL) {
+			LOG_E("get usb req list failed");
+			continue;
+		}
+		tx_pkt = CONTAINING_RECORD(plist, wf_xmit_pkt_t, list);
+		if(tx_pkt != NULL)
+		{
+			NdisMSendComplete(prGlueInfo->rMiniportAdapterHandle,
+							  (PNDIS_PACKET)tx_pkt->ndis_pkt,
+							  NDIS_STATUS_NOT_ACCEPTED);
+		}
+		LOG_D("complete the xmit data to kernel");
+		usb_req = CONTAINING_RECORD(plist, wf_usb_req_t, list);
+		InterlockedIncrement(&usb_info->proc_cnt);
+		wf_usb_xmit_complet_callback(pAdapter->nic_info, usb_req);
+	}
+
+	queue = &usb_info->mgmt_pend;
+	while(!IsListEmpty(&queue->head)) {
+		plist = wf_pkt_data_deque(queue, QUE_POS_HEAD);
+		if(plist == NULL) {
+			LOG_E("get usb req list failed");
+			continue;
+		}
+		LOG_D("complete the xmit mgmt to kernel");
+		usb_req = CONTAINING_RECORD(plist, wf_usb_req_t, list);
+		InterlockedIncrement(&usb_info->proc_cnt);
+		wf_usb_xmit_complet_callback(pAdapter->nic_info, usb_req);
+	}
+
+	//complete the rx data
+	queue = &recv_info->mgmt_pend;
+	while(!IsListEmpty(&queue->head)) {
+		plist = wf_pkt_data_deque(queue, QUE_POS_HEAD);
+		if(plist == NULL) {
+			LOG_E("get usb req list failed");
+			continue;
+		}
+
+		LOG_D("complete the recv mgmt to kernel");
+		pkt = CONTAINING_RECORD(plist, wf_recv_pkt_t, list);
+		wf_recv_release_source(pAdapter, pkt);
+	}
+
+	queue = &recv_info->data_pend;
+	while(!IsListEmpty(&queue->head)) {
+		plist = wf_pkt_data_deque(queue, QUE_POS_HEAD);
+		if(plist == NULL) {
+			LOG_E("get usb req list failed");
+			continue;
+		}
+
+		LOG_D("complete the recv data to kernel");
+		pkt = CONTAINING_RECORD(plist, wf_recv_pkt_t, list);
+		wf_recv_release_source(pAdapter, pkt);
+	}
+
+	timeout=0;
+	while(xmit_info->proc_cnt && timeout<10) {
+		LOG_E("tx_pending=%d", xmit_info->proc_cnt);
+		wf_msleep(1000);
+		timeout++;
+	}
+
+	timeout=0;
+	while(recv_info->proc_cnt && timeout<10) {
+		LOG_E("rx_pending=%d", recv_info->proc_cnt);
+		wf_msleep(1000);
+		timeout++;
+	}
+
+	timeout=0;
+	while(usb_info->proc_cnt && timeout<10) {
+		LOG_E("usb_pending=%d", usb_info->proc_cnt);
+		wf_msleep(1000);
+		timeout++;
+	}
+}
+
 
 VOID mpHandleInterrupt(NDIS_HANDLE miniportAdapterContext) 
 {
-	LOG_D("enter");
+	LOG_D("--------------Handle an interrupt.");
 }
 
 VOID
@@ -60,7 +195,7 @@ NDIS_STATUS
 mpQueryInformation (
 	IN	NDIS_HANDLE miniportAdapterContext,
 	IN	NDIS_OID	oid,
-	IN	void	*pvInfomationBuffer,
+	IN	PVOID	pvInfomationBuffer,
 	IN	ULONG 	u4InformationBufferLength,
 	OUT ULONG	*pu4ByteWritten,
 	OUT ULONG	*pu4ByteNeeded
@@ -75,12 +210,12 @@ mpQueryInformation (
 
 
 	if(wf_req_search_supported_Oid_entry(oid, &entry) == FALSE) {
-		LOG_E("can't find QUERY oid service! oid=%x", oid);
+		LOG_E("can't find QUERY oid service! oid=0x%08x", oid);
 		return NDIS_STATUS_NOT_SUPPORTED;
 	}
 
 	if(entry == NULL || entry->pfOidQueryHandler == NULL) {
-		LOG_E("entry or function is NULL! oid=%d", oid);
+		LOG_E("entry or function is NULL! oid=0x%08x", oid);
 		return NDIS_STATUS_NOT_ACCEPTED;
 	}
 
@@ -94,10 +229,10 @@ mpQueryInformation (
             return NDIS_STATUS_INVALID_LENGTH;
         }
     }
-
+#if NDIS5_DBG
 	LOG_D("oid=%s", entry->pucOidName);
 	//prAdapter->PendedRequest = oid;
-
+#endif
 	switch(entry->eOidMethod) {
 	case ENUM_OID_GLUE_ONLY:
 		status = entry->pfOidQueryHandler(
@@ -130,17 +265,21 @@ mpQueryInformation (
          else {
              *pu4ByteWritten = u4QueryInfoLen;
          }
-	}
-	if (status != NDIS_STATUS_PENDING)
+	}else if (status == NDIS_STATUS_PENDING)
 	{
 		// Request has completed
-		//prAdapter->PendedRequest = NULL;
-	}
-	else
-	{
+		prAdapter->beSetOid = wf_false;
+		prAdapter->oid = oid;
+		prAdapter->pvInfomationBuffer = pvInfomationBuffer;
+		prAdapter->u4InformationBufferLength = u4InformationBufferLength;
+		prAdapter->pu4ByteWrittenOrRead = pu4ByteWritten;
+		prAdapter->pu4ByteNeeded = pu4ByteNeeded;
+		WdfWorkItemEnqueue(prAdapter->asychOidWorkitem);
 		LOG_D("Request has been pended. Will complete asynchronously");
+	}else if (status == NDIS_STATUS_NOT_SUPPORTED)
+	{
+		 LOG_E("-----Not supported querying oid:%s", entry->pucOidName);
 	}
-
 	return status;
 }
 
@@ -152,10 +291,21 @@ mpReset(
 {
 	P_GLUE_INFO_T       prGlueInfo = (P_GLUE_INFO_T)miniportAdapterContext;
 	PADAPTER	prAdapter;
-	
-	LOG_D("enter reset");
+
+	LOG_D("enter reset");	
+
 	prAdapter = prGlueInfo->prAdapter;
-	if(prAdapter) wf_attr_reset(prAdapter);
+
+	if(prAdapter->oid != NULL)
+	{
+		LOG_E("Error, this reset happens while a pended request existed.");
+	}
+
+	if(wf_get_media_state_indicated(prGlueInfo) == PARAM_MEDIA_STATE_CONNECTED)
+	{
+		 wf_set_start_deassoc(prAdapter, wf_true);
+	}
+	wf_attr_reset(prAdapter);
 
 	return NDIS_STATUS_SUCCESS;
 }
@@ -180,12 +330,12 @@ mpSetInformation (
     *pu4ByteNeeded = 0;
 
 	if(wf_req_search_supported_Oid_entry(oid, &entry) == FALSE) {
-		LOG_E("can't find SET oid service! oid=%x", oid);
+		LOG_E("can't find SET oid service! oid=0x%08x", oid);
 		return NDIS_STATUS_NOT_SUPPORTED;
 	}
 
 	if(entry == NULL || entry->pfOidSetHandler == NULL) {
-		LOG_E("entry or function is NULL! oid=%d", oid);
+		LOG_E("entry or function is NULL! oid=0x%08x", oid);
 		return NDIS_STATUS_INVALID_OID;;
 	}
 
@@ -199,8 +349,9 @@ mpSetInformation (
             return NDIS_STATUS_INVALID_LENGTH;
         }
     }
-
+#if NDIS5_DBG
 	LOG_D("oid=%s", entry->pucOidName);
+#endif
 	//prAdapter->PendedRequest = oid;
 
 	switch(entry->eOidMethod) {
@@ -235,14 +386,20 @@ mpSetInformation (
          LOG_D("Set %s: Invalid length (current=%d, needed=%d)",
              entry->pucOidName, u4InformationBufferLength, *pu4ByteNeeded);
          break;
+	case NDIS_STATUS_NOT_SUPPORTED:
+		 LOG_E("-----Not supported setting oid:%s", entry->pucOidName);
+		 break;
 	}
-	if (status != NDIS_STATUS_PENDING)
+	if (status == NDIS_STATUS_PENDING)
 	{
-		// Request has completed
-		//prAdapter->PendedRequest = NULL;
-	}
-	else
-	{
+		// Request has been pended.
+		prAdapter->beSetOid = wf_true;
+		prAdapter->oid = oid;
+		prAdapter->pvInfomationBuffer = pvInfomationBuffer;
+		prAdapter->u4InformationBufferLength = u4InformationBufferLength;
+		prAdapter->pu4ByteWrittenOrRead = pu4ByteRead;
+		prAdapter->pu4ByteNeeded = pu4ByteNeeded;
+		WdfWorkItemEnqueue(prAdapter->asychOidWorkitem);
 		LOG_D("Request has been pended. Will complete asynchronously");
 	}
 
@@ -255,14 +412,71 @@ mpReturnPacket (
 	IN PNDIS_PACKET prPacket
 	)
 {
-	LOG_D("enter return packets");
+	P_GLUE_INFO_T	prGlueInfo = (P_GLUE_INFO_T)miniportAdapterContext;
+	PADAPTER	prAdapter = (PADAPTER)prGlueInfo->prAdapter;
+	union PKT_ADDR{
+		wf_u8	addr[sizeof(PVOID)];
+		PVOID	ptr;
+	}pkt_addr;
+
+#if 1
+	LOG_E("Error! Enter ReturnPacketHandler.");
+	return;
+#endif
+	wf_recv_info_t* recv_info = (wf_recv_info_t*)prAdapter->recv_info;
+	wf_recv_pkt_t *pkt;
+	wf_data_que_t* to_be_released = &recv_info->to_be_released;
+	PNDIS_BUFFER prNdisBuf;
+	wf_memcpy(pkt_addr.addr, prPacket->MiniportReserved, sizeof(PVOID));
+	pkt = (wf_recv_pkt_t *)pkt_addr.ptr;
+	if(pkt == NULL){
+		LOG_E("Error! Lost pkt addr in NDIS_PACKET.");
+		return;
+	}
+	NdisUnchainBufferAtBack(prPacket, &prNdisBuf);
+
+	if (prNdisBuf) {
+		NdisFreeBuffer(prNdisBuf);
+	}
+	
+	NdisReinitializePacket(prPacket);
+
+	wf_pkt_data_enque(to_be_released, &pkt->list, QUE_POS_TAIL);
+	KeSetEvent(&recv_info->rx_evt, 0, FALSE);
+
 }
 
 
 
 VOID mpShutdown(PVOID shutdownContext)
 {
-	LOG_D("enter");
+	P_GLUE_INFO_T		prGlueInfo = (P_GLUE_INFO_T)shutdownContext;
+	PADAPTER			pAdapter = prGlueInfo->prAdapter;
+	wf_u32				ret = 0;
+	LOG_D("---enter mpShutdown");
+	if (MP_TEST_STATUS_FLAG(pAdapter, MP_ADAPTER_SURPRISE_REMOVED) == FALSE) {        
+        wf_usb_dev_stop(pAdapter);
+
+#ifdef CONFIG_RICHV200
+		ret += hw_pwr_off_v200(pAdapter);
+#else
+
+#endif
+		if(ret != 0) {
+			LOG_E("dev deinit failed!!!!");
+		}
+		
+		wf_msleep(100);
+		
+#ifdef CONFIG_RICHV200
+		ret += hw_pwr_on_v200(pAdapter);
+#else
+		
+#endif
+		if(ret != 0) {
+			LOG_E("dev deinit failed!!!!");
+		}
+    }       
 }   /* mpShutdown */
 
 
@@ -561,7 +775,7 @@ windowsReadRegistryParameters(
 
 	return rStatus;
 #endif
-	return 0;
+	return NDIS_STATUS_SUCCESS;
 }	
 #if 0
 NTSTATUS wf_usb_dev_create(PADAPTER adapter)
@@ -733,10 +947,8 @@ MPInitialize (
     NDIS_HANDLE rFileHandleFwImg = NULL;
     NDIS_STRING rFileWifiRam;
     wf_u32     u4FwImageFileLength = 0;
-	wf_mib_info_t* mib_info = wf_malloc(sizeof(wf_mib_info_t));
-	P_PARAM_BSSID_EX_T curApInfo = wf_malloc(sizeof(PARAM_BSSID_EX_T));
-	
-
+	nic_info_st *nic_info;
+	wf_u32		initStep;
     LOG_D("MPInitialize");
     LOG_D("Current IRQL = %d", KeGetCurrentIrql());
     LOG_D("***** Current Platform: NDIS %d.%d *****", mp_ndis_major, mp_ndis_minor);
@@ -764,7 +976,7 @@ MPInitialize (
 			ndisStatus =  NDIS_STATUS_FAILURE;
             break;
         }
-
+		initStep = 0;
         prGlueInfo->ucDriverDescLen = (wf_u8)strlen(desc) + 1;
         if (prGlueInfo->ucDriverDescLen >= sizeof(prGlueInfo->aucDriverDesc)) {
             prGlueInfo->ucDriverDescLen = sizeof(prGlueInfo->aucDriverDesc);
@@ -776,28 +988,18 @@ MPInitialize (
         prGlueInfo->eParamMediaStateIndicated = PARAM_MEDIA_STATE_DISCONNECTED;
         prGlueInfo->fgIsCardRemoved = FALSE;
 		prGlueInfo->bWaitGroupKeyState = FALSE;
-        /* Allocate adapter object */
+
+		/* Allocate adapter object */
+		initStep++;   // initialization step1
 		ndisStatus = MpAllocateAdapter(rMiniportAdapterHandle, &prAdapter);
+		// Set PendedRequest as 1 to always report the status.
+		prAdapter->PendedRequest = &prAdapter->oid;
 		
-// Set PendedRequest as 1 to always report the status.
-		prAdapter->PendedRequest = 1;
 		if (ndisStatus != NDIS_STATUS_SUCCESS) {
 			break;
 		}
-		if(mib_info == NULL) {
-			LOG_E("malloc mib info failed!");
-			break;
-		}
-		if(curApInfo == NULL) {
-			LOG_E("malloc current AP info info failed!");
-			break;
-		}
-		wf_memset(mib_info, 0, sizeof(wf_mib_info_t));
-		wf_memset(curApInfo, 0, sizeof(PARAM_BSSID_EX_T));
-		mib_info->curApInfo = curApInfo;
-		mib_info->writeKeyLock.lock_type = WF_LOCK_TYPE_MUTEX;
-		wf_lock_mutex_init(&mib_info->writeKeyLock.lock_mutex);
-		prAdapter->mib_info = mib_info;
+		
+		
 		prAdapter->dev_state = WF_DEV_STATE_INIT;
         LOG_D("Adapter structure pointer @0x%p", prAdapter);
 
@@ -805,28 +1007,36 @@ MPInitialize (
 		prAdapter->parent = prGlueInfo;
         prGlueInfo->prAdapter = prAdapter;
 
+		initStep++;   // initialization step2
 		ndisStatus = wf_usb_dev_init(prAdapter);
 		if(ndisStatus != NDIS_STATUS_SUCCESS) {
             break;
         }
 
+		initStep++;   // initialization step3
 		ndisStatus = wf_nic_dev_init(prAdapter);
 		if(ndisStatus != NDIS_STATUS_SUCCESS) {
             break;
         }
-		
-		ndisStatus = wf_dbg_init(prAdapter);
-		if(ndisStatus != NDIS_STATUS_SUCCESS) {
-            break;
-        }
 
-		ndisStatus = wf_oids_adapt_init(prAdapter);
+		initStep++;   // initialization step4		
+		ndisStatus = wf_mp_oids_init(prAdapter);
 		if(ndisStatus != NDIS_STATUS_SUCCESS) {
             break;
         }
 
 		ndisStatus = wf_attr_init(prGlueInfo);
+		
+		initStep++;   // initialization step5
+		ndisStatus = wf_dbg_init(prAdapter);
+		if(ndisStatus != NDIS_STATUS_SUCCESS) {
+			break;
+		}
 
+		// Start a scan before the request of the OID to make 
+		// BSS list to be displayed on time.
+		wf_set_scan(prAdapter);
+		
 		ndisStatus = windowsReadRegistryParameters(prGlueInfo,
                                            rWrapperConfigurationContext);
         LOG_D("windowsReadRegistryParameters() = %08x", ndisStatus);
@@ -841,12 +1051,17 @@ MPInitialize (
            function that depends on the information supplied to
            NdisMSetAttributesEx.
            e.g. NdisMAllocateMapRegisters  */
+        /* 
+        	Ignore check for hang interface. 
+		*/
         NdisMSetAttributesEx(rMiniportAdapterHandle,
 	         (NDIS_HANDLE) prGlueInfo,
-	         0,
-	         (ULONG) (NDIS_ATTRIBUTE_DESERIALIZE | NDIS_ATTRIBUTE_NO_HALT_ON_SUSPEND),
-	         NdisInterfaceInternal);
+	         12,
+	         (ULONG) (NDIS_ATTRIBUTE_USES_SAFE_BUFFER_APIS | NDIS_ATTRIBUTE_SURPRISE_REMOVE_OK),
+			 NdisInterfaceUSB);
         LOG_D("Set attributes -- OK");
+		
+		initStep++;   // initialization step6
 		ndisStatus = wf_usb_dev_start(prAdapter);
         if(ndisStatus != NDIS_STATUS_SUCCESS) {
             break;
@@ -873,35 +1088,131 @@ MPInitialize (
 
     LOG_D("MPInitialize Completed: %08X (%d)", ndisStatus, prGlueInfo->fgIsCardRemoved);
 
-    if (prAdapter && ndisStatus != NDIS_STATUS_SUCCESS) {
+    if (ndisStatus != NDIS_STATUS_SUCCESS) {
         /* Undo everything if it failed. */
         NdisInterlockedDecrement(&prGlueInfo->exitRefCount);
-		NdisFreeMemory(prAdapter, sizeof(ADAPTER), 0);
-		NdisFreeMemory(prGlueInfo, sizeof(GLUE_INFO_T), 0);
-        return ndisStatus;
-    }
+			
+		nic_info = prAdapter->nic_info;
+		LOG_D("Start to halt this dirver.");
+		if(prAdapter){
+			if(nic_info)
+			{
+				nic_info->is_surprise_removed = wf_true;
+			}
 
+			switch(initStep)
+			{
+				case 6:
+					wf_mp_dev_stop(prAdapter);
+				case 5:
+					wf_dbg_deinit(prAdapter);
+				case 4:
+					wf_mp_oids_deinit(prAdapter);
+				case 3:
+					wf_nic_dev_deinit(prAdapter);
+				case 2:
+					wf_usb_dev_deinit(prAdapter);
+				case 1:
+					prAdapter->dev_state = WF_DEV_STATE_STOP;			
+					MpFreeGlue(prGlueInfo);
+					break;
+				default:
+					LOG_E("Error! Incorrect initlization step!");
+					break;
+			}
+
+		}
+		WdfDriverMiniportUnload(WdfGetDriver());
+		LOG_D("---Drvier unload success. (INIT failed!)");
+    }
+	if(ndisStatus == NDIS_STATUS_SUCCESS)
+	{		
+		InterlockedIncrement(&Gloabal_NIC_Count);
+	}
     return ndisStatus;
 }   /* mpInitialize */
 
+VOID
+mpPnPEventNotify (
+	IN NDIS_HANDLE			 miniportAdapterContext,
+	IN NDIS_DEVICE_PNP_EVENT pnpEvent,
+	IN PVOID				 informationBuffer_p,
+	IN wf_u32				 informationBufferLength
+	)
+{	
+	P_GLUE_INFO_T prGlueInfo= (P_GLUE_INFO_T)miniportAdapterContext;
+	PADAPTER	prAdapter;
+	prAdapter = (PADAPTER) prGlueInfo->prAdapter;
+	LOG_D("Notify a PnP(Plug-and-Play) event. IRQL:%d", KeGetCurrentIrql());
+
+	switch (pnpEvent) {
+    case NdisDevicePnPEventQueryRemoved:
+        LOG_D("NdisDevicePnPEventQueryRemoved");
+        break;
+
+    case NdisDevicePnPEventRemoved:
+        LOG_D("NdisDevicePnPEventRemoved");
+        break;
+
+    case NdisDevicePnPEventSurpriseRemoved:
+    	wf_mp_suprise_removed(prAdapter);
+		LOG_D("The device was successfully unplugged.");
+        break;
+
+    case NdisDevicePnPEventQueryStopped:
+        LOG_D("NdisDevicePnPEventQueryStopped");
+        break;
+
+    case NdisDevicePnPEventStopped:
+        LOG_D("NdisDevicePnPEventStopped");
+        break;
+
+    case NdisDevicePnPEventPowerProfileChanged:
+    #if NDIS5_DBG
+        switch (*((wf_u32*)informationBuffer_p)) {
+            case 0: /* NdisPowerProfileBattery */
+                LOG_D("NdisDevicePnPEventPowerProfileChanged: NdisPowerProfileBattery");
+                break;
+
+            case 1: /* NdisPowerProfileAcOnline */
+                LOG_D("NdisDevicePnPEventPowerProfileChanged: NdisPowerProfileAcOnline");
+                break;
+
+            default:
+                LOG_D("unknown power profile mode: %d",
+                    *((wf_u32*)informationBuffer_p));
+        }
+    #endif
+
+        break;
+
+    default:
+         LOG_D("unknown PnP event 0x%x", pnpEvent);
+	}
+
+	return;
+}
 
 NTSTATUS
 DriverEntry(PDRIVER_OBJECT DriverObject,PUNICODE_STRING RegistryPath)
 {
 	NDIS_STATUS                   status;
-	NDIS_HANDLE                   ndisWrapperHandle;
 	NDIS_MINIPORT_CHARACTERISTICS mpChar;
 	NTSTATUS                                ntStatus;
 	WDF_DRIVER_CONFIG                       config;
+	WDF_OBJECT_ATTRIBUTES		  driverAttributes;
 	LOG_D("DriverEntry");
 	LOG_D("DriverEntry: Driver object @0x%p\n", DriverObject);
-	WDF_DRIVER_CONFIG_INIT(&config, WDF_NO_EVENT_CALLBACK);
-	config.DriverInitFlags |= WdfDriverInitNoDispatchOverride;
+
+	WDF_OBJECT_ATTRIBUTES_INIT(&driverAttributes);
+	WDF_DRIVER_CONFIG_INIT(&config, &wf_EvtWdfDriverDeviceAdd);
+	config.EvtDriverUnload = &wf_EvtWdfDriverUnload; 
+	config.DriverInitFlags = WdfDriverInitNoDispatchOverride;
 	LOG_D("IRQL_LEVEL: %d", KeGetCurrentIrql());
 
 	ntStatus = WdfDriverCreate(DriverObject,
 		RegistryPath,
-		WDF_NO_OBJECT_ATTRIBUTES,
+		&driverAttributes,
 		&config,
 		WDF_NO_HANDLE); //vm control
 	if (!NT_SUCCESS(ntStatus)) {
@@ -942,7 +1253,7 @@ DriverEntry(PDRIVER_OBJECT DriverObject,PUNICODE_STRING RegistryPath)
 #ifdef NDIS51_MINIPORT
 	mpChar.CancelSendPacketsHandler = NULL;
 	/*mpChar.CancelSendPacketsHandler = MPCancelSendPackets; */
-	mpChar.PnPEventNotifyHandler = NULL;//mpPnPEventNotify;
+	mpChar.PnPEventNotifyHandler = mpPnPEventNotify;
 	mpChar.AdapterShutdownHandler = mpShutdown;
 #endif
 
@@ -971,6 +1282,7 @@ DriverEntry(PDRIVER_OBJECT DriverObject,PUNICODE_STRING RegistryPath)
 		LOG_D("Register NDIS %d.%d miniport ==> FAILED (status=0x%x)\n",
 			mp_ndis_major, mp_ndis_minor, status);
 		NdisTerminateWrapper(ndisWrapperHandle, NULL);
+		WdfDriverMiniportUnload(WdfGetDriver());
 		return status;
 	}
 	
@@ -1063,8 +1375,6 @@ MpAllocateAdapter(
 			break;
 		}
 		WDF_OBJECT_ATTRIBUTES_INIT_CONTEXT_TYPE(&attributes, WDF_DEVICE_INFO);
-
-		WdfGetDriver();
 
 		ntStatus = WdfDeviceMiniportCreate(WdfGetDriver(),
 			&attributes,
@@ -1170,9 +1480,27 @@ MpFreeAdapter(
 		pAdapter->writeKeyWorkitem = NULL;
 	}
 
+	if(pAdapter->asychOidWorkitem)
+	{
+		WdfObjectDelete(pAdapter->asychOidWorkitem);
+        pAdapter->asychOidWorkitem = NULL;
+	}
+
 	if (pAdapter->WdfDevice) {
 		WdfObjectDelete(pAdapter->WdfDevice);
 	}
+	
+	if(pAdapter->oid != NULL)
+	{
+		if(pAdapter->beSetOid == wf_true)
+		{
+			NdisMSetInformationComplete(pAdapter->MiniportAdapterHandle, NDIS_STATUS_FAILURE);
+		}else
+		{
+			NdisMQueryInformationComplete(pAdapter->MiniportAdapterHandle, NDIS_STATUS_FAILURE);
+		}
+	}
+	NdisMRemoveMiniport(pAdapter->MiniportAdapterHandle);
 
 	wf_free(pAdapter);
 }
@@ -1226,5 +1554,49 @@ NDIS_STATUS MpInitializeWorkitem(PADAPTER pAdapter)
 	ndisStatus = wf_wpa_workitem_init(pAdapter);
 	if(ndisStatus != NDIS_STATUS_SUCCESS) return ndisStatus;
 	ndisStatus = wf_writeKey_workitem_init(pAdapter);
+	if(ndisStatus != NDIS_STATUS_SUCCESS) return ndisStatus;
+	ndisStatus = wf_asychOID_workitem_init(pAdapter);
 	return ndisStatus;
+}
+
+VOID wf_mp_suprise_removed(PADAPTER prAdapter)
+{
+	nic_info_st 		*nic_info;
+	NDIS_STATUS      ndisStatus = NDIS_STATUS_SUCCESS;
+	NTSTATUS		 ntStatus = STATUS_SUCCESS;
+	wf_mib_info_t *mib_info;
+	LARGE_INTEGER timeout = { 0 };
+
+	timeout.QuadPart = DELAY_ONE_MILLISECOND;
+	timeout.QuadPart *= 2000;
+
+	if(prAdapter == NULL) {
+		return;
+	}
+	MP_VERIFY_PASSIVE_IRQL();
+    
+    ntStatus = MP_ACQUIRE_RESET_PNP_LOCK(prAdapter);
+	MP_SET_STATUS_FLAG(prAdapter, MP_ADAPTER_SURPRISE_REMOVED);	
+
+	nic_info = prAdapter->nic_info;
+	nic_info->is_surprise_removed = wf_true;
+	
+	Mp11CompletePendedRequest(prAdapter, NDIS_STATUS_FAILURE);
+
+	mib_info = prAdapter->mib_info;
+	if(mib_info != NULL && nic_info != NULL) {
+		if(mib_info->connect_state == TRUE) {
+			//wf_usb_dev_start(pAdapter);
+			KeClearEvent(&mib_info->halt_deauth_finish);
+			if(!wf_mlme_deauth(nic_info, wf_true)) {
+				//return ndisStatus;
+			}
+			LOG_D("start deauth from ap");
+			if(KeWaitForSingleObject(&mib_info->halt_deauth_finish, Executive, KernelMode, TRUE, &timeout) != STATUS_SUCCESS) {
+				LOG_E("wait scan hidden network timeout!");
+			}
+		}
+	}
+	wf_mp_dev_stop(prAdapter);
+	MP_RELEASE_RESET_PNP_LOCK(prAdapter);  
 }

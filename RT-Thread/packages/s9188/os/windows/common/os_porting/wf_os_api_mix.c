@@ -75,28 +75,29 @@ void wf_os_api_ind_disconnect(void *arg, wf_u8 arg1)
 	PADAPTER padapter = (PADAPTER) pnic_info->hif_node;
 	wf_mib_info_t *mib_info;
 	ULONG reason_code, status_code;
-	PNDIS_OID_REQUEST   request;
 
+#ifdef MP_USE_NDIS6
+	PNDIS_OID_REQUEST   request;
 	UNREFERENCED_PARAMETER(arg1);
 
-	if(pnic_info == NULL || pnic_info->hif_node == NULL) {
+	if (pnic_info == NULL || pnic_info->hif_node == NULL) {
 		LOG_E("nic or padapter is NULL");
 		return;
 	}
 
 	padapter = pnic_info->hif_node;
 
-	if(padapter->mib_info == NULL) {
+	if (padapter->mib_info == NULL) {
 		LOG_E("mib is NULL");
 		return;
 	}
-	
+
 	mib_info = padapter->mib_info;
 	//connect state is false, means the assoc complete is not submit
-	if(mib_info->connect_state == FALSE) {
-		if(padapter->PendedRequest != NULL){
+	if (mib_info->connect_state == FALSE) {
+		if (padapter->PendedRequest != NULL) {
 			request = padapter->PendedRequest;
-			if(request->RequestType == NdisRequestSetInformation &&
+			if (request->RequestType == NdisRequestSetInformation &&
 				request->DATA.SET_INFORMATION.Oid == OID_DOT11_CONNECT_REQUEST) {
 				status_code = WF_MLME_INFO_STATUS_CODE(pnic_info);
 				wf_save_assoc_ssid(padapter, FALSE);
@@ -106,10 +107,11 @@ void wf_os_api_ind_disconnect(void *arg, wf_u8 arg1)
 				Mp11CompletePendedRequest(padapter, NDIS_STATUS_SUCCESS);
 			}
 		}
-	} else {
+	}
+	else {
 		reason_code = WF_MLME_INFO_REASON_CODE(pnic_info);
 
-		switch(reason_code) {
+		switch (reason_code) {
 		case WF_80211_REASON_4WAY_HANDSHAKE_TIMEOUT:
 		case WF_80211_REASON_MIC_FAILURE:
 		case WF_80211_REASON_GROUP_KEY_HANDSHAKE_TIMEOUT:
@@ -123,11 +125,18 @@ void wf_os_api_ind_disconnect(void *arg, wf_u8 arg1)
 			reason_code |= DOT11_ASSOC_STATUS_PEER_DISASSOCIATED;
 			break;
 		}
-		
+
 		wf_submit_disassoc_complete(padapter, reason_code);
 		mib_info->connect_state = FALSE;
 		KeSetEvent(&mib_info->halt_deauth_finish, 0, FALSE);
 	}
+#else
+	wf_submit_disassoc_complete(padapter, reason_code);
+	if(padapter->oid == OID_802_11_SSID || padapter->oid == OID_802_11_BSSID)
+	{
+		Mp11CompletePendedRequest(padapter, NDIS_STATUS_SUCCESS);
+	}
+#endif 
 
 	return;
 }
@@ -196,7 +205,7 @@ void wf_os_api_ind_connect(void *arg, wf_u8 arg1)
 	mib_info = padapter->mib_info;
 
 	UNREFERENCED_PARAMETER(arg1);
-	LOG_D("Indicate connection seccuss.");
+	LOG_D("Indicate connection success.");
 	if(padapter->PendedRequest != NULL) {
 		wf_submit_assoc_complete(padapter, DOT11_ASSOC_STATUS_SUCCESS);
 		wf_submit_connect_complete(padapter, DOT11_CONNECTION_STATUS_SUCCESS);

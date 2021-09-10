@@ -1,4 +1,15 @@
-
+/*
+ * wf_os_api_sema.c
+ *
+ * os sema realization.
+ *
+ * Author: hichard
+ *
+ * Copyright (c) 2020 SmartChip Integrated Circuits(SuZhou ZhongKe) Co.,Ltd
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ */
 /* include */
 #include "wf_os_api.h"
 

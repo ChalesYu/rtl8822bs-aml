@@ -28,7 +28,7 @@ Notes:
 #define DRIVER_VERSION_MINOR    0
 
 #ifndef INLINE
-    #define INLINE      __inline
+    #define INLINE      wf_inline  //__inline
 #endif
 
 

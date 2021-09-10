@@ -11,8 +11,14 @@ extern "C" {
 typedef struct rt_wlan_priv {
   wf_u8 hw_addr[WF_ETH_ALEN];
   nic_info_st *nic;
-  wf_workqueue_mgnt_st tx_wq;
+  wf_workqueue_mgnt_st wlan_tx_wq;
 }rt_wlan_priv_st;
+
+typedef enum { 
+	SEC_MODE_NONE , 
+	SEC_MODE_CCMP ,
+	SEC_MODE_TKIP
+}rt_sec_mode;
 
 int rt_wlan_register (nic_info_st *pnic_info, const char *name);
 int rt_wlan_shutdown(nic_info_st *pnic_info);

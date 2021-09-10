@@ -67,18 +67,6 @@ typedef struct _WF_NDIS_802_11_KEY_T
     wf_u8              ucBssIdx;
 } WF_NDIS_802_11_KEY_T, *P_WF_NDIS_802_11_KEY_T;
 
-typedef struct _ZY_TEST_T
-{
-    wf_u32             u4Length;             /* Length of structure */
-    wf_u32             u4KeyIndex;           /* KeyID */
-    wf_u32             u4KeyLength;          /* Key length in bytes */
-    wf_u8 			   mac_addr[6];
-    PARAM_KEY_RSC       rKeyRSC;
-    wf_u8              aucKeyMaterial[32];    /* Key content by above setting */
-    wf_u8              ucBssIdx;
-} ZY_TEST_T, *P_ZY_TEST_T;
-
-
 typedef struct _WF_NICKEY
 {
     BOOLEAN                     ToBeWritten;

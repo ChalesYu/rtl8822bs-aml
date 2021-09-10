@@ -51,6 +51,10 @@ typedef struct
     wf_s8               adaptivity_th_l2h_ini;
     wf_s8               adaptivity_th_edcca_hl_diff;
 #endif
+    wf_u8               scan_ch_to; /* scan timeout on channel in ms */
+    wf_u8               scan_prb_times; /* scan probe request times on each channel */
+    wf_u8               scan_que_deep; /* wlan_mgmt scan queue deep */
+    wf_u8               scan_que_node_ttl; /* wlan_mgmt scan queue node TTL(time to life) */
 }local_info_st;
 
 #define NIC_INFO_2_WORK_MODE(nic) ((local_info_st *)nic->local_info)->work_mode
@@ -61,6 +65,7 @@ int wf_local_cfg_set_default(nic_info_st *nic_info);
 int wf_local_cfg_get_default(nic_info_st *nic_info);
 sys_work_mode_e wf_local_cfg_get_work_mode (nic_info_st *pnic_info);
 void wf_local_cfg_set_work_mode (nic_info_st *pnic_info, sys_work_mode_e mode);
+wf_s32 wf_rx_config_agg(nic_info_st *nic_info);
 
 
 #endif

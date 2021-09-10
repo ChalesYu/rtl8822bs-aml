@@ -869,6 +869,9 @@ enum wf_80211_mgmt_ht_min_mpdu_spacing
 typedef wf_u8 wf_80211_mgmt_ssid_t[WF_80211_MAX_SSID_LEN + 1];
 
 #define WF_80211_IES_SIZE_MAX               768
+#define WF_WLAN_MGMT_TAG_PROBEREQ_P2P_SIZE_MAX \
+    (WF_OFFSETOF(wf_80211_mgmt_t, probe_req.variable) + WF_80211_IES_SIZE_MAX)
+
 #define WF_80211_MGMT_BEACON_SIZE_MAX \
     (WF_OFFSETOF(wf_80211_mgmt_t, beacon.variable) + WF_80211_IES_SIZE_MAX)
 #define WF_80211_MGMT_PROBERSP_SIZE_MAX \
@@ -1016,8 +1019,14 @@ wf_bool is_snap_hdr(wf_u8 *phdr);
 wf_u8 *get_bssid(wf_u8 *pbuf);
 int wf_80211_mgmt_wpa_parse (void *pwpa, wf_u16 len,
                              wf_u32 *pmulticast_cipher, wf_u32 *punicast_cipher);
+int wf_80211_mgmt_wpa_survey (void *data, wf_u16 data_len,
+                              void **pwpa_ie, wf_u16 *pwpa_ie_len,
+                              wf_u32 *pmulticast_cipher, wf_u32 *punicast_cipher);
 int wf_80211_mgmt_rsn_parse (void *prsn, wf_u16 len,
                              wf_u32 *pgroup_cipher, wf_u32 *pairwise_cipher);
+int wf_80211_mgmt_rsn_survey (void *data, wf_u16 data_len,
+                              void **prsn_ie, wf_u16 *prsn_ie_len,
+                              wf_u32 *pgroup_cipher, wf_u32 *pairwise_cipher);
 int wf_80211_mgmt_wmm_parse (void *pwmm, wf_u16 len);
 int wf_wlan_get_sec_ie(wf_u8 *in_ie, wf_u32 in_len,
                        wf_u8 *rsn_ie, wf_u16 *rsn_len,
@@ -1476,7 +1485,7 @@ typedef struct
             /* followed by Supported rates */
             wf_u8 variable[0];
         } wf_packed reassoc_resp;
-        struct
+        struct action_ie
         {
             wf_u8 action_category;
             wf_u8 action_field;

@@ -1,3 +1,15 @@
+/*
+ * hif.h
+ *
+ * hif api declare.
+ *
+ * Author: hichard
+ *
+ * Copyright (c) 2020 SmartChip Integrated Circuits(SuZhou ZhongKe) Co.,Ltd
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ */
 #ifndef __HIF_H__
 #define __HIF_H__
 #include <rtthread.h>
@@ -159,6 +171,15 @@ unsigned int hif_io_read32(void *node, unsigned int addr,int *err);
 int hif_io_write8(void *node, unsigned int addr, unsigned char value);
 int hif_io_write16(void *node, unsigned int addr, unsigned long value);
 int hif_io_write32(void *node, unsigned int addr, unsigned int value);
+
+#ifdef MCU_CMD_TXD
+wf_u8 wf_io_bulk_read8(void *hif, wf_u16 addr);
+wf_u16 wf_io_bulk_read16(void *hif, wf_u16 addr);
+wf_u32 wf_io_bulk_read32(void *hif, wf_u16 addr);
+int wf_io_bulk_write8(void *hif, wf_u16 addr, wf_u8 value);
+int wf_io_bulk_write16(void *hif, wf_u16 addr, wf_u16 value);
+int wf_io_bulk_write32(void *hif, wf_u16 addr, wf_u32 value);
+#endif
 
 int wf_hif_queue_enable(hif_node_st *hif_node);
 int wf_hif_queue_disable(hif_node_st *hif_node);

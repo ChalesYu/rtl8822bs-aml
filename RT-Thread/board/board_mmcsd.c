@@ -463,6 +463,7 @@ static void stm32_sdmmc_set_iocfg(struct rt_mmcsd_host *host, struct rt_mmcsd_io
   
    u32Config |= SDMMC_CLOCK_EDGE_RISING;
    u32Config |= SDMMC_POWER_SAVE_DISABLE;
+//   u32Config |= SDMMC_POWER_SAVE_ENABLE;
    u32Config |= SDMMC_HW_FLOW_CTRL_ENABLE;
   if(io_cfg->clock >= 50000000)
      u32Config |= SDMMC_HIGHSPEED_ENABLE;
@@ -717,7 +718,7 @@ int rt_hw_mmcsd_init(void)
   
   host->ops = &ops;
   host->freq_min = 375000;
-  host->freq_max = 50000000; //50000000; //25000000; // 8000000;
+  host->freq_max = 3000000; //50000000; //50000000; //25000000; // 8000000;
   host->valid_ocr = VDD_27_28 | VDD_28_29 | VDD_29_30 | VDD_30_31 | VDD_31_32 | 
                     VDD_32_33 | VDD_33_34 | VDD_34_35 | VDD_35_36;
  

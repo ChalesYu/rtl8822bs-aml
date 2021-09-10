@@ -18,7 +18,7 @@
 #include "wf_debug.h"
 
 /* macro */
-#if 1
+#if 0
 #define MLME_DBG(fmt, ...)      LOG_D("[%s:%d][%d]"fmt, __func__, __LINE__, pnic_info->ndev_id, ##__VA_ARGS__)
 #define MLME_ARRAY(data, len)   log_array(data, len)
 #else
@@ -110,12 +110,16 @@ int hw_cfg (nic_info_st *pnic_info, wdn_net_info_st *wdn_info)
 
     ret |= wf_mcu_set_max_ampdu_len(pnic_info, wdn_info->htpriv.rx_ampdu_maxlen);
     ret |= wf_mcu_set_min_ampdu_space(pnic_info, wdn_info->htpriv.rx_ampdu_min_spacing);
-    ret |= wf_mcu_set_config_xmit(pnic_info, WF_XMIT_AMPDU_DENSITY, wdn_info->htpriv.rx_ampdu_min_spacing);
+    //ret |= wf_mcu_set_config_xmit(pnic_info, WF_XMIT_AMPDU_DENSITY, wdn_info->htpriv.rx_ampdu_min_spacing);
 
     get_bratecfg_by_support_dates(wdn_info->datarate, wdn_info->datarate_len, &basic_dr_cfg);
     get_bratecfg_by_support_dates(wdn_info->ext_datarate, wdn_info->ext_datarate_len, &basic_dr_cfg);
     ret |= wf_mcu_set_basic_rate(pnic_info,  basic_dr_cfg);
 
+    ret |= wf_hw_info_set_channnel_bw(pnic_info,
+                                      wdn_info->channel,
+                                      wdn_info->bw_mode,
+                                      wdn_info->channle_offset);
     return ret;
 }
 
@@ -518,15 +522,7 @@ int core_conn_preconnect (nic_info_st *pnic_info)
     }
 
     nic_mlme_hw_access_lock(pnic_info);
-
-    if (wf_hw_info_set_channnel_bw(pnic_info,
-                                   pwdn_info->channel,
-                                   pwdn_info->bw_mode,
-                                   pwdn_info->channle_offset))
-    {
-        MLME_WARN("wf_hw_info_set_channnel_bw failed");
-        return -1;
-    }
+	
     if (wf_mcu_rate_table_update(pnic_info, pwdn_info))
     {
         MLME_WARN("wf_mcu_rate_table_update Failed");
@@ -1034,7 +1030,7 @@ core_conn_maintain_keepalive_thrd (wf_pt_t *pt,  nic_info_st *pnic_info)
 }
 
 wf_inline static
-int core_conn_maintain (wf_pt_t *pt, nic_info_st *pnic_info)
+wf_pt_rst_t core_conn_maintain (wf_pt_t *pt, nic_info_st *pnic_info)
 {
     mlme_info_t *pmlme_info = pnic_info->mlme_info;
     wf_pt_t *pt_keepalive = &pt[1];
@@ -1063,10 +1059,14 @@ int core_conn_maintain (wf_pt_t *pt, nic_info_st *pnic_info)
     PT_END(pt);
 }
 
-wf_inline static int mlme_conn_clearup (nic_info_st *pnic_info)
+wf_inline static
+wf_pt_rst_t mlme_conn_clearup (wf_pt_t *pt, nic_info_st *pnic_info)
 {
     mlme_info_t *pmlme_info = pnic_info->mlme_info;
-    wf_wlan_mgmt_info_t *pwlan_info = (wf_wlan_mgmt_info_t *)pnic_info->wlan_mgmt_info;
+    wf_wlan_mgmt_info_t *pwlan_info =
+        (wf_wlan_mgmt_info_t *)pnic_info->wlan_mgmt_info;
+
+    PT_BEGIN(pt);
 
     MLME_INFO();
 
@@ -1079,7 +1079,14 @@ wf_inline static int mlme_conn_clearup (nic_info_st *pnic_info)
     wf_memset(&pwlan_info->cur_network.mac_addr, 0x0, sizeof(wf_80211_addr_t));
     wf_memset(&pwlan_info->cur_network.bssid, 0x0, sizeof(wf_80211_addr_t));
 
-    return 0;
+    /* clearup data in tx queue */
+    wf_tx_xmit_pending_queue_clear(pnic_info);
+    MLME_DBG("wait hif tx data send done");
+    wf_timer_set(&pmlme_info->keep_alive_timer, 5 * 1000);
+    PT_WAIT_UNTIL(pt, wf_tx_xmit_hif_queue_empty(pnic_info) ||
+                      wf_timer_expired(&pmlme_info->keep_alive_timer));
+
+    PT_END(pt);
 }
 
 #ifdef CFG_ENABLE_ADHOC_MODE
@@ -1244,7 +1251,7 @@ static wf_pt_rst_t mlme_core_thrd (nic_info_st *pnic_info)
     mlme_conn_ibss_t *param;
 #endif
     wf_msg_que_t *pmsg_que = &pmlme_info->msg_que;
-    wf_msg_t *pmsg;
+    wf_msg_t *pmsg = NULL;
     int reason;
 
     PT_BEGIN(pt);
@@ -1254,6 +1261,7 @@ static wf_pt_rst_t mlme_core_thrd (nic_info_st *pnic_info)
         if (pmlme_info->babort_thrd)
         {
             MLME_INFO("thread abort");
+            pmlme_info->abort_thrd_finished = wf_true;
             PT_EXIT(pt);
         }
         if (!wf_msg_pop(pmsg_que, &pmsg))
@@ -1351,7 +1359,6 @@ static wf_pt_rst_t mlme_core_thrd (nic_info_st *pnic_info)
         /* connection maintain handler */
         MLME_INFO("connection maintain");
         PT_SPAWN(pt, pt_sub, core_conn_maintain(pt_sub, pnic_info));
-        wf_mlme_set_connect(pnic_info, wf_false);
         MLME_INFO("connection break");
 
     conn_break:
@@ -1361,9 +1368,10 @@ static wf_pt_rst_t mlme_core_thrd (nic_info_st *pnic_info)
             if (pconn_req->en_disconn_ind)
             {
                 wf_os_api_ind_disconnect(pnic_info, pconn_req->framework);
+                wf_mlme_set_connect(pnic_info, wf_false);
             }
         }
-        mlme_conn_clearup(pnic_info);
+        PT_SPAWN(pt, pt_sub, mlme_conn_clearup(pt_sub, pnic_info));
         wf_msg_del(pmsg_que, pmlme_info->pconn_msg);
         pmlme_info->pconn_msg = NULL;
     }
@@ -1417,6 +1425,13 @@ static wf_pt_rst_t mlme_core_thrd (nic_info_st *pnic_info)
     }
 #endif
 
+    else if(WF_MLME_TAG_P2P == pmsg->tag )
+    {
+        pmlme_info->pp2p_msg = pmsg;
+        PT_SPAWN(pt, pt_sub,wf_p2p_core_thrd(pt_sub,pnic_info,pmsg->value));
+        wf_msg_del(pmsg_que, pmlme_info->pp2p_msg);
+        pmlme_info->pp2p_msg = NULL;
+    }
     else
     {
         MLME_WARN("drop unsuited message(tag: %d)", pmsg->tag);
@@ -1475,6 +1490,11 @@ static int mlme_core (nic_info_st *pnic_info)
     }
 
     MLME_DBG("wait for thread destory...");
+    if(wf_false == pmlme_info->abort_thrd_finished)
+    {
+        MLME_DBG("setting abort_thrd_finished");
+        pmlme_info->abort_thrd_finished = wf_true;
+    }
     while (!wf_os_api_thread_wait_stop(pmlme_info->tid))
     {
         wf_msleep(1);
@@ -1527,6 +1547,45 @@ static int mlme_msg_send (nic_info_st *pnic_info,
 
     return 0;
 }
+
+int wf_mlme_p2p_msg(nic_info_st *pnic_info,wf_msg_tag_t p2p_tag,void *value,wf_u32 len)
+{
+    mlme_info_t *pmlme_info = NULL;
+    wf_msg_que_t *pmsg_que = NULL;
+    p2p_msg_param_st *param = NULL;
+    wf_msg_t *pmsg = NULL;
+    int rst;
+    
+    pmlme_info = pnic_info->mlme_info;
+    if (pmlme_info == NULL)
+    {
+        return -3;
+    }
+
+    pmsg_que = &pmlme_info->msg_que;
+    rst = wf_msg_new(pmsg_que, WF_MLME_TAG_P2P, &pmsg);
+    if (rst)
+    {
+        MLME_WARN("msg new fail error code: %d", rst);
+        return -4;
+    }
+
+    param = (p2p_msg_param_st *)pmsg->value;
+    param->tag = p2p_tag;
+    param->len = len;
+    wf_memcpy(&param->u,value,len);
+    
+    rst = wf_msg_push(pmsg_que, pmsg);
+    if (rst)
+    {
+        wf_msg_del(pmsg_que, pmsg);
+        MLME_WARN("msg push fail error code: %d", rst);
+        return -5;
+    }
+    
+    return 0;
+}
+
 
 int wf_mlme_scan_start (nic_info_st *pnic_info, scan_type_e type,
                         wf_wlan_ssid_t ssids[], wf_u8 ssid_num,
@@ -1706,7 +1765,7 @@ int wf_mlme_conn_start (nic_info_st *pnic_info, wf_80211_bssid_t bssid,
     if (pmlme_info->pconn_msg)
     {
         MLME_DBG("abort current connection");
-        wf_mlme_conn_abort(pnic_info, wf_false);
+        wf_mlme_conn_abort(pnic_info, wf_true);
     }
     /* delete existing connect message */
     if (!wf_msg_get(pmsg_que, &pmsg) && pmsg->tag == WF_MLME_TAG_CONN)
@@ -2042,7 +2101,13 @@ int wf_mlme_abort (nic_info_st *pnic_info)
     }
 
     pmlme_info->babort_thrd = wf_true;
-
+    MLME_INFO("waiting for abort_thrd_finished");
+    while(wf_false == pmlme_info->abort_thrd_finished)
+    {
+        wf_msleep(1);
+    }
+    MLME_INFO("wait until abort_thrd_finished3");
+    
     return 0;
 }
 
@@ -2117,6 +2182,7 @@ wf_inline static int mlme_msg_init (wf_msg_que_t *pmsg_que)
             wf_msg_alloc(pmsg_que, WF_MLME_TAG_CONN_ABORT, sizeof(mlme_conn_abort_t), 2) ||
             wf_msg_alloc(pmsg_que, WF_MLME_TAG_DEAUTH, sizeof(mlme_deauth_t), 1) ||
             wf_msg_alloc(pmsg_que, WF_MLME_TAG_DEASSOC, 0, 1) ||
+            wf_msg_alloc(pmsg_que, WF_MLME_TAG_P2P, sizeof(p2p_msg_param_st), 4) ||
             wf_msg_alloc(pmsg_que, WF_MLME_TAG_SCAN, sizeof(mlme_scan_t), 2) ||
             wf_msg_alloc(pmsg_que, WF_MLME_TAG_SCAN_RSP, sizeof(mlme_scan_rsp_t), 2) ||
             wf_msg_alloc(pmsg_que, WF_MLME_TAG_CONN, sizeof(mlme_conn_t), 2) ||

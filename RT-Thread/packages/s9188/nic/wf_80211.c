@@ -266,6 +266,45 @@ exit :
     return ret;
 }
 
+int wf_80211_mgmt_rsn_survey (void *data, wf_u16 data_len,
+                              void **prsn_ie, wf_u16 *prsn_ie_len,
+                              wf_u32 *pgroup_cipher, wf_u32 *pairwise_cipher)
+{
+    int ret;
+
+    wf_80211_mgmt_ie_t *pie = data;
+    wf_u16 ie_len = data_len;
+
+    do
+    {
+        ret = wf_80211_mgmt_rsn_parse(pie, ie_len,
+                                      pgroup_cipher, pairwise_cipher);
+        if (!ret)
+        {
+            if (prsn_ie)
+            {
+                *prsn_ie = pie;
+            }
+            if (prsn_ie_len)
+            {
+                *prsn_ie_len = ie_len;
+            }
+            break;
+        }
+
+        ie_len -= sizeof(*pie) + pie->len;
+        if (ie_len <= sizeof(*pie))
+        {
+            break;
+        }
+        pie = (wf_80211_mgmt_ie_t *)&pie->data[pie->len];
+    }
+    while (1);
+
+
+    return ret;
+}
+
 static wf_inline wf_u32 get_wpa_cipher_suite (wf_u32 cipher_suite)
 {
     wf_u32 oui;
@@ -419,6 +458,43 @@ exit :
     return ret;
 }
 
+int wf_80211_mgmt_wpa_survey (void *data, wf_u16 data_len,
+                              void **pwpa_ie, wf_u16 *pwpa_ie_len,
+                              wf_u32 *pmulticast_cipher, wf_u32 *punicast_cipher)
+{
+    int ret;
+
+    wf_80211_mgmt_ie_t *pie = data;
+    wf_u16 ie_len = data_len;
+
+    do
+    {
+        ret = wf_80211_mgmt_wpa_parse(pie, ie_len,
+                                      pmulticast_cipher, punicast_cipher);
+        if (!ret)
+        {
+            if (pwpa_ie)
+            {
+                *pwpa_ie = pie;
+            }
+            if (pwpa_ie_len)
+            {
+                *pwpa_ie_len = ie_len;
+            }
+            break;
+        }
+
+        ie_len -= sizeof(*pie) + pie->len;
+        if (ie_len <= sizeof(*pie))
+        {
+            break;
+        }
+        pie = (wf_80211_mgmt_ie_t *)&pie->data[pie->len];
+    }
+    while (1);
+
+    return ret;
+}
 
 int wf_80211_mgmt_wmm_parse (void *pwmm, wf_u16 len)
 {

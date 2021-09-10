@@ -72,12 +72,14 @@
     <PlatformToolset>WindowsKernelModeDriver10.0</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
-    <TargetVersion>Windows10</TargetVersion>
+    <TargetVersion>Windows7</TargetVersion>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>WindowsKernelModeDriver10.0</PlatformToolset>
     <ConfigurationType>Driver</ConfigurationType>
     <DriverType>KMDF</DriverType>
-    <DriverTargetPlatform>Universal</DriverTargetPlatform>
+    <Driver_SpectreMitigation>Spectre</Driver_SpectreMitigation>
+    <KMDF_VERSION_MAJOR>1</KMDF_VERSION_MAJOR>
+    <KMDF_VERSION_MINOR>9</KMDF_VERSION_MINOR>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'" Label="Configuration">
     <TargetVersion>Windows10</TargetVersion>
@@ -137,6 +139,7 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
+    <IncludePath>$(SolutionPath)\..\..\..\..\..\os;..\..\..\common\trx;..\..\..\common\os_porting;..\..\..\common\usb;..\..\..\common\pwr;..\..\..\common\inc;..\..\intf;..\..\mp;$(SolutionPath)\..\..\..\..\..\nic\utility;$(SolutionPath)\..\..\..\..\..\nic\;$(SolutionPath)\..\..\..\..\..\nic\p2p;$(SolutionPath)\..\..\..\..\..\nic\ars;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">
     <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
@@ -167,11 +170,23 @@
       <AdditionalDependencies>$(DDK_LIB_PATH)ndis.lib;$(DDK_LIB_PATH)ntstrsafe.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <ClCompile>
-      <PreprocessorDefinitions>%(PreprocessorDefinitions);NDIS_MINIPORT_DRIVER=1;NDIS620_MINIPORT=1;NDIS60_MINIPORT=1;NDIS_WDM=1;MCU_CMD_MAILBOX=1;CONFIG_LITTLE_ENDIAN=1;CONFIG_CHIP_RICH100=1;CONFIG_RICHV200=1;CONFIG_RICHV200_FPGA=1;CONFIG_SOFT_RX_AGGREGATION=1;CONFIG_ARS_FIRMWARE_SUPPORT=1</PreprocessorDefinitions>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);NDIS_MINIPORT_DRIVER=1;NDIS620_MINIPORT=1;NDIS60_MINIPORT=1;NDIS_WDM=1;MCU_CMD_MAILBOX=1;CONFIG_LITTLE_ENDIAN=1;CONFIG_RICHV200=1;CONFIG_RICHV200_FPGA=1;CONFIG_SOFT_RX_AGGREGATION=1;CONFIG_ARS_FIRMWARE_SUPPORT=1</PreprocessorDefinitions>
       <TreatWarningAsError>false</TreatWarningAsError>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <DisableSpecificWarnings>4200;4201;4214;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <PreprocessorDefinitions>NDIS_MINIPORT_DRIVER=1;NDIS620_MINIPORT=1;NDIS60_MINIPORT=1;NDIS_WDM=1;MCU_CMD_MAILBOX=1;CONFIG_LITTLE_ENDIAN=1;CONFIG_RICHV200=1;CONFIG_RICHV200_FPGA=1;CONFIG_SOFT_RX_AGGREGATION=1;CONFIG_ARS_FIRMWARE_SUPPORT=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <TreatWarningAsError>false</TreatWarningAsError>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <FavorSizeOrSpeed>Size</FavorSizeOrSpeed>
+      <Optimization>MinSpace</Optimization>
+    </ClCompile>
+    <Link>
+      <AdditionalDependencies>$(DDK_LIB_PATH)ndis.lib;$(DDK_LIB_PATH)ntstrsafe.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
     <FilesToPackage Include="$(TargetPath)" />

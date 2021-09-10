@@ -2,6 +2,7 @@
 #define __RX_WINDOWS_H__
 
 #define MAX_RECEIVE_BUFFER_SIZE 32768
+#define MAX_RECV_PKT_SIZE 2000
 
 #define RECV_MGMT_QUE_DEPTH 8
 #define RECV_DATA_QUE_DEPTH 64
@@ -35,28 +36,35 @@ typedef struct wf_recv_pkt_s{
 	PNET_BUFFER_LIST nbl;
 #else
 	PNDIS_PACKET          prPktDescriptor;
-
 #endif
 	DOT11_EXTSTA_RECV_CONTEXT  rx_ctx;
 	UCHAR *src_buffer;
 	UCHAR *buffer;
 	UCHAR rpt_sel;
 	rx_pkt_t nic_pkt;
-	UCHAR tmp_data[2500];
+	wf_u8* tmp_data;
 	WDFMEMORY buf_hdl;
 
+	ULONG idx;
 	void *net_if;
 	LIST_ENTRY list;
 }wf_recv_pkt_t;
 
 typedef struct wf_recv_info_s{
-	wf_recv_pkt_t packet[RECV_QUEUE_DEPTH];
+	wf_thread_t *rx_thread;
+	wf_thread_t *rx_release_thread;
+	KEVENT rx_evt;
+	KEVENT rx_release_evt;
+	void *padapter;
 
 	wf_data_que_t mgmt_pend;
 	wf_data_que_t data_pend;
 	wf_data_que_t comm_free;
-
+	wf_data_que_t to_be_released;
+		
 	LONG proc_cnt;
+
+	wf_recv_pkt_t packet[RECV_QUEUE_DEPTH];
 
 #if defined(MP_USE_NET_BUFFER_LIST)	
 	NDIS_HANDLE nbl_pool;
@@ -65,14 +73,12 @@ typedef struct wf_recv_info_s{
 	//NDIS_HANDLE hBufPool;
 #endif
 
-	wf_thread_t *rx_thread;
-	KEVENT rx_evt;
-	void *padapter;
 }wf_recv_info_t;
 
 
 NDIS_STATUS wf_recv_init(void *param);
 void wf_recv_deinit(void *param);
+#pragma LOCKEDCODE 
 void wf_recv_complete_callback(void *adapter, WDFMEMORY BufferHdl, ULONG data_len, ULONG offset);
 
 NDIS_STATUS wf_recv_release_source(PADAPTER          padapter, wf_recv_pkt_t *pkt);

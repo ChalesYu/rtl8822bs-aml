@@ -1,0 +1,43 @@
+Import('RTT_ROOT')
+from building import *
+
+# get current directory
+cwd = GetCurrentDir()
+
+# The set of source files associated with this SConscript file.
+src = Glob('nic/*.c')
+src += Glob('nic/p2p/*.c')
+src += Glob('nic/utility/*.c')
+src += Glob('os/rt-thread/common/*.c')
+src += Glob('os/rt-thread/components/sta_mgnt/*.c')
+src += Glob('os/rt-thread/components/sta_mgnt/common/*.c')
+src += Glob('os/rt-thread/components/sta_mgnt/crypto/*.c')
+src += Glob('os/rt-thread/components/sta_mgnt/utils/*.c')
+src += Glob('os/rt-thread/components/ap_mgnt/src/*.c')
+src += Glob('os/rt-thread/hif/*.c')
+src += Glob('os/rt-thread/pwr/*.c')
+src += Glob('os/rt-thread/trx/*.c')
+src += Glob('os/rt-thread/wlan_dev/*.c')
+
+# remove richv100 and sw_rich200 files
+SrcRemove(src,['os/rt-thread/pwr/power_rich100.c'])
+SrcRemove(src,['os/rt-thread/pwr/power_sw_rich200.c'])
+
+# cpppath define
+CPPPATH = [cwd + '/nic']
+CPPPATH += [cwd + '/nic/p2p']
+CPPPATH += [cwd + '/nic/utility']
+CPPPATH += [cwd + '/os']
+CPPPATH += [cwd + '/os/rt-thread']
+CPPPATH += [cwd + '/os/rt-thread/components/sta_mgnt']
+CPPPATH += [cwd + '/os/rt-thread/components/sta_mgnt/common']
+CPPPATH += [cwd + '/os/rt-thread/components/sta_mgnt/utils']
+CPPPATH += [cwd + '/os/rt-thread/components/sta_mgnt/crypto']
+CPPPATH += [cwd + '/os/rt-thread/components/ap_mgnt/include']
+
+CPPDEFINES = ['CONFIG_RICHV200']
+CPPDEFINES += ['CONFIG_FW_ENCRYPT']
+
+group = DefineGroup('s9188', src, depend = ['PKG_USING_S9188'], CPPPATH = CPPPATH, CPPDEFINES = CPPDEFINES)
+
+Return('group')

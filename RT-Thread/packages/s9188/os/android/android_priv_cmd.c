@@ -156,7 +156,8 @@ static int android_cmd_set_mgnt_wpsp2pie(nic_info_st *pnic_info,char *command,in
     int bytes_written = 0;
 #ifdef CONFIG_IOCTL_CFG80211
     int skip = strlen(cmd_handle->cmd_name) + 3;
-    
+
+    wf_cfg80211_p2p_cb_reg(pnic_info);
     bytes_written = wf_p2p_parse_ie(pnic_info, command + skip, total_len - skip, *(command + skip - 2) - '0');
 #endif
 
@@ -698,11 +699,11 @@ static int android_cmd_wfd_enable(nic_info_st *pnic_info,char *command,int total
     int bytes_written = 0;
 #ifdef CONFIG_WFD
     p2p_info_st *p2p_info = pnic_info->p2p;
-    struct wifi_display_info *pwfd_info = &p2p_info->wfd_info; 
+    wfd_info_st *pwfd_info = &p2p_info->wfd_info; 
 
     if(pwfd_info->wfd_enable == wf_false)
     {
-        wfd_enable(pnic_info,wf_true);
+        wf_p2p_wfd_enable(pnic_info,wf_true);
     }
 #endif
 
@@ -715,11 +716,11 @@ static int android_cmd_wfd_disable(nic_info_st *pnic_info,char *command,int tota
     int bytes_written = 0;
 #ifdef CONFIG_WFD
     p2p_info_st *p2p_info = pnic_info->p2p;
-    struct wifi_display_info *pwfd_info = &p2p_info->wfd_info; 
+    wfd_info_st *pwfd_info = &p2p_info->wfd_info; 
 
     if(pwfd_info->wfd_enable == wf_true)
     {
-        wfd_enable(pnic_info,wf_false);
+        wf_p2p_wfd_enable(pnic_info,wf_false);
     }
 #endif
 
@@ -744,7 +745,7 @@ int parse_command(char *pcmd)
 
 static int android_cmd_set_tcpport(nic_info_st *pnic_info,char *command,int total_len, android_cmd_handle_st *cmd_handle){
 #ifdef CONFIG_WFD
-    wfd_set_ctrl_port(pnic_info, parse_command(command));
+    wf_p2p_wfd_set_ctrl_port(pnic_info, parse_command(command));
 #endif
 
     return 0;       
@@ -753,7 +754,7 @@ static int android_cmd_set_tcpport(nic_info_st *pnic_info,char *command,int tota
 static int android_cmd_set_wfd_devtype(nic_info_st *pnic_info,char *command,int total_len, android_cmd_handle_st *cmd_handle){
 #ifdef CONFIG_WFD
     p2p_info_st *p2p_info = pnic_info->p2p;
-    struct wifi_display_info *pwfd_info = &p2p_info->wfd_info;
+    wfd_info_st *pwfd_info = &p2p_info->wfd_info;
 
     pwfd_info->wfd_device_type = (wf_u8)parse_command(command);
     pwfd_info->wfd_device_type &= 0x0003;
@@ -874,7 +875,7 @@ int wf_android_priv_cmd_ioctl(struct net_device *net, struct ifreq *ifr, int cmd
     hw_info_st *hw_info = pnic_info->hw_info;
     
 #ifdef CONFIG_WFD
-    //struct wifi_display_info *pwfd_info;
+    //wfd_info_st *pwfd_info;
 #endif
     
     //Func_Of_Proc_Lock_Suspend();

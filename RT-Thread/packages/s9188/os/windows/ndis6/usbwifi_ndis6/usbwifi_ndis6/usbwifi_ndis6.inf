@@ -1,5 +1,5 @@
 ; /****************************************************************************
-; ** DEVELOPED BY MICROSOFT AND SCI SEMICONDUCTOR CORP                   **
+; Copyright (c) MICROSOFT AND SCI SEMICONDUCTOR CORP                   **
 ; ****************************************************************************/
 
 [version]
@@ -8,7 +8,7 @@ Class       = Net
 ClassGUID   = {4d36e972-e325-11ce-bfc1-08002be10318}
 ;Provider    = %SCI% 
 Provider    = %Msft%
-LayoutFile  = layout.inf
+;LayoutFile  = layout.inf
 CatalogFile = usbwifi_ndis6.cat
 DriverVer=06/21/2006,6.0.6001.16436
 
@@ -33,7 +33,7 @@ DriverVer=06/21/2006,6.0.6001.16436
 
 [SCI.ndi.NTx86]
 Characteristics = 0x84
-BusType         = 5
+BusType         = 15
 AddReg          = SCI.reg
 CopyFiles       = SCI.CopyFiles
 *IfType         = 71            ; IF_TYPE_IEEE80211
@@ -42,7 +42,7 @@ CopyFiles       = SCI.CopyFiles
 
 [SCI.ndi.NTAMD64]
 Characteristics = 0x84
-BusType         = 5
+BusType         = 15
 AddReg          = SCI.reg
 CopyFiles       = SCI.CopyFiles
 *IfType         = 71            ; IF_TYPE_IEEE80211
@@ -109,7 +109,7 @@ wdfcoinstaller$KMDFCOINSTALLERVERSION$.dll=1
 
 [DestinationDirs]
 SCI.CopyFiles          = 12
-DefaultDestDirs            = 12
+;DefaultDestDirs            = 12
 ;CoInstaller_CopyFiles	   = 12
 
 ;-------------- WDF Coinstaller installation
@@ -119,20 +119,20 @@ DefaultDestDirs            = 12
 
 [SCI.ndi.NTx86.CoInstallers]
 AddReg=CoInstaller_AddReg
-;CopyFiles=CoInstaller_CopyFiles
+CopyFiles=CoInstaller_CopyFiles
 
 [SCI.ndi.NTAMD64.CoInstallers]
 AddReg=CoInstaller_AddReg
-;CopyFiles=CoInstaller_CopyFiles
+CopyFiles=CoInstaller_CopyFiles
 
-;[CoInstaller_CopyFiles]
+[CoInstaller_CopyFiles]
 ;wdfcoinstaller$KMDFCOINSTALLERVERSION$.dll
 
 ;[SourceDisksFiles]
 ;wdfcoinstaller$KMDFCOINSTALLERVERSION$.dll=1 ; make sure the number matches with SourceDisksNames
 
 [CoInstaller_AddReg]
-HKR,,CoInstallers32,0x00010000, "wdfcoinstaller$KMDFCOINSTALLERVERSION$.dll,WdfCoInstaller"
+HKR,,CoInstallers32,0x00010000, "wdfcoinstaller01009.dll,WdfCoInstaller"
 
 [SCI.ndi.NTx86.Wdf]
 KmdfService = usbwifi_ndis6, realtek_wdfsect
@@ -141,7 +141,7 @@ KmdfService = usbwifi_ndis6, realtek_wdfsect
 KmdfService = usbwifi_ndis6, realtek_wdfsect
 
 [realtek_wdfsect]
-KmdfLibraryVersion = $KMDFVERSION$
+KmdfLibraryVersion = 1.9
 
 ;---------------------------------------------------------------;
 

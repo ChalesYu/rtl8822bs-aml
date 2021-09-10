@@ -175,12 +175,19 @@ typedef struct DOT11_DATA_SHORT_HEADER MP_DOT11_MGMT_DATA_MAC_HEADER, *PMP_DOT11
 #define PKT_INFO_RESERVED_FLAG_1X       BIT(6)
 #define PKT_INFO_RESERVED_FLAG_802_11   BIT(7)
 
+
+#define GET_CUR_PKT_ADDR()
+#define SET_CUR_PKT_ADDR() 
+
 #define GLUE_GET_PKT_QUEUE_ENTRY(_p)    \
             (&( ((PNDIS_PACKET)(_p))->MiniportReservedEx[0] ))
 
 #define GLUE_GET_PKT_DESCRIPTOR(_prQueueEntry)  \
             ( CONTAINING_RECORD(_prQueueEntry, NDIS_PACKET, MiniportReservedEx[0]) )
 
+#define SET_ORG_PKT 0
+
+#if SET_ORG_PKT
 #define GLUE_SET_PKT_TID(_p, _tid)  \
             (*((wf_u8*) &( ((PNDIS_PACKET)(_p))->MiniportReservedEx[4] )) |= \
              ((wf_u8)((_tid) & PKT_INFO_RESERVED_TID_MASK)) )
@@ -209,7 +216,7 @@ typedef struct DOT11_DATA_SHORT_HEADER MP_DOT11_MGMT_DATA_MAC_HEADER, *PMP_DOT11
 #define GLUE_SET_PKT_ARRIVAL_TIME(_p, _rSysTime) \
 				(*((POS_SYSTIME) &( ((PNDIS_PACKET)(_p))->MiniportReservedEx[8] )) = \
 				 (OS_SYSTIME)(_rSysTime))
-
+#endif
 
 #endif // _MP_802_11_COMMON_DEFINES_
 

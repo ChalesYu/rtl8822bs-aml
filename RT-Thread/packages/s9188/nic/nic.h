@@ -154,6 +154,9 @@ typedef struct nic_info
 
     wf_lock_t *mlme_hw_access_lock;
     wf_lock_t *mcu_hw_access_lock;
+
+	wf_u32 agg_time;//ms
+	wf_u32 agg_size;//kB
 } nic_info_st;
 
 int nic_init(nic_info_st *nic_info);

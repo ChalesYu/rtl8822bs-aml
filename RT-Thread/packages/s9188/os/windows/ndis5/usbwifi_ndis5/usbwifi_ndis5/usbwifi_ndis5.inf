@@ -1,5 +1,5 @@
 ; /****************************************************************************
-; ** DEVELOPED BY MICROSOFT AND SCI SEMICONDUCTOR CORP                   **
+; Copyright (c) MICROSOFT AND SCI SEMICONDUCTOR CORP                   
 ; ****************************************************************************/
 
 [version]
@@ -8,13 +8,13 @@ Class       = Net
 ClassGUID   = {4d36e972-e325-11ce-bfc1-08002be10318}
 ;Provider    = %SCI% 
 Provider    = %SCI%
-LayoutFile  = layout.inf
+;LayoutFile  = layout.inf
 CatalogFile = usbwifi_ndis5.cat
 DriverVer = 05/26/2021,17.13.6.320
 
 
 [Manufacturer]
-%SCI%     = SCI, NTx86
+%SCI%     = SCI, NTamd64, NTx86
 
 
 ;[ControlFlags]
@@ -27,9 +27,24 @@ DriverVer = 05/26/2021,17.13.6.320
 ; -----------                   -------         --------
 %SCI.DeviceDesc_9086%       = SCI.ndi,  USB\VID_2310&PID_9086
 
+[SCI.NTamd64]
+; DisplayName                   Section         DeviceID
+; -----------                   -------         --------
+%SCI.DeviceDesc_9188%       = SCI.ndi,  USB\VID_2310&PID_9086
+
 [SCI.ndi.NTx86]
 Characteristics = 0x84
-BusType         = 5
+; BusType 15 is PnPBus
+BusType         = 15 
+AddReg          = SCI.reg
+CopyFiles       = SCI.CopyFiles
+*IfType         = 71            ; IF_TYPE_IEEE80211
+*MediaType      = 16            ; NdisMediumNative802_11
+*PhysicalMediaType = 9          ; NdisPhysicalMediumNative802_11
+
+[SCI.ndi.NTAMD64]
+Characteristics = 0x84
+BusType         = 15
 AddReg          = SCI.reg
 CopyFiles       = SCI.CopyFiles
 *IfType         = 71            ; IF_TYPE_IEEE80211
@@ -37,11 +52,11 @@ CopyFiles       = SCI.CopyFiles
 *PhysicalMediaType = 9          ; NdisPhysicalMediumNative802_11
 
 [SCI.ndi.NTx86.Services]
-AddService = usbwifi_ndis5, 2, SCI.Service, SCI.EventLog
+AddService = USBNWIFI_NDIS5, 2, SCI.Service, SCI.EventLog
 
 
 [SCI.reg]
-HKR, Ndi,                         Service,    0, "usbwifi_ndis5"
+HKR, Ndi,                         Service,    0, "USBNWIFI_NDIS5"
 
 HKR, Ndi\Interfaces,              UpperRange, 0, "ndis5"
 HKR, Ndi\Interfaces,              LowerRange, 0, "wlan,ethernet"
@@ -64,7 +79,7 @@ HKR, Ndi\params\*TransmitBuffers, type,       0, "int"
 
 
 [SCI.Service]
-DisplayName     = %SCI.Service.DispName%
+DisplayName     = %SCI.Service.DispName_S%
 ServiceType     = 1             ;SERVICE_KERNEL_DRIVER
 StartType       = 3             ;SERVICE_DEMAND_START
 ErrorControl    = 1             ;SERVICE_ERROR_NORMAL
@@ -94,7 +109,7 @@ usbwifi_ndis5.sys = 1,,
 
 [DestinationDirs]
 SCI.CopyFiles          = 12
-DefaultDestDirs            = 12
+;DefaultDestDirs            = 12
 CoInstaller_CopyFiles	   = 12
 
 ;-------------- WDF Coinstaller installation
@@ -124,6 +139,7 @@ KmdfLibraryVersion = 1.9
 Msft                         = "SCIS"
 SCI                          = "SCI Semiconductor Corp"
 SCI.DeviceDesc_9086          = "SCI 9188 USB 802.11 bgn Wireless Device"
+SCI.DeviceDesc_9188          = "SCI 9188 USB 802.11 bgn Wireless Device"
 SCI.Service.DispName         = "SCI 9188 802.11 Wireless Device Driver"
 DiskDescription              = "SCI Driver Disk 1"
 TransmitBuffers              = "Transmit Buffers"

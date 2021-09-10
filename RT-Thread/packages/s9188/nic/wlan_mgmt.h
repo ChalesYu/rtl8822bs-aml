@@ -224,6 +224,8 @@ enum
     /* priority level 2 */
     WF_WLAN_MGMT_TAG_BEACON_FRAME       = WF_MSG_TAG_SET(0, 2, 0),
     WF_WLAN_MGMT_TAG_PROBERSP_FRAME,
+    WF_WLAN_MGMT_TAG_PROBEREQ_P2P,
+    WF_WLAN_MGMT_TAG_ACTION,
 
     /* priority level 3 */
     WF_WLAN_MGMT_TAG_SCAN_QUE_REFRESH   = WF_MSG_TAG_SET(0, 3, 0),

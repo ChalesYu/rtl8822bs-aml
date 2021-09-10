@@ -366,6 +366,7 @@
                     <state>$PROJ_DIR$\RT-Thread\components\libc\compilers\dlib\</state>
                     <state>$PROJ_DIR$\RT-Thread\components\net\net_socket\sys_socket\</state>
                     <state>$PROJ_DIR$\RT-Thread\components\net\lwip\</state>
+                    <state>$PROJ_DIR$\RT-Thread\components\net\lwip\dhcp_server\</state>
                     <state>$PROJ_DIR$\RT-Thread\components\net\libhttpd\</state>
                     <state>$PROJ_DIR$\RT-Thread\components\net\lwip\src\</state>
                     <state>$PROJ_DIR$\RT-Thread\components\net\lwip\src\arch\include\</state>
@@ -385,11 +386,12 @@
                     <state>$PROJ_DIR$\RT-Thread\packages\s9188\nic\utility\</state>
                     <state>$PROJ_DIR$\RT-Thread\packages\s9188\os\</state>
                     <state>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\</state>
-                    <state>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\</state>
+                    <state>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\sta_mgnt\</state>
+                    <state>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\sta_mgnt\common</state>
+                    <state>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\sta_mgnt\utils</state>
+                    <state>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\sta_mgnt\crypto</state>
+                    <state>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\ap_mgnt\include</state>
                     <state>$PROJ_DIR$\User\</state>
-                    <state>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\common</state>
-                    <state>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\utils</state>
-                    <state>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\crypto</state>
                 </option>
                 <option>
                     <name>CCStdIncCheck</name>
@@ -5229,6 +5231,15 @@
                 </group>
             </group>
             <group>
+                <name>mem_sandbox</name>
+                <file>
+                    <name>$PROJ_DIR$\RT-Thread\packages\mem_sandbox\mem_sandbox.c</name>
+                </file>
+                <file>
+                    <name>$PROJ_DIR$\RT-Thread\packages\mem_sandbox\mem_sandbox.h</name>
+                </file>
+            </group>
+            <group>
                 <name>minIni</name>
                 <group>
                     <name>dev</name>
@@ -5404,15 +5415,6 @@
                 <group>
                     <name>nic</name>
                     <group>
-                        <name>ars</name>
-                        <file>
-                            <name>$PROJ_DIR$\RT-Thread\packages\s9188\nic\ars\odm.c</name>
-                        </file>
-                        <file>
-                            <name>$PROJ_DIR$\RT-Thread\packages\s9188\nic\ars\odm.h</name>
-                        </file>
-                    </group>
-                    <group>
                         <name>p2p</name>
                         <file>
                             <name>$PROJ_DIR$\RT-Thread\packages\s9188\nic\p2p\p2p.c</name>
@@ -5431,12 +5433,6 @@
                         </file>
                         <file>
                             <name>$PROJ_DIR$\RT-Thread\packages\s9188\nic\p2p\p2p_proto_mgt.h</name>
-                        </file>
-                        <file>
-                            <name>$PROJ_DIR$\RT-Thread\packages\s9188\nic\p2p\p2p_timer.c</name>
-                        </file>
-                        <file>
-                            <name>$PROJ_DIR$\RT-Thread\packages\s9188\nic\p2p\p2p_timer.h</name>
                         </file>
                         <file>
                             <name>$PROJ_DIR$\RT-Thread\packages\s9188\nic\p2p\p2p_wfd.c</name>
@@ -5614,12 +5610,6 @@
                         <name>$PROJ_DIR$\RT-Thread\packages\s9188\nic\sec_wep.c</name>
                     </file>
                     <file>
-                        <name>$PROJ_DIR$\RT-Thread\packages\s9188\nic\trx.c</name>
-                    </file>
-                    <file>
-                        <name>$PROJ_DIR$\RT-Thread\packages\s9188\nic\trx.h</name>
-                    </file>
-                    <file>
                         <name>$PROJ_DIR$\RT-Thread\packages\s9188\nic\tx.c</name>
                     </file>
                     <file>
@@ -5673,235 +5663,130 @@
                     <group>
                         <name>components</name>
                         <group>
-                            <name>wpa_supplicant</name>
+                            <name>ap_mgnt</name>
+                            <file>
+                                <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\ap_mgnt\src\beacon.c</name>
+                            </file>
+                            <file>
+                                <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\ap_mgnt\include\beacon.h</name>
+                            </file>
+                        </group>
+                        <group>
+                            <name>sta_mgnt</name>
                             <group>
                                 <name>common</name>
                                 <file>
-                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\common\wpa_common.c</name>
+                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\sta_mgnt\common\defs.h</name>
                                 </file>
                                 <file>
-                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\common\wpa_common.h</name>
+                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\sta_mgnt\common\wpa_common.c</name>
+                                </file>
+                                <file>
+                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\sta_mgnt\common\wpa_common.h</name>
                                 </file>
                             </group>
                             <group>
                                 <name>crypto</name>
                                 <file>
-                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\crypto\aes-cbc.c</name>
+                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\sta_mgnt\crypto\aes-internal-dec.c</name>
                                 </file>
                                 <file>
-                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\crypto\aes-ccm.c</name>
+                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\sta_mgnt\crypto\aes-internal-enc.c</name>
                                 </file>
                                 <file>
-                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\crypto\aes-ctr.c</name>
+                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\sta_mgnt\crypto\aes-internal.c</name>
                                 </file>
                                 <file>
-                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\crypto\aes-eax.c</name>
+                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\sta_mgnt\crypto\aes-unwrap.c</name>
                                 </file>
                                 <file>
-                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\crypto\aes-encblock.c</name>
+                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\sta_mgnt\crypto\aes-wrap.c</name>
                                 </file>
                                 <file>
-                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\crypto\aes-gcm.c</name>
+                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\sta_mgnt\crypto\aes.h</name>
                                 </file>
                                 <file>
-                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\crypto\aes-internal-dec.c</name>
+                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\sta_mgnt\crypto\aes_wrap.h</name>
                                 </file>
                                 <file>
-                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\crypto\aes-internal-enc.c</name>
+                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\sta_mgnt\crypto\crypto.h</name>
                                 </file>
                                 <file>
-                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\crypto\aes-internal.c</name>
+                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\sta_mgnt\crypto\md5-internal.c</name>
                                 </file>
                                 <file>
-                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\crypto\aes-omac1.c</name>
+                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\sta_mgnt\crypto\md5.h</name>
                                 </file>
                                 <file>
-                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\crypto\aes-siv.c</name>
+                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\sta_mgnt\crypto\random.c</name>
                                 </file>
                                 <file>
-                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\crypto\aes-unwrap.c</name>
+                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\sta_mgnt\crypto\random.h</name>
                                 </file>
                                 <file>
-                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\crypto\aes-wrap.c</name>
+                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\sta_mgnt\crypto\rc4.c</name>
                                 </file>
                                 <file>
-                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\crypto\aes.h</name>
+                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\sta_mgnt\crypto\rc4.h</name>
                                 </file>
                                 <file>
-                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\aes_core.c</name>
+                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\sta_mgnt\crypto\sha1-internal.c</name>
                                 </file>
                                 <file>
-                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\crypto\aes_i.h</name>
+                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\sta_mgnt\crypto\sha1-pbkdf2.c</name>
                                 </file>
                                 <file>
-                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\crypto\aes_siv.h</name>
+                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\sta_mgnt\crypto\sha1-prf.c</name>
                                 </file>
                                 <file>
-                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\crypto\aes_wrap.h</name>
+                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\sta_mgnt\crypto\sha1.c</name>
                                 </file>
                                 <file>
-                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\crypto\crypto.h</name>
+                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\sta_mgnt\crypto\sha1.h</name>
                                 </file>
                                 <file>
-                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\crypto\crypto_internal-cipher.c</name>
+                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\sta_mgnt\crypto\wpa_md5.c</name>
                                 </file>
                                 <file>
-                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\crypto\crypto_internal.c</name>
-                                </file>
-                                <file>
-                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\crypto\crypto_openssl.c</name>
-                                    <excluded>
-                                        <configuration>Debug</configuration>
-                                    </excluded>
-                                </file>
-                                <file>
-                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\crypto\des-internal.c</name>
-                                </file>
-                                <file>
-                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\crypto\des_i.h</name>
-                                </file>
-                                <file>
-                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\crypto\dh_group5.c</name>
-                                </file>
-                                <file>
-                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\crypto\dh_group5.h</name>
-                                </file>
-                                <file>
-                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\crypto\dh_groups.c</name>
-                                </file>
-                                <file>
-                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\crypto\dh_groups.h</name>
-                                </file>
-                                <file>
-                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\crypto\fips_prf_internal.c</name>
-                                </file>
-                                <file>
-                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\crypto\md4-internal.c</name>
-                                </file>
-                                <file>
-                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\crypto\md5-internal.c</name>
-                                </file>
-                                <file>
-                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\crypto\md5_i.h</name>
-                                </file>
-                                <file>
-                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\crypto\milenage.c</name>
-                                </file>
-                                <file>
-                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\crypto\milenage.h</name>
-                                </file>
-                                <file>
-                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\crypto\ms_funcs.c</name>
-                                </file>
-                                <file>
-                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\crypto\ms_funcs.h</name>
-                                </file>
-                                <file>
-                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\utils\os.c</name>
-                                </file>
-                                <file>
-                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\crypto\random.c</name>
-                                </file>
-                                <file>
-                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\crypto\random.h</name>
-                                </file>
-                                <file>
-                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\crypto\rc4.c</name>
-                                </file>
-                                <file>
-                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\crypto\sha1-internal.c</name>
-                                </file>
-                                <file>
-                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\crypto\sha1-pbkdf2.c</name>
-                                </file>
-                                <file>
-                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\crypto\sha1-prf.c</name>
-                                </file>
-                                <file>
-                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\crypto\sha1-tlsprf.c</name>
-                                </file>
-                                <file>
-                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\crypto\sha1-tprf.c</name>
-                                </file>
-                                <file>
-                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\crypto\sha1.c</name>
-                                </file>
-                                <file>
-                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\crypto\sha1.h</name>
-                                </file>
-                                <file>
-                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\crypto\sha1_i.h</name>
-                                </file>
-                                <file>
-                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\crypto\sha256-internal.c</name>
-                                </file>
-                                <file>
-                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\crypto\sha256-kdf.c</name>
-                                </file>
-                                <file>
-                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\crypto\sha256-prf.c</name>
-                                </file>
-                                <file>
-                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\crypto\sha256-tlsprf.c</name>
-                                </file>
-                                <file>
-                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\crypto\sha256.c</name>
-                                </file>
-                                <file>
-                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\crypto\sha256.h</name>
-                                </file>
-                                <file>
-                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\crypto\sha256_i.h</name>
-                                </file>
-                                <file>
-                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\crypto\sha384-prf.c</name>
-                                </file>
-                                <file>
-                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\crypto\sha384.h</name>
-                                </file>
-                                <file>
-                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\crypto\tls.h</name>
-                                </file>
-                                <file>
-                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\crypto\tls_none.c</name>
-                                </file>
-                                <file>
-                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\wpa.c</name>
-                                </file>
-                                <file>
-                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\wpa.h</name>
-                                </file>
-                                <file>
-                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\crypto\wpa_md5.c</name>
-                                </file>
-                                <file>
-                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\crypto\wpa_md5.h</name>
-                                </file>
-                            </group>
-                            <group>
-                                <name>src</name>
-                                <file>
-                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\cfg80211.c</name>
-                                </file>
-                                <file>
-                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\cfg80211.h</name>
-                                </file>
-                                <file>
-                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\wifi_bsp.c</name>
-                                </file>
-                                <file>
-                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\wifi_bsp.h</name>
+                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\sta_mgnt\crypto\wpa_md5.h</name>
                                 </file>
                             </group>
                             <group>
                                 <name>utils</name>
                                 <file>
-                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\utils\wpabuf.c</name>
+                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\sta_mgnt\utils\common.h</name>
                                 </file>
                                 <file>
-                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\wpa_supplicant\utils\wpabuf.h</name>
+                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\sta_mgnt\utils\os.c</name>
+                                </file>
+                                <file>
+                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\sta_mgnt\utils\os.h</name>
+                                </file>
+                                <file>
+                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\sta_mgnt\utils\wpabuf.c</name>
+                                </file>
+                                <file>
+                                    <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\sta_mgnt\utils\wpabuf.h</name>
                                 </file>
                             </group>
+                            <file>
+                                <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\sta_mgnt\cfg80211.c</name>
+                            </file>
+                            <file>
+                                <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\sta_mgnt\cfg80211.h</name>
+                            </file>
+                            <file>
+                                <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\sta_mgnt\wifi_inf.c</name>
+                            </file>
+                            <file>
+                                <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\sta_mgnt\wifi_inf.h</name>
+                            </file>
+                            <file>
+                                <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\sta_mgnt\wpa.c</name>
+                            </file>
+                            <file>
+                                <name>$PROJ_DIR$\RT-Thread\packages\s9188\os\rt-thread\components\sta_mgnt\wpa.h</name>
+                            </file>
                         </group>
                     </group>
                     <group>
@@ -6036,6 +5921,18 @@
                 </file>
                 <file>
                     <name>$PROJ_DIR$\RT-Thread\packages\tlsf\tlsf_malloc.h</name>
+                </file>
+            </group>
+            <group>
+                <name>vi</name>
+                <file>
+                    <name>$PROJ_DIR$\RT-Thread\packages\vi\vi.c</name>
+                </file>
+                <file>
+                    <name>$PROJ_DIR$\RT-Thread\packages\vi\vi_utils.c</name>
+                </file>
+                <file>
+                    <name>$PROJ_DIR$\RT-Thread\packages\vi\vi_utils.h</name>
                 </file>
             </group>
             <group>

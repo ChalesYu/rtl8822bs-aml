@@ -54,7 +54,7 @@ int wf_iw_reg_read(struct net_device *dev, struct iw_request_info *info, union i
 
 int wf_iw_fw_debug(struct net_device *dev, struct iw_request_info *info, union iwreq_data *wdata, char *extra);
 int wf_iw_ars(struct net_device *dev, struct iw_request_info *info, union iwreq_data *wdata, char *extra);
-int wf_iw_fwdl(struct net_device *dev, struct iw_request_info *info, union iwreq_data *wdata, char *extra);
+int wf_iw_cmddl(struct net_device *dev, struct iw_request_info *info, union iwreq_data *wdata, char *extra);
 int wf_iw_txagg_timestart(struct net_device *dev, struct iw_request_info *info, union iwreq_data *wdata, char *extra);
 
 #endif

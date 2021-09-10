@@ -1,8 +1,14 @@
 #ifndef __WF_OIDS_ADAPT_H__
 #define __WF_OIDS_ADAPT_H__
 
+
 EVT_WDF_WORKITEM wf_set_Wpa_Workitem;
 EVT_WDF_WORKITEM wf_write_key_Workitem;
+EVT_WDF_WORKITEM wf_asych_OID_Workitem;
+
+typedef struct wf_oids_timer_ctx_s {
+    PADAPTER padapter;
+}wf_oids_timer_ctx_t;
 
 typedef struct wf_ap_info_s{
 	wf_u8 valid;
@@ -19,10 +25,7 @@ typedef struct wf_ap_info_s{
 	wf_u32 assoc_resp_len;
 }wf_ap_info_t;
 
-typedef struct wf_oids_timer_ctx_s {
-    PADAPTER padapter;
-	wf_u8 msg_type;
-}wf_oids_timer_ctx_t;
+WDF_DECLARE_CONTEXT_TYPE_WITH_NAME(wf_oids_timer_ctx_t, wf_get_timer_context);
 
 typedef struct _MEDIA_STREAMING_INDICATIONS_T {
     NDIS_802_11_STATUS_TYPE         StatusType;
@@ -62,11 +65,11 @@ NDIS_STATUS wf_set_start_scan(void *nic_info);
 
 NDIS_STATUS wf_submit_scan_complete(PADAPTER pAdapter);
 
-NDIS_STATUS wf_oids_adapt_init(void *adapter);
+//NDIS_STATUS wf_oids_adapt_init(void *adapter);
 
 VOID wf_submit_disassoc_complete(PADAPTER pAdapter, ULONG Reason);
 
-NDIS_STATUS wf_set_start_deassoc(void *adapter);
+NDIS_STATUS wf_set_start_deassoc(void *adapter, wf_bool en_ind);
 
 NDIS_STATUS wf_set_start_assoc (PADAPTER adapter, P_PARAM_SSID_T pDot11SSID);
 
@@ -106,6 +109,8 @@ NDIS_STATUS wf_wpa_workitem_init(PADAPTER pAdapter);
 
 NDIS_STATUS wf_writeKey_workitem_init(PADAPTER pAdapter);
 
+NDIS_STATUS wf_asychOID_workitem_init(PADAPTER pAdapter);
+
 VOID
 wf_assoc_resp_info_update(PADAPTER padapter, rx_pkt_t *nic_pkt);
 
@@ -123,5 +128,18 @@ wf_check_ssid_valid(PADAPTER prAdapter, P_PARAM_SSID_T pDot11SSID);
 
 VOID
 wf_reset_pkt_statistics_info(PADAPTER prAdapter);
+
+// Create a timer to deal with unexpected situation for OIDs such as
+// connection failed.
+NDIS_STATUS wf_oids_exception_timer_create(void *adapter);
+
+void wf_oids_exception_handle(WDFTIMER WdfTimer);
+
+// Save association infomation to local file for next auto connection.
+void wf_save_assoc_ssid(PADAPTER padapter, wf_bool type);
+// Get association information from local file.
+int wf_get_assoc_ssid(PADAPTER padapter, wf_wlan_ssid_t *ssid);
+
+NDIS_STATUS wf_set_scan_hidden_network(PADAPTER padapter, P_PARAM_SSID_T pDot11SSID);
 
 #endif 

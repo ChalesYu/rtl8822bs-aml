@@ -1,3 +1,15 @@
+/*
+ * cfg_parse.c
+ *
+ * used for cfg file parse.
+ *
+ * Author: hichard
+ *
+ * Copyright (c) 2020 SmartChip Integrated Circuits(SuZhou ZhongKe) Co.,Ltd
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ */
 #include "common.h"
 #include "hif.h"
 #include "wf_debug.h"
@@ -15,6 +27,10 @@ static int bw_parse_handle(nic_info_st *nic_info, const char *value);
 static int work_mode_parse_handle(nic_info_st *nic_info, const char *value);
 static int channelplan_parse_handle(nic_info_st *nic_info, const char *value);
 static int ba_func_parse_handle(nic_info_st *nic_info, const char *value);
+static int scan_ch_to_parse_handle(nic_info_st *nic_info, const char *value);
+static int scan_prb_times_handle (nic_info_st *nic_info, const char *value);
+static int scan_que_deep_handle (nic_info_st *nic_info, const char *value);
+static int scan_que_node_ttl_handle (nic_info_st *nic_info, const char *value);
 
 static const struct cfg_parse_t __gl_cfg_parse_st[] = 
 {
@@ -23,7 +39,11 @@ static const struct cfg_parse_t __gl_cfg_parse_st[] =
   {"bw", bw_parse_handle},
   {"work_mode", work_mode_parse_handle},
   {"channelplan", channelplan_parse_handle},
-  {"ba_func", ba_func_parse_handle}
+  {"ba_func", ba_func_parse_handle},
+  {"scan_ch_to", scan_ch_to_parse_handle},
+  {"scan_prb_times", scan_prb_times_handle},
+  {"scan_que_deep", scan_que_deep_handle},
+  {"scan_que_node_ttl", scan_que_node_ttl_handle},
 };
 
 static int ssid_parse_handle(nic_info_st *nic_info, const char *value)
@@ -100,6 +120,42 @@ static int ba_func_parse_handle(nic_info_st *nic_info, const char *value)
   LOG_I("ba_func:%s", value);
   plocal->ba_enable = wf_atoi(value);
   return 0;
+}
+
+static int scan_ch_to_parse_handle (nic_info_st *nic_info, const char *value)
+{
+    local_info_st *plocal = (local_info_st *)nic_info->local_info;
+
+    LOG_I("scan_ch_to:%s", value);
+    plocal->scan_ch_to = wf_atoi(value);
+    return 0;
+}
+
+static int scan_prb_times_handle (nic_info_st *nic_info, const char *value)
+{
+    local_info_st *plocal = (local_info_st *)nic_info->local_info;
+
+    LOG_I("scan_prb_times:%s", value);
+    plocal->scan_prb_times = wf_atoi(value);
+    return 0;
+}
+
+static int scan_que_deep_handle (nic_info_st *nic_info, const char *value)
+{
+    local_info_st *plocal = (local_info_st *)nic_info->local_info;
+
+    LOG_I("scan_que_deep:%s", value);
+    plocal->scan_que_deep = wf_atoi(value);
+    return 0;
+}
+
+static int scan_que_node_ttl_handle (nic_info_st *nic_info, const char *value)
+{
+    local_info_st *plocal = (local_info_st *)nic_info->local_info;
+
+    LOG_I("scan_que_node_ttl:%s", value);
+    plocal->scan_que_node_ttl = wf_atoi(value);
+    return 0;
 }
 
 static void cfg_buffer_handle(const char *in_buffer, char *out_buffer)

@@ -91,6 +91,15 @@ int power_off(struct hif_node_ *node)
         return WF_RETURN_OK;
     }
 
+	/* disable m0 richv300  */
+    value8 = hif_io_read8(node,0x94,NULL);
+    ret = hif_io_write8(node,0x94,value8&0x18);
+    if (WF_RETURN_FAIL == ret)
+    {
+        LOG_E("[%s] WF_CLK_ADDR failed,check!!!",__func__);
+        return WF_RETURN_FAIL;
+    }
+
     switch(node->hif_type)
     {
         case HIF_USB:

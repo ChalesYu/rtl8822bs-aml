@@ -159,9 +159,6 @@
     <ClCompile Include="..\..\..\..\..\nic\sec_wep.c">
       <Filter>Source Files\common\nic</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\..\..\nic\trx.c">
-      <Filter>Source Files\common\nic</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\..\..\..\nic\tx.c">
       <Filter>Source Files\common\nic</Filter>
     </ClCompile>
@@ -183,9 +180,6 @@
     <ClCompile Include="..\..\..\..\..\nic\utility\wf_timer.c">
       <Filter>Source Files\common\nic</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\..\..\nic\ars\odm.c">
-      <Filter>Source Files\common\nic</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\mp\mp_dbg.c">
       <Filter>Source Files\mp</Filter>
     </ClCompile>
@@ -199,9 +193,6 @@
       <Filter>Source Files\common\nic</Filter>
     </ClCompile>
     <ClCompile Include="..\..\..\..\..\nic\p2p\p2p_proto_mgt.c">
-      <Filter>Source Files\common\nic</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\..\..\..\nic\p2p\p2p_timer.c">
       <Filter>Source Files\common\nic</Filter>
     </ClCompile>
     <ClCompile Include="..\..\..\..\..\nic\p2p\p2p_wfd.c">

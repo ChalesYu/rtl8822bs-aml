@@ -28,13 +28,13 @@
 
 
 #define MAILBOX_REG_START  0x00000300
-#define MAILBOX_REG_END	   0x000003DF
+#define MAILBOX_REG_END    0x000003DF
 
-#define MAX_MAILBOX_LEN       	56
-#define MAILBOX_WORD_LEN       	4
+#define MAX_MAILBOX_LEN         56
+#define MAILBOX_WORD_LEN        4
 
-#define MAILBOX_REG_FUNC       	(MAILBOX_REG_START)
-#define MAILBOX_ARG_START  		(MAILBOX_REG_FUNC + MAILBOX_WORD_LEN)
+#define MAILBOX_REG_FUNC        (MAILBOX_REG_START)
+#define MAILBOX_ARG_START       (MAILBOX_REG_FUNC + MAILBOX_WORD_LEN)
 
 #define MAILBOX_MAX_RDLEN       (56 - 1)
 #define MAILBOX_MAX_TXLEN       (56 - 3)
@@ -46,26 +46,26 @@
 
 #define UMSG_NORMAL_INT_MAXTIME    60000 // 1000
 
-#define REG_wMBOX0EVT_MSG_NORMAL		0x01A0
+#define REG_wMBOX0EVT_MSG_NORMAL        0x01A0
 
-#define SHORT_SLOT_TIME					9
-#define BCN_INTERVAL_TIME				100
-#define NON_SHORT_SLOT_TIME				20
+#define SHORT_SLOT_TIME                 9
+#define BCN_INTERVAL_TIME               100
+#define NON_SHORT_SLOT_TIME             20
 
-#define WF_FREQ_ADDR					0X24   /* frequency */
+#define WF_FREQ_ADDR                    0X24   /* frequency */
 
-#define WF_RATE_1M				BIT(0)
-#define WF_RATE_2M				BIT(1)
-#define WF_RATE_5_5M			BIT(2)
-#define WF_RATE_11M				BIT(3)
-#define WF_RATE_6M				BIT(4)
-#define WF_RATE_9M				BIT(5)
-#define WF_RATE_12M				BIT(6)
-#define WF_RATE_18M				BIT(7)
-#define WF_RATE_24M				BIT(8)
-#define WF_RATE_36M				BIT(9)
-#define WF_RATE_48M				BIT(10)
-#define WF_RATE_54M				BIT(11)
+#define WF_RATE_1M              BIT(0)
+#define WF_RATE_2M              BIT(1)
+#define WF_RATE_5_5M            BIT(2)
+#define WF_RATE_11M             BIT(3)
+#define WF_RATE_6M              BIT(4)
+#define WF_RATE_9M              BIT(5)
+#define WF_RATE_12M             BIT(6)
+#define WF_RATE_18M             BIT(7)
+#define WF_RATE_24M             BIT(8)
+#define WF_RATE_36M             BIT(9)
+#define WF_RATE_48M             BIT(10)
+#define WF_RATE_54M             BIT(11)
 
 #define WF_SECURITY_CAM_SIZE (24)
 #define WF_SECURITY_KEY_SIZE (16)
@@ -75,20 +75,23 @@
 #define wMBOX1_MEDIA_STATUS_RPT_LEN     3
 
 
-enum _REG_PREAMBLE_MODE {
-	PREAMBLE_LONG = 1,
-	PREAMBLE_AUTO = 2,
-	PREAMBLE_SHORT = 3,
+enum _REG_PREAMBLE_MODE
+{
+    PREAMBLE_LONG = 1,
+    PREAMBLE_AUTO = 2,
+    PREAMBLE_SHORT = 3,
 };
 
 /*copy from origin 9082*/
-enum WLAN_WL_H2M_ENUM_TYPE {
-	WLAN_WL_H2M_PWR_TPPES = 0x20,
-	WLAN_WL_H2M_SYS_CALIBRATION = 0x6D,
+enum WLAN_WL_H2M_ENUM_TYPE
+{
+    WLAN_WL_H2M_PWR_TPPES = 0x20,
+    WLAN_WL_H2M_SYS_CALIBRATION = 0x6D,
 };
 
-typedef enum _UMSG_OPS_CODE {
-	FUNC_REPLY                                      = 0x0,
+typedef enum _UMSG_OPS_CODE
+{
+    FUNC_REPLY                                      = 0x0,
     UMSG_OPS_READ_VERSION                           = 0x01,
     UMSG_OPS_HAL_EFUSEMAP                           = 0x08,
     UMSG_OPS_HAL_EFUSEMAP_LEN                       = 0x09,
@@ -96,14 +99,14 @@ typedef enum _UMSG_OPS_CODE {
 
     UMSG_OPS_HAL_INIT_STEP0                         = 0x11,    // usb
     UMSG_OPS_HAL_GET_BCN_PAR                        = 0x111,   // sdio
-    UMSG_OPS_HAL_INIT_PKT_LEN                       = 0x12,    // sdio    
+    UMSG_OPS_HAL_INIT_PKT_LEN                       = 0x12,    // sdio
     UMSG_OPS_HAL_INIT_ANT_SEL                       = 0x13,    // sdio
     UMSG_OPS_HAL_CCA_CONFIG                         = 0x1A,    // sdio
     UMSG_OPS_HAL_SET_HWREG                          = 0x1C,    // sdio
     UMSG_OPS_HAL_GET_HWREG                          = 0x1D,    // sdio
 
-	UMSG_OPS_HAL_HW_INIT							= 0X10,
-	UMSG_OPS_HAL_CONFIG_MSG                         = 0x1E,
+    UMSG_OPS_HAL_HW_INIT                            = 0X10,
+    UMSG_OPS_HAL_CONFIG_MSG                         = 0x1E,
     UMSG_OPS_HAL_INIT_MSG                           = 0x1F,
     UMSG_OPS_HAL_MSG_WDG                            = 0x20,
     UMSG_OPS_HAL_WRITEVAR_MSG                       = 0x21,
@@ -113,12 +116,13 @@ typedef enum _UMSG_OPS_CODE {
     UMSG_OPS_MSG_RHY_STATUS                         = 0x28,
     UMSG_0PS_MSG_SET_RATE_BITMAP                    = 0x29,
     UMSG_OPS_HAL_GET_MSG_STA_INFO                   = 0x2D,
-	UMSG_OPS_HAL_SYNC_MSG_STA_INFO                  = 0x2E,
-    UMSG_OPS_HAL_ARS_INIT							= 0x2F,
+    UMSG_OPS_HAL_SYNC_MSG_STA_INFO                  = 0x2E,
+    UMSG_OPS_HAL_ARS_INIT                           = 0x2F,
     UMSG_OPS_HAL_MSG_INIT_DEFAULT_VALUE             = 0x3C,
+    UMSG_OPS_HAL_GET_CHNLBW_MODE                    = 0x43,
     UMSG_OPS_HAL_INIT_MSG_VAR                       = 0x44,
-	UMSG_OPS_HAL_CALI_LLC                           = 0x45,
-	UMSG_OPS_HAL_PHY_IQ_CALIBRATE                   = 0x46,
+    UMSG_OPS_HAL_CALI_LLC                           = 0x45,
+    UMSG_OPS_HAL_PHY_IQ_CALIBRATE                   = 0x46,
     UMSG_OPS_HAL_CONFIG_CONCURRENT_MODE             = 0x47,
     UMSG_OPS_HAL_CHNLBW_MODE                        = 0x48,
     UMSG_OPS_HAL_DW_FW                              = 0x49,
@@ -128,7 +132,7 @@ typedef enum _UMSG_OPS_CODE {
     UMSG_OPS_HAL_SET_BCN_REG                        = 0x51,
     UMSG_OPS_HAL_SET_MAC                            = 0x54,
     UMSG_OPS_HAL_SET_BSSID                          = 0x55,
-    
+
     UMSG_OPS_HAL_SET_BCN                            = 0x56,
     UMSG_OPS_HW_SET_BASIC_RATE                      = 0x57,
     UMSG_OPS_HW_SET_OP_MODE                         = 0x58,
@@ -141,6 +145,9 @@ typedef enum _UMSG_OPS_CODE {
     UMSG_OPS_HAL_SEC_WRITE_CAM                      = 0x68,
     UMSG_OPS_HAL_H2C_CMD                            = 0x69,
     UMSG_OPS_HAL_CHECK_RXFIFO_FULL                  = 0x6b,
+#ifdef CONFIG_RICHV200
+    UMSG_OPS_HAL_CHECK_TXBUFF_EMPTY                 = 0x6c,
+#endif
 
     UMSG_OPS_HAL_LPS_OPT                            = 0x7B,
     UMSG_OPS_HAL_LPS_CONFIG                         = 0x7C,
@@ -149,7 +156,7 @@ typedef enum _UMSG_OPS_CODE {
 
     UMSG_OPS_HAL_SET_USB_AGG_NORMAL                 = 0X8D,
     UMSG_OPS_HAL_SET_USB_AGG_CUSTOMER               = 0X8E,
-    
+
     UMSG_OPS_EFUSE_1BYTE                            = 0x92,
     UMSG_OPS_HAL_DEINIT                             = 0x93,
     UMSG_OPS_MP_SET_ANT_TX                          = 0X99,
@@ -299,7 +306,7 @@ typedef enum WLAN__HAL_VALUEIABLES
 } SDIO_HW_VARIABLES;
 
 
-typedef enum _HAL_MSG_VARIABLE 
+typedef enum _HAL_MSG_VARIABLE
 {
     HAL_MSG_STA_INFO,
     HAL_MSG_P2P_STATE,
@@ -316,21 +323,21 @@ typedef enum _HAL_MSG_VARIABLE
 #endif
 } MSG_BODY_VARIABLE;
 
-#define WIFI_NULL_STATE					0x00000000
-#define WIFI_ASOC_STATE					0x00000001
-#define WIFI_SLEEP_STATE				0x00000004
-#define WIFI_STATION_STATE				0x00000008
-#define WIFI_AP_STATE					0x00000010
-#define WIFI_ADHOC_STATE				0x00000020
-#define WIFI_ADHOC_MASTER_STATE			0x00000040
-#define WIFI_UNDER_LINKING				0x00000080
-#define WIFI_UNDER_WPS					0x00000100
-#define WIFI_STA_ALIVE_CHK_STATE		0x00000400
-#define WIFI_SITE_MONITOR				0x00000800
-#define WIFI_MP_STATE					0x00010000
-#define WIFI_OP_CH_SWITCHING			0x00800000
+#define WIFI_NULL_STATE                 0x00000000
+#define WIFI_ASOC_STATE                 0x00000001
+#define WIFI_SLEEP_STATE                0x00000004
+#define WIFI_STATION_STATE              0x00000008
+#define WIFI_AP_STATE                   0x00000010
+#define WIFI_ADHOC_STATE                0x00000020
+#define WIFI_ADHOC_MASTER_STATE         0x00000040
+#define WIFI_UNDER_LINKING              0x00000080
+#define WIFI_UNDER_WPS                  0x00000100
+#define WIFI_STA_ALIVE_CHK_STATE        0x00000400
+#define WIFI_SITE_MONITOR               0x00000800
+#define WIFI_MP_STATE                   0x00010000
+#define WIFI_OP_CH_SWITCHING            0x00800000
 #define WIFI_FW_NO_EXIST                0x01000000
-#define WIFI_MONITOR_STATE				0x80000000
+#define WIFI_MONITOR_STATE              0x80000000
 
 
 
@@ -469,40 +476,40 @@ typedef struct
 
 typedef struct
 {
-	wf_u32 is_normal_chip;
-	wf_u32 customer_id;
-	wf_u32 wifi_spec;
-	wf_u32 cut_version;
-	wf_u32 Regulation2_4G;
-	wf_u32 TypeGPA;
-	wf_u32 TypeAPA;
-	wf_u32 TypeGLNA;
-	wf_u32 TypeALNA;
-	wf_u32 RFEType;
-	wf_u32 PackageType;
-	wf_u32 boardConfig;
+    wf_u32 is_normal_chip;
+    wf_u32 customer_id;
+    wf_u32 wifi_spec;
+    wf_u32 cut_version;
+    wf_u32 Regulation2_4G;
+    wf_u32 TypeGPA;
+    wf_u32 TypeAPA;
+    wf_u32 TypeGLNA;
+    wf_u32 TypeALNA;
+    wf_u32 RFEType;
+    wf_u32 PackageType;
+    wf_u32 boardConfig;
 } phy_config_t;
 
 
 #ifdef CONFIG_RICHV100
 typedef struct fw_init_param_
 {
-	wf_u32 send_msg[7];//input param, usb uses the first DW, but SDIO needs mac addr to send.
-	wf_u32 recv_msg[9];
-}hw_param_st;
+    wf_u32 send_msg[7];//input param, usb uses the first DW, but SDIO needs mac addr to send.
+    wf_u32 recv_msg[9];
+} hw_param_st;
 
 
 #else
 
 typedef struct fw_init_param_
 {
-	wf_u32 work_mode;
-	wf_u32 mac_addr[WF_ETH_ALEN];
-	wf_u32 concurrent_mode;
-	wf_u32 rx_agg_enable;
-}hw_param_st;
+    wf_u32 work_mode;
+    wf_u32 mac_addr[WF_ETH_ALEN];
+    wf_u32 concurrent_mode;
+    wf_u32 rx_agg_enable;
+} hw_param_st;
 #endif
-typedef struct phy_cali_ 
+typedef struct phy_cali_
 {
     wf_u8 TxPowerTrackControl;
     wf_s8 Remnant_CCKSwingIdx;
@@ -511,7 +518,8 @@ typedef struct phy_cali_
 } phy_cali_t;
 
 /*sync to mcu, odm msg*/
-typedef struct odm_msg_st_ {
+typedef struct odm_msg_st_
+{
     wf_u64 tx_bytes;
     wf_u64 rx_bytes;
     wf_u32 cur_wireless_mode;
@@ -552,7 +560,8 @@ typedef enum ODM_ABILITY_OPS_
     ODM_FUNC_RESTORE,
 } MCU_MSG_BODY_ABILITY_OPS;
 
-struct mcu_ht_priv {
+struct mcu_ht_priv
+{
     wf_u8 ht_option;
     wf_u8 ampdu_enable;
     wf_u8 tx_amsdu_enable;
@@ -611,6 +620,9 @@ wf_s32 wf_mcu_set_concurrent_mode(nic_info_st *nic_info, wf_bool concur_mode);
 wf_s32 wf_mcu_set_op_mode(nic_info_st *nic_info, wf_u32 mode);
 wf_s32 wf_mcu_set_hw_invalid_all(nic_info_st *nic_info);
 wf_s32 wf_mcu_set_ch_bw(nic_info_st *nic_info, wf_u32 *args, wf_u32 arg_len);
+wf_s32 wf_mcu_get_ch_bw(nic_info_st *nic_info, wf_u8 *channel,
+                        CHANNEL_WIDTH *cw,
+                        HAL_PRIME_CH_OFFSET *offset);
 wf_s32 wf_mcu_set_hw_reg(nic_info_st *nic_info, wf_u32 * value, wf_u32 len);
 wf_s32 wf_mcu_set_config_xmit(nic_info_st *nic_info, wf_s32 event, wf_u32 val);
 wf_s32 wf_mcu_set_user_info(nic_info_st *nic_info, wf_bool state);
@@ -655,6 +667,7 @@ wf_s32 wf_mcu_msg_sta_info_set(nic_info_st *nic_info, mcu_msg_sta_info_st *msg_s
 
 wf_s32 wf_mcu_rate_table_update(nic_info_st *nic_info, wdn_net_info_st *wdn_net_info);
 
+wf_s32 wf_mcu_set_virnet_connect(nic_info_st *nic_info);
 
 
 #ifdef CONFIG_RICHV100
@@ -690,6 +703,8 @@ wf_s32 wf_mcu_set_ap_mode(nic_info_st *pnic_info);
 wf_s32 wf_mcu_set_sec(nic_info_st *pnic_info);
 wf_s32 wf_ap_odm_connect_media_status(nic_info_st *pnic_info, wdn_net_info_st *pwdn_info);
 wf_s32 wf_ap_odm_disconnect_media_status(nic_info_st *pnic_info,wdn_net_info_st *pwdn_info);
+wf_s32 wf_mcu_disable_ap_mode(nic_info_st *pnic_info);
+
 #endif
 
 #ifdef CFG_ENABLE_ADHOC_MODE

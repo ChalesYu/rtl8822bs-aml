@@ -302,7 +302,7 @@ wf_usb_read_reg(
 										&bytesTransferred);
 	
 	if(!NT_SUCCESS(status)) {
-		//LOG_E("Failed! status=0x%x, val=0x%x, len=%d", status, Value, Length);
+		LOG_E("Failed! status=0x%x, val=0x%x, len=%d", status, Value, Length);
 		status = wf_usb_err_status_map(status);
 	} else {
 		status = WF_RETURN_OK;
@@ -367,7 +367,7 @@ wf_usb_write_reg(
                                         &bytesTransferred);
 
     if(!NT_SUCCESS(status)) {
-        //LOG_E("Failed! status=0x%x, val=0x%x, len=%d", status, Value, Length);
+        LOG_E("Failed! status=0x%x, val=0x%x, len=%d", status, Value, Length);
 		status = wf_usb_err_status_map(status);
     } else {
 		status = WF_RETURN_OK;

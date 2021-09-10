@@ -1,3 +1,15 @@
+/*
+ * power_hw_rich200.c
+ *
+ * power on and power off operate.
+ *
+ * Author: hichard
+ *
+ * Copyright (c) 2020 SmartChip Integrated Circuits(SuZhou ZhongKe) Co.,Ltd
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ */
 #include "common.h"
 #include "hif/hif.h"
 #include "wf_debug.h"

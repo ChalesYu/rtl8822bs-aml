@@ -219,7 +219,7 @@ static int wf_get_tx_info(struct seq_file *m, void *v)
             wf_print_seq(m, "[%d] state:%d, pg_num:%d,agg_num:%d, addr:0x%x\n", data_node->node_id,data_node->state,data_node->pg_num,data_node->agg_num,data_node->addr);
         }
     }
-
+    
     if(HIF_SDIO == hif_info->hif_type)
     {
         hif_sdio_st *sd = &hif_info->u.sdio;
@@ -238,7 +238,8 @@ static int wf_get_tx_info(struct seq_file *m, void *v)
 
     tx_info = pnic_info->tx_info;
     wf_print_seq(m,"free tx frame num:%d,free_xmitbuf_cnt:%d\n",tx_info->free_xmitframe_cnt,tx_info->free_xmitbuf_cnt);
-
+    wf_print_seq(m,"data_queue_check:%d \n",wf_io_write_data_queue_check(pnic_info));
+    wf_print_seq(m,"check_tx_buff:%d\n",wf_mcu_check_tx_buff(pnic_info));
     return 0;
 }
 
@@ -396,6 +397,13 @@ static int wf_get_hif_info(struct seq_file *m, void *v)
             wf_print_seq(m, "[rx] qnode(%d) state:%d, pg_num:%d,agg_num:%d\n", data_node->node_id,data_node->state,data_node->pg_num,data_node->agg_num);
         }
     }
+	if(HIF_SDIO == hif_info->hif_type)
+    {
+        hif_sdio_st *sd = &hif_info->u.sdio;
+		wf_print_seq(m,"[rx] rx_time:%lld ms\n",sd->rx_time );
+		wf_print_seq(m,"[rx] rx_count:%lld\n",sd->rx_count );
+		wf_print_seq(m,"[rx] rx_pkt_num:%lld\n",sd->rx_pkt_num );
+	}
 
     /*hif--tx info*/
     wf_print_seq(m, "[tx] all queue cnt:%lld\n", hif_info->trx_pipe.tx_queue_cnt);
@@ -420,6 +428,9 @@ static int wf_get_hif_info(struct seq_file *m, void *v)
 		wf_print_seq(m,"[tx] tx_all_time:%lld ms\n",sd->tx_all_time);
 		wf_print_seq(m,"[tx] tx_flow_ctl_time:%lld ms\n",sd->tx_flow_ctl_time);
 		wf_print_seq(m,"[tx] tx_agg_send_time:%lld ms\n",sd->tx_agg_send_time);
+		wf_print_seq(m,"[tx] tx_agg_num:%lld \n",sd->tx_agg_num);
+		wf_print_seq(m,"[tx] tx_pkt_num:%lld \n",sd->tx_pkt_num);
+		wf_print_seq(m,"[tx] count:%lld \n",sd->count);
     }
 
     /*register info*/

@@ -524,7 +524,8 @@ wf_pt_rst_t wf_assoc_ap_thrd (nic_info_st *pnic_info, wdn_net_info_st *pwdn_info
                     {
                         break;
                     }
-                    if (pie->data[i] == pcur_network->rate[j])
+                    if ((pie->data[i] & (~IEEE80211_BASIC_RATE_MASK)) == 
+                        (pcur_network->rate[j] & (~IEEE80211_BASIC_RATE_MASK)))
                     {
                         if (pwdn_info->ext_datarate_len <
                             WF_ARRAY_SIZE(pwdn_info->ext_datarate))
@@ -961,17 +962,22 @@ int wf_assoc_frame_parse (nic_info_st *pnic_info, wdn_net_info_st *pwdn_info,
         }
     }
 
+    if (pwdn_info == NULL)
+    {
+        ASSOC_WARN("pwdn_info None pointer");
+        return -3;
+    }
 
     if (!mac_addr_equal(pmgmt->da, nic_to_local_addr(pnic_info)) ||
         !mac_addr_equal(pwdn_info->bssid, wf_wlan_get_cur_bssid(pnic_info)))
     {
         ASSOC_WARN("mac addr is not equl");
-        return -3;
+        return -4;
     }
     if (mgmt_len > sizeof(assoc_rsp_t))
     {
         ASSOC_WARN("mgmt_len:%d",mgmt_len);
-        return -4;
+        return -5;
     }
 
     /* send message */
@@ -985,7 +991,7 @@ int wf_assoc_frame_parse (nic_info_st *pnic_info, wdn_net_info_st *pwdn_info,
         if (rst)
         {
             ASSOC_WARN("msg new fail error fail: %d", rst);
-            return -5;
+            return -6;
         }
         pmsg->len = mgmt_len;
         wf_memcpy(pmsg->value, pmgmt, mgmt_len);
@@ -994,12 +1000,13 @@ int wf_assoc_frame_parse (nic_info_st *pnic_info, wdn_net_info_st *pwdn_info,
         {
             wf_msg_del(pmsg_que, pmsg);
             ASSOC_WARN("msg push fail error fail: %d", rst);
-            return -6;
+            return -7;
         }
     }
 
     return 0;
 }
+
 
 int wf_disassoc_frame_parse (nic_info_st *pnic_info, wdn_net_info_st *pwdn_info,
                              wf_80211_mgmt_t *pmgmt, wf_u16 mgmt_len)
