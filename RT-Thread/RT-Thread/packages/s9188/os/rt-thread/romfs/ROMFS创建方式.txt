@@ -1,0 +1,15 @@
+1、在本目录打开 env，执行命令python mkromfs.py s9188_romfs romfs.c,  即可生成romfs.c的文件
+2、将romfs.c加入工程
+3、将下面代码加入工程，切记如果同时存在多种文件系统，挂载目录和其它文件系统不能冲突。
+  int romfs_mnt(void)
+  {
+    if (dfs_mount(RT_NULL, "/", "rom", 0, &(romfs_root)) == 0) {
+      rt_kprintf("ROM file system initializated!\n");
+    } else {
+      rt_kprintf("ROM file system initializate failed!\n");
+      return 0;
+    }
+  }
+INIT_ENV_EXPORT(romfs_mnt);
+
+命令：python mkromfs.py s9188_romfs romfs.c

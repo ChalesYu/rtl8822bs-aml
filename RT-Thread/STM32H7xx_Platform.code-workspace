@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"files.associations": {
+			"wf_debug.h": "c",
+			"common.h": "c"
+		}
+	}
+}
