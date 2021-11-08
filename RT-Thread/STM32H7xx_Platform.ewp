@@ -3457,6 +3457,15 @@
                         </group>
                         <group>
                             <name>apps</name>
+                            <group>
+                                <name>lwiperf</name>
+                                <excluded>
+                                    <configuration>Debug</configuration>
+                                </excluded>
+                                <file>
+                                    <name>$PROJ_DIR$\RT-Thread\components\net\lwip\src\apps\lwiperf\lwiperf.c</name>
+                                </file>
+                            </group>
                         </group>
                         <group>
                             <name>arch</name>

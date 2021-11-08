@@ -839,4 +839,130 @@ lwiperf_abort(void *lwiperf_session)
   }
 }
 
+#include <rtthread.h>
+#define IPERF_PORT          5001
+
+static void report_fn(void *arg, enum lwiperf_report_type report_type,
+                      const ip_addr_t* local_addr, u16_t local_port,
+                      const ip_addr_t* remote_addr, u16_t remote_port,
+                      u32_t bytes_transferred, u32_t ms_duration,
+                      u32_t bandwidth_kbitpsec)
+{
+    printf("\n\rreport: type=%d, remote: %s  0.0-%.1f sec  %.2f MBytes  %.2f Mbits/sec\n\r",
+           (int)report_type, ipaddr_ntoa(remote_addr),
+           (float)ms_duration/1000, (float)bytes_transferred/1000000,
+           (float)bandwidth_kbitpsec/1000);
+}
+void lwiperf_usage(void)
+{
+    rt_kprintf("Usage: lwiperf [-s|-c host]\n");
+    rt_kprintf("       lwiperf [-h|--stop]\n");
+    rt_kprintf("\n");
+    rt_kprintf("Client/Server:\n");
+    rt_kprintf("  -p #         server port to listen on/connect to\n");
+    rt_kprintf("\n");
+    rt_kprintf("Server specific:\n");
+    rt_kprintf("  -s           run in server mode\n");
+    rt_kprintf("\n");
+    rt_kprintf("Client specific:\n");
+    rt_kprintf("  -c <host>    run in client mode, connecting to <host>\n");
+    rt_kprintf("\n");
+    rt_kprintf("Miscellaneous:\n");
+    rt_kprintf("  -h           print this message and quit\n");
+    rt_kprintf("  --stop       stop iperf program\n");
+    return;
+}
+
+void *iperf_handle = NULL;
+int lwiperf(int argc, char **argv)
+{
+    int mode = 0; /* server mode */
+    char *host = NULL;
+    int port = IPERF_PORT;
+    int numtid = 1;
+    int use_udp = 0;
+    int index = 1;
+
+    if (argc == 1)
+    {
+        goto __usage;
+    }
+    
+    if (strcmp(argv[index], "-h") == 0) goto __usage;
+    else if (strcmp(argv[index], "--stop") == 0)
+    {
+      if (iperf_handle != NULL)
+      {
+        lwiperf_abort(iperf_handle);
+        printf("lwiperf stop success.\r\n");
+        iperf_handle = NULL;
+      }
+      else
+      {
+        printf("lwiperf has not been started.\r\n");
+      }
+      return 0;
+    }
+    else if (strcmp(argv[index], "-s") == 0)
+    {
+      if (iperf_handle != NULL)
+      {
+        printf("lwiperf already exists.\r\n");
+        return 0;
+      }
+      
+      /* iperf -s -p 5000 */
+      if (argc >= 4)
+      {
+        if (strcmp(argv[index + 1], "-p") == 0)
+        {
+          port = atoi(argv[index + 2]);
+        }
+        else goto __usage;
+      }
+      
+      iperf_handle = lwiperf_start_tcp_server_default(report_fn,
+                                                      NULL);
+      printf( "lwiperf success.\r\n");
+    }
+    else if (strcmp(argv[index], "-c") == 0)
+    {
+      struct ip4_addr addr;
+      
+      if (argc < 3) goto __usage;
+      
+      host = argv[index + 1];
+      if (argc >= 5)
+      {
+        /* iperf -c host -p port */
+        if (strcmp(argv[index + 2], "-p") == 0)
+        {
+          port = atoi(argv[index + 3]);
+        }
+        else goto __usage;
+      }
+      
+      
+      if (iperf_handle != NULL)
+      {
+        printf("lwiperf already exists.\r\n");
+        return 0;
+      }
+      ip4addr_aton(host, &addr);
+      iperf_handle = lwiperf_start_tcp_client(&addr, port, LWIPERF_DUAL,
+                                              report_fn, NULL);
+    }
+    else goto __usage;
+
+    return 0;
+
+__usage:
+    lwiperf_usage();
+    return 0;
+}
+
+#ifdef FINSH_USING_MSH
+#include <finsh.h>
+MSH_CMD_EXPORT(lwiperf, lwip network bandwidth measurement tool);
+#endif
 #endif /* LWIP_TCP && LWIP_CALLBACK_API */

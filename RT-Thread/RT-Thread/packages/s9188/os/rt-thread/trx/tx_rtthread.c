@@ -198,35 +198,37 @@ static void tx_work_mpdu_xmit(wf_work_struct *work, void *param)
             if (pxframe->pkt != NULL)
             {
                 res = wf_tx_msdu_to_mpdu(nic_info, pxframe, pxframe->pkt, pxframe->pktlen + WF_ETH_HLEN);
-                wf_free_skb(pxframe->pkt);
-                pxframe->pkt = NULL;
-            }
-
-            if (res == wf_true)
-            {
-                bRet = mpdu_insert_sending_queue(nic_info, pxframe, wf_false);
-                if (bRet == wf_false)
+                if(wf_true == res) 
                 {
+                    bRet = mpdu_insert_sending_queue(nic_info, pxframe, wf_false);
+                    if (bRet == wf_false)
+                    {
+                        wf_xmit_buf_delete(tx_info, pxmitbuf);
+                    }
+                    else
+                    {
+                        wf_free_skb(pxframe->pkt);
+                        pxframe->pkt = NULL;
+                        wf_xmit_frame_delete(tx_info, pxframe);
+                    }
+
+                    bRet = wf_need_wake_queue(nic_info);
+                    if (bRet == wf_true)
+                    {
+                       LOG_W("<<<<ndev tx start queue");
+                    }
+                } else {
+                    LOG_E("wf_tx_msdu_to_mpdu error!!");
+                    wf_free_skb(pxframe->pkt);
+                    pxframe->pkt = NULL;
                     wf_xmit_buf_delete(tx_info, pxmitbuf);
-                }
-                else
-                {
                     wf_xmit_frame_delete(tx_info, pxframe);
-                }
-
-                bRet = wf_need_wake_queue(nic_info);
-                if (bRet == wf_true)
-                {
-                  LOG_W("<<<<ndev tx start queue");
-                }
-            }
-            else
-            {
-                LOG_E("wf_tx_msdu_to_mpdu error!!");
-
+                }  
+            } else {
+                LOG_E("xmit frame pkt is NULL");
                 wf_xmit_buf_delete(tx_info, pxmitbuf);
                 wf_xmit_frame_delete(tx_info, pxframe);
-            } 
+            }
         }
         else
         {

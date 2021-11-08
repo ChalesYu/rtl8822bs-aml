@@ -248,7 +248,7 @@
 //#define TCP_WND_UPDATE_THRESHOLD        LWIP_MIN((TCP_WND / 4), (TCP_MSS * 4))
 #else    // 下面的配置需要更大的RAM，在iperf测速时可以使用
 #define LWIP_TCP                        1
-#define TCP_QUEUE_OOSEQ                 0
+#define TCP_QUEUE_OOSEQ                 LWIP_TCP
 #define TCP_MSS                         1500
 #define TCP_SND_BUF                     (10*TCP_MSS)
 #define TCP_SND_QUEUELEN                ((8 * TCP_SND_BUF)/TCP_MSS)

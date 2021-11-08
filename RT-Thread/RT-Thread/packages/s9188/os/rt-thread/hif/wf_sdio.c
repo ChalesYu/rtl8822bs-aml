@@ -1074,30 +1074,26 @@ static wf_s32 wf_sdio_read_net_data(hif_node_st *hif_node, wf_u32 addr, wf_u8 * 
     while(1);
   }
   
-  while(1)
+  netbuf_node = wf_netbuf_queue_remove(&hif_node->trx_pipe.free_netbuf_queue);
+  if(NULL == netbuf_node)
   {
-    netbuf_node = wf_netbuf_queue_remove(&hif_node->trx_pipe.free_netbuf_queue);
-    if(NULL == netbuf_node)
-    {
-      static wf_u32 sdio_skip_data[WF_MAX_RECV_BUFF_LEN_SDIO/4];
-      sdio_get_fifoaddr_by_que_Index(addr, read_size, &fifo_addr, 0);
-      wf_sdio_req_packet(sd, SDIO_RD, fifo_addr, read_size, sdio_skip_data);   
-      hif_node->trx_pipe.hif_rx_wq.ops->workqueue_work(&hif_node->trx_pipe.hif_rx_wq);
-      
-      rt_kprintf("[%s]:There is no netbuf for recv data", __func__);
-      return -1;
-    }
+    static wf_u32 sdio_skip_data[WF_MAX_RECV_BUFF_LEN_SDIO/4];
+    sdio_get_fifoaddr_by_que_Index(addr, read_size, &fifo_addr, 0);
+    wf_sdio_req_packet(sd, SDIO_RD, fifo_addr, read_size, sdio_skip_data);   
+    hif_node->trx_pipe.hif_rx_wq.ops->workqueue_work(&hif_node->trx_pipe.hif_rx_wq);
     
-    if (netbuf_node->len != 0)
-    {
-      LOG_E("[%s] netbuf len is not zero, no vaild",__func__);
-      netbuf_node->len = 0;
-      wf_enque_tail(&netbuf_node->node, &hif_node->trx_pipe.free_netbuf_queue);
-      return -1;
-    }
-    break;
+    rt_kprintf("[%s]:There is no netbuf for recv data\r\n", __func__);
+    return -1;
   }
   
+  if (netbuf_node->len != 0)
+  {
+    LOG_E("[%s] netbuf len is not zero, no vaild",__func__);
+    netbuf_node->len = 0;
+    wf_enque_tail(&netbuf_node->node, &hif_node->trx_pipe.free_netbuf_queue);
+    return -1;
+  }
+
   sdio_get_fifoaddr_by_que_Index(addr, read_size, &fifo_addr, 1);
   //ret = wf_sdio_req_packet(sd, SDIO_RD, fifo_addr, read_size, netbuf_node->payload);
   ret = sdio_io_read_multi_incr_b(sd->func, fifo_addr, netbuf_node->payload, read_size);

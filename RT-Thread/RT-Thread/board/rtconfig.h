@@ -147,7 +147,7 @@ extern "C" {
 *********************************************************************************************************/
 #define RT_USING_SDIO
 #define RT_MMCSD_STACK_SIZE         2048
-#define RT_SDIO_THREAD_PRIORITY     3
+#define RT_SDIO_THREAD_PRIORITY     6
 #define RT_SDIO_STACK_SIZE          2048
 
  
