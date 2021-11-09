@@ -286,10 +286,10 @@ wf_bool wf_xmit_frame_init(nic_info_st *nic_info, struct xmit_frame *pxmitframe,
     pxmitframe->ether_type = wf_be_u16_to_host_u16(&pethhdr->type);
     pkt_offset += WF_ETH_HLEN;
 
-    if(pxmitframe->bmcast)
+    if (pxmitframe->bmcast)
     {
         pwdn = wf_wdn_find_info(nic_info, bc_addr);
-        if(pwdn == NULL)
+        if (pwdn == NULL)
         {
             LOG_I("get wdn_info fail");
             return wf_false;
@@ -341,7 +341,7 @@ wf_bool wf_xmit_frame_init(nic_info_st *nic_info, struct xmit_frame *pxmitframe,
                 {
                     wf_u8 udp[8];
 
-                    wf_memcpy(udp,msdu_buf+pkt_offset, 8);
+                    wf_memcpy(udp, msdu_buf+pkt_offset, 8);
                     pkt_offset += 8;
 
 #ifdef TX_DEBUG
@@ -365,7 +365,7 @@ wf_bool wf_xmit_frame_init(nic_info_st *nic_info, struct xmit_frame *pxmitframe,
                 {
                     /* TCP */
 
-                    //wf_memcpy(tcp,msdu_buf+pkt_offset, 20);
+                    //wf_memcpy(tcp, msdu_buf+pkt_offset, 20);
                     pkt_offset += 20;
 
 #ifdef TX_DEBUG
@@ -406,7 +406,7 @@ wf_bool wf_xmit_frame_init(nic_info_st *nic_info, struct xmit_frame *pxmitframe,
     //     //DBG_COUNTER(nic_info->tx_logs.core_tx_upd_attrib_active);
     //     wf_lps_wakeup(nic_info, LPS_CTRL_SPECIAL_PACKET, wf_true);
     // }
-    // if(atomic_read(&pwr_info->lps_spc_flag) == 0 && pwr_info->b_fw_current_in_ps_mode == wf_true)
+    // if (atomic_read(&pwr_info->lps_spc_flag) == 0 && pwr_info->b_fw_current_in_ps_mode == wf_true)
     // {
     //     wf_lps_wakeup(nic_info, LPS_CTRL_SPECIAL_PACKET, wf_true);
     //     atomic_set(&pwr_info->lps_spc_flag, 1);
@@ -423,7 +423,7 @@ wf_bool wf_xmit_frame_init(nic_info_st *nic_info, struct xmit_frame *pxmitframe,
     pxmitframe->pkt_hdrlen = WF_ETH_HLEN;
     pxmitframe->hdrlen = WLAN_HDR_A3_LEN;
 
-    if(pwdn->qos_option)
+    if (pwdn->qos_option)
     {
         do_set_qos(pxmitframe, &iphdr);
 
@@ -434,7 +434,7 @@ wf_bool wf_xmit_frame_init(nic_info_st *nic_info, struct xmit_frame *pxmitframe,
     }
 
 #ifdef TX_DEBUG
-    LOG_D("priority:%d",pxmitframe->priority);
+    LOG_D("priority:%d", pxmitframe->priority);
 #endif
 
     pxmitframe->qsel = pxmitframe->priority;
@@ -510,8 +510,8 @@ wf_bool frame_txp_addmic(nic_info_st *nic_info, struct xmit_frame *pxmitframe)
                 wf_sec_mic_append(&micdata, &pframe[10], 6); /* addr2 for SA */
         }
         /* calculate use priority value */
-        if(pxmitframe->pwdn->qos_option)
-            priority[0] = (wf_u8)pxmitframe->priority;
+        if (pxmitframe->pwdn->qos_option)
+        priority[0] = (wf_u8)pxmitframe->priority;
         wf_sec_mic_append(&micdata, &priority[0], 4);
         /* calculate use msdu(all fragments) */
         payload = pframe;
@@ -606,7 +606,7 @@ static wf_bool tx_mac_hdr_build(nic_info_st *nic_info, struct xmit_frame *pxmitf
         return wf_false;
     }
 
-    if(IS_MCAST(pwlanhdr->addr1))
+    if (IS_MCAST(pwlanhdr->addr1))
     {
         pwdn = wf_wdn_find_info(nic_info, bc_addr);
     }
@@ -626,7 +626,7 @@ static wf_bool tx_mac_hdr_build(nic_info_st *nic_info, struct xmit_frame *pxmitf
         return wf_false;
     }
 
-    if(pwdn->qos_option)
+    if (pwdn->qos_option)
     {
         SetFrameSubType(fctrl, WIFI_QOS_DATA_TYPE);
         qos_option = wf_true;
@@ -920,7 +920,7 @@ static void txdesc_phy_fill(nic_info_st *nic_info, struct xmit_frame *pxmitframe
 
 static const wf_u8 __graid_table[] =
 {
-    0, 5, 0, 4,0,3,2,1,0
+    0, 5, 0, 4, 0,3, 2,1, 0
 };
 static wf_inline wf_u8 tx_raid_get(wf_u8 raid)
 {
@@ -933,7 +933,7 @@ static void txdesc_fill(struct xmit_frame *pxmitframe, wf_u8 * pbuf, wf_bool bSe
     wdn_net_info_st *pwdn = pxmitframe->pwdn;
     hw_info_st *hw_info = nic_info->hw_info;
 
-    if(pxmitframe->frame_tag != DATA_FRAMETAG)
+    if (pxmitframe->frame_tag != DATA_FRAMETAG)
     {
         return;
     }
@@ -1010,7 +1010,7 @@ static void txdesc_fill(struct xmit_frame *pxmitframe, wf_u8 * pbuf, wf_bool bSe
         else
         {
             wf_set_bits_to_le_u32(pbuf + 8, 18, 7, DESC_RATE1M);
-            if(wf_p2p_is_valid(nic_info))
+            if (wf_p2p_is_valid(nic_info))
             {
                 wf_set_bits_to_le_u32(pbuf + 8, 18, 7, DESC_RATE6M);
             }
@@ -1037,8 +1037,8 @@ static void txdesc_fill(struct xmit_frame *pxmitframe, wf_u8 * pbuf, wf_bool bSe
         wf_set_bits_to_le_u32(pbuf + 12, 14, 1, 1);
 
     /* set HWSEQ_EN */
-    if(!pwdn->qos_option)
-        wf_set_bits_to_le_u32(pbuf, 18, 1, 1);
+    if (!pwdn->qos_option)
+    wf_set_bits_to_le_u32(pbuf, 18, 1, 1);
 
 #else
 
@@ -1095,7 +1095,7 @@ static void txdesc_fill(struct xmit_frame *pxmitframe, wf_u8 * pbuf, wf_bool bSe
     }
 
 #ifdef CONFIG_SOFT_TX_AGGREGATION
-    WF_TX_DESC_USB_TXAGG_NUM_9086X(pbuf,pxmitframe->agg_num);
+    WF_TX_DESC_USB_TXAGG_NUM_9086X(pbuf, pxmitframe->agg_num);
 #endif
 
     if (bSendAck == wf_true)
@@ -1109,8 +1109,8 @@ static void txdesc_fill(struct xmit_frame *pxmitframe, wf_u8 * pbuf, wf_bool bSe
     if (pxmitframe->bmcast)
         WF_TX_DESC_BMC_9086X(pbuf, 1);
 
-    if(!pwdn->qos_option)
-        WF_TX_DESC_HWSEQ_EN_9086X(pbuf, 1);
+    if (!pwdn->qos_option)
+    WF_TX_DESC_HWSEQ_EN_9086X(pbuf, 1);
 #endif
 }
 
@@ -1273,7 +1273,7 @@ wf_u8 wf_chk_qos(wf_u8 acm_mask, wf_u8 priority, wf_u8 pad)
                     change_priority = 5;
                 break;
             default:
-                LOG_E("[%s]: invalid pattrib->priority: %d!!!",__func__, priority);
+                LOG_E("[%s]: invalid pattrib->priority: %d!!!", __func__, priority);
                 break;
         }
     }
@@ -1338,7 +1338,7 @@ struct xmit_buf *wf_xmit_buf_new(tx_info_st *tx_info)
         pxmitbuf->pkt_len = 0;
         pxmitbuf->agg_num = 0;
         pxmitbuf->send_flag = 0;
-        pxmitbuf->ptail = pxmitbuf->pbuf = (wf_u8 *) WF_N_BYTE_ALIGMENT((SIZE_PTR) (pxmitbuf->pallocated_buf),XMITBUF_ALIGN_SZ);
+        pxmitbuf->ptail = pxmitbuf->pbuf = (wf_u8 *) WF_N_BYTE_ALIGMENT((SIZE_PTR) (pxmitbuf->pallocated_buf), XMITBUF_ALIGN_SZ);
     }
 
     wf_lock_unlock(&pfree_xmitbuf_queue->lock);
@@ -1472,6 +1472,8 @@ wf_bool wf_xmit_extbuf_delete(tx_info_st *tx_info, struct xmit_buf *pxmitbuf)
                         wf_que_list_head(pfree_xmitbuf_queue));
     tx_info->free_xmit_extbuf_cnt++;
     wf_lock_unlock(&pfree_xmitbuf_queue->lock);
+
+    tx_info->tx_pend_flag[pxmitbuf->buffer_id] = 0x0;
 
     return wf_true;
 }
@@ -1668,7 +1670,7 @@ void wf_tx_frame_queue_clear(nic_info_st *nic_info)
     while(1)
     {
         pxframe = wf_tx_data_dequeue(tx_info);
-        if(NULL == pxframe)
+        if (NULL == pxframe)
         {
             break;
         }
@@ -1689,13 +1691,13 @@ int wf_nic_beacon_xmit(nic_info_st *nic_info, struct xmit_buf *pxmitbuf, wf_u16 
 
     tx_info_st *tx_info = nic_info->tx_info;
 
-    if(pxmitbuf == NULL)
+    if (pxmitbuf == NULL)
     {
         LOG_E("[%s]: xmitbuf is NULL", __func__);
         return -1;
     }
 
-    if(WF_CANNOT_RUN(nic_info))
+    if (WF_CANNOT_RUN(nic_info))
     {
         wf_xmit_extbuf_delete(tx_info, pxmitbuf);
         return -1;
@@ -1721,7 +1723,7 @@ int wf_nic_beacon_xmit(nic_info_st *nic_info, struct xmit_buf *pxmitbuf, wf_u16 
     wf_set_bits_to_le_u32(pbuf + 12, 11, 3, 1);
     wf_set_bits_to_le_u32(pbuf + 12, 6, 5, 0); //QSLT_MGNT);
 
-    if(nic_info->nic_num == 1)
+    if (nic_info->nic_num == 1)
     {
         /* set MBSSID */
         wf_set_bits_to_le_u32(pbuf + 12, 18, 1, 1);
@@ -1775,7 +1777,7 @@ int wf_nic_beacon_xmit(nic_info_st *nic_info, struct xmit_buf *pxmitbuf, wf_u16 
 
     WF_TX_DESC_RSVD_9086X(pbuf, 0);
 
-    if(nic_info->nic_num == 1)
+    if (nic_info->nic_num == 1)
     {
         WF_TX_DESC_MBSSID_9086X(pbuf, 1);
     }
@@ -1788,7 +1790,7 @@ int wf_nic_beacon_xmit(nic_info_st *nic_info, struct xmit_buf *pxmitbuf, wf_u16 
     WF_TX_DESC_RETRY_LIMIT_ENABLE_9086X(pbuf, 1);
     WF_TX_DESC_DATA_RETRY_LIMIT_9086X(pbuf, 0);
 
-    if(nic_info->nic_num == 1)
+    if (nic_info->nic_num == 1)
     {
         WF_TX_DESC_MACID_9086X(pbuf, 1);
         WF_TX_DESC_SEQ_9086X(pbuf, 1);
@@ -1819,12 +1821,12 @@ int wf_nic_beacon_xmit(nic_info_st *nic_info, struct xmit_buf *pxmitbuf, wf_u16 
 #endif
 
 #if 0
-    LOG_I("[%s] txd data:",__func__);
+    LOG_I("[%s] txd data:", __func__);
     {
         int i = 0;
-        for(i=0; i<10; i++)
+        for (i = 0; i < 10; i++)
         {
-            printk("0x%x ",((int*)pbuf)[i]);
+            printk("0x%x ", ((int*)pbuf)[i]);
         }
         printk("\n");
     }
@@ -1832,7 +1834,7 @@ int wf_nic_beacon_xmit(nic_info_st *nic_info, struct xmit_buf *pxmitbuf, wf_u16 
     pxmitbuf->qsel     = QSLT_BEACON;
 
     // xmit the frame
-    wf_io_write_data(nic_info,1, (char *)pbuf, len, wf_quary_addr(QSLT_BEACON), (int (*)(void *, void *))wf_xmit_extbuf_delete, tx_info, pxmitbuf);
+    wf_io_write_data(nic_info, 1, (char *)pbuf, len, wf_quary_addr(QSLT_BEACON), (int (*)(void *, void *))wf_xmit_extbuf_delete, tx_info, pxmitbuf);
 
     return 0;
 }
@@ -1848,13 +1850,13 @@ int wf_nic_mgmt_frame_xmit (nic_info_st *nic_info, wdn_net_info_st *wdn,
 #endif
     tx_info_st *tx_info = nic_info->tx_info;
 
-    if(pxmitbuf == NULL)
+    if (pxmitbuf == NULL)
     {
         LOG_E("[%s]: xmitbuf is NULL", __func__);
         return -1;
     }
 
-    if(WF_CANNOT_RUN(nic_info))
+    if (WF_CANNOT_RUN(nic_info))
     {
         wf_xmit_extbuf_delete(tx_info, pxmitbuf);
         return -1;
@@ -1879,7 +1881,7 @@ int wf_nic_mgmt_frame_xmit (nic_info_st *nic_info, wdn_net_info_st *wdn,
     /* set DATA LONG or SHORT*/
 
     /* set TX RATE */
-    if(wf_p2p_is_valid(nic_info))
+    if (wf_p2p_is_valid(nic_info))
     {
         wf_set_bits_to_le_u32(pbuf + 8, 18, 7, DESC_RATE6M);
     }
@@ -1898,7 +1900,7 @@ int wf_nic_mgmt_frame_xmit (nic_info_st *nic_info, wdn_net_info_st *wdn,
     wf_set_bits_to_le_u32(pbuf + 12, 16, 2, 0);
     /* set rate mode, mgmt frame use fix mode */
     wf_set_bits_to_le_u32(pbuf + 16, 5, 1, 0);
-    if(wf_p2p_is_valid(nic_info))
+    if (wf_p2p_is_valid(nic_info))
     {
         /* set RATE ID, mgmt frame use 802.11 G, the number is 1 */
         wf_set_bits_to_le_u32(pbuf + 16, 6, 3, 1);
@@ -1960,9 +1962,9 @@ int wf_nic_mgmt_frame_xmit (nic_info_st *nic_info, wdn_net_info_st *wdn,
 
 // #if 1
 //     LOG_D("Mgmt frame length is %d,  txd:", len);
-//     for(raid=0; raid<len; raid++)
+//     for (raid = 0; raid < len; raid++)
 //     {
-//         if((raid !=0 ) && (raid % 4) == 0)
+//         if ((raid !=0 ) && (raid % 4) == 0)
 //         {
 //             printk("\n");
 //         }
@@ -1983,7 +1985,7 @@ int wf_nic_mgmt_frame_xmit (nic_info_st *nic_info, wdn_net_info_st *wdn,
 
     WF_TX_DESC_RSVD_9086X(pbuf, 0);
 
-    if(nic_info->nic_num == 1)
+    if (nic_info->nic_num == 1)
     {
         WF_TX_DESC_MBSSID_9086X(pbuf, 1);
     }
@@ -2035,7 +2037,7 @@ int wf_nic_mgmt_frame_xmit (nic_info_st *nic_info, wdn_net_info_st *wdn,
         WF_TX_DESC_DATA_SC_9086X(pbuf, HT_DATA_SC_DONOT_CARE);
 
         WF_TX_DESC_USE_RATE_9086X(pbuf, 1);
-        if(wf_p2p_is_valid(nic_info))
+        if (wf_p2p_is_valid(nic_info))
         {
             WF_TX_DESC_RATE_ID_9086X(pbuf, RATEID_IDX_G);
             WF_TX_DESC_TX_RATE_9086X(pbuf, DESC_RATE6M);
@@ -2056,20 +2058,20 @@ int wf_nic_mgmt_frame_xmit (nic_info_st *nic_info, wdn_net_info_st *wdn,
     WF_TX_DESC_HWSEQ_EN_9086X(pbuf, 1);
 
     // add txd checksum
-    if(NIC_USB == nic_info->nic_type)
+    if (NIC_USB == nic_info->nic_type)
     {
         wf_txdesc_chksum(ptxdesc);
     }
 
-    pg_num = (len + 40 +127)/128;
+    //pg_num = (len + 40 +127)/128;
     len += sizeof(struct tx_desc);
 #if 0
-    LOG_I("[%s] txd data:",__func__);
+    LOG_I("[%s] txd data:", __func__);
     {
         int i = 0;
-        for(i=0; i<10; i++)
+        for (i = 0; i < 10; i++)
         {
-            printk("0x%x ",((int*)pbuf)[i]);
+            printk("0x%x ", ((int*)pbuf)[i]);
         }
         printk("\n");
     }
@@ -2077,7 +2079,7 @@ int wf_nic_mgmt_frame_xmit (nic_info_st *nic_info, wdn_net_info_st *wdn,
 #endif
     pxmitbuf->qsel      = QSLT_MGNT;
 
-    //LOG_I("[%s,%d] buffer_id:%d, pg_num:%d",__func__,__LINE__,(int)pxmitbuf->buffer_id,pxmitbuf->pg_num);
+    //LOG_I("[%s, %d] buffer_id:%d, pg_num:%d", __func__, __LINE__, (int)pxmitbuf->buffer_id, pxmitbuf->pg_num);
 
     // xmit the frame
 
@@ -2091,26 +2093,24 @@ int wf_nic_mgmt_frame_xmit (nic_info_st *nic_info, wdn_net_info_st *wdn,
 int wf_nic_mgmt_frame_xmit_with_ack(nic_info_st *nic_info, wdn_net_info_st *wdn, struct xmit_buf *pxmitbuf, wf_u16 len)
 {
     int ret;
-    wf_u8 val;
     wf_u8 *pbuf;
     wf_u8 *pwlanhdr;
 #ifndef CONFIG_RICHV200
     struct tx_desc *ptxdesc;
 #endif
-    wf_u32 timeout = 0;
 
     tx_info_st *tx_info = nic_info->tx_info;
 
-    if(pxmitbuf == NULL)
+    if (pxmitbuf == NULL)
     {
         LOG_E("[%s]: xmitbuf is NULL", __func__);
         return -1;
     }
 
-    if(WF_CANNOT_RUN(nic_info))
+    if (WF_CANNOT_RUN(nic_info))
     {
         wf_xmit_extbuf_delete(tx_info, pxmitbuf);
-        return -1;
+        return -2;
     }
 
 #ifdef CONFIG_RICHV200
@@ -2196,7 +2196,7 @@ int wf_nic_mgmt_frame_xmit_with_ack(nic_info_st *nic_info, wdn_net_info_st *wdn,
         /* set rate mode, mgmt frame use fix mode */
         wf_set_bits_to_le_u32(pbuf + 16, 5, 1, 0);
 
-        if(wf_p2p_is_valid(nic_info))
+        if (wf_p2p_is_valid(nic_info))
         {
             /* set RATE ID, mgmt frame use 802.11 G, the number is 1 */
             wf_set_bits_to_le_u32(pbuf + 16, 6, 3, 1);
@@ -2235,7 +2235,7 @@ int wf_nic_mgmt_frame_xmit_with_ack(nic_info_st *nic_info, wdn_net_info_st *wdn,
 
     WF_TX_DESC_RSVD_9086X(pbuf, 0);
 
-    if(nic_info->nic_num == 1)
+    if (nic_info->nic_num == 1)
     {
         WF_TX_DESC_MBSSID_9086X(pbuf, 1);
     }
@@ -2292,7 +2292,7 @@ int wf_nic_mgmt_frame_xmit_with_ack(nic_info_st *nic_info, wdn_net_info_st *wdn,
         WF_TX_DESC_DATA_SC_9086X(pbuf, HT_DATA_SC_DONOT_CARE);
 
         WF_TX_DESC_USE_RATE_9086X(pbuf, 1);
-        if(wf_p2p_is_valid(nic_info))
+        if (wf_p2p_is_valid(nic_info))
         {
             WF_TX_DESC_RATE_ID_9086X(pbuf, RATEID_IDX_G);
             WF_TX_DESC_TX_RATE_9086X(pbuf, DESC_RATE6M);
@@ -2317,37 +2317,31 @@ int wf_nic_mgmt_frame_xmit_with_ack(nic_info_st *nic_info, wdn_net_info_st *wdn,
 
     // add txd checksum
     wf_txdesc_chksum(ptxdesc);
-    pg_num = (len + 40+127)/128;
+    //pg_num = (len + 40+127)/128;
     len += sizeof(struct tx_desc);
 #endif
 
-    //LOG_I("[%s,%d] buffer_id:%d, pg_num:%d",__func__,__LINE__,(int)pxmitbuf->buffer_id,pxmitbuf->pg_num);
     // xmit the frame
-    wf_io_write8(nic_info, XMIT_ACK_REG, 0);
-    ret = wf_io_write_data(nic_info, 1, (char *)pbuf, len, wf_quary_addr(QSLT_MGNT), (int (*)(void *, void *))wf_xmit_extbuf_delete, tx_info, pxmitbuf);
+    tx_info->tx_pend_flag[pxmitbuf->buffer_id] = 0x55; /* mark for wait until data send done */
+    ret = wf_io_write_data(nic_info,
+                           1,
+                           (char *)pbuf, len,
+                           wf_quary_addr(QSLT_MGNT),
+                           (int (*)(void *, void *))wf_xmit_extbuf_delete,
+                           tx_info,
+                           pxmitbuf);
     if (ret == 0)
     {
-        timeout = 0;
-
-        /*wait ack*/
-        while(timeout < 2000)
+        wf_timer_t timer;
+        wf_timer_set(&timer, 100);
+        while (tx_info->tx_pend_flag[pxmitbuf->buffer_id] == 0x55)
         {
-            if(WF_CANNOT_RUN(nic_info))
-                return -1;
-
-            val = wf_io_read8(nic_info, XMIT_ACK_REG,NULL);
-            if (val)
+            wf_msleep(10);
+            if (wf_timer_expired(&timer));
             {
-                ret = 0;
-                //LOG_D("Get ACK success, time_cnt:%d",timeout);
+                ret = -3;
                 break;
             }
-            else
-            {
-                ret = -1;
-            }
-
-            timeout++;
         }
     }
 
@@ -2425,7 +2419,7 @@ int wf_tx_info_init(nic_info_st *nic_info)
         pxmit_frame->pkt = NULL;
         pxmit_frame->frame_id = (wf_u16)(i+1);
         wf_list_insert_tail(&(pxmit_frame->list), &(tx_info->xmit_frame_queue.head));
-        //LOG_I("[%d] addr:%p",i,pxmit_frame);
+        //LOG_I("[%d] addr:%p", i,pxmit_frame);
         pxmit_frame++;
     }
     tx_info->free_xmitframe_cnt = NR_XMITFRAME;
@@ -2453,8 +2447,8 @@ int wf_tx_info_init(nic_info_st *nic_info)
 
         pxmit_buf->priv_data = NULL;
         pxmit_buf->nic_info = nic_info;
-        pxmit_buf->buffer_id      = (wf_u8)i;
-        //LOG_I("[%d] buffer_addr:%p",i,pxmit_buf);
+        pxmit_buf->buffer_id = (wf_u8)i;
+        //LOG_I("[%d] buffer_addr:%p", i,pxmit_buf);
         if ((res = xmit_buf_resource_new(pxmit_buf, nic_info, MAX_XMITBUF_SZ)) == wf_false)
         {
             wf_msleep(10);
@@ -2498,6 +2492,7 @@ int wf_tx_info_init(nic_info_st *nic_info)
 
         pxmit_buf->priv_data = NULL;
         pxmit_buf->nic_info = nic_info;
+        pxmit_buf->buffer_id = XMIT_DATA_BUFFER_CNT + (wf_u8)i;
 
         if ((res = xmit_buf_resource_new(pxmit_buf, nic_info, MAX_XMIT_EXTBUF_SZ)) == wf_false)
         {
@@ -2533,7 +2528,7 @@ int wf_tx_info_init(nic_info_st *nic_info)
 #endif
     /* pending frame queue init */
     wf_que_init(&tx_info->pending_frame_queue, WF_LOCK_TYPE_IRQ);
-    wf_lock_init(&tx_info->pending_lock,WF_LOCK_TYPE_IRQ);
+    wf_lock_init(&tx_info->pending_lock, WF_LOCK_TYPE_IRQ);
     tx_info->pending_frame_cnt= 0;
 
     tx_info->nic_info = nic_info;
@@ -2815,7 +2810,7 @@ wf_bool wf_tx_msdu_to_mpdu(nic_info_st *nic_info, struct xmit_frame *pxmitframe,
 
         pframe += pxmitframe->hdrlen; /* point to (iv+llc+msdu) filed */
         mpdu_len -= pxmitframe->hdrlen;
-        //LOG_I("[%s]: hdrlen:%d mpdu_len:%d",__func__, pxmitframe->hdrlen, mpdu_len);
+        //LOG_I("[%s]: hdrlen:%d mpdu_len:%d", __func__, pxmitframe->hdrlen, mpdu_len);
 
         /* fill iv filed */
         if (pxmitframe->iv_len)
@@ -2824,7 +2819,7 @@ wf_bool wf_tx_msdu_to_mpdu(nic_info_st *nic_info, struct xmit_frame *pxmitframe,
             pframe += pxmitframe->iv_len;
             mpdu_len -= pxmitframe->iv_len;
         }
-        //LOG_I("[%s]: iv_len:%d mpdu_len:%d",__func__, pattrib->iv_len, mpdu_len);
+        //LOG_I("[%s]: iv_len:%d mpdu_len:%d", __func__, pattrib->iv_len, mpdu_len);
 
         /* fill llc head filed if first fragment */
         if (frg_inx == 0)
@@ -2833,14 +2828,14 @@ wf_bool wf_tx_msdu_to_mpdu(nic_info_st *nic_info, struct xmit_frame *pxmitframe,
             pframe += llc_sz;
             mpdu_len -= llc_sz;
         }
-        //LOG_I("[%s]: llc_sz:%d mpdu_len:%d",__func__, llc_sz, mpdu_len);
+        //LOG_I("[%s]: llc_sz:%d mpdu_len:%d", __func__, llc_sz, mpdu_len);
 
         /* fill fragment msdu filed */
         if (pxmitframe->icv_len && pxmitframe->bswenc)
         {
             mpdu_len -= pxmitframe->icv_len; /* get fragment length(without icv) */
         }
-        //LOG_I("[%s]: icv_len:%d mpdu_len:%d",__func__, pxmitframe->icv_len, mpdu_len);
+        //LOG_I("[%s]: icv_len:%d mpdu_len:%d", __func__, pxmitframe->icv_len, mpdu_len);
 
 
         if (pxmitframe->bmcast)
@@ -2952,7 +2947,7 @@ wf_bool wf_tx_data_check(nic_info_st *nic_info)
     mlme_info_t *mlme_info = nic_info->mlme_info;
     local_info_st * plocal = (local_info_st *)nic_info->local_info;
 
-    if(nic_info->is_up == 0)
+    if (nic_info->is_up == 0)
     {
         goto tx_drop;
     }
@@ -2963,17 +2958,17 @@ wf_bool wf_tx_data_check(nic_info_st *nic_info)
         goto tx_drop;
     }
 
-    if(plocal->work_mode == WF_INFRA_MODE)
+    if (plocal->work_mode == WF_INFRA_MODE)
     {
-        if(mlme_info->connect == wf_false)
+        if (mlme_info->connect == wf_false)
         {
             goto tx_drop;
         }
     }
 #ifdef CFG_ENABLE_AP_MODE
-    else if(plocal->work_mode == WF_MASTER_MODE)
+    else if (plocal->work_mode == WF_MASTER_MODE)
     {
-        if(wf_ap_status_get(nic_info) == WF_AP_STATUS_UNINITILIZED)
+        if (wf_ap_status_get(nic_info) == WF_AP_STATUS_UNINITILIZED)
         {
             goto tx_drop;
         }
@@ -2988,7 +2983,7 @@ wf_bool wf_tx_data_check(nic_info_st *nic_info)
 
 tx_drop:
     ptx_info->tx_drop++;
-    // LOG_W("[%s,%d] tx_drop",__func__,__LINE__);
+    // LOG_W("[%s, %d] tx_drop", __func__, __LINE__);
 
     return wf_false;
 }
@@ -3009,7 +3004,7 @@ void wf_tx_agg_num_fill(wf_u16 agg_num, wf_u8 * pbuf)
 #endif
 }
 
-wf_u32 wf_nic_get_tx_max_len(nic_info_st *nic_info,struct xmit_frame *pxmitframe)
+wf_u32 wf_nic_get_tx_max_len(nic_info_st *nic_info, struct xmit_frame *pxmitframe)
 {
     return MAX_XMITBUF_SZ;
 }
@@ -3025,7 +3020,7 @@ int wf_nic_tx_qsel_check(wf_u8 pre_qsel, wf_u8 next_qsel)
     return chk_rst;
 }
 
-int check_agg_condition(nic_info_st *nic_info,struct xmit_buf *pxmitbuf)
+int check_agg_condition(nic_info_st *nic_info, struct xmit_buf *pxmitbuf)
 {
     return 0;
 }
@@ -3045,8 +3040,8 @@ void wf_tx_xmit_start(nic_info_st *nic_info)
     tx_info_st *ptx_info = nic_info->tx_info;
 
     wf_lock_lock(&ptx_info->lock);
-    if(ptx_info->xmit_stop_flag > 0)
-        ptx_info->xmit_stop_flag--;
+    if (ptx_info->xmit_stop_flag > 0)
+    ptx_info->xmit_stop_flag--;
     wf_lock_unlock(&ptx_info->lock);
     wf_io_tx_xmit_wake(nic_info);
 }

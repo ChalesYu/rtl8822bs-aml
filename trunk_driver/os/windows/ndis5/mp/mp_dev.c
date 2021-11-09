@@ -13,7 +13,7 @@ LONG						  Gloabal_NIC_Count = 0;
 #define LOG_W(fmt,...) DbgPrint("[%s,%d] "fmt"\n",__FUNCTION__,__LINE__,##__VA_ARGS__);
 #define LOG_E(fmt,...) DbgPrint("[%s,%d] "fmt"\n",__FUNCTION__,__LINE__,##__VA_ARGS__);
 
-#define NIC_DRIVER_NAME                 "SCI Inc. 9086 Wireless LAN Adapter Driver"
+#define NIC_DRIVER_NAME                 "ZTOP Inc. 9086 Wireless LAN Adapter Driver"
 
 #ifdef NDIS51_MINIPORT
 static wf_u8 mp_ndis_major = 5;
@@ -1210,16 +1210,6 @@ DriverEntry(PDRIVER_OBJECT DriverObject,PUNICODE_STRING RegistryPath)
 	config.DriverInitFlags = WdfDriverInitNoDispatchOverride;
 	LOG_D("IRQL_LEVEL: %d", KeGetCurrentIrql());
 
-	ntStatus = WdfDriverCreate(DriverObject,
-		RegistryPath,
-		&driverAttributes,
-		&config,
-		WDF_NO_HANDLE); //vm control
-	if (!NT_SUCCESS(ntStatus)) {
-		LOG_E("WdfDriverCreate failed");
-		return NDIS_STATUS_FAILURE;
-	}
-	LOG_D("Created WDF driver successfully.");
 	/* Now we must initialize the wrapper, and then register the Miniport */
 	NdisMInitializeWrapper(&ndisWrapperHandle, DriverObject, RegistryPath, NULL);
 
@@ -1285,7 +1275,19 @@ DriverEntry(PDRIVER_OBJECT DriverObject,PUNICODE_STRING RegistryPath)
 		WdfDriverMiniportUnload(WdfGetDriver());
 		return status;
 	}
+
+	status = 
 	
+	ntStatus = WdfDriverCreate(DriverObject,
+		RegistryPath,
+		&driverAttributes,
+		&config,
+		WDF_NO_HANDLE); //vm control
+	if (!NT_SUCCESS(ntStatus)) {
+		LOG_E("WdfDriverCreate failed");
+		return NDIS_STATUS_FAILURE;
+	}
+	LOG_D("Created WDF driver successfully.");
 	return NDIS_STATUS_SUCCESS;
 }
 

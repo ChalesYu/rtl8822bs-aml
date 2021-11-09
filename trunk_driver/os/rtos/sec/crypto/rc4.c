@@ -14,7 +14,7 @@
 
 //#include "bsp.h"
 //#include "type.h"
-#include "common.h"
+#include "wf_os_api.h"
 //#include "crypto.h"
 #include "sec/wpa.h"
 

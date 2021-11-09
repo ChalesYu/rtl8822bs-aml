@@ -8,7 +8,7 @@
 
 #ifndef WPABUF_H
 #define WPABUF_H
-#include "global.h"
+
 /* wpabuf::buf is a pointer to external data */
 #define WPABUF_FLAG_EXT_DATA BIT(0)
 
@@ -83,7 +83,9 @@ static inline void wf_wpabuf_put_data(struct wpabuf *buf, const void *data,
                                       size_t len)
 {
     if (data)
-        os_memcpy(wf_wpabuf_put(buf, len), data, len);
+    {
+        wf_memcpy(wf_wpabuf_put(buf, len), data, len);
+    }
 }
 
 #endif /* WPABUF_H */

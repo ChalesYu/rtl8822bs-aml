@@ -10,9 +10,10 @@
 * more details.
 *
 ******************************************************************************/
+#undef WF_DEBUG_LEVEL
+#define WF_DEBUG_LEVEL  (~WF_DEBUG_MASK)
+#include "wf_os_api.h"
 
-//#include "bsp.h"
-//#include "type.h"
 #include "sec/utils/common.h"
 #include "sec/wpa.h"
 //#include "crypto.h"
@@ -233,12 +234,12 @@ void *wf_aes_dec_init(const wf_u8 * key, size_t len)
 {
   wf_u32 *rk;
   int res;
-  rk = os_malloc(TILK_AES_SZ);
+  rk = wf_kzalloc(TILK_AES_SZ);
   if (rk == NULL)
     return NULL;
   res = wf_aes_keysetupdec_rijndael(rk, key, len * 8);
   if (res < 0) {
-    os_free(rk);
+    wf_free(rk);
     return NULL;
   }
   rk[AES_PRIV_NR_POS] = res;
@@ -319,5 +320,5 @@ void wf_aes_dec(void *ctx, const wf_u8 * crypt, wf_u8 * plain)
 void wf_aes_dec_deinit(void *ctx)
 {
   memset(ctx, 0, TILK_AES_SZ);
-  os_free(ctx);
+  wf_free(ctx);
 }

@@ -586,7 +586,6 @@ wf_pt_ret_t wf_auth_sta_thrd (wf_pt_t *pt, nic_info_st *pnic_info, int *prsn)
             pauth_ie = (void *)((wf_u8 *)&pmgmt->auth + ofs); /* offset HT Order field */
             seq = wf_le16_to_cpu(pauth_ie->auth_transaction);
             status = wf_le16_to_cpu(pauth_ie->status_code);
-            WF_MLME_INFO_STATUS_CODE(pnic_info) = (wf_80211_statuscode_e)status; /* retrive status code */
             if (seq == WF_80211_AUTH_SEQ_2)
             {
                 if (status == WF_80211_STATUS_NOT_SUPPORTED_AUTH_ALG)
@@ -691,7 +690,6 @@ wf_pt_ret_t wf_auth_sta_thrd (wf_pt_t *pt, nic_info_st *pnic_info, int *prsn)
             pauth_ie = (void *)((wf_u8 *)&pmgmt->auth + ofs);
             seq = wf_le16_to_cpu(pauth_ie->auth_transaction);
             status = wf_le16_to_cpu(pauth_ie->status_code);
-            WF_MLME_INFO_STATUS_CODE(pnic_info) = (wf_80211_statuscode_e)status; /* retrive status code */
             if (seq == WF_80211_AUTH_SEQ_4)
             {
                 if (status == WF_80211_STATUS_SUCCESS)
@@ -1077,9 +1075,9 @@ int wf_deauth_frame_parse (nic_info_st *pnic_info, wdn_net_info_st *pwdn_info,
             {
                 AUTH_INFO("WF_80211_FRM_DEAUTH[%d] frame reason:%d",
                           pnic_info->ndev_id,pmgmt->deauth.reason_code);
-                WF_MLME_INFO_REASON_CODE(pnic_info) =
-                    (wf_80211_reasoncode_e)pmgmt->deauth.reason_code; /* retrive reason code */
-                rst = wf_mlme_deauth(pnic_info, wf_true);
+                rst = wf_mlme_deauth(pnic_info,
+                                     wf_false,
+                                     (wf_80211_reasoncode_e)pmgmt->deauth.reason_code);
                 if (rst)
                 {
                     AUTH_WARN("wf_mlme_deauth fail, reason code: %d", rst);

@@ -170,48 +170,6 @@ static wf_s32 mcu_get_buddy_fwstate(nic_info_st *pnic_info)
     return pvir_nic->nic_state;
 }
 
-static wf_s32 mcu_get_ap_num(nic_info_st *pnic_info)
-{
-    nic_info_st *buddy_nic = NULL;
-    sys_work_mode_e work_mode;
-    wf_s32 ap_num = 0;
-    wf_bool bconnect = wf_false;
-
-    if (NULL == pnic_info)
-    {
-        return 0;
-    }
-
-    work_mode = wf_local_cfg_get_work_mode(pnic_info);
-    if (WF_MASTER_MODE == work_mode)
-    {
-        wf_mlme_get_connect(pnic_info, &bconnect);
-        if (wf_true == bconnect)
-        {
-            ap_num++;
-        }
-    }
-
-    buddy_nic = pnic_info->buddy_nic;
-
-    if (NULL == buddy_nic)
-    {
-        return ap_num;
-    }
-
-    work_mode = wf_local_cfg_get_work_mode(buddy_nic);
-    if (WF_MASTER_MODE == work_mode)
-    {
-        wf_mlme_get_connect(buddy_nic, &bconnect);
-        if (wf_true == bconnect)
-        {
-            ap_num++;
-        }
-    }
-
-    return ap_num;
-}
-
 
 static wf_s32 mcu_msg_sta_info_pars(wdn_net_info_st *wdn_net_info, mcu_msg_sta_info_st *msg_sta)
 {
@@ -667,7 +625,7 @@ wf_s32 wf_mcu_check_tx_buff(nic_info_st *nic_info)
         LOG_W("[%s] cmd busy, try again if need!", __func__);
         return ret;
     }
-    LOG_I("reg_200=%08x, reg_204=%08x", r.reg_200, r.reg_204);
+    LOG_D("reg_200=%08x, reg_204=%08x", r.reg_200, r.reg_204);
 
     return 0;
 }
@@ -1133,11 +1091,15 @@ static int hw_sta_obtain (nic_info_st *nic_info, wf_u32 *fw_sta, wf_u32 *link_st
     }
     else if (work_mode == WF_INFRA_MODE)
     {
-        fwState = WIFI_STATION_STATE;
+        fwState = WIFI_STATION_STATE | WIFI_SITE_MONITOR;
     }
     else if (work_mode == WF_MONITOR_MODE)
     {
         fwState = WIFI_SITE_MONITOR;
+    }
+    else if(work_mode == WF_MASTER_MODE)
+    {
+        fwState = WIFI_AP_STATE;
     }
     else
     {
@@ -1157,6 +1119,11 @@ static int hw_sta_obtain (nic_info_st *nic_info, wf_u32 *fw_sta, wf_u32 *link_st
         *link_sta = MCU_UNLINKED;
     }
 
+    if(work_mode == WF_MASTER_MODE)
+    {
+		*fw_sta = WIFI_ASOC_STATE | fwState;
+        *link_sta = MCU_LINKED;
+    }
     return 0;
 }
 
@@ -1184,7 +1151,7 @@ wf_s32 wf_mcu_set_mlme_scan(nic_info_st *nic_info, wf_bool enable)
 
     arg[0] = enable;
     arg[1] = nic_info->nic_num;
-    arg[2] = mcu_get_ap_num(nic_info);
+    arg[2] = wf_ap_get_num(nic_info);
     if (nic_real_info)
     {
         hw_sta_obtain(nic_real_info, &arg[3], &arg[4]);
@@ -1934,7 +1901,7 @@ wf_s32 wf_mcu_set_bcn_sel(nic_info_st *pnic_info)
     wf_u32 arg[2] = {0};
 
     arg[0] = HW_VAR_DL_BCN_SEL;
-    arg[1] = 0;
+    arg[1] = pnic_info->ndev_id;
 
     return wf_mcu_set_hw_reg(pnic_info, arg, 2);
 }

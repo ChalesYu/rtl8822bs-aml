@@ -20,6 +20,8 @@ typedef struct
 /* variable declaration */
 
 /* function declaration */
+void wf_os_api_thrd_cfg_get (const char *name,
+                             wf_u32 *rpriority, wf_u32 *rtask_size);
 
 void *wf_os_api_thread_create (void *tid, char *name, void *func, void *param)
 {
@@ -39,7 +41,13 @@ void *wf_os_api_thread_create (void *tid, char *name, void *func, void *param)
         /* prevent scheduler work, before new thread suspend done */
         irq_sta = wf_enter_critical();
         /* create thread */
-        ret = wf_thread_new(&thread->id, name, (wf_thread_fn_t)func, param);
+        {
+            wf_u32 pri, task_size;
+            wf_os_api_thrd_cfg_get(name, &pri, &task_size);
+            ret = wf_thread_new(&thread->id,
+                                name, pri, task_size,
+                                (wf_thread_fn_t)func, param);
+        }
         if (ret)
         {
             wf_exit_critical(irq_sta);
@@ -88,7 +96,7 @@ int wf_os_api_thread_destory (void *tid)
     thread->event |= WF_OS_API_THRD_EVT_SHOULD_STOP;
     while (thread->event & WF_OS_API_THRD_EVT_SHOULD_STOP)
     {
-        wf_thread_yield();
+        wf_thread_sleep(10);
     }
     wf_free(thread);
 

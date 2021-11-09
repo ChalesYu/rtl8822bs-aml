@@ -244,37 +244,37 @@ static wf_inline void log_array (void *ptr, wf_u16 len)
  */
 
 #if WF_DEBUG_COLOR
-#define WF_COLOR_START(lvl_name, color_n)  "\r\033["#color_n"m["lvl_name"]"
-#define WF_COLOR_END   "\033[0m\n\r"
+#define WF_COLOR_BEGIN(lvl_name, color_n)   "\033["#color_n"m["lvl_name"]"
+#define WF_COLOR_END                        "\033[0m""\r\n"
 #else
-#define WF_COLOR_START(lvl_name, color_n)  "["lvl_name"]"
-#define WF_COLOR_END   "\n"
+#define WF_COLOR_BEGIN(lvl_name, color_n) "["lvl_name"]"
+#define WF_COLOR_END                      "\n"
 #endif
 
 #if (WF_DEBUG_LEVEL & LEVEL_DEBUG)
 #define LOG_D(fmt, ...) \
-    WF_LOG_PRINT(WF_COLOR_START("D", 0) fmt WF_COLOR_END, ##__VA_ARGS__)
+    WF_LOG_PRINT(WF_COLOR_BEGIN("D", 0) fmt WF_COLOR_END, ##__VA_ARGS__)
 #else
 #define LOG_D(fmt, ...)
 #endif
 
 #if (WF_DEBUG_LEVEL & LEVEL_INFO)
 #define LOG_I(fmt, ...) \
-    WF_LOG_PRINT(WF_COLOR_START("I", 32) fmt WF_COLOR_END, ##__VA_ARGS__)
+    WF_LOG_PRINT(WF_COLOR_BEGIN("I", 32) fmt WF_COLOR_END, ##__VA_ARGS__)
 #else
 #define LOG_I(fmt, ...)
 #endif
 
 #if (WF_DEBUG_LEVEL & LEVEL_WARN)
 #define LOG_W(fmt, ...) \
-    WF_LOG_PRINT(WF_COLOR_START("W", 33) fmt WF_COLOR_END, ##__VA_ARGS__)
+    WF_LOG_PRINT(WF_COLOR_BEGIN("W", 33) fmt WF_COLOR_END, ##__VA_ARGS__)
 #else
 #define LOG_W(fmt, ...)
 #endif
 
 #if (WF_DEBUG_LEVEL & LEVEL_ERROR)
 #define LOG_E(fmt, ...) \
-    WF_LOG_PRINT(WF_COLOR_START("E", 31) fmt WF_COLOR_END, ##__VA_ARGS__)
+    WF_LOG_PRINT(WF_COLOR_BEGIN("E", 31) fmt WF_COLOR_END, ##__VA_ARGS__)
 #else
 #define LOG_E(fmt, ...)
 #endif

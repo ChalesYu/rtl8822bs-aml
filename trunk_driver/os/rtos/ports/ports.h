@@ -17,6 +17,7 @@
 #define wf_memcpy   os_memcpy
 #define wf_memcmp   os_memcmp
 #define wf_memset   os_memset
+#define wf_strcmp   os_strcmp
 
 #define WF_LOG_PRINT(...)   os_log_print(__VA_ARGS__)
 #define log_array(p, l)     os_log_array(p, l)
@@ -70,9 +71,11 @@ typedef void (*wf_sdio_irq_fn_t) (wf_sdio_func_t);
 /* function declaration */
 
 int wf_thread_new (wf_thread_t *rthrd_id,
-                   const char *name, wf_thread_fn_t fn, void *arg);
+                   const char *name,
+                   wf_u32 priority,
+                   wf_u32 task_size,
+                   wf_thread_fn_t fn, void *arg);
 int wf_thread_sleep (wf_u32 ms);
-int wf_thread_yield (void);
 int wf_thread_suspend (wf_thread_t thrd_id);
 int wf_thread_resume (wf_thread_t thrd_id);
 void wf_thread_exit (void);

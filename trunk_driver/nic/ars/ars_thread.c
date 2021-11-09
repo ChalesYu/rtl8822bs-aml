@@ -506,6 +506,77 @@ wf_s32 odm_CommonInfoSelfReset(ars_st *pars)
     return WF_RETURN_OK;
 }
 
+void ars_dump_info(nic_info_st *nic_info)
+{
+    ars_dbg_info_t ars_dbg_info = {0};
+    FALSE_ALARM_STATISTICS *cnt = &ars_dbg_info.false_alarm_cnt;
+    ars_st * pars            = nic_info->ars;
+
+    odm_FalseAlarmCounterStatistics(pars);
+
+    wf_memcpy(&ars_dbg_info.false_alarm_cnt, &pars->FalseAlmCnt, sizeof(FALSE_ALARM_STATISTICS));
+    ars_dbg_info.rssi_level = pars->rssi_sta[0].rssi_level;
+    ars_dbg_info.pwdb = pars->rssi_sta[0].UndecoratedSmoothedPWDB;
+    ars_dbg_info.rssi_min = pars->RSSI_Min;
+
+    ars_dbg_info.curr_igi = pars->dig.CurIGValue;
+    ars_dbg_info.igi_dynamic_min = pars->dig.DIG_Dynamic_MIN_0;
+    //odm_info.igi_target = pars->dig.
+    
+    ars_dbg_info.noisy_decision = pars->NoisyDecision;
+    ars_dbg_info.change_state = pars->bChangeState;
+    ars_dbg_info.pt_score = (pars->PT_score+32)>>6;
+    
+    ars_dbg_info.crystal_cap = pars->cfo.cfo_tr.CrystalCap;
+    ars_dbg_info.cfo_avg_pre = pars->cfo.cfo_tr.CFO_ave_pre;
+
+    ars_dbg_info.sq = pars->hwconfig.phystatus.SignalQuality;
+    
+
+    LOG_D("----------------------------------------------------");
+    LOG_D("%-14s=%02x  %-14s=%02x  %-14s=%02x", 
+        "rssi_level", ars_dbg_info.rssi_level,
+        "pwdb",       ars_dbg_info.pwdb,
+        "rssi_min",   ars_dbg_info.rssi_min);
+
+    LOG_D("%-14s=%02x  %-14s=%02x  %-14s=%02x", 
+        "curr_igi",    ars_dbg_info.curr_igi,
+        "igi_dy_min",  ars_dbg_info.igi_dynamic_min,
+        "igi_target",  ars_dbg_info.igi_target);
+
+    LOG_D("%-14s=%02x  %-14s=%02x  %-14s=%02x", 
+        "noisy_decision", ars_dbg_info.noisy_decision,
+        "change_state",   ars_dbg_info.change_state,
+        "pt_score",       ars_dbg_info.pt_score);
+
+    LOG_D("%-14s=%02x  %-14s=%02x  %-14s=%02x", 
+        "crystal_cap",  ars_dbg_info.crystal_cap,
+        "cfo_avg_pre",  ars_dbg_info.cfo_avg_pre,
+        "dpk_thermal",  ars_dbg_info.dpk_thermal);
+
+    LOG_D("%-14s=%02x  %-14s=%02x  %-14s=%02x", 
+        "thermal_val",  ars_dbg_info.thermal_val,
+        "thermal_lck",  ars_dbg_info.thermal_lck,
+        "thermal_iqk",  ars_dbg_info.thermal_iqk);
+
+    LOG_D("%-14s=%02x  %-14s=%02x  %-14s=%02x", 
+        "signal_qual",  ars_dbg_info.sq,
+        "null",  0,
+        "null",  0);
+    
+    LOG_D("##################");
+    LOG_D("FAIL: CCK=%-5d  OFDM=%-5d  ALL=%-5d", 
+        cnt->Cnt_Cck_fail, cnt->Cnt_Ofdm_fail, cnt->Cnt_all);
+    LOG_D(" CCA: CCK=%-5d  OFDM=%-5d  ALL=%-5d", 
+        cnt->Cnt_CCK_CCA, cnt->Cnt_OFDM_CCA, cnt->Cnt_CCA_all);
+
+        
+    LOG_D("OFDM: parity_fail=%d  rate_illegal=%d  crc8=%d  mcs_fail=%d fast_fsync=%d  sb_search=%d", 
+        cnt->Cnt_Parity_Fail, cnt->Cnt_Rate_Illegal, cnt->Cnt_Crc8_fail,
+        cnt->Cnt_Mcs_fail, cnt->Cnt_Fast_Fsync, cnt->Cnt_SB_Search_fail);
+}
+
+
 wf_s32 ars_thread_sema_post(void *ars)
 {
     ars_st *pars = ars;

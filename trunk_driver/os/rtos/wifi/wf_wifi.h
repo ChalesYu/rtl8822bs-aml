@@ -4,6 +4,7 @@
 
 /* includes */
 #include "common.h"
+#include "proc/proc.h"
 
 /* macro */
 #define NIC_PIRV_ALIGN_SIZE     wf_align_up(sizeof(nic_info_st), sizeof(wf_u64))
@@ -374,7 +375,6 @@ typedef struct
     int (*scan_done) (wf_wifi_hd_t wifi_hd);
 
     int (*conn_done) (wf_wifi_hd_t wifi_hd, wf_wifi_conn_info_t *conn_info);
-//    disconn_evt
     int (*disconn_evt) (wf_wifi_hd_t wifi_hd);
 
     /* for ap */
@@ -392,6 +392,12 @@ typedef struct
     void *parent; /* point to nic */
     const wf_wifi_ops_t *ops;
     wf_workqueue_mgnt_t tx_wq;
+    wf_bool scan_report_en;
+    struct
+    {
+        wf_bool done;
+        wf_bool report_en;
+    } scan;
 } nic_priv_t;
 
 /* function declaration */
@@ -434,6 +440,7 @@ int wf_wifi_conn (wf_wifi_hd_t wifi_hd, wf_wifi_conn_info_t *conn_info);
 int wf_wifi_disconn (wf_wifi_hd_t wifi_hd);
 
 int wf_wifi_ap_start (wf_wifi_hd_t wifi_hd, wf_wifi_ap_info_t *ap_info);
+int wf_wifi_ap_get_result (wf_wifi_hd_t wifi_hd);
 int wf_wifi_ap_stop (wf_wifi_hd_t wifi_hd);
 int wf_wifi_ap_deauth (wf_wifi_hd_t wifi_hd);
 

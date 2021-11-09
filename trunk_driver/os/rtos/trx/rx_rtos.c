@@ -247,7 +247,7 @@ static int wlan_to_eth (rx_pkt_t *pkt)
     {
         LOG_E("[wlan_to_eth] data_len error (pktlen:%d  rmv_len:%d)",
               pkt->len, rmv_len);
-        return -1;
+        return -2;
     }
     data_len = pkt->len - rmv_len;
 
@@ -261,7 +261,7 @@ static int wlan_to_eth (rx_pkt_t *pkt)
     if (!pbuf)
     {
         LOG_D("pbuf == NULL");
-        return -1;
+        return -3;
     }
     /* fill ethnet mac header da&sa filds */
     wf_memcpy(pbuf, prx_info->dst_addr, MAC_ADDR_LEN);
@@ -387,7 +387,7 @@ static void data_frame_handle (nic_info_st *nic_info, rx_pkt_t *pkt)
     ret = msdu_parse(nic_info, pkt);
     if (ret <= 0)
     {
-//        LOG_E("[%s]: parse msdu fail", __func__);
+        LOG_D("[%s]: parse msdu fail", __func__);
         return;
     }
 
@@ -410,8 +410,10 @@ static void data_frame_handle (nic_info_st *nic_info, rx_pkt_t *pkt)
         if (!pwdn_info->ba_ctl[prio].upload_func ||
             !pwdn_info->ba_ctl[prio].free_skb)
         {
-            pwdn_info->ba_ctl[prio].upload_func = (upload_to_kernel)nic_priv(nic_info)->ops->skb_upload;
-            pwdn_info->ba_ctl[prio].free_skb    = (free_skb_cb)nic_priv(nic_info)->ops->skb_free;
+            pwdn_info->ba_ctl[prio].upload_func =
+                (upload_to_kernel)nic_priv(nic_info)->ops->skb_upload;
+            pwdn_info->ba_ctl[prio].free_skb =
+                (free_skb_cb)nic_priv(nic_info)->ops->skb_free;
         }
 
 #if RX_REORDER_THREAD_EN
@@ -419,7 +421,7 @@ static void data_frame_handle (nic_info_st *nic_info, rx_pkt_t *pkt)
         {
             if (pkt->pskb)
             {
-                //            pbuf_free(pkt->pskb);
+//                pbuf_free(pkt->pskb);
                 pkt->pskb = NULL;
             }
         }

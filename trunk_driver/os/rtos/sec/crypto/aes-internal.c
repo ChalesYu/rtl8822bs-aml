@@ -10,10 +10,10 @@
 * more details.
 *
 ******************************************************************************/
+#undef WF_DEBUG_LEVEL
+#define WF_DEBUG_LEVEL  (~WF_DEBUG_MASK)
+#include "wf_os_api.h"
 
-
-//#include "bsp.h"
-//#include "type.h"
 #include "sec/utils/common.h"
 #include "sec/wpa.h"
 //#include "crypto.h"

@@ -14,7 +14,7 @@
 
 //#include "bsp.h"
 //#include "type.h"
-#include "common.h"
+#include "wf_os_api.h"
 #include "sec/wpa.h"
 #include "sec/crypto/sha1.h"
 //#include "md5.h"
@@ -81,7 +81,7 @@ void wf_sha1_transform(wf_u32 state[5], const unsigned char buffer[64])
 #ifdef SHA1HANDSOFF
   CHAR64LONG16 workspace;
   block = &workspace;
-  os_memcpy(block, buffer, 64);
+  wf_memcpy(block, buffer, 64);
 #else
   block = (CHAR64LONG16 *) buffer;
 #endif
@@ -181,7 +181,7 @@ void wf_sha1_transform(wf_u32 state[5], const unsigned char buffer[64])
 
   a = b = c = d = e = 0;
 #ifdef SHA1HANDSOFF
-  os_memset(block, 0, 64);
+  wf_memset(block, 0, 64);
 #endif
 }
 
@@ -207,7 +207,7 @@ void wf_sha1_update(wf_sha1_ctx * context, const void *_data, wf_u32 len)
     context->count[1]++;
   context->count[1] += (len >> 29);
   if ((j + len) > 63) {
-    os_memcpy(&context->buffer[j], data, (i = 64 - j));
+    wf_memcpy(&context->buffer[j], data, (i = 64 - j));
     wf_sha1_transform(context->state, context->buffer);
     for (; i + 63 < len; i += 64) {
       wf_sha1_transform(context->state, &data[i]);
@@ -215,7 +215,7 @@ void wf_sha1_update(wf_sha1_ctx * context, const void *_data, wf_u32 len)
     j = 0;
   } else
     i = 0;
-  os_memcpy(&context->buffer[j], &data[i], len - i);
+  wf_memcpy(&context->buffer[j], &data[i], len - i);
 
 }
 
@@ -239,8 +239,8 @@ void wf_sha1_final(unsigned char digest[20], wf_sha1_ctx * context)
   }
 
   i = 0;
-  os_memset(context->buffer, 0, 64);
-  os_memset(context->state, 0, 20);
-  os_memset(context->count, 0, 8);
-  os_memset(finalcount, 0, 8);
+  wf_memset(context->buffer, 0, 64);
+  wf_memset(context->state, 0, 20);
+  wf_memset(context->count, 0, 8);
+  wf_memset(finalcount, 0, 8);
 }

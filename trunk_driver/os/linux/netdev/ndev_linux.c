@@ -328,11 +328,11 @@ int ndev_open(struct net_device *ndev)
 
 #ifdef CONFIG_IOCTL_CFG80211
     wf_wiphy_init(pnic_info);
+#endif
 #if (LINUX_VERSION_CODE>=KERNEL_VERSION(2, 6, 35))
     netif_tx_wake_all_queues(ndev);
 #else
     netif_wake_queue(ndev);
-#endif
 #endif
 
 #if 1
@@ -547,13 +547,24 @@ static int ndev_set_mac_addr(struct net_device *pnetdev, void *addr)
 {
     struct sockaddr *sock_addr = addr;
     ndev_priv_st *ndev_priv = NULL;
-    NDEV_DBG("ndev_set_mac_addr ");
-    if (!is_valid_ether_addr(sock_addr->sa_data))
-        return -EADDRNOTAVAIL;
-    memcpy(pnetdev->dev_addr, sock_addr->sa_data, WF_ETH_ALEN);
-
+    nic_info_st *pnic_info = NULL;
     ndev_priv = netdev_priv(pnetdev);
-    wf_mcu_set_macaddr(ndev_priv->nic, pnetdev->dev_addr);
+    pnic_info = ndev_priv->nic;
+
+    NDEV_DBG("ndev_set_mac_addr:" WF_MAC_FMT ,WF_MAC_ARG(sock_addr->sa_data));
+
+    if (!is_valid_ether_addr(sock_addr->sa_data))
+    return -EADDRNOTAVAIL;
+
+    if(pnic_info->is_up)
+    {
+        NDEV_ERROR("The interface is not in down state");
+        return -1;
+    }
+    wf_memcpy(nic_to_local_addr(pnic_info), sock_addr->sa_data, MAC_ADDR_LEN);
+    wf_memcpy(pnetdev->dev_addr, sock_addr->sa_data, WF_ETH_ALEN);
+
+    wf_mcu_set_macaddr(pnic_info, pnetdev->dev_addr);
     return 0;
 }
 

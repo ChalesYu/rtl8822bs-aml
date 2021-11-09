@@ -74,6 +74,8 @@ int wf_ap_deauth_all_sta (nic_info_st *pnic_info, wf_u16 reason);
 void wf_resend_bcn(nic_info_st *pnic_info,wf_u8 channel);
 void wf_ap_reset_beacon_channel(nic_info_st *pnic_info,wf_u8 channel);
 int wf_ap_deauth_all_sta (nic_info_st *pnic_info, wf_u16 reason);
+wf_s32 wf_ap_get_num(nic_info_st *pnic_info);
+wf_s32 wf_ap_resume_bcn(nic_info_st *pnic_info);
 
 #endif
 

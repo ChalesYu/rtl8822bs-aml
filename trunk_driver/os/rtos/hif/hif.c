@@ -497,10 +497,10 @@ int hif_dev_insert(hif_node_st *hif_info)
     /* power on */
     LOG_D("************HIF DEV INSERT*************");
     LOG_D("<< Power on >>");
-    if (power_on(hif_info) < 0)
+    while (power_on(hif_info) < 0)
     {
         LOG_E("===>power_on error, exit!!");
-        return WF_RETURN_FAIL;
+        wf_msleep(500);
     }
 
     LOG_D("power_on success");

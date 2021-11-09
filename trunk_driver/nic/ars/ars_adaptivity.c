@@ -200,11 +200,6 @@ wf_s32 Phydm_Adaptivity(void *ars,wf_u8 IGI)
     ARS_ADT_DBG("odm_Adaptivity() =====>\n");
     ARS_ADT_DBG("IGI_Base=0x%x, TH_L2H_ini = %d, TH_EDCCA_HL_diff = %d\n",
                 Adaptivity->IGI_Base, pars->TH_L2H_ini, pars->TH_EDCCA_HL_diff);
-    {
-        /*fix AC series when enable EDCCA hang issue*/
-        hw_write_bb_reg(pars->nic_info, 0x800, BIT(10), 1); /*ADC_mask disable*/
-        hw_write_bb_reg(pars->nic_info, 0x800, BIT(10), 0); /*ADC_mask enable*/
-    }
     if (*pars->pBandWidth == ODM_BW20M)     /*CHANNEL_WIDTH_20*/
     {
         IGI_target = Adaptivity->IGI_Base;

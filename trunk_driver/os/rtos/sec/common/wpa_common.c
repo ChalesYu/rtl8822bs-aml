@@ -7,7 +7,7 @@
 */
 
 
-#include "common.h"
+#include "wf_os_api.h"
 #include "sec/crypto/md5.h"
 #include "sec/crypto/sha1.h"
 //#include "crypto/wf_aes_wrap.h"
@@ -73,7 +73,7 @@ int wf_wpa_eapol_key_mic(const wf_u8 *key, size_t key_len, int akmp, int ver,
         case WPA_KEY_INFO_TYPE_HMAC_SHA1_AES:
             if (wf_hmac_sha1(key, key_len, buf, len, hash))
                 return -1;
-            os_memcpy(mic, hash, MD5_MAC_LEN);
+            wf_memcpy(mic, hash, MD5_MAC_LEN);
             break;
 #if defined(CONFIG_IEEE80211R) || defined(CONFIG_IEEE80211W)
         case WPA_KEY_INFO_TYPE_AES_128_CMAC:
@@ -90,14 +90,14 @@ int wf_wpa_eapol_key_mic(const wf_u8 *key, size_t key_len, int akmp, int ver,
                 case WPA_KEY_MGMT_IEEE8021X_SUITE_B:
                     if (hmac_sha256(key, key_len, buf, len, hash))
                         return -1;
-                    os_memcpy(mic, hash, MD5_MAC_LEN);
+                    wf_memcpy(mic, hash, MD5_MAC_LEN);
                     break;
 #endif /* CONFIG_SUITEB */
 #ifdef CONFIG_SUITEB192
                 case WPA_KEY_MGMT_IEEE8021X_SUITE_B_192:
                     if (hmac_sha384(key, key_len, buf, len, hash))
                         return -1;
-                    os_memcpy(mic, hash, 24);
+                    wf_memcpy(mic, hash, 24);
                     break;
 #endif /* CONFIG_SUITEB192 */
                 default:
@@ -146,25 +146,25 @@ int wf_wpa_pmk_to_ptk(const wf_u8 *pmk, size_t pmk_len, const char *label,
     int i=0;
     if (os_memcmp(addr1, addr2, ETH_ALEN) < 0)
     {
-        os_memcpy(data, addr1, ETH_ALEN);
-        os_memcpy(data + ETH_ALEN, addr2, ETH_ALEN);
+        wf_memcpy(data, addr1, ETH_ALEN);
+        wf_memcpy(data + ETH_ALEN, addr2, ETH_ALEN);
     }
     else
     {
-        os_memcpy(data, addr2, ETH_ALEN);
-        os_memcpy(data + ETH_ALEN, addr1, ETH_ALEN);
+        wf_memcpy(data, addr2, ETH_ALEN);
+        wf_memcpy(data + ETH_ALEN, addr1, ETH_ALEN);
     }
 
     if (os_memcmp(nonce1, nonce2, WPA_NONCE_LEN) < 0)
     {
-        os_memcpy(data + 2 * ETH_ALEN, nonce1, WPA_NONCE_LEN);
-        os_memcpy(data + 2 * ETH_ALEN + WPA_NONCE_LEN, nonce2,
+        wf_memcpy(data + 2 * ETH_ALEN, nonce1, WPA_NONCE_LEN);
+        wf_memcpy(data + 2 * ETH_ALEN + WPA_NONCE_LEN, nonce2,
                   WPA_NONCE_LEN);
     }
     else
     {
-        os_memcpy(data + 2 * ETH_ALEN, nonce2, WPA_NONCE_LEN);
-        os_memcpy(data + 2 * ETH_ALEN + WPA_NONCE_LEN, nonce1,
+        wf_memcpy(data + 2 * ETH_ALEN, nonce2, WPA_NONCE_LEN);
+        wf_memcpy(data + 2 * ETH_ALEN + WPA_NONCE_LEN, nonce1,
                   WPA_NONCE_LEN);
     }
 
@@ -194,16 +194,16 @@ int wf_wpa_pmk_to_ptk(const wf_u8 *pmk, size_t pmk_len, const char *label,
     wpa_hexdump_key(MSG_DEBUG, "WPA: PMK", pmk, pmk_len);
     wpa_hexdump_key(MSG_DEBUG, "WPA: PTK", tmp, ptk_len);
 
-    os_memcpy(ptk->kck, tmp, ptk->kck_len);
+    wf_memcpy(ptk->kck, tmp, ptk->kck_len);
     wpa_hexdump_key(MSG_DEBUG, "WPA: KCK", ptk->kck, ptk->kck_len);
 
-    os_memcpy(ptk->kek, tmp + ptk->kck_len, ptk->kek_len);
+    wf_memcpy(ptk->kek, tmp + ptk->kck_len, ptk->kek_len);
     wpa_hexdump_key(MSG_DEBUG, "WPA: KEK", ptk->kek, ptk->kek_len);
 
-    os_memcpy(ptk->tk, tmp + ptk->kck_len + ptk->kek_len, ptk->tk_len);
+    wf_memcpy(ptk->tk, tmp + ptk->kck_len + ptk->kek_len, ptk->tk_len);
     wpa_hexdump_key(MSG_DEBUG, "WPA: TK", ptk->tk, ptk->tk_len);
 
-    os_memset(tmp, 0, sizeof(tmp));
+    wf_memset(tmp, 0, sizeof(tmp));
     return 0;
 }
 
@@ -293,7 +293,7 @@ int wf_wpa_parse_wpa_ie_rsn(const wf_u8 *rsn_ie, size_t rsn_ie_len,
     int left;
     int i, count;
 
-    os_memset(data, 0, sizeof(*data));
+    wf_memset(data, 0, sizeof(*data));
     data->proto = WPA_PROTO_RSN;
     data->pairwise_cipher = WPA_CIPHER_CCMP;
     data->group_cipher = WPA_CIPHER_CCMP;
@@ -518,7 +518,7 @@ int wf_wpa_parse_wpa_ie_wpa(const wf_u8 *wpa_ie, size_t wpa_ie_len,
     int left;
     int i, count;
 
-    os_memset(data, 0, sizeof(*data));
+    wf_memset(data, 0, sizeof(*data));
     data->proto = WPA_PROTO_WPA;
     data->pairwise_cipher = WPA_CIPHER_TKIP;
     data->group_cipher = WPA_CIPHER_TKIP;
@@ -663,7 +663,7 @@ void wf_wpa_rsn_pmkid(const wf_u8 *pmk, size_t pmk_len, const wf_u8 *aa, const w
     else
 #endif /* CONFIG_IEEE80211W */
         wf_hmac_sha1_vector(pmk, pmk_len, 3, addr, len, hash);
-    os_memcpy(pmkid, hash, PMKID_LEN);
+    wf_memcpy(pmkid, hash, PMKID_LEN);
 }
 
 

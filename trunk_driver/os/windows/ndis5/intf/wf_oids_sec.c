@@ -1,6 +1,6 @@
 /*++
 
-Copyright (c) SCICS Co., Ltd. All rights reserved.
+Copyright (c) ZTOPMICRO Co., Ltd. All rights reserved.
 
 Module Name:
     wf_oids_adapt.c

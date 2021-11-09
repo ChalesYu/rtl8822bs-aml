@@ -497,6 +497,7 @@ typedef struct hardware_info_struct_
 int wf_hw_info_init(nic_info_st *nic_info);
 int wf_hw_info_get_default_cfg(nic_info_st *nic_info);
 int wf_hw_info_set_default_cfg(nic_info_st *nic_info);
+wf_bool wf_hw_info_is_channel_valid (hw_info_st *phw_info, wf_u8 channel);
 int wf_hw_info_term(nic_info_st *nic_info);
 int wf_hw_info_set_channnel_bw(nic_info_st *nic_info, wf_u8 channel, CHANNEL_WIDTH cw, HAL_PRIME_CH_OFFSET offset);
 int wf_hw_info_get_channnel_bw(nic_info_st *nic_info,

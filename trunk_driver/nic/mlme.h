@@ -21,11 +21,6 @@
 
 #define WF_NAME_MAX_LEN         (32)
 
-#define WF_MLME_INFO_STATUS_CODE(nic_info) \
-    ((mlme_info_t *)(nic_info)->mlme_info)->status_code
-#define WF_MLME_INFO_REASON_CODE(nic_info) \
-    ((mlme_info_t *)(nic_info)->mlme_info)->reason_code
-
 /* type define */
 typedef enum
 {
@@ -38,18 +33,18 @@ typedef enum
 enum
 {
     /* priority level 0 */
-    WF_MLME_TAG_IBSS_LEAVE      = WF_MSG_TAG_SET(0, 0, 0),
+    WF_MLME_TAG_SCAN_ABORT      = WF_MSG_TAG_SET(0, 0, 0),
     WF_MLME_TAG_SCAN_RSP,
+    WF_MLME_TAG_IBSS_LEAVE,
     WF_MLME_TAG_IBSS_BEACON_FRAME,
+    WF_MLME_TAG_CONN_ABORT,
     WF_MLME_TAG_DEAUTH,
     WF_MLME_TAG_DEASSOC,
     WF_MLME_TAG_P2P,
 
     /* priority level 1 */
     WF_MLME_TAG_SCAN            = WF_MSG_TAG_SET(0, 1, 0),
-    WF_MLME_TAG_SCAN_ABORT,
     WF_MLME_TAG_CONN,
-    WF_MLME_TAG_CONN_ABORT,
     WF_MLME_TAG_CONN_IBSS,
 
 
@@ -107,6 +102,12 @@ typedef struct
 
 typedef struct
 {
+    wf_bool local_disconn;
+    wf_80211_reasoncode_e reason_code;
+} wf_mlme_conn_res_t;
+
+typedef struct
+{
     nic_info_st *parent;
     void *tid;
     char mlmeName[WF_NAME_MAX_LEN];
@@ -132,6 +133,8 @@ typedef struct
     wf_msg_t *pba_rsp_msg;
     wf_msg_t *pp2p_msg;
 
+    wf_mlme_conn_res_t conn_res;
+
     wf_bool babort_thrd;
     wf_bool abort_thrd_finished;
 
@@ -149,10 +152,6 @@ typedef struct
     wf_u16 action_public_rxseq;
 
     wf_bool vir_scanning_intf;
-
-    wf_bool locally_generated;
-    wf_80211_statuscode_e status_code;
-    wf_80211_reasoncode_e reason_code;
 } mlme_info_t;
 
 /* function declaration */
@@ -188,10 +187,16 @@ int wf_mlme_conn_scan_rsp (nic_info_st *pnic_info,
                            wf_80211_mgmt_t *pmgmt, wf_u16 mgmt_len);
 int wf_mlme_conn_start (nic_info_st *pnic_info, wf_80211_bssid_t bssid,
                         wf_wlan_ssid_t *pssid, wf_mlme_framework_e frm_work,
-                        wf_bool en_disconn_ind);
-int wf_mlme_conn_abort (nic_info_st *pnic_info, wf_bool en_disconn_ind);
-int wf_mlme_deauth (nic_info_st *pnic_info, wf_bool en_disconn_ind);
-int wf_mlme_deassoc (nic_info_st *pnic_info);
+                        wf_bool indicate_en);
+int wf_mlme_conn_abort (nic_info_st *pnic_info,
+                        wf_bool local_gen,
+                        wf_80211_reasoncode_e reason);
+int wf_mlme_deauth (nic_info_st *pnic_info,
+                    wf_bool local_gen,
+                    wf_80211_reasoncode_e reason);
+int wf_mlme_deassoc (nic_info_st *pnic_info,
+                     wf_bool local_gen,
+                     wf_80211_reasoncode_e reason);
 int wf_mlme_add_ba_req (nic_info_st *pnic_info);
 int wf_mlme_add_ba_rsp (nic_info_st *pnic_info, wf_add_ba_parm_st *barsp_parm);
 int wf_mlme_init (nic_info_st *pnic_info);

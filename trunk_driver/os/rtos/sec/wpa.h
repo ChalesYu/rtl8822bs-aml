@@ -17,41 +17,18 @@
 #include "sec/utils/common.h"
 #include "string.h"
 #include "common/defs.h"
-#include "utils/wpabuf.h"
+#include "sec/utils/wpabuf.h"
 #include "common/wpa_common.h"
 #include "wifi_inf.h"
 #define __bitwise
 #define __force
 
-#define UNKOWN_MEMB  0
-
 #define STA_SSID          "TP-LINK_hys"
 #define STA_PASSWORD	  "12345678"
 
-#define AP_SSID				"sciwifiap"
-#define AP_PASSWORD			"12345678"
-#define AP_DEFAULT_CHANNEL  11
-#define AP_MAX_CLIENT       12
-#define AP_BEACON_SIZE   	512
-#define AP_TIMESTAMP_LEN    8
-
-#define MAX_STA_NUM         12
-
-#define STA_0_OF_4_IDLE  0
-#define STA_1_OF_4_TX    1
-#define STA_2_OF_4_RX	 2
-#define STA_3_OF_4_TX	 3
-#define STA_4_OF_4_RX	 4
-
-#define __LITTLE_ENDIAN 1234
-#define __BIG_FOR_ENDIAN 4321
-#define __BYTE_ORDER __LITTLE_ENDIAN
-//#define os_memset memset
-//#define os_memcpy memcpy
 #define os_string_length strlen
 #define os_memcompare memcmp
-#define os_zalloc os_malloc
-//#define os_strcmp strcmp
+#define os_zalloc wf_kzalloc
 
 #define WPAS_MAX_SCAN_SSIDS 16
 #define broadcast_ether_addr (const wf_u8 *) "\xff\xff\xff\xff\xff\xff"
@@ -122,48 +99,6 @@ void *__hide_aliasing_typecast(void *foo);
 #define WLAN_MMIE_EID 76
 #define WLAN_VENDOR_SPECIFIC_EID 221
 
-#if 0
-
-#define WLAN_UNSPECIFIED_CAUSE 1
-#define WLAN_PREV_AUTH_NOT_VALID_CAUSE 2
-#define WLAN_DEAUTH_LEAVING_CAUSE 3
-#define WLAN_DISASSOC_DUE_TO_INACTIVITY_CAUSE 4
-#define WLAN_DISASSOC_AP_BUSY_CAUSE 5
-#define WLAN_CLASS2_FRAME_FROM_NONAUTH_STA_CAUSE 6
-#define WLAN_CLASS3_FRAME_FROM_NONASSOC_STA_CAUSE 7
-#define WLAN_DISASSOC_STA_HAS_LEFT_CAUSE 8
-#define WLAN_STA_REQ_ASSOC_WITHOUT_AUTH_CAUSE 9
-
-#define WLAN_PWR_CAPABILITY_NOT_VALID_CAUSE 10
-#define WLAN_SUPPORTED_CHANNEL_NOT_VALID_CAUSE 11
-
-#define WLAN_REASON_INVALID_IE 13
-#define WLAN_REASON_MICHAEL_MIC_FAILURE 14
-#define WLAN_REASON_4WAY_HANDSHAKE_TIMEOUT 15
-#define WLAN_REASON_GROUP_KEY_UPDATE_TIMEOUT 16
-#define WLAN_REASON_IE_IN_4WAY_DIFFERS 17
-#define WLAN_REASON_GROUP_CIPHER_NOT_VALID 18
-#define WLAN_REASON_PAIRWISE_CIPHER_NOT_VALID 19
-#define WLAN_REASON_AKMP_NOT_VALID 20
-#define WLAN_REASON_UNSUPPORTED_RSN_IE_VERSION 21
-#define WLAN_REASON_INVALID_RSN_IE_CAPAB 22
-#define WLAN_REASON_IEEE_802_1X_AUTH_FAILED 23
-#define WLAN_REASON_CIPHER_SUITE_REJECTED 24
-#define WLAN_REASON_TDLS_TEARDOWN_UNREACHABLE 25
-#define WLAN_REASON_TDLS_TEARDOWN_UNSPECIFIED 26
-
-#define WLAN_REASON_DISASSOC_LOW_ACK 34
-
-#define WLAN_REASON_MESH_PEERING_CANCELLED 52
-#define WLAN_REASON_MESH_MAX_PEERS 53
-#define WLAN_REASON_MESH_CONFIG_POLICY_VIOLATION 54
-#define WLAN_REASON_MESH_CLOSE_RCVD 55
-#define WLAN_REASON_MESH_MAX_RETRIES 56
-#define WLAN_REASON_MESH_CONFIRM_TIMEOUT 57
-#define WLAN_REASON_MESH_INVALID_GTK 58
-#define WLAN_REASON_MESH_INCONSISTENT_PARAMS 59
-#define WLAN_REASON_MESH_INVALID_SECURITY_CAP 60
-#endif
 #define CONFIG_PEERKEY
 #define EAPOL_VERSION 1
 
@@ -171,32 +106,21 @@ void *__hide_aliasing_typecast(void *foo);
 #define VHT_OPMODE_CHANNEL_RxNSS_MASK		    ((wf_u8) BIT(4) | BIT(5) |  BIT(6))
 
 #define DEFAULT_EAPOL_VERSION 1
-#ifdef CONFIG_NO_SCAN_PROCESSING
-#define DEFAULT_AP_SCAN 2
-#else
-#define DEFAULT_AP_SCAN 1
-#endif
 #define DEFAULT_USER_MPM 1
 #define DEFAULT_MAX_PEER_LINKS 99
 #define DEFAULT_MESH_MAX_INACTIVITY 300
 
 #define DEFAULT_DOT11_RSNA_SAE_RETRANS_PERIOD 1000
 #define DEFAULT_FAST_REAUTH 1
-#define DEFAULT_P2P_GO_INTENT 7
-#define DEFAULT_P2P_INTRA_BSS 1
-#define DEFAULT_P2P_GO_MAX_INACTIVITY (5 * 60)
-#define DEFAULT_P2P_OPTIMIZE_LISTEN_CHAN 0
 #define DEFAULT_BSS_MAX_COUNT 200
 #define DEFAULT_BSS_EXPIRATION_AGE 180
 #define DEFAULT_BSS_EXPIRATION_SCAN_COUNT 2
 #define DEFAULT_MAX_NUM_STA 128
 #define DEFAULT_ACCESS_NETWORK_TYPE 15
 #define DEFAULT_SCAN_CUR_FREQ 0
-#define DEFAULT_P2P_SEARCH_DELAY 500
 #define DEFAULT_RAND_ADDR_LIFETIME 60
 #define DEFAULT_KEY_MGMT_OFFLOAD 1
 #define DEFAULT_CERT_IN_CB 1
-#define DEFAULT_P2P_GO_CTWINDOW 0
 
 
 enum { MSG_MSGDUMP, MSG_DEBUG, MSG_INFO, MSG_WARNING, MSG_ERROR };
@@ -221,25 +145,12 @@ typedef enum {
   METHOD_NONE, METHOD_INIT, METHOD_CONT, METHOD_MAY_CONT, METHOD_DONE
 } EapMethodState;
 
-struct dl_list {
-  struct dl_list *next;
-  struct dl_list *prev;
-};
 
 #define WPA_EAPOL_KEY_MIC_MAX_LEN 24
 #define WPA_KCK_MAX_LEN 24
 #define WPA_KEK_MAX_LEN 32
 #define WPA_TK_MAX_LEN 32
 
-
-
-#pragma pack(4)
-struct os_alloc_trace {
-  unsigned int magic;
-  struct dl_list list;
-  size_t len;
-};
-#pragma pack()
 
 struct rsn_supp_config {
   void *network_ctx;
@@ -251,7 +162,6 @@ struct rsn_supp_config {
   const wf_u8 *ssid;
   size_t ssid_len;
   int wpa_ptk_rekey;
-  int p2p;
 };
 
 
@@ -260,7 +170,6 @@ enum ts_dir_idx {
   TS_DIR_IDX_UPLINK,
   TS_DIR_IDX_DOWNLINK,
   TS_DIR_IDX_BIDI,
-
   TS_DIR_IDX_COUNT
 };
 #define TS_DIR_IDX_ALL (BIT(TS_DIR_IDX_COUNT) - 1)
@@ -282,24 +191,6 @@ enum wpa_sm_conf_params {
   WPA_PARAM_MGMT_GROUP,
   WPA_PARAM_RSN_ENABLED,
   WPA_PARAM_MFP
-};
-
-enum wpa_vendor_elem_frame {
-  VENDOR_ELEM_PROBE_REQ_P2P = 0,
-  VENDOR_ELEM_PROBE_RESP_P2P = 1,
-  VENDOR_ELEM_PROBE_RESP_P2P_GO = 2,
-  VENDOR_ELEM_BEACON_P2P_GO = 3,
-  VENDOR_ELEM_P2P_PD_REQ = 4,
-  VENDOR_ELEM_P2P_PD_RESP = 5,
-  VENDOR_ELEM_P2P_GO_NEG_REQ = 6,
-  VENDOR_ELEM_P2P_GO_NEG_RESP = 7,
-  VENDOR_ELEM_P2P_GO_NEG_CONF = 8,
-  VENDOR_ELEM_P2P_INV_REQ = 9,
-  VENDOR_ELEM_P2P_INV_RESP = 10,
-  VENDOR_ELEM_P2P_ASSOC_REQ = 11,
-  VENDOR_ELEM_P2P_ASSOC_RESP = 12,
-  VENDOR_ELEM_ASSOC_REQ = 13,
-  NUM_VENDOR_ELEM_FRAMES
 };
 
 enum wpas_dbus_bss_prop {
@@ -349,10 +240,6 @@ struct wpa_scan_results {
   size_t num;
   struct os_reltime fetch_time;
 };
-#define P2P_WILDCARD_SSID "DIRECT-"
-#define P2P_SSID_LEN_WILDCARD 7
-
-#define P2P_IE_VENDOR_TYPE 0x506f9a09
 
 #define wpa_msg(args...) do { } while (0)
 #define wpa_dbg(args...) do { } while (0)
@@ -761,7 +648,6 @@ struct wpa_gtk_data {
 #define ERP_MAX_KEY_LEN 64
 
 struct eap_erp_key {
-  struct dl_list list;
   size_t rRK_len;
   size_t rIK_len;
   wf_u8 rRK[ERP_MAX_KEY_LEN];
@@ -874,7 +760,6 @@ struct eap_sm {
 
   unsigned int expected_failure:1;
 
-  struct dl_list erp_keys;
 };
 
 struct eap_method_ret {
@@ -937,7 +822,6 @@ struct eap_method {
   wf_u8 *(*getSessionId) (struct eap_sm * sm, void *priv, size_t * len);
 };
 struct wpa_radio_work {
-  struct dl_list list;
   unsigned int freq;
   const char *type;
   struct wpa_supplicant *wpa_s;
@@ -950,8 +834,6 @@ struct wpa_radio_work {
 struct wpa_radio {
   char name[16];
   unsigned int external_scan_running:1;
-  struct dl_list ifaces;
-  struct dl_list work;
 };
 
 struct ieee802_1x_hdr {
@@ -1093,81 +975,15 @@ struct wpa_ssid {
 
   int *freq_list;
 
-  wf_u8 *p2p_client_list;
-
-  size_t num_p2p_clients;
-
-#ifndef P2P_MAX_STORED_CLIENTS
-#define P2P_MAX_STORED_CLIENTS 100
-#endif
-
-  struct dl_list psk_list;
-
-  int p2p_group;
-
-  int p2p_persistent_group;
-
   int temporary;
 
   int export_keys;
-
-#ifdef CONFIG_HT_OVERRIDES
-
-  int disable_ht;
-
-  int disable_ht40;
-
-  int disable_sgi;
-
-  int disable_ldpc;
-
-  int ht40_intolerant;
-
-  int disable_max_amsdu;
-
-  int ampdu_factor;
-
-  int ampdu_density;
-
-  char *ht_mcs;
-#endif
-
-#ifdef CONFIG_VHT_OVERRIDES
-
-  int disable_vht;
-
-  unsigned int vht_capa;
-
-  unsigned int vht_capa_mask;
-
-  int vht_rx_mcs_nss_1, vht_rx_mcs_nss_2,
-  vht_rx_mcs_nss_3, vht_rx_mcs_nss_4,
-  vht_rx_mcs_nss_5, vht_rx_mcs_nss_6, vht_rx_mcs_nss_7, vht_rx_mcs_nss_8;
-  int vht_tx_mcs_nss_1, vht_tx_mcs_nss_2,
-  vht_tx_mcs_nss_3, vht_tx_mcs_nss_4,
-  vht_tx_mcs_nss_5, vht_tx_mcs_nss_6, vht_tx_mcs_nss_7, vht_tx_mcs_nss_8;
-#endif
-
-  int ap_max_inactivity;
-
-  int dtim_period;
-
-  int beacon_int;
 
   unsigned int auth_failures;
 
   struct os_reltime disabled_until;
 
   void *parent_cred;
-
-#ifdef CONFIG_MACSEC
-
-  int macsec_policy;
-#endif
-
-#ifdef CONFIG_HS20
-  int update_identifier;
-#endif
 
   unsigned int wps_run;
 
@@ -1886,11 +1702,7 @@ struct wpa_sm {
 
   struct rsn_pmksa_cache *pmksa;
   struct rsn_pmksa_cache_entry *cur_pmksa;
-  struct dl_list pmksa_candidates;
 
-  struct l2_packet_data *l2_preauth;
-  struct l2_packet_data *l2_preauth_br;
-  struct l2_packet_data *l2_tdls;
   wf_u8 preauth_bssid[ETH_ALEN];
   struct eapol_sm *preauth_eapol;
 
@@ -2451,88 +2263,8 @@ struct wpa_config {
   int fst_llt;
 };
 
-#define DL_LIST_HEAD_INIT(l) { &(l), &(l) }
-
-static inline void dl_list_init(struct dl_list *list)
-{
-  list->next = list;
-  list->prev = list;
-}
-
-static inline void dl_list_add(struct dl_list *list, struct dl_list *item)
-{
-  item->next = list->next;
-  item->prev = list;
-  list->next->prev = item;
-  list->next = item;
-}
-
-static inline void dl_list_add_tail(struct dl_list *list, struct dl_list *item)
-{
-  dl_list_add(list->prev, item);
-}
-
-static inline void dl_list_del(struct dl_list *item)
-{
-  item->next->prev = item->prev;
-  item->prev->next = item->next;
-  item->next = NULL;
-  item->prev = NULL;
-}
-
-static inline int dl_list_empty(struct dl_list *list)
-{
-  return list->next == list;
-}
-
-static inline unsigned int dl_list_len(struct dl_list *list)
-{
-  struct dl_list *item;
-  int count = 0;
-  for (item = list->next; item != list; item = item->next)
-    count++;
-  return count;
-}
-
-#ifndef offsetof
-#define offsetof(type, member) ((long) &((type *) 0)->member)
-#endif
-
-#define dl_list_entry(item, type, member) \
-((type *) ((char *) item - offsetof(type, member)))
-
-#define dl_list_first(list, type, member) \
-(dl_list_empty((list)) ? NULL : \
-  dl_list_entry((list)->next, type, member))
-
-#define dl_list_last(list, type, member) \
-(dl_list_empty((list)) ? NULL : \
-  dl_list_entry((list)->prev, type, member))
-
-#define dl_list_for_each(item, list, type, member) \
-for (item = dl_list_entry((list)->next, type, member); \
-  &item->member != (list); \
-    item = dl_list_entry(item->member.next, type, member))
-
-#define dl_list_for_each_safe(item, n, list, type, member) \
-for (item = dl_list_entry((list)->next, type, member), \
-  n = dl_list_entry(item->member.next, type, member); \
-    &item->member != (list); \
-      item = n, n = dl_list_entry(n->member.next, type, member))
-
-#define dl_list_for_each_reverse(item, list, type, member) \
-for (item = dl_list_entry((list)->prev, type, member); \
-  &item->member != (list); \
-    item = dl_list_entry(item->member.prev, type, member))
-
-#define DEFINE_DL_LIST(name) \
-struct dl_list name = { &(name), &(name) }
 
 struct wpa_bss {
-
-  struct dl_list list;
-
-  struct dl_list list_id;
 
   unsigned int id;
 
@@ -2593,25 +2325,17 @@ struct rrm_data {
 #define STA_HASH(sta) (sta[5])
 
 struct hostapd_sta_info {
-  struct dl_list list;
   wf_u8 addr[ETH_ALEN];
   struct os_reltime last_seen;
 };
 
 struct ap_sta_info {
-  struct ap_sta_info *next;
-  struct ap_sta_info *hnext;
   wf_u8 addr[6];
   be32 ipaddr;
-  struct dl_list ip6addr;
   wf_u16 aid;
   wf_u32 flags;
   wf_u16 capability;
   wf_u16 listen_interval;
-#ifdef NOT_FIXED
-  wf_u8 supported_rates[WLAN_SUPP_RATES_MAX];
-  int supported_rates_len;
-#endif
   struct rsn_ftie temp_rsn;
   struct wpa_ptk PTK;
   wf_u8 qosinfo;
@@ -2658,23 +2382,10 @@ struct ap_sta_info {
 struct wpa_supplicant {
   void *pnic_info;
   struct wpa_radio *radio;
-  struct dl_list radio_list;
   struct wpa_supplicant *parent;
   struct wpa_supplicant *next;
-  struct l2_packet_data *l2;
-  struct l2_packet_data *l2_br;
   unsigned char own_addr[ETH_ALEN];
   unsigned char perm_addr[ETH_ALEN];
-#ifdef CONFIG_CTRL_IFACE_DBUS
-  char *dbus_path;
-#endif
-#ifdef CONFIG_CTRL_IFACE_DBUS_NEW
-  char *dbus_new_path;
-  char *dbus_groupobj_path;
-#ifdef CONFIG_AP
-  char *preq_notify_peer;
-#endif
-#endif
 
   char *confname;
   char *confanother;
@@ -2724,8 +2435,6 @@ struct wpa_supplicant {
 
   void (*scan_res_handler) (struct wpa_supplicant * wpa_s,
                             struct wpa_scan_results * scan_res);
-  struct dl_list bss;
-  struct dl_list bss_id;
   size_t num_bss;
   unsigned int bss_update_idx;
   unsigned int bss_next_id;
@@ -2935,8 +2644,6 @@ struct wpa_sm * wf_wpa_sm_init(struct wpa_supplicant *wpa_s);
 int wf_wpa_sm_set_param(struct wpa_sm *sm, enum wpa_sm_conf_params param,unsigned int value);
 int wf_wpa_supplicant_ctrl_iface_add_network(struct wpa_supplicant *wpa_s);
 void wf_pmksa_cache_clear_current(struct wpa_sm *sm);
-void wf_wpa_supplicant_rx_eapol(struct wpa_supplicant *wpa_s, const wf_u8 * src_addr,
-                             const wf_u8 * buf, size_t len);
 void wf_wpa_supplicant_rx_eapol(struct wpa_supplicant *wpa_s, const wf_u8 * src_addr,
                              const wf_u8 * buf, size_t len);
 

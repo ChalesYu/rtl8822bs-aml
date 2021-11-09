@@ -14,7 +14,7 @@
 
 //#include "bsp.h"
 //#include "type.h"
-#include "common.h"
+#include "wf_os_api.h"
 #include "sec/wpa.h"
 #include "sec/crypto/sha1.h"
 #include "sec/crypto/random.h"
@@ -41,13 +41,13 @@ static int wf_pbkdf2_sha1_f(const char *passphrase, const wf_u8 * ssid,
   count_buf[3] = count & 0xff;
   if (wf_hmac_sha1_vector((wf_u8 *) passphrase, passphrase_len, 2, addr, len, tmp))
     return -1;
-  os_memcpy(digest, tmp, SHA1_MAC_LEN);
+  wf_memcpy(digest, tmp, SHA1_MAC_LEN);
 
   for (i = 1; i < iterations; i++) {
     if (wf_hmac_sha1((wf_u8 *) passphrase, passphrase_len, tmp,
                      SHA1_MAC_LEN, tmp2))
       return -1;
-    os_memcpy(tmp, tmp2, SHA1_MAC_LEN);
+    wf_memcpy(tmp, tmp2, SHA1_MAC_LEN);
     for (j = 0; j < SHA1_MAC_LEN; j++)
       digest[j] ^= tmp2[j];
   }
@@ -68,7 +68,7 @@ int wf_pbkdf2_sha1(const wf_u8 *passphrase, const wf_u8 * ssid, size_t ssid_len,
                          count, digest))
       return -1;
     plen = left > SHA1_MAC_LEN ? SHA1_MAC_LEN : left;
-    os_memcpy(pos, digest, plen);
+    wf_memcpy(pos, digest, plen);
     pos += plen;
     left -= plen;
   }

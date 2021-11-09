@@ -1491,6 +1491,7 @@ typedef struct
             wf_u8 action_field;
             wf_u8 variable[0];
         } wf_packed action;
+        wf_u8 null_func[1];
     };
 } wf_packed wf_80211_mgmt_t;
 

@@ -14,7 +14,7 @@
 
 //#include "bsp.h"
 //#include "type.h"
-#include "common.h"
+#include "wf_os_api.h"
 #include "sec/wpa.h"
 #include "sec/crypto/sha1.h"
 #include "sec/crypto/random.h"
@@ -47,12 +47,12 @@ int wf_sha1_prf(const wf_u8 * key, size_t key_len, const char *label,
     } else {
       if (wf_hmac_sha1_vector(key, key_len, 3, addr, len, hash))
         return -1;
-      os_memcpy(&buf[pos], hash, plen);
+      wf_memcpy(&buf[pos], hash, plen);
       break;
     }
     counter++;
   }
-  os_memset(hash, 0, sizeof(hash));
+  wf_memset(hash, 0, sizeof(hash));
 
   return 0;
 }

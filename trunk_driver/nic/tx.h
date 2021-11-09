@@ -468,6 +468,8 @@ typedef struct tx_info {
     struct xmit_buf pcmd_xmitbuf[CMDBUF_MAX]; // LPS need
 #endif
 
+    wf_u8 tx_pend_flag[XMIT_DATA_BUFFER_CNT + XMIT_MGMT_BUFFER_CNT];
+
     /* define other needed  */
 #ifdef CONFIG_XMIT_ACK
     int ack_tx;

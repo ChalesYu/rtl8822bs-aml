@@ -171,16 +171,18 @@ static void tx_work_mpdu_xmit(wf_work_t *work)
         bTxQueue_empty = wf_que_is_empty(&tx_info->pending_frame_queue);
         if (bTxQueue_empty == wf_true)
         {
-            //LOG_D("tx_work_mpdu_xmit break, tx queue empty");
+#ifdef CONFIG_SOFT_TX_AGGREGATION
             wf_tx_hif_queue_work(nic_info->hif_node);
+#endif
             break;
         }
 
         pxmitbuf = wf_xmit_buf_new(tx_info);
         if (pxmitbuf == NULL)
         {
-            //LOG_D("tx_work_mpdu_xmit break, no xmitbuf");
+#ifdef CONFIG_SOFT_TX_AGGREGATION
             wf_tx_hif_queue_work(nic_info->hif_node);
+#endif
             break;
         }
 
@@ -218,36 +220,42 @@ static void tx_work_mpdu_xmit(wf_work_t *work)
             /* msdu2mpdu */
             if (pxframe->pkt != NULL)
             {
-                res = wf_tx_msdu_to_mpdu(nic_info, pxframe,
+                res = wf_tx_msdu_to_mpdu(nic_info,
+                                         pxframe,
                                          pxframe->pkt,
                                          pxframe->pktlen + WF_ETH_HLEN);
-                wf_free_skb(pxframe->pkt);
-                pxframe->pkt = NULL;
-            }
-
-            /* send to hif tx queue */
-            if (res == wf_true)
-            {
-                bRet = mpdu_insert_sending_queue(nic_info, pxframe, wf_false);
-                if (bRet == wf_false)
+                if (wf_true == res)
                 {
-                    wf_xmit_buf_delete(tx_info, pxmitbuf);
+                    bRet = mpdu_insert_sending_queue(nic_info,pxframe, wf_false);
+                    if (bRet == wf_false)
+                    {
+                        wf_xmit_buf_delete(tx_info, pxmitbuf);
+                    }
+                    else
+                    {
+                        wf_free_skb(pxframe->pkt);
+                        pxframe->pkt = NULL;
+                        wf_xmit_frame_delete(tx_info, pxframe);
+
+                        bRet = wf_need_wake_queue(nic_info);
+                        if (bRet == wf_true)
+                        {
+                            LOG_W("<<<<ndev tx start queue");
+                        }
+                    }
                 }
                 else
                 {
+                    LOG_E("wf_tx_msdu_to_mpdu error!!");
+                    wf_free_skb(pxframe->pkt);
+                    pxframe->pkt = NULL;
+                    wf_xmit_buf_delete(tx_info, pxmitbuf);
                     wf_xmit_frame_delete(tx_info, pxframe);
-                }
-                /* check tx resource */
-                bRet = wf_need_wake_queue(nic_info);
-                if (bRet == wf_true)
-                {
-                    LOG_W("<<<<ndev tx start queue");
                 }
             }
             else
             {
-                LOG_E("wf_tx_msdu_to_mpdu error!!");
-
+                LOG_E("xmit frame pkt is NULL");
                 wf_xmit_buf_delete(tx_info, pxmitbuf);
                 wf_xmit_frame_delete(tx_info, pxframe);
             }
@@ -262,11 +270,15 @@ static void tx_work_mpdu_xmit(wf_work_t *work)
 
 void tx_work_init (nic_info_st *pnic_info)
 {
-    nic_priv_t *pnic_priv = nic_priv(pnic_info);
-    wf_workqueue_func_param_t wq_tx_param = {"wlan_tx", tx_work_mpdu_xmit};
+    char name[20];
+    wf_workqueue_func_param_t wq_tx_param;
+
+    sprintf(name, "xmit_%d%d", pnic_info->hif_node_id, pnic_info->ndev_id);
+    wq_tx_param.workqueue_name  = name;
+    wq_tx_param.func            = tx_work_mpdu_xmit;
 
     /*tx queue init*/
-    wf_os_api_workqueue_register(&pnic_priv->tx_wq, &wq_tx_param);
+    wf_os_api_workqueue_register(&nic_priv(pnic_info)->tx_wq, &wq_tx_param);
 }
 
 void tx_work_term (nic_info_st *pnic_info)

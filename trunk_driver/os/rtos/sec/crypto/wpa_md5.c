@@ -11,9 +11,10 @@
 *
 ******************************************************************************/
 
+#undef WF_DEBUG_LEVEL
+#define WF_DEBUG_LEVEL  (~WF_DEBUG_MASK)
+#include "wf_os_api.h"
 
-//#include "bsp.h"
-//#include "type.h"
 #include "sec/utils/common.h"
 #include "wpa_md5.h"
 #include "sec/wpa.h"
@@ -30,7 +31,6 @@ int wf_hmac_md5_vector(const wf_u8 * key, size_t key_len, size_t num_elem,
 
     if (num_elem > 5)
     {
-
         return -1;
     }
 
@@ -42,8 +42,8 @@ int wf_hmac_md5_vector(const wf_u8 * key, size_t key_len, size_t num_elem,
         key_len = 16;
     }
 
-    os_memset(k_pad, 0, sizeof(k_pad));
-    os_memcpy(k_pad, key, key_len);
+    wf_memset(k_pad, 0, sizeof(k_pad));
+    wf_memcpy(k_pad, key, key_len);
 
     for (i = 0; i < 64; i++)
         k_pad[i] ^= 0x36;
@@ -58,8 +58,8 @@ int wf_hmac_md5_vector(const wf_u8 * key, size_t key_len, size_t num_elem,
     if (wf_md5_vector(1 + num_elem, _addr, _len, mac))
         return -1;
 
-    os_memset(k_pad, 0, sizeof(k_pad));
-    os_memcpy(k_pad, key, key_len);
+    wf_memset(k_pad, 0, sizeof(k_pad));
+    wf_memcpy(k_pad, key, key_len);
 
     for (i = 0; i < 64; i++)
         k_pad[i] ^= 0x5c;
@@ -69,8 +69,8 @@ int wf_hmac_md5_vector(const wf_u8 * key, size_t key_len, size_t num_elem,
     _addr[1] = mac;
     _len[1] = MD5_MAC_LEN;
     res = wf_md5_vector(2, _addr, _len, mac);
-    os_memset(k_pad, 0, sizeof(k_pad));
-    os_memset(tk, 0, sizeof(tk));
+    wf_memset(k_pad, 0, sizeof(k_pad));
+    wf_memset(tk, 0, sizeof(tk));
     return res;
 }
 

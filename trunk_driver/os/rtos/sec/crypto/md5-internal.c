@@ -14,7 +14,7 @@
 
 //#include "bsp.h"
 //#include "type.h"
-#include "common.h"
+#include "wf_os_api.h"
 #include "sec/wpa.h"
 #include "wpa_md5.h"
 #include "sec/crypto/md5.h"
@@ -68,10 +68,10 @@ void wf_md5_update(struct md5context *ctx, unsigned char const *buf, unsigned le
 
     t = 64 - t;
     if (len < t) {
-      os_memcpy(p, buf, len);
+      wf_memcpy(p, buf, len);
       return;
     }
-    os_memcpy(p, buf, t);
+    wf_memcpy(p, buf, t);
     wf_md5_bytereverse(ctx->in, 16);
     wf_md5_transform(ctx->buf, (wf_u32 *) ctx->in);
     buf += t;
@@ -79,14 +79,14 @@ void wf_md5_update(struct md5context *ctx, unsigned char const *buf, unsigned le
   }
 
   while (len >= 64) {
-    os_memcpy(ctx->in, buf, 64);
+    wf_memcpy(ctx->in, buf, 64);
     wf_md5_bytereverse(ctx->in, 16);
     wf_md5_transform(ctx->buf, (wf_u32 *) ctx->in);
     buf += 64;
     len -= 64;
   }
 
-  os_memcpy(ctx->in, buf, len);
+  wf_memcpy(ctx->in, buf, len);
 }
 
 void wf_md5_final(unsigned char digest[16], struct md5context *ctx)
@@ -103,14 +103,14 @@ void wf_md5_final(unsigned char digest[16], struct md5context *ctx)
 
   if (count < 8) {
 
-    os_memset(p, 0, count);
+    wf_memset(p, 0, count);
     wf_md5_bytereverse(ctx->in, 16);
     wf_md5_transform(ctx->buf, (wf_u32 *) ctx->in);
 
-    os_memset(ctx->in, 0, 56);
+    wf_memset(ctx->in, 0, 56);
   } else {
 
-    os_memset(p, 0, count - 8);
+    wf_memset(p, 0, count - 8);
   }
   wf_md5_bytereverse(ctx->in, 14);
 
@@ -119,8 +119,8 @@ void wf_md5_final(unsigned char digest[16], struct md5context *ctx)
 
   wf_md5_transform(ctx->buf, (wf_u32 *) ctx->in);
   wf_md5_bytereverse((unsigned char *)ctx->buf, 4);
-  os_memcpy(digest, ctx->buf, 16);
-  os_memset(ctx, 0, sizeof(*ctx));
+  wf_memcpy(digest, ctx->buf, 16);
+  wf_memset(ctx, 0, sizeof(*ctx));
 }
 
 #define F1(x, y, z) (z ^ (x & (y ^ z)))

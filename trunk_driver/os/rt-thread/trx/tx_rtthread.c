@@ -154,16 +154,18 @@ static void tx_work_mpdu_xmit(wf_work_struct *work, void *param)
         bTxQueue_empty = wf_que_is_empty(&tx_info->pending_frame_queue);
         if (bTxQueue_empty == wf_true)
         {
-            //LOG_D("tx_work_mpdu_xmit break, tx queue empty");
+#ifdef CONFIG_SOFT_TX_AGGREGATION
             wf_tx_hif_queue_work(nic_info->hif_node);
+#endif
             break;
         }
         
         pxmitbuf = wf_xmit_buf_new(tx_info);
         if (pxmitbuf == NULL)
         {
-            //LOG_D("tx_work_mpdu_xmit break, no xmitbuf");
+#ifdef CONFIG_SOFT_TX_AGGREGATION
             wf_tx_hif_queue_work(nic_info->hif_node);
+#endif
             break;
         }
 
@@ -201,36 +203,37 @@ static void tx_work_mpdu_xmit(wf_work_struct *work, void *param)
             if (pxframe->pkt != NULL)
             {
                 res = wf_tx_msdu_to_mpdu(nic_info, pxframe, pxframe->pkt, pxframe->pktlen + WF_ETH_HLEN);
-                wf_free_skb(pxframe->pkt);
-                pxframe->pkt = NULL;
-            }
-
-            /* send to hif tx queue */
-            if (res == wf_true)
-            {
-                bRet = mpdu_insert_sending_queue(nic_info, pxframe, wf_false);
-                if (bRet == wf_false)
+                if(wf_true == res) 
                 {
+                    bRet = mpdu_insert_sending_queue(nic_info, pxframe, wf_false);
+                    if (bRet == wf_false)
+                    {
+                        wf_xmit_buf_delete(tx_info, pxmitbuf);
+                    }
+                    else
+                    {
+                        wf_free_skb(pxframe->pkt);
+                        pxframe->pkt = NULL;
+                        wf_xmit_frame_delete(tx_info, pxframe);
+                    }
+
+                    bRet = wf_need_wake_queue(nic_info);
+                    if (bRet == wf_true)
+                    {
+                       LOG_W("<<<<ndev tx start queue");
+                    }
+                } else {
+                    LOG_E("wf_tx_msdu_to_mpdu error!!");
+                    wf_free_skb(pxframe->pkt);
+                    pxframe->pkt = NULL;
                     wf_xmit_buf_delete(tx_info, pxmitbuf);
-                }
-                else
-                {
                     wf_xmit_frame_delete(tx_info, pxframe);
-                }
-                /* check tx resource */
-                bRet = wf_need_wake_queue(nic_info);
-                if (bRet == wf_true)
-                {
-                  LOG_W("<<<<ndev tx start queue");
-                }
-            }
-            else
-            {
-                LOG_E("wf_tx_msdu_to_mpdu error!!");
-
+                }  
+            } else {
+                LOG_E("xmit frame pkt is NULL");
                 wf_xmit_buf_delete(tx_info, pxmitbuf);
                 wf_xmit_frame_delete(tx_info, pxframe);
-            } 
+            }
         }
         else
         {

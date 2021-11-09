@@ -833,7 +833,7 @@ int wf_iw_setOperationMode(struct net_device *ndev, struct iw_request_info *info
     wf_mlme_get_connect(pnic_info, &bConnect);
     if(bConnect)
     {
-        wf_mlme_deauth(pnic_info, wf_true);
+        wf_mlme_deauth(pnic_info, wf_false, WF_80211_REASON_DEAUTH_LEAVING);
     }
 
     wf_mcu_set_op_mode(pnic_info, wrqu->mode);
@@ -1149,7 +1149,7 @@ int wf_iw_setWap (struct net_device *ndev, struct iw_request_info *info,
     if (!wf_80211_is_valid_bssid(awrq->sa_data))
     {
         IW_FUNC_DBG("clear bssid");
-        wf_mlme_conn_abort(pnic_info, wf_false);
+        wf_mlme_conn_abort(pnic_info, wf_false, WF_80211_REASON_DEAUTH_LEAVING);
         goto exit;
     }
 
@@ -1275,12 +1275,12 @@ int wf_iw_setMlme(struct net_device *ndev, struct iw_request_info *info, union i
     {
         case IW_MLME_DEAUTH:
             IW_FUNC_DBG("IW_MLME_DEAUTH");
-            wf_mlme_conn_abort(pnic_info, wf_true);
+            wf_mlme_conn_abort(pnic_info, wf_false, WF_80211_REASON_DEAUTH_LEAVING);
             break;
 
         case IW_MLME_DISASSOC:
             IW_FUNC_DBG("IW_MLME_DISASSOC");
-            wf_mlme_conn_abort(pnic_info, wf_true);
+            wf_mlme_conn_abort(pnic_info, wf_false, WF_80211_REASON_DEAUTH_LEAVING);
             break;
 
         default:

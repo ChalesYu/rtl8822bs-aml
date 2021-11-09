@@ -8,13 +8,16 @@
 
 /* thread */
 int wf_thread_new (wf_thread_t *rthrd_id,
-                   const char *name, wf_thread_fn_t fn, void *arg)
+                   const char *name,
+                   wf_u32 priority,
+                   wf_u32 task_size,
+                   wf_thread_fn_t fn, void *arg)
 {
     osThreadAttr_t thrd_attr =
     {
         .name       = name,
-        .stack_size = OS_ALIGN(2000, sizeof(StackType_t)),
-        .priority   = osPriorityLow,
+        .stack_size = OS_ALIGN(task_size, sizeof(StackType_t)),
+        .priority   = (osPriority_t)(osPriorityNormal - priority),
     };
     osThreadId_t thrd_id;
 
@@ -32,12 +35,6 @@ OS_INLINE
 int wf_thread_sleep (wf_u32 ms)
 {
     return osDelay(pdMS_TO_TICKS(ms));
-}
-
-OS_INLINE
-int wf_thread_yield (void)
-{
-    return osThreadYield();
 }
 
 OS_INLINE
@@ -238,13 +235,14 @@ void wf_free (void *ptr)
 OS_INLINE
 wf_irq_sta_t wf_enter_critical (void)
 {
-    return portSET_INTERRUPT_MASK_FROM_ISR();
+    portENTER_CRITICAL();
+    return 0;
 }
 
 OS_INLINE
 void wf_exit_critical (wf_irq_sta_t irq_sta)
 {
-    portCLEAR_INTERRUPT_MASK_FROM_ISR(irq_sta);
+    portEXIT_CRITICAL();
 }
 
 

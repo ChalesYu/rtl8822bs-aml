@@ -1016,9 +1016,9 @@ int wf_disassoc_frame_parse (nic_info_st *pnic_info, wdn_net_info_st *pwdn_info,
             {
                 ASSOC_DBG("WF_80211_FRM_DISASSOC[%d] frame get, reason:%d",
                           pnic_info->ndev_id,pmgmt->disassoc.reason_code);
-                WF_MLME_INFO_REASON_CODE(pnic_info) =
-                    (wf_80211_reasoncode_e)pmgmt->disassoc.reason_code; /* retrive reason code */
-                rst = wf_mlme_deauth(pnic_info, wf_true);
+                rst = wf_mlme_deauth(pnic_info,
+                                     wf_false,
+                                     (wf_80211_reasoncode_e)pmgmt->disassoc.reason_code);
                 if (rst)
                 {
                     ASSOC_WARN("wf_mlme_deauth fail, reason code: %d", rst);
@@ -1123,8 +1123,6 @@ wf_pt_ret_t wf_assoc_sta_thrd (wf_pt_t *pt, nic_info_st *pnic_info, int *prsn)
         {
             wf_80211_mgmt_t *pmgmt = (wf_80211_mgmt_t *)pmsg->value;
             wf_u16 mgmt_len = (wf_u16)pmsg->len;
-            WF_MLME_INFO_STATUS_CODE(pnic_info) =
-                (wf_80211_statuscode_e)pmgmt->assoc_resp.status_code; /* retrive status code */
             if (!pmgmt->assoc_resp.status_code)
             {
                 wf_wlan_mgmt_info_t *pwlan_info = pnic_info->wlan_mgmt_info;

@@ -10,10 +10,10 @@
 * more details.
 *
 ******************************************************************************/
+#undef WF_DEBUG_LEVEL
+#define WF_DEBUG_LEVEL  (~WF_DEBUG_MASK)
+#include "wf_os_api.h"
 
-
-//#include "bsp.h"
-//#include "type.h"
 #include "sec/utils/common.h"
 #include "sec/crypto/aes.h"
 //#include "wf_aes_wrap.h"
@@ -27,9 +27,9 @@ int wf_aes_unwrap(const wf_u8 * kek, size_t kek_len, int n, const wf_u8 * cipher
   void *ctx;
   unsigned int t;
 
-  os_memcpy(a, cipher, 8);
+  wf_memcpy(a, cipher, 8);
   r = plain;
-  os_memcpy(r, cipher + 8, 8 * n);
+  wf_memcpy(r, cipher + 8, 8 * n);
 
   ctx = wf_aes_dec_init(kek, kek_len);
   if (ctx == NULL)
@@ -38,17 +38,17 @@ int wf_aes_unwrap(const wf_u8 * kek, size_t kek_len, int n, const wf_u8 * cipher
   for (j = 5; j >= 0; j--) {
     r = plain + (n - 1) * 8;
     for (i = n; i >= 1; i--) {
-      os_memcpy(b, a, 8);
+      wf_memcpy(b, a, 8);
       t = n * j + i;
       b[7] ^= t;
       b[6] ^= t >> 8;
       b[5] ^= t >> 16;
       b[4] ^= t >> 24;
 
-      os_memcpy(b + 8, r, 8);
+      wf_memcpy(b + 8, r, 8);
       wf_aes_dec(ctx, b, b);
-      os_memcpy(a, b, 8);
-      os_memcpy(r, b + 8, 8);
+      wf_memcpy(a, b, 8);
+      wf_memcpy(r, b + 8, 8);
       r -= 8;
     }
   }

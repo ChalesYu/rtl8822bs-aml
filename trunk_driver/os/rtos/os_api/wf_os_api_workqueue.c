@@ -1,5 +1,7 @@
 
 /* include */
+#undef WF_DEBUG_LEVEL
+#define WF_DEBUG_LEVEL  (0xf)
 #include "common.h"
 
 /* macro */
@@ -22,6 +24,8 @@ enum
 };
 
 /* funcation declaration */
+void wf_os_api_thrd_cfg_get (const char *name,
+                             wf_u32 *rpriority, wf_u32 *rtask_size);
 
 static void worker_thrd (void *arg)
 {
@@ -30,7 +34,7 @@ static void worker_thrd (void *arg)
     for (;;)
     {
         /* put current work queue into suspend state, wait new work */
-        wf_thread_suspend(wq->work_thrd_id);
+        wf_sema_pend(wq->sema, ~0ul);
 
         /* work queue destory */
         if (wq->event & WORK_QUEUE_EVENT_DESTORY)
@@ -76,9 +80,23 @@ static wf_work_queue_t *work_queue_create (const char *name)
         return NULL;
     }
 
-    ret = wf_thread_new(&wq->work_thrd_id, name, worker_thrd, wq);
+    ret = wf_sema_new(&wq->sema, 0);
     if (ret)
     {
+        wf_free(wq);
+        return NULL;
+    }
+
+    {
+        wf_u32 pri, task_size;
+        wf_os_api_thrd_cfg_get(name, &pri, &task_size);
+        ret = wf_thread_new(&wq->work_thrd_id,
+                            name, pri, task_size,
+                            worker_thrd, wq);
+    }
+    if (ret)
+    {
+        wf_sema_free(wq->sema);
         wf_free(wq);
         return NULL;
     }
@@ -95,10 +113,11 @@ static int queue_work (wf_work_queue_t *wq, wf_work_t *work)
     if (wq->work_thrd_id && !(work->data & WORK_PENDING))
     {
         wf_irq_sta_t irq_sta = wf_enter_critical();
-        if (WF_WARN_ON(!wf_list_is_empty(&work->entry)))
+        if (!wf_list_is_empty(&work->entry))
         {
             wf_exit_critical(irq_sta);
             /* work is already pending */
+            LOG_D("%s %d: \"%s\" is already working", __FILE__, __LINE__, wq->name);
             return 0;
         }
 
@@ -108,7 +127,7 @@ static int queue_work (wf_work_queue_t *wq, wf_work_t *work)
 
         /* wakeup work queue */
         work->data |= WORK_PENDING;
-        wf_thread_resume(wq->work_thrd_id);
+        wf_sema_post(wq->sema);
         return 1;
     }
     return 0;
@@ -128,10 +147,11 @@ static void work_queue_destory (wf_work_queue_t *wq)
 
     /* notify and wait queue work thread stop */
     wq->event |= WORK_QUEUE_EVENT_DESTORY;
-    wf_thread_resume(wq->work_thrd_id);
-    while (wq->event & WORK_QUEUE_EVENT_DESTORY) wf_thread_yield();
+    wf_sema_post(wq->sema);
+    while (wq->event & WORK_QUEUE_EVENT_DESTORY) wf_thread_sleep(10);
 
     /* free queue work thread resource */
+    wf_sema_free(wq->sema);
     wq->work_thrd_id = NULL;
     wf_free(wq);
 }

@@ -14,7 +14,7 @@
 
 //#include "bsp.h"
 //#include "type.h"
-#include "common.h"
+#include "wf_os_api.h"
 //#include "crypto.h"
 #include "sha1.h"
 #include "sec/wpa.h"
@@ -94,7 +94,7 @@ static void wf_random_extract(wf_u8 * out)
 
 	hash_ptr = (wf_u32 *) hash;
 	hash_ptr[0] ^= hash_ptr[4];
-	os_memcpy(out, hash, EXTRACT_LEN);
+	wf_memcpy(out, hash, EXTRACT_LEN);
 }
 
 int wf_random_get_bytes(void *buf, size_t len)

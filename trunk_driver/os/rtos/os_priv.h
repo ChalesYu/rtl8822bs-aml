@@ -20,7 +20,7 @@
     (type *)((char *)(ptr) - WF_OFFSETOF(type, field))
 
 
-#define wf_yield()      wf_thread_yield()
+#define wf_yield()      wf_thread_sleep(1)
 #define wf_mdelay(ms)   wf_thread_sleep(ms)
 #define wf_msleep(ms)   wf_thread_sleep(ms)
 
@@ -105,6 +105,7 @@ typedef struct
     wf_list_t head;
     const char *name;
     wf_u32 event;
+    wf_sema_t sema;
 } wf_work_queue_t, wf_workqueue_struct;
 
 typedef struct wf_workqueue_mgnt_st_ wf_workqueue_mgnt_st, wf_workqueue_mgnt_t;

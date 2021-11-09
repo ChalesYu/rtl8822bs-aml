@@ -6,9 +6,12 @@
 * See README for more details.
 */
 
-#include "common.h"
+#undef WF_DEBUG_LEVEL
+#define WF_DEBUG_LEVEL  (~WF_DEBUG_MASK)
+#include "wf_os_api.h"
+
 //#include "trace.h"
-#include "wpabuf.h"
+#include "sec/utils/wpabuf.h"
 #include "sec/wpa.h"
 #ifdef WPA_TRACE
 #define WPABUF_MAGIC 0x51a974e3
@@ -34,7 +37,7 @@ static struct wpabuf_trace * wf_wpabuf_get_trace(const struct wpabuf *buf)
 struct wpabuf * wf_wpabuf_alloc(size_t len)
 {
 #ifdef WPA_TRACE
-    struct wpabuf_trace *trace = os_zalloc(sizeof(struct wpabuf_trace) +
+    struct wpabuf_trace *trace = wf_kzalloc(sizeof(struct wpabuf_trace) +
                                            sizeof(struct wpabuf) + len);
     struct wpabuf *buf;
     if (trace == NULL)
@@ -42,7 +45,7 @@ struct wpabuf * wf_wpabuf_alloc(size_t len)
     trace->magic = WPABUF_MAGIC;
     buf = (struct wpabuf *) (trace + 1);
 #else /* WPA_TRACE */
-    struct wpabuf *buf = os_zalloc(sizeof(struct wpabuf) + len);
+    struct wpabuf *buf = wf_kzalloc(sizeof(struct wpabuf) + len);
     if (buf == NULL)
         return NULL;
 #endif /* WPA_TRACE */
@@ -81,14 +84,14 @@ void wf_wpabuf_free(struct wpabuf *buf)
         abort();
     }
     if (buf->flags & WPABUF_FLAG_EXT_DATA)
-        os_free(buf->buf);
-    os_free(trace);
+        wf_free(buf->buf);
+    wf_free(trace);
 #else /* WPA_TRACE */
     if (buf == NULL)
         return;
     if (buf->flags & WPABUF_FLAG_EXT_DATA)
-        os_free(buf->buf);
-    os_free(buf);
+        wf_free(buf->buf);
+    wf_free(buf);
 #endif /* WPA_TRACE */
 }
 
@@ -97,7 +100,7 @@ void wf_wpabuf_clear_free(struct wpabuf *buf)
 {
     if (buf)
     {
-        os_memset(wf_wpabuf_mhead(buf), 0, wf_wpabuf_len(buf));
+        wf_memset(wf_wpabuf_mhead(buf), 0, wf_wpabuf_len(buf));
         wf_wpabuf_free(buf);
     }
 }

@@ -1,4 +1,8 @@
+
+#undef WF_DEBUG_LEVEL
+#define WF_DEBUG_LEVEL  (~WF_DEBUG_MASK)
 #include "wf_os_api.h"
+
 #include "os.h"
 #include "sec/crypto/crypto.h"
 int wf_os_get_random(unsigned char *buf, size_t len)
@@ -39,8 +43,8 @@ return 0;
 void wf_os_bin_clear_free(void *bin, size_t len)
 {
 if (bin) {
-os_memset(bin, 0, len);
-  os_free(bin);
+wf_memset(bin, 0, len);
+  wf_free(bin);
 }
 }
 

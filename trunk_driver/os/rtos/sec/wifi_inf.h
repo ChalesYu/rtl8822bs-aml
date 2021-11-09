@@ -1,5 +1,5 @@
 
-#include "common.h"
+#include "wf_os_api.h"
 #define WIFI_BSP_STARTSTA  0
 #define WIFI_BSP_STOPSTA  1
 #define WIFI_BSP_STARTAP  2

@@ -15,7 +15,7 @@
 #ifndef AES_WRAP_H
 #define AES_WRAP_H
 #include "sec/wpa.h"
-#include "common.h"
+#include "wf_os_api.h"
 
 int omac1_aes_vector(const wf_u8 * key, size_t key_len,
 					 size_t num_elem, const wf_u8 * addr[],

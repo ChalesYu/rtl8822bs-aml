@@ -1,6 +1,6 @@
+#include "common.h"
 
 #include "utils/os.h"
-#include "common.h"
 #include "common/defs.h"
 #include "common/wpa_common.h"
 #include "crypto/sha1.h"

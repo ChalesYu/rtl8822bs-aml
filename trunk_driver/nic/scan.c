@@ -50,6 +50,40 @@ wf_inline static wf_bool is_tx_empty (nic_info_st *pnic_info)
     return !!wf_tx_xmit_hif_queue_empty(pnic_info);
 }
 
+wf_inline static int null_data_frame_send (nic_info_st *pnic_info)
+{
+    struct xmit_buf *pxmit_buf;
+    tx_info_st *ptx_info = (void *)pnic_info->tx_info;
+    mlme_info_t *pmlme_info = pnic_info->mlme_info;
+    wdn_net_info_st *pwdn_info = pmlme_info->pwdn_info;
+    wf_80211_mgmt_t *pframe;
+    wf_u16 frame_len;
+
+    SCAN_INFO();
+
+    /* alloc xmit_buf */
+    pxmit_buf = wf_xmit_extbuf_new(ptx_info);
+    if (pxmit_buf == NULL)
+    {
+        SCAN_WARN("xmit_buf alloc fail");
+        return -1;
+    }
+    frame_len = WF_OFFSETOF(wf_80211_mgmt_t, null_func);
+    wf_memset(pxmit_buf->pbuf, 0, TXDESC_OFFSET + frame_len);
+
+    /* set auth type */
+    pframe = (void *)&pxmit_buf->pbuf[TXDESC_OFFSET];
+    wf_80211_set_frame_type(&pframe->frame_control, WF_80211_FRM_NULLFUNC);
+    /* set mac address */
+    wf_memcpy(pframe->da, pwdn_info->mac, WF_ARRAY_SIZE(pframe->da));
+    wf_memcpy(pframe->sa, nic_to_local_addr(pnic_info), WF_ARRAY_SIZE(pframe->sa));
+    wf_memcpy(pframe->bssid, pwdn_info->bssid, WF_ARRAY_SIZE(pframe->bssid));
+
+    return wf_nic_mgmt_frame_xmit_with_ack(pnic_info, pwdn_info,
+                                  pxmit_buf, pxmit_buf->pkt_len = frame_len);
+
+}
+
 wf_inline static
 int scan_setting (nic_info_st *pnic_info)
 {
@@ -64,12 +98,12 @@ int scan_setting (nic_info_st *pnic_info)
             return -2;
         }
 
-        SCAN_INFO("Disbale BSSID Filter");
         /* disable bssid filter of beacon and probe response */
         if (wf_mcu_set_mlme_scan(pnic_info, wf_true))
         {
             return -3;
         }
+        SCAN_INFO("Disbale BSSID Filter");
     }
     else
     {
@@ -137,12 +171,12 @@ int scan_setting (nic_info_st *pnic_info)
         }
         else
         {
-            SCAN_INFO("Disbale BSSID Filter");
             /* disable bssid filter of beacon and probe response */
             if (wf_mcu_set_mlme_scan(pnic_info, wf_true))
             {
                 return -6;
             }
+            SCAN_INFO("Disbale BSSID Filter");
         }
     }
 
@@ -173,21 +207,23 @@ int scan_setting (nic_info_st *pnic_info)
     {
         return -7;
     }
-#ifdef CONFIG_LPS
-    {
-        wf_bool bConnected = wf_false;
-        wf_mlme_get_connect(pnic_info, &bConnected);
 
-        if (bConnected == wf_true)
+    {
+        wf_bool is_connected;
+
+        wf_mlme_get_connect(pnic_info, &is_connected);
+        if (is_connected)
         {
+            null_data_frame_send(pnic_info);
+#ifdef CONFIG_LPS
             wf_lps_wakeup(pnic_info, LPS_CTRL_SCAN, 0);
             if (pnic_info->buddy_nic)
             {
                 wf_lps_wakeup((nic_info_st *)(pnic_info->buddy_nic), LPS_CTRL_SCAN, 0);
             }
+#endif
         }
     }
-#endif
 
     return 0;
 }
@@ -211,6 +247,13 @@ wf_inline static int scan_setting_recover (nic_info_st *pnic_info)
     /* enable bssid filter for beacon and probe response */
     wf_mcu_set_mlme_scan(pnic_info, wf_false);
     SCAN_INFO("Enable BSSID Filter");
+
+#ifdef CFG_ENABLE_AP_MODE
+    if (wf_ap_resume_bcn(pnic_info))
+    {
+        return -2;
+    }
+#endif
 
     return 0;
 }
@@ -559,14 +602,14 @@ wf_pt_ret_t wf_scan_thrd (wf_pt_t *pt, nic_info_st *pnic_info, int *prsn)
                  pscan_info->retry_cnt++)
             {
                 /* send probe request */
-                if(wf_p2p_is_valid(pnic_info))
+                if (wf_p2p_is_valid(pnic_info))
                 {
-                    //LOG_D("[%s,%d] p2p_state:%s",__func__,__LINE__,wf_p2p_state_to_str(pwdinfo->p2p_state));
-                    if(p2p_info->p2p_state == P2P_STATE_SCAN ||
-                       p2p_info->p2p_state == P2P_STATE_FIND_PHASE_SEARCH)
+                    //LOG_D("[%s, %d] p2p_state:%s", __func__, __LINE__, wf_p2p_state_to_str(pwdinfo->p2p_state));
+                    if (p2p_info->p2p_state == P2P_STATE_SCAN ||
+                        p2p_info->p2p_state == P2P_STATE_FIND_PHASE_SEARCH)
                     {
                         wf_wlan_set_cur_channel(pnic_info, pscan_info->preq->ch_map[pscan_info->ch_idx]);
-                        rst = wf_p2p_issue_probereq(pnic_info,NULL);
+                        rst = wf_p2p_issue_probereq(pnic_info, NULL);
                     }
                 }
                 else
@@ -627,6 +670,65 @@ wf_pt_ret_t wf_scan_thrd (wf_pt_t *pt, nic_info_st *pnic_info, int *prsn)
             }
             while (wf_true);
         }
+
+#ifdef CFG_ENABLE_AP_MODE
+        {
+            nic_info_st *pbuddy_nic = pnic_info->buddy_nic;
+
+            if (pbuddy_nic &&
+                get_sys_work_mode(pbuddy_nic) == WF_MASTER_MODE &&
+                wf_ap_status_get(pbuddy_nic) == WF_AP_STATUS_ESTABLISHED &&
+                (pscan_info->ch_idx + 1) % 5 == 0)
+            {
+                SCAN_INFO("scan work pause");
+                /* recover channel setting from backup */
+                if (wf_hw_info_set_channnel_bw(pnic_info,
+                                               pscan_info->chnl_bak.number,
+                                               pscan_info->chnl_bak.width,
+                                               pscan_info->chnl_bak.offset) == WF_RETURN_FAIL)
+                {
+                    SCAN_WARN("UMSG_OPS_HAL_CHNLBW_MODE failed");
+                    reason = -7;
+                    goto exit;
+                }
+                /* enable bssid filter */
+                wf_mcu_set_mlme_scan(pnic_info, wf_false);
+
+                /* keep ap work 500ms */
+                if (!wf_ap_resume_bcn(pbuddy_nic))
+                {
+                    SCAN_INFO("ap share work for 500ms...");
+                    wf_timer_set(&pscan_info->timer, 500);
+                    do
+                    {
+                        PT_WAIT_UNTIL(pt, !wf_msg_pop(pmsg_que, &pmsg) ||
+                                      wf_timer_expired(&pscan_info->timer));
+                        if (pmsg == NULL)
+                        {
+                            /* timeout */
+                            break;
+                        }
+                        if (pmsg->tag == WF_SCAN_TAG_ABORT)
+                        {
+                            wf_msg_del(pmsg_que, pmsg);
+                            reason = WF_SCAN_TAG_ABORT;
+                            goto done;
+                        }
+                        wf_msg_del(pmsg_que, pmsg);
+                    }
+                    while (wf_true);
+                }
+
+                /* disable bssid filter */
+                if (wf_mcu_set_mlme_scan(pnic_info, wf_true))
+                {
+                    reason = -8;
+                    goto exit;
+                }
+                SCAN_INFO("scan work recover");
+            }
+        }
+#endif
     }
     reason = WF_SCAN_TAG_DONE;
 

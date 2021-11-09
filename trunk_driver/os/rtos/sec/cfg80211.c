@@ -1,3 +1,7 @@
+#undef WF_DEBUG_LEVEL
+#define WF_DEBUG_LEVEL  (~WF_DEBUG_MASK)
+#include "common.h"
+#include "wf_80211.h"
 
 #include "utils/os.h"
 #include "sec/utils/common.h"
@@ -105,15 +109,15 @@ int wf_sta_set_encryption(nic_info_st *pnic_info,
             if (param->u.crypt.set_tx == 1) /* pairwise key */
             {
                 /* KCK PTK0~127 */
-                os_memcpy(pwdn_info->dot118021x_UncstKey.skey, param->u.crypt.key,
+                wf_memcpy(pwdn_info->dot118021x_UncstKey.skey, param->u.crypt.key,
                           min(param->u.crypt.key_len, 16));
 
                 if (os_strcmp((const char *)param->u.crypt.alg, "TKIP") == 0) /* set mic key */
                 {
                     /* KEK PTK128~255 */
-                    os_memcpy(pwdn_info->dot11tkiptxmickey.skey,
+                    wf_memcpy(pwdn_info->dot11tkiptxmickey.skey,
                               &(param->u.crypt.key[16]), 8); /* PTK128~191 */
-                    os_memcpy(pwdn_info->dot11tkiprxmickey.skey,
+                    wf_memcpy(pwdn_info->dot11tkiprxmickey.skey,
                               &(param->u.crypt.key[24]), 8); /* PTK192~255 */
                     psec_info->busetkipkey = wf_true;
                 }
@@ -125,12 +129,12 @@ int wf_sta_set_encryption(nic_info_st *pnic_info,
             }
             else /* group key */
             {
-                os_memcpy(psec_info->dot118021XGrpKey[param->u.crypt.idx].skey,
+                wf_memcpy(psec_info->dot118021XGrpKey[param->u.crypt.idx].skey,
                           param->u.crypt.key,
                           min( param->u.crypt.key_len, 16));
-                os_memcpy(psec_info->dot118021XGrptxmickey[param->u.crypt.idx].skey,
+                wf_memcpy(psec_info->dot118021XGrptxmickey[param->u.crypt.idx].skey,
                           &param->u.crypt.key[16], 8);
-                os_memcpy(psec_info->dot118021XGrprxmickey[param->u.crypt.idx].skey,
+                wf_memcpy(psec_info->dot118021XGrprxmickey[param->u.crypt.idx].skey,
                           &param->u.crypt.key[24], 8);
                 psec_info->binstallGrpkey = TRUE;
                 psec_info->dot118021XGrpKeyid = param->u.crypt.idx;

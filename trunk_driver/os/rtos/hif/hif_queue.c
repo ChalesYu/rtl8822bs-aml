@@ -17,7 +17,7 @@ int wf_data_queue_insert(wf_que_t *queue, data_queue_node_st *qnode)
 {
     //LOG_I("[%s] num:%d", __func__, queue->num);
     wf_enque_tail(&qnode->node, queue);
-    return queue->cnt;
+    return wf_que_count(queue);
 }
 
 data_queue_node_st *wf_data_queue_remove(wf_que_t *queue)
@@ -240,10 +240,10 @@ void wf_tx_hif_queue_work(void *hif_info)
     trxq->hif_tx_wq.ops->workqueue_work(&trxq->hif_tx_wq);
 }
 
-data_queue_node_st* wf_tx_queue_remove(data_queue_mngt_st *trxq)
+data_queue_node_st *wf_tx_queue_remove(data_queue_mngt_st *trxq)
 {
-    data_queue_node_st *qnode   = NULL;
-    wf_que_t      *tx_queue     = &trxq->tx_queue;
+    data_queue_node_st *qnode       = NULL;
+    wf_que_t           *tx_queue    = &trxq->tx_queue;
 
     /*get node from free_tx_queue*/
     wf_lock_lock(&trxq->queu_txop_lock);
@@ -368,7 +368,6 @@ static void wf_hif_tx_work_agg(wf_work_t *work)
 #ifdef CONFIG_RICHV200
         if (WF_PKT_TYPE_FRAME != (qnode->buff[0] & 0x03)) //not need flow control
         {
-
             sd->tx_state = qnode->state = TX_STATE_SENDING;
             hif_info->ops->hif_write(hif_info, WF_SDIO_TRX_QUEUE_FLAG, qnode->addr, (char*)qnode, qnode->real_size);
         }
@@ -392,7 +391,7 @@ static void wf_hif_tx_work_agg(wf_work_t *work)
 
             align_size = TXDESC_SIZE + WF_RND_MAX((qnode->real_size-TXDESC_SIZE), 8);
             if ((0 != agg_num && WF_RND4(agg_qnode.pg_num + qnode->pg_num) > max_page_num) ||
-                (0 != agg_num &&  agg_qnode.qsel != qnode->qsel)                ||
+                (0 != agg_num && agg_qnode.qsel != qnode->qsel)                ||
                 (0 != agg_num && agg_num > max_agg_num)                        ||
                 (0 != agg_num && wf_true == agg_break)
                )
@@ -429,7 +428,7 @@ static void wf_hif_tx_work_agg(wf_work_t *work)
                 }
                 else
                 {
-                    agg_qnode.pg_num    += qnode->pg_num;
+                    agg_qnode.pg_num += qnode->pg_num;
                 }
 //                agg_qnode.pg_num = size_to_pg(agg_qnode.real_size);
                 wf_memcpy(sd->tx_agg_buffer + pkt_len, qnode->buff, qnode->real_size);

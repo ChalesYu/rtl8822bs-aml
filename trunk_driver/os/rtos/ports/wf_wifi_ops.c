@@ -21,17 +21,36 @@ static OS_U8 wdev_cnt = 0;
 OS_STATIC_INLINE
 err_t _netif_linkoutput (struct netif *netif, struct pbuf *p)
 {
+    struct pbuf *pbuf = p;
     wlan_dev_t *wdev = netif->state;
     wf_wifi_hd_t wifi_hd = wlan_dev_priv(wdev);
-    int ret;
+    int ret = ERR_OK;
 
-    ret = wf_wifi_data_xmit(wifi_hd, p->payload, p->len);
-    if (ret)
+    if (p->tot_len != p->len)
     {
-        return ERR_IF;
+        pbuf = pbuf_alloc(PBUF_RAW, p->tot_len, PBUF_POOL);
+        if (!pbuf)
+        {
+            OS_LOG_E("malloc pbuf failed");
+            ret = ERR_MEM;
+            goto exit;
+        }
+        pbuf_copy_partial(p, pbuf->payload, pbuf->len, 0);
     }
 
-    return ERR_OK;
+    if (wf_wifi_data_xmit(wifi_hd, pbuf->payload, pbuf->len))
+    {
+        OS_LOG_E("wifi data send failed");
+        ret = ERR_IF;
+    }
+
+    if (pbuf != p)
+    {
+        pbuf_free(pbuf);
+    }
+
+exit :
+    return ret;
 }
 
 OS_STATIC_INLINE
@@ -95,10 +114,6 @@ err_t _netif_init (struct netif *netif)
     /* set interface up */
     netif_set_up(netif);
 
-#if LWIP_NETIF_LINK_CALLBACK
-    netif_set_link_up(netif);
-#endif
-
     return ERR_OK;
 }
 
@@ -140,7 +155,7 @@ static int _netif_register (wf_wifi_hd_t wifi_hd)
         }
         wlan_dev_parent_set(wdev, netif);
 
-        /* add netif */
+        /* netif */
         IP4_ADDR(&ipaddr, 192, 168, 3, 66);
         IP4_ADDR(&netmask, 255, 255, 255, 0);
         IP4_ADDR(&gw, 192, 168, 3, 1);
@@ -215,9 +230,10 @@ static int _scan_done (wf_wifi_hd_t wifi_hd)
 static int _conn_done (wf_wifi_hd_t wifi_hd, wf_wifi_conn_info_t *conn_info)
 {
     wlan_dev_t *wdev = wf_wifi_priv(wifi_hd);
+    struct netif *netif = wlan_dev_parent(wdev);
     wlan_dev_info_t *wlan_dev_info = NULL;
 
-    if(conn_info->ssid.data == NULL)
+    if (conn_info->ssid.data == NULL)
     {
         wlan_dev_event_post(wdev, WLAN_DEV_EVT_CONNECT_FAIL);
         return -1;
@@ -232,12 +248,19 @@ static int _conn_done (wf_wifi_hd_t wifi_hd, wf_wifi_conn_info_t *conn_info)
     wlan_dev_info_push(wdev, wlan_dev_info);
     wlan_dev_event_post(wdev, WLAN_DEV_EVT_CONNECT_SUCCESS);
 
+    /* notify lwip wifi link up */
+    netif_set_link_up(netif);
+
     return 0;
 }
 
 static int _disconn_evt (wf_wifi_hd_t wifi_hd)
 {
     wlan_dev_t *wdev = wf_wifi_priv(wifi_hd);
+    struct netif *netif = wlan_dev_parent(wdev);
+
+    /* notify lwip wifi link break */
+    netif_set_link_down(netif);
 
     wlan_dev_event_post(wdev, WLAN_DEV_EVT_DISCONNECT);
 
@@ -279,7 +302,7 @@ static wf_wifi_skb_hd_t _skb_create (wf_wifi_hd_t wifi_hd,
     OS_UNUSED(wifi_hd);
 
 #if ETH_PAD_SIZE
-    size += ETH_PAD_SIZE;
+    len += ETH_PAD_SIZE;
 #endif
     p = pbuf_alloc(PBUF_RAW, (wf_u16)len, PBUF_POOL);
     if (!p)

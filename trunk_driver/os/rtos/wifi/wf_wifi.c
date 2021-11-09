@@ -12,10 +12,10 @@
 #include "wifi/wf_wifi.h"
 
 /* macro */
-#define WIFI_DBG(fmt, ...)      OS_LOG_D("%s: %d: " fmt, __FUNCTION__, __LINE__, ##__VA_ARGS__)
-#define WIFI_INFO(fmt, ...)     OS_LOG_I("%s: %d: " fmt, __FUNCTION__, __LINE__, ##__VA_ARGS__)
-#define WIFI_WARN(fmt, ...)     OS_LOG_W("%s: %d: " fmt, __FUNCTION__, __LINE__, ##__VA_ARGS__)
-#define WIFI_ERROR(fmt, ...)    OS_LOG_E("%s: %d: " fmt, __FUNCTION__, __LINE__, ##__VA_ARGS__)
+#define WIFI_DBG(fmt, ...)      LOG_D("%s: %d: " fmt, __FUNCTION__, __LINE__, ##__VA_ARGS__)
+#define WIFI_INFO(fmt, ...)     LOG_I("%s: %d: " fmt, __FUNCTION__, __LINE__, ##__VA_ARGS__)
+#define WIFI_WARN(fmt, ...)     LOG_W("%s: %d: " fmt, __FUNCTION__, __LINE__, ##__VA_ARGS__)
+#define WIFI_ERROR(fmt, ...)    LOG_E("%s: %d: " fmt, __FUNCTION__, __LINE__, ##__VA_ARGS__)
 
 /* type */
 
@@ -36,243 +36,194 @@ const struct wpa_driver_ops wpa_driver_bsd_ops =
 /* function declaration */
 
 static int
-wf_wifi_encryption(nic_info_st *pnic_info, ieee_param *param, wf_u32 param_len)
+set_sec_info_for_wep(nic_info_st *pnic_info, ieee_param *param, wf_u32 param_len)
 {
     sec_info_st *psec_info = pnic_info->sec_info;
     wf_u32 wep_key_idx, wep_key_len;
-    wf_u32 res = 0;
-
-    param->u.crypt.err = 0;
-    param->u.crypt.alg[IEEE_CRYPT_ALG_NAME_LEN - 1] = '\0';
 
     if (param_len !=
         WF_OFFSETOF(ieee_param, u.crypt.key) + param->u.crypt.key_len)
     {
-        res = -1;
-        goto exit;
+        return -1;
     }
 
-    if (is_bcast_addr(param->sta_addr))
+    if (param->u.crypt.idx >= WEP_KEYS)
     {
-        if (param->u.crypt.idx >= WEP_KEYS)
-        {
-            res = -1;
-            goto exit;
-        }
+        return -2;
+    }
+
+    wep_key_idx = param->u.crypt.idx;
+    wep_key_len = param->u.crypt.key_len;
+
+    if ((wep_key_idx > WEP_KEYS) || (wep_key_len == 0))
+    {
+        return -3;
+    }
+
+    psec_info->ndisencryptstatus = wf_ndis802_11Encryption1Enabled;
+
+    wep_key_len = wep_key_len <= 5 ? 5 : 13;
+    if (wep_key_len == 13)
+    {
+        psec_info->dot11PrivacyAlgrthm = _WEP104_;
     }
     else
     {
-        res = -1;
-        goto exit;
+        psec_info->dot11PrivacyAlgrthm = _WEP40_;
     }
 
-    if (!os_strcmp((char const *)param->u.crypt.alg, "WEP"))
+    if (param->u.crypt.set_tx)
     {
-        wep_key_idx = param->u.crypt.idx;
-        wep_key_len = param->u.crypt.key_len;
-
-        if ((wep_key_idx > WEP_KEYS) || (wep_key_len == 0))
-        {
-            res = -1;
-            goto exit;
-        }
-
-        psec_info->ndisencryptstatus = wf_ndis802_11Encryption1Enabled;
-
-        wep_key_len = wep_key_len <= 5 ? 5 : 13;
-        if (wep_key_len == 13)
-        {
-            psec_info->dot11PrivacyAlgrthm = _WEP104_;
-        }
-        else
-        {
-            psec_info->dot11PrivacyAlgrthm = _WEP40_;
-        }
-
-        if (param->u.crypt.set_tx)
-        {
-            psec_info->dot11PrivacyKeyIndex = wep_key_idx;
-        }
-        os_memcpy(psec_info->dot11DefKey[wep_key_idx].skey,
-                  param->u.crypt.key, wep_key_len);
-        psec_info->dot11DefKeylen[wep_key_idx] = wep_key_len;
-        psec_info->key_mask |= BIT(wep_key_idx);
+        psec_info->dot11PrivacyKeyIndex = wep_key_idx;
     }
-exit:
-    return res;
+    wf_memcpy(psec_info->dot11DefKey[wep_key_idx].skey,
+              param->u.crypt.key, wep_key_len);
+    psec_info->dot11DefKeylen[wep_key_idx] = wep_key_len;
+    psec_info->key_mask |= BIT(wep_key_idx);
+
+    return 0;
 }
 
-static void wf_wlan_set_ccmp(wf_u8 *pie, size_t *ielen)
+static void set_rsn_ie_for_assoc(wf_80211_mgmt_ie_t *pie)
 {
-#define WPA_OUI_TYPE_SIZE                       4
-#define WPA_VERSION_SIZE                        2
-#define WPA_MULTICAST_CIPHER_SUITE_SIZE         4
-#define WPA_UNICAST_CIPHER_SUITE_COUNT_SIZE     2
-#define WPA_UNICAST_CIPHER_SUITE_LIST_SIZE      4
-#define WPA_AUTHS_NUM_LIST_SIZE                 20
-
-    wf_80211_mgmt_ie_t *wpa_ie;
-    wf_u8 wpa_count;
-    wf_u8 *pos;
-    wf_u8 ccmp_ie[4] = {0x00, 0x50, 0xf2, 0x04};
-
-    wpa_ie = (wf_80211_mgmt_ie_t *)pie;
-    pos = wpa_ie->data;
-    pos = pos + WPA_OUI_TYPE_SIZE;
-    pos = pos + WPA_VERSION_SIZE;
-    pos = pos + WPA_MULTICAST_CIPHER_SUITE_SIZE;
-    wpa_count = pos[0];
-    LOG_D ("wpa_count:%d",wpa_count);
-
-    if (wpa_count == 2)
+    wf_u16 ie_total_len = sizeof(*pie) + pie->len;
+    struct
     {
-        pos[0] = 0x01;
-        pos = pos + WPA_UNICAST_CIPHER_SUITE_COUNT_SIZE;
-        wf_u8 *buf = NULL;
-        buf = wf_kzalloc(wpa_ie->len);
-        if (buf == NULL)
-        {
-          return;
-        }
-        wf_memcpy(buf, wpa_ie->data, wpa_ie->len);
-        wf_memcpy(pos, ccmp_ie, WPA_UNICAST_CIPHER_SUITE_LIST_SIZE);
-        pos = pos + WPA_UNICAST_CIPHER_SUITE_LIST_SIZE;
-        wf_memcpy(pos, buf + WPA_AUTHS_NUM_LIST_SIZE,
-                    wpa_ie->len - WPA_AUTHS_NUM_LIST_SIZE);
-        wpa_ie->len = wpa_ie->len - WPA_UNICAST_CIPHER_SUITE_LIST_SIZE;
-        *ielen = *ielen - WPA_UNICAST_CIPHER_SUITE_LIST_SIZE;
+        wf_u8   element_id;
+        wf_u8   len;
+#define RSNE_GROUP_DATA_CIPHER_SUITE_SIZE       4
+#define RSNE_PARIWISE_CIPHER_SUITE_LIST_SIZE    4
+        wf_u16  version;
+        wf_u8   group_cipher_suite[RSNE_GROUP_DATA_CIPHER_SUITE_SIZE];
+        wf_u16  pairwise_cipher_suite_count;
+        wf_u8   pairwise_cipher_suite_list[0];
+    } wf_packed *rsn_ie_prefix = (void *)pie;
+    wf_u8 *to = rsn_ie_prefix->pairwise_cipher_suite_list;
+    wf_u8 pairwise_cipher_list_size =
+        rsn_ie_prefix->pairwise_cipher_suite_count *
+        RSNE_PARIWISE_CIPHER_SUITE_LIST_SIZE;
+    wf_u8 *from = &to[pairwise_cipher_list_size];
+    wf_u8 remain_size = (wf_u8)((wf_u8 *)&pie[ie_total_len] - from);
+    wf_u8 rsn_cipher_suite[RSNE_PARIWISE_CIPHER_SUITE_LIST_SIZE] =
+    {0x00, 0x0f, 0xac, 0x04}; /* ccmp */
 
-        wf_kfree(buf);
+    /* adjust ie len */
+    rsn_ie_prefix->len -=
+        (rsn_ie_prefix->pairwise_cipher_suite_count - 1) *
+        RSNE_GROUP_DATA_CIPHER_SUITE_SIZE;
+    /* force set only ccmp as pairwise cipher */
+    rsn_ie_prefix->pairwise_cipher_suite_count = 1;
+    wf_memcpy(to, rsn_cipher_suite, sizeof(rsn_cipher_suite));
+    /* copy the remain ie data(AKM) */
+    wf_memcpy(&to[sizeof(rsn_cipher_suite)], from, remain_size);
+}
+static void set_wpa_ie_for_assoc(wf_80211_mgmt_ie_t *pie)
+{
+    wf_u16 ie_total_len = sizeof(*pie) + pie->len;
+    struct
+    {
+        wf_u8   element_id;
+        wf_u8   len;
+#define WPA_OUI_TYPE_SIZE                       4
+#define WPA_MULTICAST_CIPHER_SUITE_SIZE         4
+#define WPA_UNICAST_CIPHER_SUITE_LIST_SIZE      4
+        wf_u8   OUI[WPA_OUI_TYPE_SIZE];
+        wf_u16  version;
+        wf_u8   group_cipher_suite[WPA_MULTICAST_CIPHER_SUITE_SIZE];
+        wf_u16  pairwise_cipher_suite_count;
+        wf_u8   pairwise_cipher_suite_list[0];
+    } wf_packed *wpa_ie_prefix = (void *)pie;
+    wf_u8 *to = wpa_ie_prefix->pairwise_cipher_suite_list;
+    wf_u8 pairwise_cipher_list_size =
+        wpa_ie_prefix->pairwise_cipher_suite_count *
+        WPA_UNICAST_CIPHER_SUITE_LIST_SIZE;
+    wf_u8 *from = &to[pairwise_cipher_list_size];
+    wf_u8 remain_size = (wf_u8)((wf_u8 *)&pie[ie_total_len] - from);
+    wf_u8 wpa_cipher_suite[WPA_UNICAST_CIPHER_SUITE_LIST_SIZE] =
+    {0x00, 0x50, 0xf2, 0x04}; /* ccmp */
 
-    }
+    /* adjust ie len */
+    wpa_ie_prefix->len -=
+        (wpa_ie_prefix->pairwise_cipher_suite_count - 1) *
+        WPA_MULTICAST_CIPHER_SUITE_SIZE;
+    /* force set only ccmp as pairwise cipher */
+    wpa_ie_prefix->pairwise_cipher_suite_count = 1;
+    wf_memcpy(to, wpa_cipher_suite, sizeof(wpa_cipher_suite));
+    /* copy the remain ie data(AKM) */
+    wf_memcpy(&to[sizeof(wpa_cipher_suite)], from, remain_size);
 }
 
 
-static int
-wf_wifi_set_wpa_ie (nic_info_st *pnic_info, wf_u8 *pie, size_t ielen)
+static int set_sec_info_for_wpa (nic_info_st *pnic_info, wf_u8 *pie, size_t ie_len)
 {
     sec_info_st *sec_info = pnic_info->sec_info;
-    wf_u8 *buf = NULL;
     wf_u32 group_cipher = 0, pairwise_cipher = 0;
-    wf_u8 eid, wps_oui[4] = { 0x0, 0x50, 0xf2, 0x04};
-    wf_u16 cnt = 0;
-    wf_u32 res = 0;
 
-    if (pie == NULL)
+    if (!wf_80211_mgmt_wpa_parse(pie, ie_len, &group_cipher,
+                                 &pairwise_cipher))
     {
-        goto exit;
+        sec_info->dot11AuthAlgrthm = dot11AuthAlgrthm_8021X;
+        sec_info->ndisauthtype = wf_ndis802_11AuthModeWPAPSK;
+        sec_info->wpa_enable = wf_true;
+    }
+    else if (!wf_80211_mgmt_rsn_parse(pie, ie_len, &group_cipher,
+                                      &pairwise_cipher))
+    {
+        sec_info->dot11AuthAlgrthm = dot11AuthAlgrthm_8021X;
+        sec_info->ndisauthtype = wf_ndis802_11AuthModeWPA2PSK;
+        sec_info->rsn_enable = wf_true;
     }
 
-    if (ielen > WF_MAX_WPA_IE_LEN)
+    switch (group_cipher)
     {
-        res = -1;
-        goto exit;
+        case CIPHER_SUITE_TKIP:
+            sec_info->dot118021XGrpPrivacy = _TKIP_;
+            sec_info->ndisencryptstatus = wf_ndis802_11Encryption2Enabled;
+            break;
+
+        case CIPHER_SUITE_CCMP:
+            sec_info->dot118021XGrpPrivacy = _AES_;
+            sec_info->ndisencryptstatus = wf_ndis802_11Encryption3Enabled;
+            break;
+
+        case CIPHER_SUITE_NONE:
+        default:
+            break;
     }
 
-    if (ielen)
+    switch (pairwise_cipher)
     {
-        buf = wf_kzalloc(ielen);
-        if (buf == NULL)
-        {
-            res = -1;
-            goto exit;
-        }
-        os_memcpy(buf, pie, ielen);
+        case CIPHER_SUITE_TKIP:
+            sec_info->dot11PrivacyAlgrthm = _TKIP_;
+            sec_info->ndisencryptstatus = wf_ndis802_11Encryption2Enabled;
+            break;
 
-        if (ielen < RSN_HEADER_LEN)
-        {
-            res = -1;
-            goto exit;
-        }
+        case CIPHER_SUITE_CCMP:
+            sec_info->dot11PrivacyAlgrthm = _AES_;
+            sec_info->ndisencryptstatus = wf_ndis802_11Encryption3Enabled;
+            break;
 
-        if (!wf_80211_mgmt_wpa_parse(buf, ielen, &group_cipher,
-                                     &pairwise_cipher))
-        {
-            wf_wlan_set_ccmp(buf, &ielen);
-            sec_info->dot11AuthAlgrthm = dot11AuthAlgrthm_8021X;
-            sec_info->ndisauthtype = wf_ndis802_11AuthModeWPAPSK;
-            sec_info->wpa_enable = wf_true;
-            os_memcpy(sec_info->supplicant_ie, &buf[0], ielen);
-        }
-        else if (!wf_80211_mgmt_rsn_parse(buf, ielen, &group_cipher,
-                                          &pairwise_cipher))
-        {
-            sec_info->dot11AuthAlgrthm = dot11AuthAlgrthm_8021X;
-            sec_info->ndisauthtype = wf_ndis802_11AuthModeWPA2PSK;
-            sec_info->rsn_enable = wf_true;
-            os_memcpy(sec_info->supplicant_ie, &buf[0], ielen);
-        }
-
-        switch (group_cipher)
-        {
-            case CIPHER_SUITE_TKIP:
-                sec_info->dot118021XGrpPrivacy = _TKIP_;
-                sec_info->ndisencryptstatus = wf_ndis802_11Encryption2Enabled;
-                break;
-            case CIPHER_SUITE_CCMP:
-                sec_info->dot118021XGrpPrivacy = _AES_;
-                sec_info->ndisencryptstatus = wf_ndis802_11Encryption3Enabled;
-                break;
-        }
-        switch (pairwise_cipher)
-        {
-            case CIPHER_SUITE_NONE:
-//            sec_info->dot11PrivacyAlgrthm = _NO_PRIVACY_;
-//            sec_info->ndisencryptstatus = wf_ndis802_11EncryptionDisabled;
-//            IW_FUNC_DBG("dot11PrivacyAlgrthm=_NO_PRIVACY_");
-                break;
-            case CIPHER_SUITE_TKIP:
-                sec_info->dot11PrivacyAlgrthm = _TKIP_;
-                sec_info->ndisencryptstatus = wf_ndis802_11Encryption2Enabled;
-                break;
-            case CIPHER_SUITE_CCMP:
-                sec_info->dot11PrivacyAlgrthm = _AES_;
-                sec_info->ndisencryptstatus = wf_ndis802_11Encryption3Enabled;
-                break;
-            default:
-                sec_info->dot11PrivacyAlgrthm = _AES_;
-                sec_info->ndisencryptstatus = wf_ndis802_11Encryption3Enabled;
-                break;
-        }
-
-        while (cnt < ielen)
-        {
-            eid = buf[cnt];
-            if (eid == WF_80211_MGMT_EID_VENDOR_SPECIFIC &&
-                !os_memcmp(&buf[cnt + 2], wps_oui, 4))
-            {
-                sec_info->wps_ie_len = WF_MIN(buf[cnt + 1] + 2, 512);
-                os_memcpy(sec_info->wps_ie, &buf[cnt], sec_info->wps_ie_len);
-                cnt += buf[cnt + 1] + 2;
-                break;
-            }
-            else
-            {
-                cnt += buf[cnt + 1] + 2;
-            }
-        }
+        case CIPHER_SUITE_NONE:
+        default:
+            break;
     }
 
-exit :
-    if (buf)
-    {
-        wf_kfree(buf);
-    }
-    return res;
+    return 0;
 }
 
 static void
-wf_wifi_wpa_config(nic_info_st *pnic_info, const wf_u8 * hwaddr,
-                   wf_u32 len, wf_u8 *essid, wf_u8 *password, wf_u32 sec_mode)
+wifi_wpa_config(nic_info_st *pnic_info, const wf_u8 * hwaddr,
+                wf_u32 len, wf_u8 *essid, wf_u8 *password, wf_u32 sec_mode)
 {
     struct wpa_supplicant *wpa_s = &wpa_s_obj;
     struct wpa_sm *sm = wpa_s->wpa;
     static int wpa_init = 0;
     struct wpa_ssid *entry;
+
     if (!wpa_init)
     {
         wpa_init = 1;
-        os_memset(wpa_s, 0, sizeof(struct wpa_supplicant));
+        wf_memset(wpa_s, 0, sizeof(struct wpa_supplicant));
         wpa_s->wpa = wf_wpa_sm_init(wpa_s);
         wpa_s->wpa->pnic_info = pnic_info;
         if (wpa_s->wpa == NULL)
@@ -290,14 +241,14 @@ wf_wifi_wpa_config(nic_info_st *pnic_info, const wf_u8 * hwaddr,
         }
         wf_wpa_supplicant_ctrl_iface_add_network(wpa_s);
     }
-    os_memcpy(wpa_s->wpa->own_addr, hwaddr, len);
+    wf_memcpy(wpa_s->wpa->own_addr, hwaddr, len);
     entry = wpa_s->conf->ssid;
     entry->key_mgmt = WPA_PSK_KEY_MGMT;
     entry->ssid = (wf_u8 *) essid;
     entry->ssid_len = os_strlen((char const *)essid);
     entry->passphrase = password;
     entry->disabled = 0;
-    os_memset(entry->psk, 0, 32);
+    wf_memset(entry->psk, 0, 32);
     wf_pbkdf2_sha1(password, (wf_u8 const *)essid, entry->ssid_len,
                    4096, entry->psk, PMK_LEN);
     entry->psk_set = 1;
@@ -319,54 +270,55 @@ wf_wifi_wpa_config(nic_info_st *pnic_info, const wf_u8 * hwaddr,
 
 static void
 wf_wifi_set_psk(nic_info_st *pnic_info, wf_wifi_conn_info_t *conn_info,
-                ieee_param *param, wf_u32 *ccmp_and_tkip)
+                ieee_param *param, wf_bool *is_mix_sec)
 {
     sec_info_st *psec_info = pnic_info->sec_info;
     hw_info_st *phw_info = pnic_info->hw_info;
 
+    *is_mix_sec = wf_false;
+
     /* clear CAM */
-    wf_mcu_set_dk_cfg(pnic_info, psec_info->dot11AuthAlgrthm, wf_true);
-    wf_mcu_set_on_rcr_am(pnic_info, wf_true);
-//    wf_mcu_set_hw_invalid_all(pnic_info);
+    wf_mcu_set_dk_cfg(pnic_info, psec_info->dot11AuthAlgrthm, wf_false);
+    wf_mcu_set_on_rcr_am(pnic_info, wf_false);
+    wf_mcu_set_hw_invalid_all(pnic_info);
 
-    wf_memset(psec_info, 0, sizeof(sec_info_st));
-
-    os_memset(param->sta_addr, 0xff, WF_ETH_ALEN);
-    switch (conn_info->sec & 0xfff)
+    switch (conn_info->sec & ~(SHARED_ENABLED | WPA_SECURITY |
+                               WPA2_SECURITY | WPS_ENABLED))
     {
-        case WEP_ENABLED:
-            os_memcpy(param->u.crypt.alg, "WEP",
-                      IEEE_CRYPT_ALG_NAME_LEN);
+        case WEP_ENABLED :
+            wf_memcpy(param->u.crypt.alg, "WEP", IEEE_CRYPT_ALG_NAME_LEN);
             param->u.crypt.set_tx = 1;
             psec_info->dot11AuthAlgrthm = dot11AuthAlgrthm_Shared;
             break;
-        case AES_ENABLED:
+
+        case AES_ENABLED :
             wf_memcpy(param->u.crypt.alg, "ccmp", IEEE_CRYPT_ALG_NAME_LEN);
-            wf_wifi_wpa_config(pnic_info,(const wf_u8 *)phw_info->macAddr,
-                               WF_ETH_ALEN, (wf_u8 *)conn_info->ssid.data,
-                               (wf_u8 *)conn_info->key.data, AES_ENABLED);
+            wifi_wpa_config(pnic_info, (const wf_u8 *)phw_info->macAddr,
+                            WF_ETH_ALEN, (wf_u8 *)conn_info->ssid.data,
+                            (wf_u8 *)conn_info->key.data, AES_ENABLED);
             break;
-        case TKIP_ENABLED:
+        case TKIP_ENABLED :
             wf_memcpy(param->u.crypt.alg, "tkip", IEEE_CRYPT_ALG_NAME_LEN);
-            wf_wifi_wpa_config(pnic_info, (const wf_u8 *)phw_info->macAddr,
-                               WF_ETH_ALEN, (wf_u8 *)conn_info->ssid.data,
-                               (wf_u8 *)conn_info->key.data, TKIP_ENABLED);
+            wifi_wpa_config(pnic_info, (const wf_u8 *)phw_info->macAddr,
+                            WF_ETH_ALEN, (wf_u8 *)conn_info->ssid.data,
+                            (wf_u8 *)conn_info->key.data, TKIP_ENABLED);
             break;
-        case AES_AND_TKIP_ENABLED:
-            OS_LOG_D ("AES_AND_TKIP_ENABLED");
-            *ccmp_and_tkip = 1;
-            wf_memcpy(param->u.crypt.alg, "ccmp_and_tkip",
+        case (TKIP_ENABLED | AES_ENABLED) :
+            WIFI_DBG ("AES_AND_TKIP_ENABLED");
+            *is_mix_sec = wf_true;
+            wf_memcpy(param->u.crypt.alg, "is_mix_sec",
                       IEEE_CRYPT_ALG_NAME_LEN);
-            wf_wifi_wpa_config(pnic_info,(const wf_u8 *)phw_info->macAddr,
-                               WF_ETH_ALEN,(wf_u8 *)conn_info->ssid.data,
-                               (wf_u8 *)conn_info->key.data, AES_ENABLED);
+            wifi_wpa_config(pnic_info, (const wf_u8 *)phw_info->macAddr,
+                            WF_ETH_ALEN, (wf_u8 *)conn_info->ssid.data,
+                            (wf_u8 *)conn_info->key.data, AES_ENABLED);
             break;
-        default:
-            wf_memcpy(param->u.crypt.alg, "none",
-                      IEEE_CRYPT_ALG_NAME_LEN);
+
+        case SECURITY_OPEN :
+        default :
+            wf_memcpy(param->u.crypt.alg, "none", IEEE_CRYPT_ALG_NAME_LEN);
             break;
     }
-
+    wf_memset(param->sta_addr, 0xff, WF_ETH_ALEN);
 }
 
 int wf_wifi_eapol_handle(wf_wifi_hd_t wifi_hd, void *buffer, wf_u16 len)
@@ -375,20 +327,20 @@ int wf_wifi_eapol_handle(wf_wifi_hd_t wifi_hd, void *buffer, wf_u16 len)
     wpa_s_obj.pnic_info = (void *)pnic_info;
     struct wl_ieee80211_hdr_3addr * pwlanhdr = NULL;
     pwlanhdr = (struct wl_ieee80211_hdr_3addr *)buffer;
-    int i=0;
+    int i = 0;
 
-    os_memcpy(wpa_s_obj.wpa->pmk,wpa_s_obj.conf->ssid->psk,32);
+    wf_memcpy(wpa_s_obj.wpa->pmk, wpa_s_obj.conf->ssid->psk, 32);
     wpa_s_obj.wpa->pmk_len = 32;
     wpa_s_obj.wpa->pairwise_cipher = wpa_s_obj.conf->ssid->pairwise_cipher;
     wpa_s_obj.wpa->key_mgmt = wpa_s_obj.conf->ssid->key_mgmt;
-    os_memcpy(wpa_s_obj.wpa->bssid,wf_wlan_get_cur_bssid(pnic_info),6);
+    wf_memcpy(wpa_s_obj.wpa->bssid, wf_wlan_get_cur_bssid(pnic_info), 6);
 
-    wf_wpa_supplicant_rx_eapol(&wpa_s_obj,wf_wlan_get_cur_bssid(pnic_info),(wf_u8 *)buffer,len);
+    wf_wpa_supplicant_rx_eapol(&wpa_s_obj, wf_wlan_get_cur_bssid(pnic_info), (wf_u8 *)buffer, len);
     return 0;
 }
 
 
-wf_wifi_sec_t wf_wifi_sec_get(wf_wlan_mgmt_scan_que_node_t *pscan_que_node)
+wf_wifi_sec_t wf_wifi_sec_type_parse(wf_wlan_mgmt_scan_que_node_t *pscan_que_node)
 {
     wf_80211_mgmt_ie_t *pie;
     wf_u8 pie_len;
@@ -402,22 +354,23 @@ wf_wifi_sec_t wf_wifi_sec_get(wf_wlan_mgmt_scan_que_node_t *pscan_que_node)
         if (!wf_80211_mgmt_wpa_parse(pie, pie_len,
                                      &group_cipher, &pairwise_cipher))
         {
-            if (pairwise_cipher == (CIPHER_SUITE_TKIP | CIPHER_SUITE_CCMP))
+            if (pairwise_cipher & CIPHER_SUITE_CCMP)
             {
                 pairwise_cipher = CIPHER_SUITE_CCMP;
             }
-            if ((group_cipher == CIPHER_SUITE_TKIP) &&
-                (pairwise_cipher == CIPHER_SUITE_TKIP))
+
+            if (group_cipher == CIPHER_SUITE_TKIP &&
+                pairwise_cipher == CIPHER_SUITE_TKIP)
             {
                 return WF_WIFI_SEC_WPA_TKIP_PSK;
             }
-            else if ((group_cipher == CIPHER_SUITE_CCMP) &&
-                     (pairwise_cipher == CIPHER_SUITE_CCMP))
+            else if (group_cipher == CIPHER_SUITE_CCMP &&
+                     pairwise_cipher == CIPHER_SUITE_CCMP)
             {
                 return WF_WIFI_SEC_WPA_AES_PSK;
             }
-            else if ((group_cipher == CIPHER_SUITE_TKIP) &&
-                     (pairwise_cipher == CIPHER_SUITE_CCMP))
+            else if (group_cipher == CIPHER_SUITE_TKIP &&
+                     pairwise_cipher == CIPHER_SUITE_CCMP)
             {
                 return WF_WIFI_SEC_WPA_MIXED_PSK;
             }
@@ -429,10 +382,11 @@ wf_wifi_sec_t wf_wifi_sec_get(wf_wlan_mgmt_scan_que_node_t *pscan_que_node)
         if (!wf_80211_mgmt_rsn_parse(pie, pie_len,
                                      &group_cipher, &pairwise_cipher))
         {
-            if (pairwise_cipher == (CIPHER_SUITE_TKIP | CIPHER_SUITE_CCMP))
+            if (pairwise_cipher & CIPHER_SUITE_CCMP)
             {
                 pairwise_cipher = CIPHER_SUITE_CCMP;
             }
+
             if (group_cipher == CIPHER_SUITE_TKIP &&
                 pairwise_cipher == CIPHER_SUITE_TKIP)
             {
@@ -452,37 +406,129 @@ wf_wifi_sec_t wf_wifi_sec_get(wf_wlan_mgmt_scan_que_node_t *pscan_que_node)
 
         return WF_WIFI_SEC_WEP_SHARED;
     }
-    else
-    {
-        return WF_WIFI_SEC_OPEN;
-    }
+
+    return WF_WIFI_SEC_OPEN;
 }
 
-static int
-wf_wifi_updata_conn_info(nic_info_st *pnic_info, wf_wifi_conn_info_t *conn_info)
+
+static int conn_info_preprocess (wf_wifi_hd_t wifi_hd,
+                                 wf_wifi_conn_info_t *conn_info)
 {
+    nic_info_st *pnic_info = wifi_hd;
+    hw_info_st *phw_info = pnic_info->hw_info;
+    wf_bool try_scan = wf_true;
+    wf_bool cmp_ok = wf_false;
+    static wf_wlan_mgmt_scan_que_node_t *pscan_que_node;
     wf_wlan_mgmt_scan_que_for_rst_e scan_for_rst;
-    wf_wlan_mgmt_scan_que_node_t *pscan_node;
-    wf_wlan_ssid_t node_ssid;
 
-    wf_memcpy(node_ssid.data, conn_info->ssid.data,
-              node_ssid.length = conn_info->ssid.len);
-    wf_wlan_mgmt_scan_que_for_begin(pnic_info, pscan_node)
+again :
+    wf_wlan_mgmt_scan_que_for_begin(pnic_info, pscan_que_node)
     {
-        if (wf_wlan_is_same_ssid(&pscan_node->ssid, &node_ssid))
+        /* check ssid */
+        if (conn_info->ssid.len)
         {
-            conn_info->channel = pscan_node->channel;
-            conn_info->sec = wf_wifi_sec_get(pscan_node);
-            os_memcpy(conn_info->bssid, pscan_node->bssid, 6);
+            if (!wf_wlan_is_same_ssid(&pscan_que_node->ssid,
+                                      (void *)&conn_info->ssid))
+            {
+                continue;
+            }
+            cmp_ok = wf_true;
+        }
+        else
+        {
+            conn_info->ssid.len = pscan_que_node->ssid.length;
+            wf_memcpy(&conn_info->ssid.data,
+                      &pscan_que_node->ssid.data,
+                      pscan_que_node->ssid.length);
+            conn_info->ssid.data[conn_info->ssid.len] = '\0';
+        }
 
+        /* check bssid */
+        if (wf_80211_is_valid_bssid((void *)conn_info->bssid))
+        {
+            if (!wf_80211_is_same_addr(pscan_que_node->bssid,
+                                       (void *)conn_info->bssid))
+            {
+                continue;
+            }
+            cmp_ok = wf_true;
+        }
+        else
+        {
+            wf_memcpy(conn_info->bssid, pscan_que_node->bssid,
+                      sizeof(pscan_que_node->bssid));
+        }
+
+        /* check channel */
+        if (wf_hw_info_is_channel_valid(phw_info, conn_info->channel))
+        {
+            if (pscan_que_node->channel != conn_info->channel)
+            {
+                continue;
+            }
+        }
+
+        if (cmp_ok)
+        {
+            sec_info_st *sec_info = pnic_info->sec_info;
+            wf_memset(sec_info, 0, sizeof(*sec_info));
+
+            /* retrive rsn/wpa ie */
+            wf_80211_mgmt_ie_t *rsn_ie =
+                (wf_80211_mgmt_ie_t *)pscan_que_node->rsn_ie;
+            wf_80211_mgmt_ie_t *wpa_ie =
+                (wf_80211_mgmt_ie_t *)pscan_que_node->wpa_ie;
+
+            if (rsn_ie->element_id == WF_80211_MGMT_EID_RSN)
+            {
+                wf_memcpy(sec_info->supplicant_ie, rsn_ie,
+                          sizeof(*rsn_ie) + rsn_ie->len);
+            }
+            else if (wpa_ie->element_id == WF_80211_MGMT_EID_VENDOR_SPECIFIC)
+            {
+                wf_memcpy(sec_info->supplicant_ie, wpa_ie,
+                          sizeof(*wpa_ie) + wpa_ie->len);
+            }
+
+            /* set sec infomation */
+            conn_info->sec = wf_wifi_sec_type_parse(pscan_que_node);
             break;
         }
     }
     wf_wlan_mgmt_scan_que_for_end(scan_for_rst);
+
     if (scan_for_rst != WF_WLAN_MGMT_SCAN_QUE_FOR_RST_BREAK)
     {
-        return -1;
+        if (try_scan)
+        {
+            int ret;
+
+            /* launch scan to update the scan queue information */
+            ret = wf_mlme_scan_start(pnic_info,
+                                     SCAN_TYPE_ACTIVE,
+                                     NULL, 0,
+                                     NULL, 0,
+                                     WF_MLME_FRAMEWORK_NONE);
+            if (ret)
+            {
+                return -1;
+            }
+
+            /* block until scan process done */
+            nic_priv(pnic_info)->scan.report_en = wf_false;
+            nic_priv(pnic_info)->scan.done = wf_false;
+            do
+            {
+                wf_msleep(100);
+            }
+            while (!nic_priv(pnic_info)->scan.done);
+
+            try_scan = wf_false;
+            goto again;
+        }
+        return -2;
     }
+
     return 0;
 }
 
@@ -527,7 +573,7 @@ int wf_wifi_enable (wf_wifi_hd_t wifi_hd)
 {
     nic_info_st *pnic_info = wifi_hd;
 
-    if (OS_WARN_ON(!pnic_info))
+    if (WF_WARN_ON(!pnic_info))
     {
         return -1;
     }
@@ -544,7 +590,7 @@ int wf_wifi_disable (wf_wifi_hd_t wifi_hd)
 {
     nic_info_st *pnic_info = wifi_hd;
 
-    if (OS_WARN_ON(!pnic_info))
+    if (WF_WARN_ON(!pnic_info))
     {
         return -1;
     }
@@ -605,28 +651,30 @@ int wf_wifi_scan (wf_wifi_hd_t wifi_hd, wf_wifi_scan_info_t *scan_info)
         }
     }
 
-    if(scan_info->ssid_num)
+    if (scan_info->ssid_num)
     {
         wf_memcpy(ssid.data, scan_info->ssids[0].data, scan_info->ssids[0].len);
         ssid.length = scan_info->ssids[0].len;
         ret = wf_mlme_scan_start(pnic_info,
                                  SCAN_TYPE_ACTIVE,
-                                 &ssid,
-                                 1, NULL,
-                                 0, WF_MLME_FRAMEWORK_NONE);
+                                 &ssid, 1,
+                                 NULL, 0,
+                                 WF_MLME_FRAMEWORK_NONE);
     }
     else
     {
         ret = wf_mlme_scan_start(pnic_info,
                                  SCAN_TYPE_ACTIVE,
-                                 NULL,
-                                 0, NULL,
-                                 0, WF_MLME_FRAMEWORK_NONE);
+                                 NULL, 0,
+                                 NULL, 0,
+                                 WF_MLME_FRAMEWORK_NONE);
     }
     if (ret)
     {
         return -2;
     }
+    nic_priv(pnic_info)->scan.done = wf_false;
+    nic_priv(pnic_info)->scan.report_en = wf_true;
 
     return 0;
 }
@@ -642,127 +690,94 @@ int wf_wifi_scan_stop (wf_wifi_hd_t wifi_hd)
 int wf_wifi_conn (wf_wifi_hd_t wifi_hd, wf_wifi_conn_info_t *conn_info)
 {
     nic_info_st *pnic_info = wifi_hd;
-    sec_info_st *psec_info = pnic_info->sec_info;
-    hw_info_st *phw_info = pnic_info->hw_info;
-    wf_u8 ccmp_tkip_rsn[4] = {0x00, 0x0f, 0xac, 0x04};
-    wf_80211_mgmt_ie_t *wpa_pie = NULL;
-    wf_80211_mgmt_ie_t *rsn_pie = NULL;
-    ieee_param *param = NULL;
-    wf_u32 ccmp_and_tkip = 0;
+    sec_info_st *sec_info = pnic_info->sec_info;
+    ieee_param *param;
     wf_u32 param_len = 0;
-    wf_u8 len;
-    wf_u8 *rsn;
+    wf_bool is_mix_sec;
 
     if (wf_local_cfg_get_work_mode(pnic_info) == WF_MASTER_MODE)
     {
+        WIFI_ERROR("unsuited work mode");
         return -1;
     }
 
-    if(wf_wifi_updata_conn_info(pnic_info, conn_info))
+    if (conn_info_preprocess(wifi_hd, conn_info))
     {
-        return -1;
+        return -2;
     }
 
-    param_len = WF_OFFSETOF(ieee_param, u.crypt.key) + conn_info->key.len;
-    param = (ieee_param *)wf_kzalloc(param_len);
-    if (param == NULL)
+    /* check if current is on connect */
     {
-      return -1;
-    }
-
-    wf_wifi_set_psk(pnic_info, conn_info, param, &ccmp_and_tkip);
-
-    param->u.crypt.key_len = conn_info->key.len;
-
-    os_memcpy(param->u.crypt.key, conn_info->key.data, conn_info->key.len);
-    param->u.crypt.idx = 0;
-
-    len = conn_info->ssid.len;
-    if (len > 32)
-    {
-        wf_kfree(param);
-        return -1;
-    }
-
-    if (len == 32)
-    {
-        wf_kfree(param);
-        return 0;
-    }
-
-    if (conn_info->ssid.len)
-    {
-        wf_wlan_mgmt_scan_que_for_rst_e scan_que_for_rst;
-        wf_wlan_mgmt_scan_que_node_t *pscan_que_node;
-        wf_wlan_ssid_t ssid;
-        wf_u8 *pbssid = NULL;
-
-        wf_memcpy(ssid.data, conn_info->ssid.data, ssid.length = len);
-        ssid.data[ssid.length] = '\0';
-
-        wf_wlan_mgmt_scan_que_for_begin(pnic_info, pscan_que_node)
+        wf_bool is_connected;
+        wf_mlme_get_connect(pnic_info, &is_connected);
+        if (is_connected)
         {
-            if (wf_wlan_is_same_ssid(&pscan_que_node->ssid, &ssid))
+            if (conn_info->bssid &&
+                wf_80211_is_same_addr(wf_wlan_get_cur_bssid(pnic_info),
+                                      conn_info->bssid))
             {
-                OS_LOG_D("FIND SSID");
-                pbssid = pscan_que_node->bssid;
-                wpa_pie = (wf_80211_mgmt_ie_t *)pscan_que_node->wpa_ie;
-                rsn_pie = (wf_80211_mgmt_ie_t *)pscan_que_node->rsn_ie;
-                if(rsn_pie->element_id == WF_80211_MGMT_EID_RSN)
-                {
-                    if((ccmp_and_tkip == 1) && (rsn_pie->len == 24))
-                    {
-                        wf_memcpy(rsn,rsn_pie->data,rsn_pie->len);
-                        wf_memset(rsn_pie->data,0,rsn_pie->len);
-                        wf_memcpy(rsn_pie->data,rsn,8);
-                        wf_memcpy(rsn_pie->data + 8,ccmp_tkip_rsn,4);
-                        wf_memcpy(rsn_pie->data + 12,rsn + 16,rsn_pie->len -16);
-                        rsn_pie->len = rsn_pie->len - 4;
-                        *(rsn_pie->data + 6) = 1;
-                    }
-
-                    wf_wifi_set_wpa_ie(pnic_info, pscan_que_node->rsn_ie,
-                                       sizeof(pscan_que_node->rsn_ie));
-                }
-                else if(wpa_pie->element_id == WF_80211_MGMT_EID_VENDOR_SPECIFIC)
-                {
-                    wf_wifi_set_wpa_ie(pnic_info, pscan_que_node->wpa_ie,
-                                       sizeof(pscan_que_node->wpa_ie));
-                }
-                break;
+                wf_mlme_set_connect(pnic_info, wf_false);
+                wf_os_api_ind_connect(pnic_info, WF_MLME_FRAMEWORK_NONE);
+                return -3;
             }
         }
-        wf_wlan_mgmt_scan_que_for_end(scan_que_for_rst);
+    }
 
-        wf_wifi_encryption(pnic_info,param,param_len);
-        if (scan_que_for_rst == WF_WLAN_MGMT_SCAN_QUE_FOR_RST_FAIL)
+    {
+        /* create param */
+        param_len = WF_OFFSETOF(ieee_param, u.crypt.key) + conn_info->key.len;
+        param = wf_kzalloc(param_len);
+        if (param == NULL)
         {
-            wf_kfree(param);
-            return -1;
+            WIFI_ERROR("malloc fail");
+            return -4;
         }
-        else
+        /* update encrypt information */
+        wf_wifi_set_psk(pnic_info, conn_info, param, &is_mix_sec);
+        /* update key */
+        param->u.crypt.key_len = conn_info->key.len;
+        wf_memcpy(param->u.crypt.key, conn_info->key.data, conn_info->key.len);
+        param->u.crypt.idx = 0;
+    }
+
+    if (!wf_strcmp((char const *)param->u.crypt.alg, "WEP"))
+    {
+        set_sec_info_for_wep(pnic_info, param, param_len);
+    }
+    else if (!wf_strcmp((char const *)param->u.crypt.alg, "none"));
+    else /* wpa/wpa2 */
+    {
+        if (is_mix_sec)
         {
-            wf_bool is_connected;
-            wf_mlme_get_connect(pnic_info, &is_connected);
-            if (is_connected)
+            wf_80211_mgmt_ie_t *ie =
+                (wf_80211_mgmt_ie_t *)sec_info->supplicant_ie;
+
+            switch (ie->element_id)
             {
-                if (pbssid &&
-                    wf_80211_is_same_addr(wf_wlan_get_cur_bssid(pnic_info), pbssid))
-                {
-                    wf_mlme_set_connect(pnic_info, wf_false);
-                    wf_os_api_ind_connect(pnic_info, WF_MLME_FRAMEWORK_NONE);
-                    wf_kfree(param);
-                    return 0;
-                }
+                case WF_80211_MGMT_EID_RSN :
+                    set_rsn_ie_for_assoc(ie);
+                    break;
+
+                case WF_80211_MGMT_EID_VENDOR_SPECIFIC :
+                    set_wpa_ie_for_assoc(ie);
+                    break;
+
+                default :
+                    break;
             }
-            /* start connection */
-            wf_mlme_conn_start(pnic_info, pbssid, &ssid,
-                               WF_MLME_FRAMEWORK_NONE, wf_true);
         }
+
+        set_sec_info_for_wpa(pnic_info, sec_info->supplicant_ie,
+                             sizeof(wf_80211_mgmt_ie_t) +
+                             ((wf_80211_mgmt_ie_t *)sec_info->supplicant_ie)->len);
     }
     wf_kfree(param);
-    return 0;
 
+    /* start connection */
+    wf_mlme_conn_start(pnic_info, conn_info->bssid, (void *)&conn_info->ssid,
+                       WF_MLME_FRAMEWORK_NONE, wf_true);
+
+    return 0;
 }
 
 int wf_wifi_disconn (wf_wifi_hd_t wifi_hd)
@@ -774,7 +789,7 @@ int wf_wifi_disconn (wf_wifi_hd_t wifi_hd)
     {
         wf_mlme_get_connect(pnic_info, &conn);
 
-        if(conn == wf_true)
+        if (conn == wf_true)
         {
             wf_mlme_conn_abort(pnic_info, wf_true);
             return 0;
@@ -806,7 +821,7 @@ static int ieee802_11_build_ap_params(nic_info_st *pnic_info,
                                       char *ssid, int ssid_len, wf_u8 *ie)
 {
     hw_info_st *hw_info = pnic_info->hw_info;
-    int i=0;
+    int i = 0;
     wf_u8 *tail = NULL;
     int head_len = 0;
     wf_u8 *resp = NULL;
@@ -820,13 +835,13 @@ static int ieee802_11_build_ap_params(nic_info_st *pnic_info,
     le16 capainfo;
     head = head + 8;
     head_len += 8;
-    wf_memcpy(head,&intv,2);
+    wf_memcpy(head, &intv, 2);
     head = head + 2;
     head_len += 2;
 
     capab_info = hostapd_own_capab_info(pnic_info);
     capainfo = wf_le16_to_cpu(capab_info);
-    wf_memcpy(head,&capainfo,2);
+    wf_memcpy(head, &capainfo, 2);
     head = head + 2;
     head_len += 2;
 
@@ -868,18 +883,18 @@ static int wf_wlan_set_beacon(nic_info_st *pnic_info, char *ssid, int ssid_len)
 
 #define BEACON_HEAD_BUF_SIZE 256
 
-    ie = os_malloc(BEACON_HEAD_BUF_SIZE);
-    if (OS_WARN_ON(!ie))
+    ie = wf_kzalloc(BEACON_HEAD_BUF_SIZE);
+    if (WF_WARN_ON(!ie))
     {
-        OS_BUG();
-        return -OS_RERROR;
+        WF_BUG();
+        return -1;
     }
     ie_len = ieee802_11_build_ap_params(pnic_info, ssid, ssid_len, ie);
     wf_ap_set_beacon(pnic_info, (void *)ie, ie_len, WF_MLME_FRAMEWORK_WEXT);
-    os_free(ie);
+    wf_free(ie);
 #endif
 
-    return OS_ROK;
+    return 0;
 }
 
 int wf_wifi_ap_start (wf_wifi_hd_t wifi_hd, wf_wifi_ap_info_t *ap_info)
@@ -917,13 +932,13 @@ int wf_wifi_ap_get_result (wf_wifi_hd_t wifi_hd)
     wlan_dev_info_t *wlan_dev_info = NULL;
     int i = 0;
 
-    for(i=0; i<32; i++)
+    for(i = 0; i < 32; i++)
     {
         pwdn = wf_wdn_find_info_by_id(pnic_info, i);
-        if(pwdn != NULL)
+        if (pwdn != NULL)
         {
             wlan_dev_info = osZMalloc(sizeof(wlan_dev_info_t));
-            os_memcpy(wlan_dev_info->bssid, pwdn->mac, 6);
+            wf_memcpy(wlan_dev_info->bssid, pwdn->mac, 6);
             wlan_dev_info_push(wdev, wlan_dev_info);
         }
     }
@@ -1008,17 +1023,66 @@ int wf_wifi_get_rssi (wf_wifi_hd_t wifi_hd)
     return 0;
 }
 
+static wf_bool tx_data_check(nic_info_st *nic_info)
+{
+    tx_info_st *ptx_info = nic_info->tx_info;
+    mlme_info_t *mlme_info = nic_info->mlme_info;
+    local_info_st *plocal = (local_info_st *)nic_info->local_info;
+
+    if (nic_info->is_up == 0)
+    {
+        goto tx_drop;
+    }
+
+    if (plocal->work_mode == WF_INFRA_MODE)
+    {
+        if (mlme_info->connect == wf_false)
+        {
+            goto tx_drop;
+        }
+    }
+#ifdef CFG_ENABLE_AP_MODE
+    else if (plocal->work_mode == WF_MASTER_MODE)
+    {
+        if (wf_ap_status_get(nic_info) == WF_AP_STATUS_UNINITILIZED)
+        {
+            goto tx_drop;
+        }
+    }
+#endif
+
+    return wf_true;
+
+tx_drop:
+    ptx_info->tx_drop++;
+    LOG_W("[%s, %d] tx_drop", __func__, __LINE__);
+
+    return wf_false;
+}
 
 int wf_wifi_data_xmit (wf_wifi_hd_t wifi_hd, void *data, wf_u32 len)
 {
     nic_info_st *pnic_info = wifi_hd;
+    wf_u8 *frame;
+
+    if (!tx_data_check(pnic_info))
+    {
+        return -1;
+    }
+
+    if (wf_need_stop_queue(pnic_info))
+    {
+        tx_work_wake(pnic_info);
+        WIFI_WARN("tx stop queue");
+        return -2;
+    }
 
     /* new xmit frame */
-    wf_u8 *frame = wf_kzalloc(len);
+    frame = wf_kzalloc(len);
     if (!frame)
     {
         WIFI_ERROR("malloc out_buf fail");
-        return -1;
+        return -3;
     }
     wf_memcpy(frame, data, len);
 
@@ -1026,7 +1090,7 @@ int wf_wifi_data_xmit (wf_wifi_hd_t wifi_hd, void *data, wf_u32 len)
     if (wf_tx_msdu(pnic_info, frame, len, frame))
     {
         wf_free(frame);
-        return -2;
+        return -4;
     }
     else
     {

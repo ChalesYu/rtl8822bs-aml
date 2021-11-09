@@ -35,8 +35,10 @@ do\
     (void)(&tmp == &para);\
 }\
 while (0)
+
 #define _pscan_que(pnic_info)\
     (&((wf_wlan_mgmt_info_t *)(pnic_info)->wlan_mgmt_info)->scan_que)
+
 #define wf_wlan_mgmt_scan_que_for_begin(pnic_info, pscan_que_node)\
 do\
 {\
@@ -52,12 +54,12 @@ do\
         {\
             /* get scan queue node point */\
             (pscan_que_node) =\
-                (void *)wf_list_entry(_pos, wf_wlan_mgmt_scan_que_node_t, list);
-/* { here include user code ... } */
-
+                (void *)wf_list_entry(_pos, wf_wlan_mgmt_scan_que_node_t, list);\
+            pscan_que_node->ttl &= 0xFF;
+/*          { here include user code ... } */
 #define wf_wlan_mgmt_scan_que_for_end(rst)\
-            wf_wlan_mgmt_param_chk(rst, wf_wlan_mgmt_scan_que_for_rst_e);\
         }\
+        wf_wlan_mgmt_param_chk(rst, wf_wlan_mgmt_scan_que_for_rst_e);\
         wf_wlan_mgmt_scan_que_read_post(_pscan_que(_pnic_info));\
     }\
     rst = (_phead == NULL) ? WF_WLAN_MGMT_SCAN_QUE_FOR_RST_FAIL :\
@@ -96,9 +98,7 @@ typedef enum
 typedef struct
 {
     wf_que_list_t list;
-    wf_que_t *parent;
-    wf_u8 ttl; /* use to indcate this node time to live */
-    wf_bool updated;
+    wf_u32 ttl; /* use to indcate this node time to live */
 
     unsigned long timestamp;
     wf_wlan_signal_strength_t signal_strength, signal_strength_scale;

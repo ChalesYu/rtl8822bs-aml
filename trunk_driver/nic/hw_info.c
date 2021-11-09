@@ -18,13 +18,8 @@
 #define WF_DEBUG_LEVEL (~WF_DEBUG_DEBUG)
 #include "common.h"
 
-#if 0
 #define HWINFO_DBG(fmt, ...)      LOG_D("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
 #define HWINFO_INFO(fmt, ...)     LOG_I("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
-#else
-#define HWINFO_DBG(fmt, ...)
-#define HWINFO_INFO(fmt, ...)
-#endif
 #define HWINFO_WARN(fmt, ...)     LOG_E("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
 
 #define WF_CCK_RATES_NUM              (4)
@@ -730,8 +725,8 @@ int wf_hw_info_get_default_cfg(nic_info_st *pnic_info)
         {
             LOG_E("efuse read mac fail, use default addr");
             wf_memcpy(phw_info->macAddr, macAddr, WF_ETH_ALEN);
-            phw_info->macAddr[4] = wf_os_api_rand32()%0xFF;
-            phw_info->macAddr[5] = wf_os_api_rand32()%0xFF;
+            phw_info->macAddr[4] = 0x11;
+            phw_info->macAddr[5] = 0x22;
         }
     }
     else
@@ -981,5 +976,20 @@ int wf_hw_info_set_default_cfg(nic_info_st *nic_info)
     return WF_RETURN_OK;
 }
 
+
+wf_bool wf_hw_info_is_channel_valid (hw_info_st *phw_info, wf_u8 channel)
+{
+    wf_u8 i;
+
+    for (i = 0; i < phw_info->max_chan_nums; i++)
+    {
+        if (channel == phw_info->channel_set[i].channel_num)
+        {
+            return wf_true;
+        }
+    }
+
+    return wf_false;
+}
 
 

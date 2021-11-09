@@ -10,7 +10,7 @@
 /* function declaration */
 
 extern
-wf_wifi_sec_t wf_wifi_sec_get(wf_wlan_mgmt_scan_que_node_t *pscan_que_node);
+wf_wifi_sec_t wf_wifi_sec_type_parse(wf_wlan_mgmt_scan_que_node_t *pscan_que_node);
 
 void wf_os_api_ind_scan_done (void *arg, wf_bool arg1, wf_u8 arg2)
 {
@@ -21,6 +21,16 @@ void wf_os_api_ind_scan_done (void *arg, wf_bool arg1, wf_u8 arg2)
     WF_UNUSED(arg1);
     WF_UNUSED(arg2);
 
+    /* mark scan done */
+    nic_priv(pnic_info)->scan.done = wf_true;
+
+    /* check if should report scan result */
+    if (!nic_priv(pnic_info)->scan.report_en)
+    {
+        return;
+    }
+
+    /* report scan result */
     wf_wlan_mgmt_scan_que_for_begin(pnic_info, pscan_que_node)
     {
         wf_wifi_scan_report_t scan_rpo;
@@ -30,7 +40,7 @@ void wf_os_api_ind_scan_done (void *arg, wf_bool arg1, wf_u8 arg2)
         wf_memset(&scan_rpo, 0, sizeof(scan_rpo));
 
         /* ssid */
-        os_memcpy(scan_rpo.ssid.data,
+        wf_memcpy(scan_rpo.ssid.data,
                   pscan_que_node->ssid.data,
                   pscan_que_node->ssid.length);
         scan_rpo.ssid.len = pscan_que_node->ssid.length;
@@ -38,9 +48,9 @@ void wf_os_api_ind_scan_done (void *arg, wf_bool arg1, wf_u8 arg2)
         scan_rpo.hidden =
             (wf_bool)(pscan_que_node->ssid_type == WF_80211_HIDDEN_SSID_NOT_IN_USE);
         /* bssid */
-        os_memcpy(scan_rpo.bssid, pscan_que_node->bssid, WF_ETH_ALEN);
+        wf_memcpy(scan_rpo.bssid, pscan_que_node->bssid, WF_ETH_ALEN);
         /* sec */
-        scan_rpo.sec = wf_wifi_sec_get(pscan_que_node);
+        scan_rpo.sec = wf_wifi_sec_type_parse(pscan_que_node);
         /* channel */
         scan_rpo.channel = pscan_que_node->channel;
         /* rate */
@@ -97,8 +107,8 @@ void wf_os_api_ind_connect (void *arg, wf_u8 arg1)
 
         conn_info.channel = pwdn_info->channel;
         conn_info.ssid.len = pwdn_info->ssid_len;
-        os_memcpy(conn_info.ssid.data, pwdn_info->ssid, pwdn_info->ssid_len);
-        os_memcpy(conn_info.bssid, pwdn_info->bssid, WF_ETH_ALEN);
+        wf_memcpy(conn_info.ssid.data, pwdn_info->ssid, pwdn_info->ssid_len);
+        wf_memcpy(conn_info.bssid, pwdn_info->bssid, WF_ETH_ALEN);
         /* connect done */
         nic_priv(pnic_info)->ops->conn_done(pnic_info, &conn_info);
     }
@@ -183,6 +193,46 @@ void wf_os_api_disable_all_data_queue (void *arg)
 OS_INLINE wf_u32 wf_os_api_rand32 (void)
 {
     return OS_RANDOM32();
+}
+
+void wf_os_api_thrd_cfg_get (const char *name,
+                             wf_u32 *rpriority, wf_u32 *rtask_size)
+{
+    const static struct
+    {
+        const char *name;
+        wf_u32 stack_size; /* bytes */
+    } thrd_cfg[] =
+    {
+        { "xmit_00",        500  },
+        { "hif_tx",         805  },
+
+        { "hif_rx",         2065 },
+
+        { "wlan_mgmt_00",   500  },
+        { "wlan_mgmt_01",   500  },
+
+        { "mlme_00",        1075 }, /* highst */
+        { "mlme_01",        1075 },
+
+        { "ap_00",          2000 },
+        { "ap_01",          2000 },
+    };
+    wf_u8 i;
+
+    for (i = 0; i < WF_ARRAY_SIZE(thrd_cfg); i++)
+    {
+        if (!wf_strcmp(name, thrd_cfg[i].name))
+        {
+            *rpriority = i;
+            *rtask_size = thrd_cfg[i].stack_size;
+            return;
+        }
+    }
+
+    /* default set */
+    *rpriority = i;
+    *rtask_size = 2000;
 }
 
 

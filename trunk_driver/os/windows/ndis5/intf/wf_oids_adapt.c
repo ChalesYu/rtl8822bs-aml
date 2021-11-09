@@ -1,6 +1,6 @@
 /*++
 
-Copyright (c) SCICS Co., Ltd. All rights reserved.
+Copyright (c) ZTOPMICRO Co., Ltd. All rights reserved.
 
 Module Name:
     wf_oids_adapt.c
@@ -22,9 +22,9 @@ Notes:
 #define MP_MAX_DEVICE_NUM (16)
 
 #ifdef _X86_
-#define WF_CACHE_FILE  L"\\??\\C:\\Program Files\\SCICS\\scics_info.txt"
+#define WF_CACHE_FILE  L"\\??\\C:\\Program Files\\ZTOPMICRO\\scics_info.txt"
 #else
-#define WF_CACHE_FILE  L"\\??\\C:\\Program Files (x86)\\SCICS\\scics_info.txt"
+#define WF_CACHE_FILE  L"\\??\\C:\\Program Files (x86)\\ZTOPMICRO\\scics_info.txt"
 #endif
 
 static void wf_update_bss_list(void* adapter)

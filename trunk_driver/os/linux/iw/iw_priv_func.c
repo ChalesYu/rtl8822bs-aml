@@ -238,14 +238,22 @@ int wf_iw_reg_write(struct net_device *dev, struct iw_request_info *info, union 
     return 0;
 }
 
+
 int wf_iw_ars(struct net_device *dev, struct iw_request_info *info, union iwreq_data *wdata, char *extra)
 {
     ndev_priv_st *pndev_priv = netdev_priv(dev);
     nic_info_st *pnic_info = pndev_priv->nic;
+    mlme_info_t *pmlme_info = pnic_info->mlme_info;
+    wdn_net_info_st *pwdn_info = pmlme_info->pwdn_info;
     wf_u8 *pch;
+    int err = 0;
+    wf_u32 reg_val;
+#ifdef CONFIG_ARS_DRIVER_SUPPORT
+
     struct iw_point *wrqu;
-    wf_u32 in_ops,in_ability;
+    wf_u32 main_cmd, sub_cmd, param1, param2;
     wrqu = (struct iw_point *)wdata;
+    ars_st *pars = (ars_st *)pnic_info->ars;
 
     if (copy_from_user(extra, wrqu->pointer, wrqu->length))
     {
@@ -253,11 +261,94 @@ int wf_iw_ars(struct net_device *dev, struct iw_request_info *info, union iwreq_
         return WF_RETURN_FAIL;
     }
     pch = extra;
-    LOG_D("in = %s",extra);
 
-    sscanf(pch,"%d,%d",&in_ops,&in_ability);
+    sscanf(pch, "%d,%d,%x,%x", &main_cmd, &sub_cmd, &param1, &param2);
 
-    wf_mcu_msg_body_set_ability(pnic_info,in_ops,in_ability);
+    LOG_D("cmd=%d, sub_cmd=%d, p1=%d, p2=%d", main_cmd, sub_cmd, param1, param2);
+
+    switch(main_cmd)
+    {
+        case 0:
+            wf_mcu_msg_body_set_ability(pnic_info, param1, param2);
+            break;
+        case 1:
+            odm_FalseAlarmCounterStatistics(pars);
+            for(reg_val=0; reg_val<sub_cmd; reg_val++)
+            {
+                wf_msleep(2000);
+                ars_dump_info(pnic_info);
+            }
+            break;
+        case 3:
+            switch(sub_cmd)
+            {
+                case 0:
+                    hw_write_bb_reg(pnic_info, ODM_REG_IGI_A_11N, ODM_BIT_IGI_11N, param1);
+                    LOG_D("Config igi value %x", param1);
+                    break;
+                case 1:
+                    if (wf_mcu_rate_table_update(pnic_info, pwdn_info))
+                    {
+                        LOG_E("wf_mcu_rate_table_update Failed");
+                    }
+                    break;
+                case 2:
+                    if (param1)
+                    {
+                        LOG_D("->Noisy Env. RA fallback value\n");
+                        hw_write_bb_reg(pnic_info, 0x430, bMaskDWord, 0x0);
+                        hw_write_bb_reg(pnic_info, 0x434, bMaskDWord, 0x04030201);
+                    }
+                    else
+                    {
+                        LOG_D("->Clean Env. RA fallback value\n");
+                        hw_write_bb_reg(pnic_info, 0x430, bMaskDWord, 0x02010000);
+                        hw_write_bb_reg(pnic_info, 0x434, bMaskDWord, 0x06050403);
+                    }
+                    break;
+                case 3:
+                    if(param1 == 0)
+                    {
+                        wf_io_write8(pnic_info, ODM_REG_CCK_CCA_11N, 0xcd);
+                    }
+                    else if(param1 == 1)
+                    {
+                        wf_io_write8(pnic_info, ODM_REG_CCK_CCA_11N, 0x83);
+                    }
+                    else if(param1 == 2)
+                    {
+                        wf_io_write8(pnic_info, ODM_REG_CCK_CCA_11N, 0x40);
+                    }
+                    break;
+                case 4:
+                    phydm_rssi_report(pars, pwdn_info);
+                    break;
+                case 5:
+                    ODM_CfoTracking(pars);
+                    break;
+                case 254:
+                    reg_val = wf_io_read32(pnic_info, param1,&err);
+                    LOG_D("addr=%x, val=%x", param1, reg_val);
+                    break;
+                case 255:
+                    wf_io_write32(pnic_info, param1, param2);
+                    reg_val = wf_io_read32(pnic_info, param1,&err);
+                    LOG_D("addr=%x, want=%x, actual=%x", param1, param2, reg_val);
+                    break;
+                default:
+                    LOG_D("invalid sub cmd!!!");
+                    break;
+            }
+            break;
+        default:
+            LOG_D("invalid main cmd!!!");
+            break;
+    }
+
+#endif
+    //sscanf(pch,"%d,%d",&in_ops,&in_ability);
+
+    //wf_mcu_msg_body_set_ability(pnic_info,in_ops,in_ability);
     return 0;
 }
 

@@ -110,7 +110,7 @@ int wlan_mgmt_scan_que_write_post (wf_wlan_mgmt_scan_que_t *pscan_que)
     return 0;
 }
 
-wf_inline static int is_cur_bss (nic_info_st *pnic_info, wf_80211_bssid_t bssid)
+static int is_bss_onlink (nic_info_st *pnic_info, wf_80211_bssid_t bssid)
 {
     wf_wlan_mgmt_info_t *pwlan_mgmt_info = pnic_info->wlan_mgmt_info;
     wf_bool bconnected;
@@ -119,119 +119,37 @@ wf_inline static int is_cur_bss (nic_info_st *pnic_info, wf_80211_bssid_t bssid)
     return (bconnected && mac_addr_equal(pwlan_mgmt_info->cur_network.bssid, bssid));
 }
 
-static int
-wlan_mgmt_scan_que_node_new (nic_info_st *pnic_info, rx_frm_msg_t *pfrm_msg,
+static wf_inline int
+wlan_mgmt_scan_que_node_new (nic_info_st *pnic_info,
                              wf_wlan_mgmt_scan_que_node_t **pnew_node)
 {
     wf_wlan_mgmt_info_t *pwlan_mgmt_info = pnic_info->wlan_mgmt_info;
     wf_wlan_mgmt_scan_que_t *pscan_que = &pwlan_mgmt_info->scan_que;
-    wf_wlan_mgmt_scan_que_node_t *pscan_que_node = NULL;
-    wf_wlan_mgmt_scan_que_for_rst_e scan_que_for_rst;
-    int rst;
+    wf_que_list_t *pnode;
 
-    wf_wlan_mgmt_scan_que_for_begin(pnic_info, pscan_que_node)
+    pnode = wf_deque_head(&pscan_que->free);
+    if (!pnode)
     {
-        if (mac_addr_equal(pfrm_msg->mgmt_frm.bssid, pscan_que_node->bssid))
-        {
-            break;
-        }
-    }
-    wf_wlan_mgmt_scan_que_for_end(scan_que_for_rst);
-
-    if (scan_que_for_rst == WF_WLAN_MGMT_SCAN_QUE_FOR_RST_FAIL)
-    {
+        WLAN_MGMT_ERROR("pscan_que->free is empty");
         return -1;
     }
 
-    if (scan_que_for_rst == WF_WLAN_MGMT_SCAN_QUE_FOR_RST_BREAK)
+    /* clearup node information */
     {
-        /* match bssid in the scan ready queue */
-        WLAN_MGMT_DBG("update scan node");
-        rst = 1;
-    }
-    else
-    {
-        /* if scan free queue is no empty, get node from free queue
-        no matter whether the freame's phy_state is valid or not */
-        wf_que_list_t *pnode = wf_deque_head(&pscan_que->free);
-        if (pnode)
-        {
-            WLAN_MGMT_DBG("new scan node");
-            pscan_que_node =
-                wf_list_entry(pnode, wf_wlan_mgmt_scan_que_node_t, list);
-            rst = 2;
-            goto end;
-        }
-
-        /* scan free queue is empty, new node get from scan ready queue */
-        if (!pfrm_msg->is_phy_sta_valid)
-        {
-            /* ignore invalid phy_sta */
-            WLAN_MGMT_DBG("signal strength invalid");
-            return -2;
-        }
-        /* new node get from scan ready queue tail, which signed strength is
-        worest in scan ready queue, but the signal strength with the frame
-        must better than signal strength with in the new node. */
-        pscan_que_node = wf_list_entry(wf_que_tail(&pscan_que->ready),
-                                       wf_wlan_mgmt_scan_que_node_t, list);
-        if (pfrm_msg->phy_sta.signal_strength < pscan_que_node->signal_strength)
-        {
-            /* only accept the frame which signal strength better than
-            new node's signal strength from ready queue*/
-            WLAN_MGMT_DBG("signal strength(%d, %d) too low",
-                          pfrm_msg->phy_sta.signal_strength,
-                          pscan_que_node->signal_strength);
-            return -3;
-        }
-        /* ignore new node if it is the current associated bssid */
-        if (is_cur_bss(pnic_info, pscan_que_node->bssid))
-        {
-            WLAN_MGMT_WARN("it's the associated bss");
-            return -4;
-        }
-        WLAN_MGMT_INFO("replase scan node");
-        rst = 3;
+        wf_wlan_mgmt_scan_que_node_t *scan_node =
+            wf_list_entry(pnode, wf_wlan_mgmt_scan_que_node_t, list);
+        memset(scan_node, 0x0, sizeof(*scan_node));
+        *pnew_node = scan_node;
     }
 
-    /* node dequeue from ready queue */
-    if (wlan_mgmt_scan_que_write_try(pscan_que))
-    {
-        return -5;
-    }
-    wf_deque(&pscan_que_node->list, &pscan_que->ready);
-    wlan_mgmt_scan_que_write_post(pscan_que);
-
-    /* clearup node infomation, except ssid element */
-    {
-        wf_wlan_ssid_t ssid;
-        wf_80211_hidden_ssid_e ssid_type;
-
-        /* save data */
-        wf_memcpy(&ssid, &pscan_que_node->ssid, sizeof(ssid));
-        ssid_type = pscan_que_node->ssid_type;
-        /* clearup data */
-        wf_memset(pscan_que_node, 0x0, sizeof(*pscan_que_node));
-        /* recorver data */
-        wf_memcpy(&pscan_que_node->ssid, &ssid, sizeof(ssid));
-        pscan_que_node->ssid_type = ssid_type;
-    }
-
-end:
-    /* initialize node information */
-    pscan_que_node->parent = NULL;
-    pscan_que_node->ttl = WLAN_MGMT_SCAN_NODE_TTL;
-    pscan_que_node->updated = wf_true;
-    *pnew_node = pscan_que_node;
-    return rst;
+    return 0;
 }
 
 #define NODE_INFO_DBG(...)  //WLAN_MGMT_DBG(__VA_ARGS__)
-wf_inline static
+static wf_inline
 int wlan_mgmt_scan_node_info (nic_info_st *pnic_info,
                               rx_frm_msg_t *pfrm_msg, wf_u16 frm_msg_len,
-                              wf_wlan_mgmt_scan_que_node_t *pscan_que_node,
-                              wf_bool bupdate)
+                              wf_wlan_mgmt_scan_que_node_t *pscan_que_node)
 {
     wf_80211_mgmt_t *pmgmt = &pfrm_msg->mgmt_frm;
     wf_u16 mgmt_len = frm_msg_len - WF_OFFSETOF(rx_frm_msg_t, mgmt_frm);
@@ -400,11 +318,13 @@ int wlan_mgmt_scan_node_info (nic_info_st *pnic_info,
                 pht_cap = (wf_80211_mgmt_ht_cap_t *)pie->data;
                 wf_memcpy(&pscan_que_node->mcs, pht_cap->mcs_info.rx_mask,
                           sizeof(pscan_que_node->mcs));
-                pscan_que_node->bw_40mhz = (wf_bool)
-                                           (!!(pht_cap->cap_info & WF_80211_MGMT_HT_CAP_SUP_WIDTH_20_40));
-                pscan_que_node->short_gi = (wf_bool)
-                                           (!!(pht_cap->cap_info & (WF_80211_MGMT_HT_CAP_SGI_20 |
-                                                   WF_80211_MGMT_HT_CAP_SGI_40)));
+                pscan_que_node->bw_40mhz =
+                    (wf_bool)(!!(pht_cap->cap_info &
+                                 WF_80211_MGMT_HT_CAP_SUP_WIDTH_20_40));
+                pscan_que_node->short_gi =
+                    (wf_bool)(!!(pht_cap->cap_info &
+                                 (WF_80211_MGMT_HT_CAP_SGI_20 |
+                                  WF_80211_MGMT_HT_CAP_SGI_40)));
                 break;
 
             case WF_80211_MGMT_EID_VENDOR_SPECIFIC :
@@ -491,68 +411,112 @@ int wlan_mgmt_scan_node_info (nic_info_st *pnic_info,
 }
 #undef NODE_INFO_DBG
 
-static int
+static wf_inline int
 wlan_mgmt_scan_que_node_push (nic_info_st *pnic_info,
+                              rx_frm_msg_t *pfrm_msg,
                               wf_wlan_mgmt_scan_que_node_t *pnew_node)
 {
     wf_wlan_mgmt_info_t *pwlan_mgmt_info = pnic_info->wlan_mgmt_info;
     wf_wlan_mgmt_scan_que_t *pscan_que = &pwlan_mgmt_info->scan_que;
-    wf_wlan_mgmt_scan_que_node_t *pscan_que_node;
-    wf_wlan_mgmt_scan_que_for_rst_e scan_que_for_rst;
+    wf_wlan_mgmt_scan_que_node_t *pnode, *pswap_node = NULL, *pinst_pos = NULL;
+    wf_list_t *pos;
 
-    wf_wlan_mgmt_scan_que_for_begin(pnic_info, pscan_que_node)
+    wf_list_for_each(pos, wf_que_list_head(&pscan_que->ready))
     {
-        if (pnew_node->signal_strength > pscan_que_node->signal_strength)
+        pnode = wf_list_entry(pos, wf_wlan_mgmt_scan_que_node_t, list);
+        if (!pswap_node &&
+            wf_80211_is_same_addr(pnew_node->bssid, pnode->bssid))
+        {
+            pswap_node = pnode;
+        }
+        if (!pinst_pos &&
+            pnew_node->signal_strength > pnode->signal_strength)
+        {
+            pinst_pos = pnode;
+        }
+        if (pswap_node && pinst_pos)
         {
             break;
         }
     }
-    wf_wlan_mgmt_scan_que_for_end(scan_que_for_rst);
 
-    if (scan_que_for_rst == WF_WLAN_MGMT_SCAN_QUE_FOR_RST_FAIL)
+    if (pswap_node && pswap_node->frame_type == WF_80211_FRM_PROBE_RESP)
     {
-        return -1;
+        wf_80211_mgmt_t *pmgmt = &pfrm_msg->mgmt_frm;
+        if (wf_80211_get_frame_type(pmgmt->frame_control) == WF_80211_FRM_BEACON)
+        {
+#define PRB_HOLD_TIMES              5
+#define TTL_PRB_HOLD_TIMES_OFS      24
+#define TTL_PRB_HOLD_TIMES_MSK      0xFF000000
+            if (pswap_node->ttl & TTL_PRB_HOLD_TIMES_MSK)
+            {
+                pswap_node->ttl -= WF_BIT(TTL_PRB_HOLD_TIMES_OFS);
+                WLAN_MGMT_DBG("hold probersp remain times %d",
+                              (pswap_node->ttl & TTL_PRB_HOLD_TIMES_MSK) >>
+                              TTL_PRB_HOLD_TIMES_OFS);
+                return -1;
+            }
+        }
     }
 
+    /* if frame data no contain rssi information, can only accept it when
+    scan ready queue no full, and no any replace node in scan ready queue. */
+    if (!pfrm_msg->is_phy_sta_valid)
+    {
+        if (wf_que_is_empty(&pscan_que->free))
+        {
+            WLAN_MGMT_DBG("scan queue full, node without rssi can't do replase action");
+            return -2;
+        }
+        else if (pswap_node)
+        {
+            WLAN_MGMT_DBG("no match any one, node without rssi can't do replase action");
+            return -3;
+        }
+    }
+
+    /* todo: if no replace node matched in scan ready queue, and ready queue is
+    full, may select node from scan ready queue tail, whith rssi is worst one,
+    but this node should't the current assected bss */
+    if (!pswap_node && wf_que_is_empty(&pscan_que->free))
+    {
+        pswap_node = wf_list_entry(wf_que_tail(&pscan_que->ready),
+                                   wf_wlan_mgmt_scan_que_node_t, list);
+        if (is_bss_onlink(pnic_info, pswap_node->bssid))
+        {
+            WLAN_MGMT_DBG("can't remove bss, the node in ready queue is current assoc bss");
+            return -4;
+        }
+    }
+
+    /* todo: try to insert new node to scan ready queue, and remove one reaplse
+    node */
     if (wlan_mgmt_scan_que_write_try(pscan_que))
     {
-        return -2;
+        return -5;
     }
 
-    if (scan_que_for_rst == WF_WLAN_MGMT_SCAN_QUE_FOR_RST_BREAK)
+    /* reset ttl value */
+    pnew_node->ttl = WLAN_MGMT_SCAN_NODE_TTL |
+                     (PRB_HOLD_TIMES << TTL_PRB_HOLD_TIMES_OFS);
+
+    /* insert node to ready queue */
+    if (pinst_pos)
     {
-        wf_enque_prev(&pnew_node->list, &pscan_que_node->list, &pscan_que->ready);
+        wf_enque_prev(&pnew_node->list, &pinst_pos->list, &pscan_que->ready);
     }
     else
     {
         wf_enque_tail(&pnew_node->list, &pscan_que->ready);
     }
-    pnew_node->parent = &pscan_que->ready;
-
-    wlan_mgmt_scan_que_write_post(pscan_que);
-
-    return 0;
-}
-
-static int
-wlan_mgmt_scan_que_node_del (nic_info_st *pnic_info,
-                             wf_wlan_mgmt_scan_que_node_t *pnode)
-{
-    wf_wlan_mgmt_info_t *pwlan_mgmt_info = pnic_info->wlan_mgmt_info;
-    wf_wlan_mgmt_scan_que_t *pscan_que = &pwlan_mgmt_info->scan_que;
-
-    if (pnode->parent == &pscan_que->ready)
+    /* remove node from ready queue if need */
+    if (pswap_node)
     {
-        if (wlan_mgmt_scan_que_write_try(pscan_que))
-        {
-            return -1;
-        }
-        wf_deque(&pnode->list, &pscan_que->ready);
-        wlan_mgmt_scan_que_write_post(pscan_que);
+        wf_deque(&pswap_node->list, &pscan_que->ready);
+        wf_enque_tail(&pswap_node->list, &pscan_que->free);
     }
 
-    pnode->parent = &pscan_que->free;
-    wf_enque_tail(&pnode->list, &pscan_que->free);
+    wlan_mgmt_scan_que_write_post(pscan_que);
 
     return 0;
 }
@@ -581,11 +545,11 @@ wlan_mgmt_scan_que_node_flush (nic_info_st *pnic_info)
             wf_wlan_mgmt_scan_que_node_t *pscan_que_node =
                 wf_list_entry(pos, wf_wlan_mgmt_scan_que_node_t, list);
             /* flush all node except the bss whitch is current connected */
-            if (is_cur_bss(pnic_info, pscan_que_node->bssid))
+            if (!is_bss_onlink(pnic_info, pscan_que_node->bssid))
             {
-                continue;
+                wf_deque(pos, &pscan_que->ready);
+                wf_enque_tail(pos, &pscan_que->free);
             }
-            wf_enque_tail(pos, &pscan_que->free);
         }
     }
 
@@ -603,12 +567,13 @@ wlan_mgmt_scan_que_refresh (nic_info_st *pnic_info, scan_que_refresh_msg_t *preq
 
     wf_list_for_each_safe(pos, n, wf_que_list_head(&pscan_que->ready))
     {
-        wf_wlan_mgmt_scan_que_node_t *pscan_que_node =
+        wf_wlan_mgmt_scan_que_node_t *pnode =
             wf_list_entry(pos, wf_wlan_mgmt_scan_que_node_t, list);
         wf_u8 i;
+
         for (i = 0; i < preq->ch_num; i++)
         {
-            if (pscan_que_node->channel == preq->ch_map[i])
+            if (pnode->channel == preq->ch_map[i])
             {
                 break;
             }
@@ -618,36 +583,29 @@ wlan_mgmt_scan_que_refresh (nic_info_st *pnic_info, scan_que_refresh_msg_t *preq
             continue;
         }
 
-        if (!pscan_que_node->updated)
+        if (pnode->ttl)
         {
-            if (pscan_que_node->ttl)
+            pnode->ttl--;
+        }
+        if (!pnode->ttl)
+        {
+            if (!wlan_mgmt_scan_que_write_try(pscan_que))
             {
-                pscan_que_node->ttl--;
+                wf_deque(&pnode->list, &pscan_que->ready);
+                wf_enque_tail(&pnode->list, &pscan_que->free);
+                wlan_mgmt_scan_que_write_post(pscan_que);
             }
-            if (!pscan_que_node->ttl)
-            {
-                int rst;
-                rst = wlan_mgmt_scan_que_node_del(pnic_info, pscan_que_node);
-                if (rst)
-                {
-                    continue;
-                }
-            }
+        }
 #if 0
-            if (!pscan_que_node->ttl)
-            {
-                WLAN_MGMT_ERROR("----%s, 0", pscan_que_node->ssid.data);
-            }
-            else
-            {
-                WLAN_MGMT_WARN("!!!!%s, %d", pscan_que_node->ssid.data, pscan_que_node->ttl);
-            }
-#endif
+        if (!pnode->ttl)
+        {
+            WLAN_MGMT_ERROR("----%s, 0", pnode->ssid.data);
         }
         else
         {
-            pscan_que_node->updated = wf_false;
+            WLAN_MGMT_WARN("!!!!%s, %d", pnode->ssid.data, pnode->ttl);
         }
+#endif
     }
 
     return 0;
@@ -687,25 +645,32 @@ static int rx_frame_handle (nic_info_st *pnic_info)
                 wf_u16 frm_msg_len = pmsg->len;
                 wf_wlan_mgmt_scan_que_node_t *pnew_node;
 
-                rst = wlan_mgmt_scan_que_node_new(pnic_info, pfrm_msg, &pnew_node);
-                if (rst < 0)
+                rst = wlan_mgmt_scan_que_node_new(pnic_info, &pnew_node);
+                if (rst)
                 {
                     WLAN_MGMT_DBG("new node fail, error code: %d", rst);
                     break;
                 }
-                rst = wlan_mgmt_scan_node_info(pnic_info, pfrm_msg, frm_msg_len,
-                                               pnew_node, (wf_bool)(rst == 1));
+
+                rst = wlan_mgmt_scan_node_info(pnic_info,
+                                               pfrm_msg, frm_msg_len,
+                                               pnew_node);
                 if (rst)
                 {
                     WLAN_MGMT_DBG("make info fail, error code: %d", rst);
-                    wlan_mgmt_scan_que_node_del(pnic_info, pnew_node);
+                    /* pull node back to free queue. */
+                    wf_enque_head(&pnew_node->list, &pscan_que->free);
                     break;
                 }
-                rst = wlan_mgmt_scan_que_node_push(pnic_info, pnew_node);
+
+                rst = wlan_mgmt_scan_que_node_push(pnic_info,
+                                                   pfrm_msg,
+                                                   pnew_node);
                 if (rst)
                 {
                     WLAN_MGMT_DBG("node input scan queue fail, error code: %d", rst);
-                    wlan_mgmt_scan_que_node_del(pnic_info, pnew_node);
+                    /* pull node back to free queue. */
+                    wf_enque_head(&pnew_node->list, &pscan_que->free);
                 }
                 break;
             }
@@ -804,7 +769,7 @@ static int frm_msg_send (wf_wlan_mgmt_info_t *pwlan_mgmt_info, wf_msg_tag_t tag,
         if (value_size > pmsg->alloc_value_size)
         {
             WLAN_MGMT_ERROR("frame size(%d) over limite(%d)",
-                            mgmt_len, pmsg->alloc_value_size);
+                          mgmt_len, pmsg->alloc_value_size);
             return -2;
         }
         pmsg->len = value_size;
@@ -1049,7 +1014,6 @@ static int wlan_mgmt_scan_que_init (nic_info_st *pnic_info)
             return -1;
         }
         wf_enque_head(&pnode->list, &pscan_que->free);
-        pnode->parent = &pscan_que->free;
     }
     wf_lock_init(&pscan_que->lock, WF_LOCK_TYPE_IRQ);
     pscan_que->read_cnt = 0;
@@ -1228,8 +1192,7 @@ int wf_wlan_mgmt_init (nic_info_st *pnic_info)
     }
 
     /* create thread for rx frame handle */
-    sprintf(pwlan_mgmt_info->name,
-            pnic_info->virNic ? "wlan_mgmt_info:vir%d_s%d" : "wlan_mgmt_info:wlan%d_s%d",
+    sprintf(pwlan_mgmt_info->name, "wlan_mgmt_%d%d",
             pnic_info->hif_node_id, pnic_info->ndev_id);
     pwlan_mgmt_info->tid =
         wf_os_api_thread_create(&pwlan_mgmt_info->tid, pwlan_mgmt_info->name,

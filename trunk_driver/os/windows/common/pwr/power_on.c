@@ -4,9 +4,9 @@
 
 #ifdef CONFIG_RICHV200_FPGA
 #ifdef _X86_
-#define WF_FW_FILE  L"\\??\\C:\\Program Files\\SCICS\\firmware.bin"
+#define WF_FW_FILE  L"\\??\\C:\\Program Files\\ZTOPMICRO\\firmware.bin"
 #else
-#define WF_FW_FILE  L"\\??\\C:\\Program Files (x86)\\SCICS\\firmware.bin"
+#define WF_FW_FILE  L"\\??\\C:\\Program Files (x86)\\ZTOPMICRO\\firmware.bin"
 #endif
 #else
 #define WF_FW_FILE  L"\\??\\C:\\ram-fw-908x-old-r1549.bin"
