@@ -567,7 +567,7 @@ s32 rtl8822bs_hal_xmit(PADAPTER adapter, struct xmit_frame *pxmitframe)
 	    && (pxmitframe->attrib.ether_type != 0x888e)
 	    && (pxmitframe->attrib.dhcp_pkt != 1)) {
 		if (adapter->mlmepriv.LinkDetectInfo.bBusyTraffic == _TRUE)
-			rtw_issue_addbareq_cmd(adapter, pxmitframe);
+			rtw_issue_addbareq_cmd(adapter, pxmitframe, _FALSE);
 	}
 #endif /* CONFIG_80211N_HT */
 
