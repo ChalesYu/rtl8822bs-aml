@@ -23,7 +23,9 @@
 static s32 initrecvbuf(struct recv_buf *precvbuf, PADAPTER adapter)
 {
 	_rtw_init_listhead(&precvbuf->list);
+#ifdef PLATFORM_WINDOWS
 	_rtw_spinlock_init(&precvbuf->recvbuf_lock);
+#endif
 
 	precvbuf->adapter = adapter;
 
@@ -32,7 +34,9 @@ static s32 initrecvbuf(struct recv_buf *precvbuf, PADAPTER adapter)
 
 static void freerecvbuf(struct recv_buf *precvbuf)
 {
+#ifdef PLATFORM_WINDOWS
 	_rtw_spinlock_free(&precvbuf->recvbuf_lock);
+#endif
 }
 
 static void start_rx_handle(PADAPTER p)
@@ -622,7 +626,7 @@ s32 rtl8822bs_init_recv_priv(PADAPTER adapter)
 		if (res == _FAIL)
 			break;
 
-		res = rtw_os_recvbuf_resource_alloc(adapter, precvbuf);
+		res = rtw_os_recvbuf_resource_alloc(adapter, precvbuf, MAX_RECVBUF_SZ);
 		if (res == _FAIL) {
 			freerecvbuf(precvbuf);
 			break;
