@@ -870,6 +870,9 @@ s32 sd_write(struct intf_hdl *pintfhdl, u32 addr, u32 cnt, void *pdata)
 #else 
 #define DUMP_LEN_LMT	32
 #endif
+#ifndef MIN
+#define MIN(x, y) (((x) < (y)) ? (x) : (y))
+#endif
 #define GET_DUMP_LEN(len)	(DUMP_LEN_LMT ? MIN(len, DUMP_LEN_LMT) : len)
 
 /**
