@@ -1,7 +1,7 @@
 
 ## rtl8822bs-aml
 
-a modified driver version `5.8.7.4_37264.20200922` is available at [test branch](https://github.com/ChalesYu/rtl8822bs-aml/tree/test-5.8.7.4)
+a modified driver version `v5.13.1-20-gbd7c7eb9d.20210702` is available at [test branch](https://github.com/ChalesYu/rtl8822bs-aml/tree/test-5.13.1-20-211113),fork from [88x2bu-20210702](https://github.com/morrownr/88x2bu-20210702).
 
 a way to add support to [88x2bu driver](https://github.com/ChalesYu/88x2bu/tree/sdio-support) , useage : 
 
@@ -20,6 +20,7 @@ this repo will deprecated while rtw88 driver support sdio interface.
 ```
 High CPU load (idle 99%)
 Not fully support iw ioctl command (iw dev del)
+firmware load failed (suggest try test branch)
 ```
 
 NOTE: Other issue are not fully tested.
@@ -27,7 +28,7 @@ NOTE: Other issue are not fully tested.
 SDIO id:
 
 ```
-024c:B822
+024c:b822
 ```
 
 ### How to use
