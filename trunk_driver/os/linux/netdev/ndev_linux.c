@@ -280,7 +280,7 @@ static void wiphy_regd_init (nic_info_st *pnic_info)
     pwiphy->regulatory_flags &= ~REGULATORY_DISABLE_BEACON_HINTS;
 #endif
 	NDEV_DBG();
-    wiphy_apply_custom_regulatory(pwiphy, &regdom_rd);
+    //wiphy_apply_custom_regulatory(pwiphy, &regdom_rd);
 	NDEV_DBG();
     wiphy_apply_flag(pnic_info);
     NDEV_DBG();
