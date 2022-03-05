@@ -170,43 +170,43 @@ static void wiphy_apply_flag (nic_info_st *pnic_info)
     phw_info = (hw_info_st *)pnic_info->hw_info;
     channel_set = phw_info->channel_set;
 
-    for (i = 0; i < WF_ARRAY_SIZE(pwiphy->bands); i++)
+    for (i = 0; i <  NUM_NL80211_BANDS /* WF_ARRAY_SIZE(pwiphy->bands)*/; i++)
     {
         pbands = pwiphy->bands[i];
-        if (pbands)
+
+	if (!pbands) continue;
+
+        for (j = 0; j < pbands->n_channels ; j++)
         {
-            for (j = 0; j < pbands->n_channels; j++)
-            {
-                pch = &pbands->channels[j];
-                if (pch)
-                {
-                    pch->flags = IEEE80211_CHAN_DISABLED;
-                }
-            }
-        }
+		pch = &pbands->channels[j];
+		if (!pch) continue;
+		pch->flags = IEEE80211_CHAN_DISABLED;
+	}
+
     }
 
-    max_chan_nums = phw_info->max_chan_nums;
+    max_chan_nums = 14;  //phw_info->max_chan_nums;
     for (i = 0; i < max_chan_nums; i++)
     {
         channel = channel_set[i].channel_num;
         pch = ieee80211_get_channel(pwiphy, wf_ch_2_freq(channel));
-        if (pch)
-        {
+
+
+	if (!pch) continue;
+
+	pch->flags = 0;
+
             if (channel_set[i].scan_type == SCAN_TYPE_PASSIVE)
             {
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 14, 0))
-                pch->flags =
+                pch->flags |=
                     (IEEE80211_CHAN_NO_IBSS | IEEE80211_CHAN_PASSIVE_SCAN);
 #else
-                pch->flags = IEEE80211_CHAN_NO_IR;
+                pch->flags |= IEEE80211_CHAN_NO_IR;
 #endif
             }
-            else
-            {
-                pch->flags = 0;
-            }
-        }
+
+
     }
 }
 
@@ -279,10 +279,11 @@ static void wiphy_regd_init (nic_info_st *pnic_info)
     pwiphy->regulatory_flags &= ~REGULATORY_STRICT_REG;
     pwiphy->regulatory_flags &= ~REGULATORY_DISABLE_BEACON_HINTS;
 #endif
-
+	NDEV_DBG();
     wiphy_apply_custom_regulatory(pwiphy, &regdom_rd);
-
+	NDEV_DBG();
     wiphy_apply_flag(pnic_info);
+    NDEV_DBG();
 }
 
 void wf_wiphy_init(nic_info_st *pnic_info)
