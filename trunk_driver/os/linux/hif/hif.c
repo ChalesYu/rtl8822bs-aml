@@ -70,9 +70,9 @@ static char *fw = "/vendor/firmware/ram-fw-908x-old-r1549.bin";
 #endif
 #else
 #ifdef CONFIG_RICHV200
-static char *fw = "";
+static char *fw = "/usr/lib/firmware/ram-fw-9188-new-r1751-enc.bin";
 #else
-static char *fw = "";
+static char *fw = "/usr/lib/firmware/ram-fw-908x-old-r1549.bin";
 #endif
 #endif
 module_param(fw, charp, 0644);
