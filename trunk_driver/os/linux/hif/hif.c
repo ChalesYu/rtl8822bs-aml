@@ -47,7 +47,7 @@
 #endif
 #include "rx_linux.h"
 
-static char *wf_cfg = "./wifi.cfg";
+static char *wf_cfg = "/usr/lib/firmware/smartchip/wifi.cfg";
 
 #define RX_CMD_PARAM_LENGTH       8
 #define TX_CMD_PARAM_LENGTH       12
