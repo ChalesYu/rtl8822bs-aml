@@ -2337,7 +2337,7 @@ int wf_nic_mgmt_frame_xmit_with_ack(nic_info_st *nic_info, wdn_net_info_st *wdn,
         while (tx_info->tx_pend_flag[pxmitbuf->buffer_id] == 0x55)
         {
             wf_msleep(10);
-            if (wf_timer_expired(&timer));
+            if (wf_timer_expired(&timer))
             {
                 ret = -3;
                 break;
