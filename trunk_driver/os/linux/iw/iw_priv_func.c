@@ -507,7 +507,7 @@ int wf_iw_cmddl(struct net_device *dev, struct iw_request_info *info, union iwre
     {
         int i = 0;
         int tmlen= strlen(data);
-        wf_memset(out_buf,0,40);
+        wf_memset(out_buf,0, sizeof(out_buf) * sizeof(wf_u32));
         for(i=0; i<tmlen; i++)
         {
             data321[i]= data[i];
