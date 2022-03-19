@@ -25,7 +25,7 @@
 #include <linux/list.h>
 #include <linux/usb.h>
 #include <linux/time.h>
-
+#include <linux/platform_device.h>
 
 #include "wf_debug.h"
 #include "wf_list.h"
@@ -1349,8 +1349,54 @@ mcu_cmd_communicate_exit:
 
 #endif
 
-module_init(hif_init);
-module_exit(hif_exit);
+static int hif_probe(struct platform_device *pdev)
+{
+  return hif_init();
+}
+
+static int hif_remove(struct platform_device *pdev)
+{
+  hif_exit();
+  return 0;
+}
+
+#if 0
+dts node example:
+
+	smartchip_wifi_driver {
+		compatible = "smartchip,s9083s";
+		status = "okay";
+	};
+#endif
+
+static struct of_device_id hif_table[] = {
+	{ .compatible = "smartchip," KBUILD_MODNAME, },
+	{},
+};
+MODULE_DEVICE_TABLE(of, hif_table);
+
+static struct platform_driver hif_driver = {
+	.probe  = hif_probe,
+	.remove = hif_remove,
+	.driver = {
+		.name = "smartchip_wifi_driver",
+		.owner = THIS_MODULE,
+		.of_match_table = of_match_ptr(hif_table),
+	},
+};
+
+static int __init hif_init_module(void)
+{
+	return platform_driver_register(&hif_driver);
+}
+
+static void __exit hif_exit_module(void)
+{
+	platform_driver_unregister(&hif_driver);
+}
+
+module_init(hif_init_module);
+module_exit(hif_exit_module);
 
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("WF Wireless Lan Driver");
