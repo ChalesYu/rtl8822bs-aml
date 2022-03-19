@@ -21,11 +21,11 @@ endif
 
 ifeq ($(CONFIG_CHIP), richv300)
 ifeq ($(CONFIG_HIF_PORT), usb)
-MODULE_NAME := s9188u
+MODULE_NAME := richv300u
 else ifeq ($(CONFIG_HIF_PORT), sdio)
-MODULE_NAME := s9188s
+MODULE_NAME := richv300s
 else
-MODULE_NAME := s9188
+MODULE_NAME := richv300
 endif
 endif
 #####################################################
