@@ -241,6 +241,7 @@ int wf_iw_reg_write(struct net_device *dev, struct iw_request_info *info, union 
 
 int wf_iw_ars(struct net_device *dev, struct iw_request_info *info, union iwreq_data *wdata, char *extra)
 {
+#ifdef CONFIG_ARS_DRIVER_SUPPORT
     ndev_priv_st *pndev_priv = netdev_priv(dev);
     nic_info_st *pnic_info = pndev_priv->nic;
     mlme_info_t *pmlme_info = pnic_info->mlme_info;
@@ -248,8 +249,6 @@ int wf_iw_ars(struct net_device *dev, struct iw_request_info *info, union iwreq_
     wf_u8 *pch;
     int err = 0;
     wf_u32 reg_val;
-#ifdef CONFIG_ARS_DRIVER_SUPPORT
-
     struct iw_point *wrqu;
     wf_u32 main_cmd, sub_cmd, param1, param2;
     wrqu = (struct iw_point *)wdata;
