@@ -81,9 +81,9 @@ module_param(fw, charp, 0644);
 char *ifname = "wlan0";
 #else
 #ifdef CONFIG_RICHV200
-char *ifname = "";
+char *ifname = "wlan0";
 #else
-char *ifname = "";
+char *ifname = "wlan0";
 #endif
 #endif
 module_param(ifname, charp, 0644);
