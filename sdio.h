@@ -7,6 +7,7 @@
 #define __REG_SDIO_H_
 
 #include "main.h"
+#include "rtw88_sdio_ids.h"
 
 /* I/O bus domain address mapping */
 #define SDIO_LOCAL_OFFSET			0x10250000
