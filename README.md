@@ -5,7 +5,7 @@ a modified rtw88 driver from [lwfinger repo](https://github.com/lwfinger/rtw88) 
 
 a modified driver version `v5.13.1-20-gbd7c7eb9d.20210702` is available at [test branch](https://github.com/ChalesYu/rtl8822bs-aml/tree/test-5.13.1-20-220617),fork from [88x2bu-20210702](https://github.com/morrownr/88x2bu-20210702).
 
-a way to add support to [88x2bu driver](https://github.com/ChalesYu/88x2bu/tree/sdio-support) , useage : 
+a way to add support to [88x2bu driver](https://gitlab.com/ChalesYu/rtl8822bs-aml/tree/test-5.13.1-20-220617) , useage :
 
 ```
 make CONFIG_USB_HCI=n CONFIG_SDIO_HCI=y
