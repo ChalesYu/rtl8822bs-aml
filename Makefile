@@ -60,6 +60,9 @@ rtw_8822be-objs               := rtw8822be.o
 obj-m      += rtw88_8822bu.o
 rtw88_8822bu-objs		:= rtw8822bu.o
 
+obj-m      += rtw88_8822bs.o
+rtw88_8822bs-objs		:= rtw8822bs.o
+
 obj-m       += rtw_8822c.o
 rtw_8822c-objs                := rtw8822c.o rtw8822c_table.o
 
@@ -68,6 +71,9 @@ rtw_8822ce-objs               := rtw8822ce.o
 
 obj-m      += rtw88_8822cu.o
 rtw88_8822cu-objs		:= rtw8822cu.o
+
+obj-m      += rtw88_8822cs.o
+rtw88_8822cs-objs		:= rtw8822cs.o
 
 obj-m       += rtw_8723d.o
 rtw_8723d-objs                := rtw8723d.o rtw8723d_table.o
@@ -87,14 +93,23 @@ rtw_8821ce-objs		:= rtw8821ce.o
 obj-m	+= rtw88_8821cu.o
 rtw88_8821cu-objs		:= rtw8821cu.o
 
+obj-m	+= rtw88_8821cs.o
+rtw88_8821cs-objs		:= rtw8821cs.o
+
 obj-m			+= rtw_pci.o
 rtw_pci-objs		:= pci.o
 
 obj-m			+= rtw_usb.o
 rtw_usb-objs		:= usb.o
 
+obj-m			+= rtw_sdio.o
+rtw_sdio-objs		:= sdio.o
+
 obj-m         += rtw88_usb.o
 rtw88_usb-objs                := usb.o
+
+obj-m         += rtw88_sdio.o
+rtw88_sdio-objs                := sdio.o
 
 ccflags-y += -D__CHECK_ENDIAN__
 
