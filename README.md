@@ -1,7 +1,7 @@
 
 ## rtl8822bs-aml
 
-a modified rtw88 driver from [lwfinger repo](https://github.com/lwfinger/rtw88) but with [other patch](https://github.com/xdarklight/linux/commits/rtw88-sdio-20230204) is available at [rtw88-sdio-test branch](https://gitlab.com/ChalesYu/rtl8822bs-aml/tree/rtw88-sdio-test).
+a modified rtw88 driver from [lwfinger repo](https://github.com/lwfinger/rtw88) but with [other patch](https://github.com/xdarklight/linux/commits/rtw88-sdio-20230222) is available at [rtw88-sdio-test branch](https://gitlab.com/ChalesYu/rtl8822bs-aml/tree/rtw88-sdio-test).
 
 a modified driver version `v5.13.1-20-gbd7c7eb9d.20210702` is available at [test branch](https://github.com/ChalesYu/rtl8822bs-aml/tree/test-5.13.1-20-230201),fork from [88x2bu-20210702](https://github.com/morrownr/88x2bu-20210702).
 
