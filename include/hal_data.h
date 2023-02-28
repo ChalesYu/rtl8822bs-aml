@@ -618,6 +618,9 @@ typedef struct hal_com_data {
 #else
 	u8			SdioTxFIFOFreePage[SDIO_TX_FREE_PG_QUEUE];
 #endif/*CONFIG_RTL8192F*/
+#ifdef CONFIG_SDIO_TX_ENABLE_AVAL_INT
+        u8                      sdio_avail_int_en_q;
+#endif
 	_lock		SdioTxFIFOFreePageLock;
 	u8			SdioTxOQTMaxFreeSpace;
 	u8			SdioTxOQTFreeSpace;
