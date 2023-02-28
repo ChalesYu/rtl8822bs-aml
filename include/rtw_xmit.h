@@ -814,6 +814,9 @@ struct	xmit_priv	{
 #else
 	_thread_hdl_	SdioXmitThread;
 	_sema		SdioXmitSema;
+	#ifdef SDIO_FREE_XMIT_BUF_SEMA
+	_sema           sdio_free_xmitbuf_sema;
+	#endif
 #endif /* CONFIG_SDIO_TX_TASKLET */
 #endif /* CONFIG_SDIO_HCI */
 
