@@ -1294,7 +1294,11 @@ u32 _rtw_down_sema(_sema *sema)
 inline void thread_exit(_completion *comp)
 {
 #ifdef PLATFORM_LINUX
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,17,0))
+	kthread_complete_and_exit(comp, 0);
+#else
 	complete_and_exit(comp, 0);
+#endif
 #endif
 
 #ifdef PLATFORM_FREEBSD
@@ -2290,11 +2294,15 @@ static int storeToFile(const char *path, u8 *buf, u32 sz)
 			oldfs = get_fs();
 			set_fs(KERNEL_DS);
 			#else
+#ifdef get_fs
 			set_fs(get_ds());
+#endif
 			#endif
 			ret = writeFile(fp, buf, sz);
 			#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 10, 0))
+#ifdef get_fs
 			set_fs(oldfs);
+#endif
 			#endif
 			closeFile(fp);
 
