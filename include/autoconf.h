@@ -30,7 +30,15 @@
 #define RTL871X_MODULE_NAME "88EU"
 #define DRV_NAME "rtl8188eu"
 
-#define CONFIG_USB_HCI
+#ifdef CONFIG_USB_HCI
+#undef CONFIG_USB_HCI
+#define CONFIG_USB_HCI	1
+#endif
+
+#ifdef CONFIG_SDIO_HCI
+#undef CONFIG_SDIO_HCI
+#define CONFIG_SDIO_HCI	1
+#endif
 
 #define PLATFORM_LINUX
 
@@ -193,6 +201,10 @@
 /*
  * Interface  Related Config
  */
+//////////////////////////////////////////////////////////////////////////////////////////////
+
+//usb Interface
+#ifdef CONFIG_USB_HCI
 
 #ifndef CONFIG_MINIMAL_MEMORY_USAGE
 	#define CONFIG_USB_TX_AGGREGATION
@@ -227,6 +239,29 @@
 #define CONFIG_VENDOR_REQ_RETRY
 
 /* #define CONFIG_USB_SUPPORT_ASYNC_VDN_REQ */
+
+#endif /* CONFIG_USB_HCI */
+
+//sdio Interface
+#ifdef CONFIG_SDIO_HCI
+
+#define CONFIG_TX_AGGREGATION
+/* #define CONFIG_SDIO_TX_TASKLET */
+#define CONFIG_SDIO_RX_COPY
+#define CONFIG_SDIO_TX_ENABLE_AVAL_INT
+#define SDIO_FREE_XMIT_BUF_SEMA
+
+#define CONFIG_RTL8188E_SDIO
+#define CONFIG_XMIT_THREAD_MODE
+
+#ifdef CONFIG_MAC_LOOPBACK_DRIVER
+#undef CONFIG_AP_MODE
+#undef CONFIG_NATIVEAP_MLME
+#undef CONFIG_POWER_SAVING
+#undef SUPPORT_HW_RFOFF_DETECTED
+#endif
+
+#endif /* CONFIG_SDIO_HCI */
 
 
 /*
