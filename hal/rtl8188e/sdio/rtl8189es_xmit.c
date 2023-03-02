@@ -627,7 +627,7 @@ query_free_page:
 			goto free_xmitbuf;
 #ifdef CONFIG_SDIO_TX_ENABLE_AVAL_INT
 		if (!bUpdatePageNum) {
-			rtw_hal_sdio_avail_page_threshold_en(padapter, PageIdx, 0);
+			rtw_hal_sdio_avail_page_threshold_en(padapter, PageIdx, pxmitbuf->pg_num);
 
 			/* Total number of page is NOT available, so update current FIFO status */
 			HalQueryTxBufferStatus8189ESdio(padapter);

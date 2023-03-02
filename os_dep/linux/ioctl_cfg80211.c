@@ -468,7 +468,7 @@ u8 rtw_cfg80211_ch_switch_notify(_adapter *adapter, u8 ch, u8 bw, u8 offset,
 
 		cfg80211_ch_switch_started_notify(adapter->pnetdev, &chdef, 0, false);
 #else
-		cfg80211_ch_switch_started_notify(adapter->pnetdev, &chdef, 0);
+		cfg80211_ch_switch_started_notify(adapter->pnetdev, &chdef, 0, false);
 #endif
 		goto exit;
 	}
@@ -5102,6 +5102,9 @@ void rtw_cfg80211_indicate_sta_assoc(_adapter *padapter, u8 *pmgmt_frame, uint f
 		memset(&sinfo, 0, sizeof(sinfo));
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 2, 0))
 		sinfo.filled = STATION_INFO_ASSOC_REQ_IES;
+	#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 18, 0))
+		sinfo.pertid = 0;
+	#endif
 		sinfo.assoc_req_ies = pmgmt_frame + WLAN_HDR_A3_LEN + ie_offset;
 		sinfo.assoc_req_ies_len = frame_len - WLAN_HDR_A3_LEN - ie_offset;
 #endif
