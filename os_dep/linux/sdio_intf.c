@@ -18,6 +18,8 @@
 #include <hal_data.h>
 #include <platform_ops.h>
 
+#define _FW_LINKED			WIFI_ASOC_STATE
+
 #ifndef CONFIG_SDIO_HCI
 #error "CONFIG_SDIO_HCI shall be on!\n"
 #endif
@@ -1171,6 +1173,114 @@ static void rtw_dev_shutdown(struct device *dev)
 
 extern int pm_netdev_open(struct net_device *pnetdev, u8 bnormal);
 extern int pm_netdev_close(struct net_device *pnetdev, u8 bnormal);
+
+#ifdef SUPPORT_HW_RFOFF_DETECTED
+int rtw_hw_suspend(_adapter *padapter)
+{
+	struct pwrctrl_priv *pwrpriv;
+	//struct usb_interface *pusb_intf;
+	struct net_device *pnetdev;
+
+	if (NULL == padapter)
+		goto error_exit;
+
+	if ((_FALSE == padapter->bup) || RTW_CANNOT_RUN(padapter)) {
+		RTW_INFO("padapter->bup=%d bDriverStopped=%s bSurpriseRemoved = %s\n"
+			 , padapter->bup
+			 , rtw_is_drv_stopped(padapter) ? "True" : "False"
+			, rtw_is_surprise_removed(padapter) ? "True" : "False");
+		goto error_exit;
+	}
+
+	pwrpriv = adapter_to_pwrctl(padapter);
+	//pusb_intf = adapter_to_dvobj(padapter)->pusbintf;
+	pnetdev = padapter->pnetdev;
+
+	LeaveAllPowerSaveMode(padapter);
+
+	RTW_INFO("==> rtw_hw_suspend\n");
+	_enter_pwrlock(&pwrpriv->lock);
+	pwrpriv->bips_processing = _TRUE;
+	/* padapter->net_closed = _TRUE; */
+	/* s1. */
+	if (pnetdev) {
+		rtw_netif_carrier_off(pnetdev);
+		rtw_netif_stop_queue(pnetdev);
+	}
+
+	/* s2. */
+	rtw_disassoc_cmd(padapter, 500, RTW_CMDF_DIRECTLY);
+
+	/* s2-2.  indicate disconnect to os */
+	/* rtw_indicate_disconnect(padapter); */
+	{
+		struct	mlme_priv *pmlmepriv = &padapter->mlmepriv;
+		if (check_fwstate(pmlmepriv, WIFI_ASOC_STATE)) {
+			_clr_fwstate_(pmlmepriv, WIFI_ASOC_STATE);
+			rtw_led_control(padapter, LED_CTL_NO_LINK);
+
+			rtw_os_indicate_disconnect(padapter, 0, _FALSE);
+
+#ifdef CONFIG_LPS
+			/* donnot enqueue cmd */
+			rtw_lps_ctrl_wk_cmd(padapter, LPS_CTRL_DISCONNECT, RTW_CMDF_DIRECTLY);
+#endif
+		}
+	}
+	/* s2-3. */
+	rtw_free_assoc_resources(padapter, _TRUE);
+
+	/* s2-4. */
+	rtw_free_network_queue(padapter, _TRUE);
+#ifdef CONFIG_IPS
+	rtw_ips_dev_unload(padapter);
+#endif
+	pwrpriv->rf_pwrstate = rf_off;
+	pwrpriv->bips_processing = _FALSE;
+	_exit_pwrlock(&pwrpriv->lock);
+
+	return 0;
+
+error_exit:
+	RTW_INFO("%s, failed\n", __FUNCTION__);
+	return -1;
+
+}
+
+int rtw_hw_resume(_adapter *padapter)
+{
+	struct pwrctrl_priv *pwrpriv = adapter_to_pwrctl(padapter);
+	//struct usb_interface *pusb_intf = adapter_to_dvobj(padapter)->pusbintf;
+	struct net_device *pnetdev = padapter->pnetdev;
+
+	RTW_INFO("==> rtw_hw_resume\n");
+	_enter_pwrlock(&pwrpriv->lock);
+	pwrpriv->bips_processing = _TRUE;
+	rtw_reset_drv_sw(padapter);
+
+	if (pm_netdev_open(pnetdev, _FALSE) != 0) {
+		_exit_pwrlock(&pwrpriv->lock);
+		goto error_exit;
+	}
+	rtw_netif_device_attach(pnetdev);
+	rtw_netif_carrier_on(pnetdev);
+
+	rtw_netif_wake_queue(pnetdev);
+
+	pwrpriv->bkeepfwalive = _FALSE;
+	pwrpriv->brfoffbyhw = _FALSE;
+
+	pwrpriv->rf_pwrstate = rf_on;
+	pwrpriv->bips_processing = _FALSE;
+	_exit_pwrlock(&pwrpriv->lock);
+
+
+	return 0;
+error_exit:
+	RTW_INFO("%s, Open net dev failed\n", __FUNCTION__);
+	return -1;
+}
+#endif
 
 static int rtw_sdio_suspend(struct device *dev)
 {

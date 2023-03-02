@@ -16,6 +16,8 @@
 
 #include <drv_types.h>
 
+#define MIN(x, y) (((x) < (y)) ? (x) : (y))
+
 inline bool rtw_is_sdio30(_adapter *adapter)
 {
 	struct dvobj_priv *dvobj = adapter_to_dvobj(adapter);

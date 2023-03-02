@@ -74,7 +74,7 @@ s32 rtl8188es_init_recv_priv(PADAPTER padapter)
 		if (res == _FAIL)
 			break;
 
-		res = rtw_os_recvbuf_resource_alloc(padapter, precvbuf);
+		res = rtw_os_recvbuf_resource_alloc(padapter, precvbuf, MAX_RECVBUF_SZ);
 		if (res == _FAIL) {
 			freerecvbuf(precvbuf);
 			break;

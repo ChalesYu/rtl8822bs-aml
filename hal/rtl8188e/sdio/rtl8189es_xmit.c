@@ -503,7 +503,7 @@ void rtw_hal_sdio_avail_page_threshold_init(_adapter *adapter)
 	rtw_write32(adapter, 0x021C, 0xFFFFFFFF);
 }
 
-void rtw_hal_sdio_avail_page_threshold_en(_adapter *adapter, u8 qidx)
+void rtw_hal_sdio_avail_page_threshold_en(_adapter *adapter, u8 qidx, u8 pg_num)
 {
 	HAL_DATA_TYPE *hal_data = GET_HAL_DATA(adapter);
 
@@ -627,7 +627,7 @@ query_free_page:
 			goto free_xmitbuf;
 #ifdef CONFIG_SDIO_TX_ENABLE_AVAL_INT
 		if (!bUpdatePageNum) {
-			rtw_hal_sdio_avail_page_threshold_en(padapter, PageIdx);
+			rtw_hal_sdio_avail_page_threshold_en(padapter, PageIdx, 0);
 
 			/* Total number of page is NOT available, so update current FIFO status */
 			HalQueryTxBufferStatus8189ESdio(padapter);
@@ -1537,7 +1537,7 @@ s32 rtl8188es_hal_xmit(PADAPTER padapter, struct xmit_frame *pxmitframe)
 	    (pxmitframe->attrib.ether_type != 0x888e) &&
 	    (pxmitframe->attrib.dhcp_pkt != 1)) {
 		if (padapter->mlmepriv.LinkDetectInfo.bBusyTraffic == _TRUE)
-			rtw_issue_addbareq_cmd(padapter, pxmitframe);
+			rtw_issue_addbareq_cmd(padapter, pxmitframe, _FALSE);
 	}
 #endif
 

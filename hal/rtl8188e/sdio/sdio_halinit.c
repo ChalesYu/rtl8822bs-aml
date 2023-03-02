@@ -886,6 +886,28 @@ _InitRDGSetting_8188E(
 }
 #endif
 
+/* copy from ../usb/usbhalinit.c */
+rt_rf_power_state RfOnOffDetect(PADAPTER pAdapter)
+{
+	struct pwrctrl_priv *pwrctl = adapter_to_pwrctl(pAdapter);
+	HAL_DATA_TYPE		*pHalData = GET_HAL_DATA(pAdapter);
+	u8	val8;
+	rt_rf_power_state rfpowerstate = rf_off;
+
+	if (pwrctl->bHWPowerdown) {
+		val8 = rtw_read8(pAdapter, REG_HSISR);
+		RTW_INFO("pwrdown, 0x5c(BIT7)=%02x\n", val8);
+		rfpowerstate = (val8 & BIT7) ? rf_off : rf_on;
+	} else { /* rf on/off */
+		rtw_write8(pAdapter, REG_MAC_PINMUX_CFG, rtw_read8(pAdapter, REG_MAC_PINMUX_CFG) & ~(BIT3));
+		val8 = rtw_read8(pAdapter, REG_GPIO_IO_SEL);
+		RTW_INFO("GPIO_IN=%02x\n", val8);
+		rfpowerstate = (val8 & BIT3) ? rf_on : rf_off;
+	}
+	return rfpowerstate;
+}	/* HalDetectPwrDownMode */
+
+
 static u32 rtl8188es_hal_init(PADAPTER padapter)
 {
 	s32 ret;

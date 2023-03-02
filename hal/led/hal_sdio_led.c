@@ -17,6 +17,8 @@
 #include <hal_data.h>
 #ifdef CONFIG_RTW_SW_LED
 
+#define _FW_LINKED			WIFI_ASOC_STATE
+
 /*
  *	Description:
  *		Implementation of LED blinking behavior.
