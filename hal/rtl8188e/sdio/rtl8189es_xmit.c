@@ -1656,5 +1656,4 @@ void rtl8188es_free_xmit_priv(PADAPTER padapter)
 		#endif
 	}
 
-	_rtw_spinlock_free(&phal->SdioTxFIFOFreePageLock);
 }

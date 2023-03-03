@@ -363,23 +363,11 @@ void	_rtw_free_sta_xmit_priv_lock(struct sta_xmit_priv *psta_xmitpriv);
 void	_rtw_free_sta_xmit_priv_lock(struct sta_xmit_priv *psta_xmitpriv)
 {
 
-	_rtw_spinlock_free(&psta_xmitpriv->lock);
 
-	_rtw_spinlock_free(&(psta_xmitpriv->be_q.sta_pending.lock));
-	_rtw_spinlock_free(&(psta_xmitpriv->bk_q.sta_pending.lock));
-	_rtw_spinlock_free(&(psta_xmitpriv->vi_q.sta_pending.lock));
-	_rtw_spinlock_free(&(psta_xmitpriv->vo_q.sta_pending.lock));
-#ifdef CONFIG_RTW_MGMT_QUEUE
-	_rtw_spinlock_free(&(psta_xmitpriv->mgmt_q.sta_pending.lock));
-#endif
 }
 
 static void	_rtw_free_sta_recv_priv_lock(struct sta_recv_priv *psta_recvpriv)
 {
-
-	_rtw_spinlock_free(&psta_recvpriv->lock);
-
-	_rtw_spinlock_free(&(psta_recvpriv->defrag_q.lock));
 
 
 }
@@ -387,9 +375,6 @@ static void	_rtw_free_sta_recv_priv_lock(struct sta_recv_priv *psta_recvpriv)
 void rtw_mfree_stainfo(struct sta_info *psta);
 void rtw_mfree_stainfo(struct sta_info *psta)
 {
-
-	if (&psta->lock != NULL)
-		_rtw_spinlock_free(&psta->lock);
 
 	_rtw_free_sta_xmit_priv_lock(&psta->sta_xmitpriv);
 	_rtw_free_sta_recv_priv_lock(&psta->sta_recvpriv);
@@ -427,18 +412,6 @@ void rtw_mfree_sta_priv_lock(struct	sta_priv *pstapriv);
 void rtw_mfree_sta_priv_lock(struct	sta_priv *pstapriv)
 {
 	rtw_mfree_all_stainfo(pstapriv); /* be done before free sta_hash_lock */
-
-	_rtw_spinlock_free(&pstapriv->free_sta_queue.lock);
-
-	_rtw_spinlock_free(&pstapriv->sta_hash_lock);
-	_rtw_spinlock_free(&pstapriv->wakeup_q.lock);
-	_rtw_spinlock_free(&pstapriv->sleep_q.lock);
-
-#ifdef CONFIG_AP_MODE
-	_rtw_spinlock_free(&pstapriv->asoc_list_lock);
-	_rtw_spinlock_free(&pstapriv->auth_list_lock);
-#endif
-
 }
 
 u32	_rtw_free_sta_priv(struct	sta_priv *pstapriv)
@@ -876,8 +849,6 @@ u32	rtw_free_stainfo(_adapter *padapter , struct sta_info *psta)
 	rtw_st_ctl_deinit(&psta->st_ctl);
 
 	if (is_pre_link_sta == _FALSE) {
-		_rtw_spinlock_free(&psta->lock);
-
 		/* _enter_critical_bh(&(pfree_sta_queue->lock), &irqL0); */
 		_enter_critical_bh(&(pstapriv->sta_hash_lock), &irqL0);
 		rtw_list_insert_tail(&psta->list, get_list_head(pfree_sta_queue));
@@ -1363,7 +1334,7 @@ void rtw_pre_link_sta_ctl_deinit(struct sta_priv *stapriv)
 
 	rtw_pre_link_sta_ctl_reset(stapriv);
 
-	_rtw_spinlock_free(&pre_link_sta_ctl->lock);
+	}
 }
 
 void dump_pre_link_sta_ctl(void *sel, struct sta_priv *stapriv)

@@ -38,7 +38,6 @@ void free_mlme_ap_info(_adapter *padapter)
 	struct mlme_priv *pmlmepriv = &(padapter->mlmepriv);
 
 	stop_ap_mode(padapter);
-	_rtw_spinlock_free(&pmlmepriv->bcn_update_lock);
 
 }
 
@@ -59,7 +58,7 @@ u8 rtw_set_tim_ie(u8 dtim_cnt, u8 dtim_period
 			if (tim_bmp[i])
 				break;
 		n1 = i & 0xFE;
-	
+
 		/* find the last nonzero octet in tim_bitmap, except octet 0 */
 		for (i = tim_bmp_len - 1; i > 0; i--)
 			if (tim_bmp[i])
@@ -2567,9 +2566,6 @@ static void _rtw_macaddr_acl_deinit(_adapter *adapter, u8 period, bool clear_onl
 	}
 	_exit_critical_bh(&(acl_node_q->lock), &irqL);
 
-	if (!clear_only)
-		_rtw_spinlock_free(&(acl_node_q->lock));
-
 	rtw_warn_on(acl->num);
 	acl->mode = RTW_ACL_MODE_DISABLED;
 }
@@ -4237,9 +4233,7 @@ void stop_ap_mode(_adapter *padapter)
 		rtw_warn_on(1);
 
 	pmlmepriv->update_bcn = _FALSE;
-	/*pmlmeext->bstart_bss = _FALSE;*/
 	padapter->netif_up = _FALSE;
-	/* _rtw_spinlock_free(&pmlmepriv->bcn_update_lock); */
 
 	/* reset and init security priv , this can refine with rtw_reset_securitypriv */
 	_rtw_memset((unsigned char *)&padapter->securitypriv, 0, sizeof(struct security_priv));
