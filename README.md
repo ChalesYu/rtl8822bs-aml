@@ -17,6 +17,8 @@ a seems useful commit for rtw88 can be found at [here](https://github.com/xdarkl
 
 this repo will deprecated while rtw88 driver support sdio interface.
 
+Like the `rtl88x2bu` driver, add some SDIO interface support file can support `rtl8822bs`. The same thing happened on `rtl8188eus` driver, add SDIO support file can support `rtl8189es` , but the quality is still need test, modify driver at branch `rtl8188e_usb_sdio_5.13.3-17-test` and `rtl8188e_usb_sdio_5.7.6.1-test`.
+
 ### About firmware load fail issue
 
 Pervious this issue happen because compiler will ignore firmware array in `.c` files for som reason,
