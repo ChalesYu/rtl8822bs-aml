@@ -24,7 +24,9 @@ static void rtl8188es_recv_tasklet(void *priv);
 static s32 initrecvbuf(struct recv_buf *precvbuf, PADAPTER padapter)
 {
 	_rtw_init_listhead(&precvbuf->list);
+#ifdef PLATFORM_WINDOWS
 	_rtw_spinlock_init(&precvbuf->recvbuf_lock);
+#endif
 
 	precvbuf->adapter = padapter;
 
@@ -33,7 +35,9 @@ static s32 initrecvbuf(struct recv_buf *precvbuf, PADAPTER padapter)
 
 static void freerecvbuf(struct recv_buf *precvbuf)
 {
+#ifdef PLATFORM_WINDOWS
 	_rtw_spinlock_free(&precvbuf->recvbuf_lock);
+#endif
 }
 
 /*
