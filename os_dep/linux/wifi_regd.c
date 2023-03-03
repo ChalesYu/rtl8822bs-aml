@@ -26,7 +26,7 @@ static void rtw_regd_overide_flags(struct wiphy *wiphy, struct rf_ctl_t *rfctl)
 	u16 channel;
 	u32 freq;
 
-	/* all channels disable */
+	/* all channels enable */
 	for (i = 0; i < NUM_NL80211_BANDS; i++) {
 		sband = wiphy->bands[i];
 		if (!sband)
@@ -35,7 +35,9 @@ static void rtw_regd_overide_flags(struct wiphy *wiphy, struct rf_ctl_t *rfctl)
 			ch = &sband->channels[j];
 			if (!ch)
 				continue;
-			ch->flags = IEEE80211_CHAN_DISABLED;
+			ch->flags &= ~(IEEE80211_CHAN_DISABLED|IEEE80211_CHAN_NO_HT40PLUS|
+			IEEE80211_CHAN_NO_HT40MINUS|IEEE80211_CHAN_NO_80MHZ|
+			IEEE80211_CHAN_NO_160MHZ|IEEE80211_CHAN_NO_IR);
 		}
 	}
 
