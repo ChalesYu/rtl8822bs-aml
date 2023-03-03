@@ -513,7 +513,9 @@ struct sta_recv_priv {
 struct recv_buf {
 	_list list;
 
+#ifdef PLATFORM_WINDOWS
 	_lock recvbuf_lock;
+#endif
 
 #ifdef CONFIG_SDIO_RECVBUF_PWAIT_RUNTIME_ADJUST
 	u8 type;
