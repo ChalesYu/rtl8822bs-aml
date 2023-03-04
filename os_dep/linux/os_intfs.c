@@ -2184,6 +2184,8 @@ int rtw_os_ndev_register(_adapter *adapter, const char *name)
 	dev_addr_set(ndev, adapter_mac_addr(adapter));
 #endif
 
+	dev_net_set(ndev, wiphy_net(adapter_to_wiphy(adapter)));
+
 	/* Tell the network stack we exist */
 
 	if (rtnl_lock_needed)
