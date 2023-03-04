@@ -9870,6 +9870,23 @@ static void rtw_cfg80211_init_vht_capab(_adapter *padapter
 }
 #endif /* defined(CONFIG_80211AC_VHT) && (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 6, 0)) */
 
+static void rtw_cfg80211_create_vht_cap(struct ieee80211_sta_vht_cap *vht_cap)
+{
+       u16 mcs_map;
+       int i;
+
+       vht_cap->vht_supported = 1;
+       vht_cap->cap = IEEE80211_VHT_CAP_RXLDPC;
+
+       mcs_map = 0;
+       for (i = 0; i < 8; i++) {
+               mcs_map |= IEEE80211_VHT_MCS_SUPPORT_0_9 << (i*2);
+       }
+
+       vht_cap->vht_mcs.rx_mcs_map = cpu_to_le16(mcs_map);
+       vht_cap->vht_mcs.tx_mcs_map = cpu_to_le16(mcs_map);
+}
+
 void rtw_cfg80211_init_wdev_data(_adapter *padapter)
 {
 #ifdef CONFIG_CONCURRENT_MODE
@@ -9884,6 +9901,7 @@ static int rtw_cfg80211_init_wiphy_band(_adapter *padapter, struct wiphy *wiphy)
 	u8 rf_type;
 	struct ieee80211_supported_band *band;
 	int ret = _FAIL;
+	struct ieee80211_sta_vht_cap *vht_cap;
 
 	rf_type = GET_HAL_RFPATH(padapter);
 	RTW_INFO("%s:rf_type=%d\n", __func__, rf_type);
@@ -9896,6 +9914,7 @@ static int rtw_cfg80211_init_wiphy_band(_adapter *padapter, struct wiphy *wiphy)
 		rtw_2g_rates_init(band->bitrates);
 		#if defined(CONFIG_80211N_HT)
 		rtw_cfg80211_init_ht_capab(padapter, &band->ht_cap, BAND_ON_2_4G, rf_type);
+		rtw_cfg80211_create_vht_cap(&band->vht_cap);
 		#endif
 	}
 #if CONFIG_IEEE80211_BAND_5GHZ
