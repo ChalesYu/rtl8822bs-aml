@@ -2653,6 +2653,10 @@ union recv_frame *recvframe_defrag(_adapter *adapter, _queue *defrag_q)
 		cur_pn = CCMPH_2_PN(tmp_iv_hdr);
 	}
 	pfhdr = &prframe->u.hdr;
+	if (!pfhdr) {
+		pr_err("pfhdr NULL in %s\n", __func__);
+		return NULL;
+	}
 	rtw_list_delete(&(prframe->u.list));
 
 	if (curfragnum != pfhdr->attrib.frag_num) {
