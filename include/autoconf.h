@@ -23,7 +23,16 @@
 #ifndef CONFIG_RTL8723B
 #define CONFIG_RTL8723B
 #endif
-#define CONFIG_USB_HCI
+
+#ifdef CONFIG_USB_HCI
+#undef CONFIG_USB_HCI
+#define CONFIG_USB_HCI	1
+#endif
+
+#ifdef CONFIG_SDIO_HCI
+#undef CONFIG_SDIO_HCI
+#define CONFIG_SDIO_HCI	1
+#endif
 
 #define PLATFORM_LINUX
 
@@ -124,6 +133,9 @@
 /*
  * Interface Related Config
  */
+//usb Interface
+#ifdef CONFIG_USB_HCI
+
 #define CONFIG_USB_TX_AGGREGATION
 #define CONFIG_USB_RX_AGGREGATION
 
@@ -156,6 +168,18 @@
 #define CONFIG_USB_VENDOR_REQ_MUTEX
 #define CONFIG_VENDOR_REQ_RETRY
 /* #define CONFIG_USB_SUPPORT_ASYNC_VDN_REQ */
+
+#endif
+
+//sdio Interface
+#ifdef CONFIG_SDIO_HCI
+
+#define CONFIG_TX_AGGREGATION
+#define CONFIG_SDIO_RX_COPY
+#define CONFIG_XMIT_THREAD_MODE
+/* #define CONFIG_SDIO_TX_ENABLE_AVAL_INT */
+
+#endif /* CONFIG_SDIO_HCI */
 
 
 /*
