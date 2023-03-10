@@ -21,8 +21,10 @@ Like the `rtl88x2bu` driver, add some SDIO interface support file can support `r
 
 ### About firmware load fail issue
 
-Pervious this issue happen because compiler will ignore firmware array in `.c` files for som reason,
+Pervious this issue happen because compiler will ignore firmware array in `.c` files for some reason,
  so of course firmware will load failed. But now this issue solved. On branch `test-5.13.1-20-220617` , driver will load firmware from `/lib/firmware/rtw88/rtw8822b_fw.bin`.
+
+a way to corvent vendor driver source firmware to `rtw8822b_fw.bin` can be found at dumpVendorFirmware/readme.txt
 
 Some user report this issue still happen. It looks like hardware issue, check:
 
@@ -30,6 +32,8 @@ Some user report this issue still happen. It looks like hardware issue, check:
 Power quality for wifi hardware is not good. (e.g Need Vdd 3.3V but only get 2.7~2.9V , Similar problem happen on some board with XR819 wifi)
 Data transfer have mistake in sdio interface between wifi and host. (slow down mmc controller clk speed may help, or ask your platform vendor how to avoid data transfer error.)
 ```
+
+Please also follow Hardware_Reference_design to check if your board missing something.
 
 Change to another hardware platform or use another SBC to test again is also a better choice.
 
