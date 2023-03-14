@@ -302,7 +302,8 @@
 #define DBG	0	/* for ODM & BTCOEX debug */
 #endif /* CONFIG_RTW_DEBUG */
 
-/* #define DBG_CONFIG_ERROR_DETECT */
+#define DBG_CHECK_FW_PS_STATE
+#define DBG_CONFIG_ERROR_DETECT
 /* #define DBG_CONFIG_ERROR_DETECT_INT */
 /* #define DBG_CONFIG_ERROR_RESET */
 
