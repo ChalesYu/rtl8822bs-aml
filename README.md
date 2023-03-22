@@ -6,10 +6,13 @@ this repo is mainly for `rtl8822bs` support , but also include some modified ven
 #### Support chip include
 
 USB interface: `rtl8822bu` , `rtl8188eu` , `rtl8723bu` .
+
 SDIO interface: `rtl8822bs` , `rtl8189es` , `rtl8723bs` .
 
 rtl8822bu/rtl8822bs: driver version `v5.13.1-20-gbd7c7eb9d.20210702` at [this branch](https://gitlab.com/ChalesYu/rtl8822bs-aml/tree/test-5.13.1-20-230201).
+
 rtl8188eu/rtl8189es: driver version `v5.13.3-17-gb1925f81a.20210615` at [this branch](https://gitlab.com/ChalesYu/rtl8822bs-aml/tree/rtl8188e_usb_sdio_5.13.3-17-test) , driver version `v5.7.6.1_35670.20191106` at [this branch](https://gitlab.com/ChalesYu/rtl8822bs-aml/tree/rtl8188e_usb_sdio_5.7.6.1-test).
+
 rtl8723bu/rtl8723bs: driver version `v5.8.4_33660.20190516_COEX20181129-7272` at [this branch](https://gitlab.com/ChalesYu/rtl8822bs-aml/tree/rtl8723b_usb_sdio_5.8.4-test) .
 
 The `rtw88` driver can found at [lwfinger repo](https://github.com/lwfinger/rtw88) , it has usb/sdio interface support for rtl8822b/rtl8822c already , and need waiting for upstream merge.
