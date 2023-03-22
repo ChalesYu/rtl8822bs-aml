@@ -1,21 +1,30 @@
 
 ## rtl8822bs-aml
 
-a modified rtw88 driver from [lwfinger repo](https://github.com/lwfinger/rtw88) but with [other patch](https://github.com/xdarklight/linux/commits/rtw88-sdio-20230222) is available at [rtw88-sdio-test branch](https://gitlab.com/ChalesYu/rtl8822bs-aml/tree/rtw88-sdio-test).
+this repo is mainly for `rtl8822bs` support , but also include some modified vendor driver code for support other realtek chip , test with hardware is always need.
+
+#### Support chip include
+
+USB interface: `rtl8822bu` , `rtl8188eu` , `rtl8723bu` .
+SDIO interface: `rtl8822bs` , `rtl8189es` , `rtl8723bs` .
+
+rtl8822bu/rtl8822bs: driver version `v5.13.1-20-gbd7c7eb9d.20210702` at [this branch](https://gitlab.com/ChalesYu/rtl8822bs-aml/tree/test-5.13.1-20-230201).
+rtl8188eu/rtl8189es: driver version `v5.13.3-17-gb1925f81a.20210615` at [this branch](https://gitlab.com/ChalesYu/rtl8822bs-aml/tree/rtl8188e_usb_sdio_5.13.3-17-test) , driver version `v5.7.6.1_35670.20191106` at [this branch](https://gitlab.com/ChalesYu/rtl8822bs-aml/tree/rtl8188e_usb_sdio_5.7.6.1-test).
+rtl8723bu/rtl8723bs: driver version `v5.8.4_33660.20190516_COEX20181129-7272` at [this branch](https://gitlab.com/ChalesYu/rtl8822bs-aml/tree/rtl8723b_usb_sdio_5.8.4-test) .
+
+The `rtw88` driver can found at [lwfinger repo](https://github.com/lwfinger/rtw88) , it has usb/sdio interface support for rtl8822b/rtl8822c already , and need waiting for upstream merge.
+
+
 
 a modified driver version `v5.13.1-20-gbd7c7eb9d.20210702` is available at [test branch](https://github.com/ChalesYu/rtl8822bs-aml/tree/test-5.13.1-20-230201),fork from [88x2bu-20210702](https://github.com/morrownr/88x2bu-20210702).
 
-a way to add support to [88x2bu driver](https://gitlab.com/ChalesYu/rtl8822bs-aml/tree/test-5.13.1-20-230201) , useage :
+a way to add support to vendor [88x2bu driver](https://gitlab.com/ChalesYu/rtl8822bs-aml/tree/test-5.13.1-20-230201) , useage :
 
 ```
 make CONFIG_USB_HCI=n CONFIG_SDIO_HCI=y
 modprobe cfg80211
 insmod 88x2bs.ko rtw_drv_log_level=4
 ```
-
-a seems useful commit for rtw88 can be found at [here](https://github.com/xdarklight/linux/commit/80154847ef5ff284624a8abb2e66b690e41fb678)
-
-this repo will deprecated while rtw88 driver support sdio interface.
 
 Like the `rtl88x2bu` driver, add some SDIO interface support file can support `rtl8822bs`. The same thing happened on `rtl8188eus` driver, add SDIO support file can support `rtl8189es` , but the quality is still need test, modify driver at branch `rtl8188e_usb_sdio_5.13.3-17-test` and `rtl8188e_usb_sdio_5.7.6.1-test`.
 
@@ -26,7 +35,7 @@ A `rtl8723bu` modify driver can also support `rtl8723bs`, test branch is `rtl872
 Pervious this issue happen because compiler will ignore firmware array in `.c` files for some reason,
  so of course firmware will load failed. But now this issue solved. On branch `test-5.13.1-20-220617` , driver will load firmware from `/lib/firmware/rtw88/rtw8822b_fw.bin`.
 
-a way to corvent vendor driver source firmware to `rtw8822b_fw.bin` can be found at dumpVendorFirmware/readme.txt
+a way to corvent vendor driver source firmware to `rtw8822b_fw.bin` can be found at [dumpVendorFirmware/readme.txt](https://github.com/ChalesYu/rtl8822bs-aml/tree/master/dumpVendorFirmware/).
 
 Some user report this issue still happen. It looks like hardware issue, check:
 
