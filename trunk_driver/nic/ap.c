@@ -1859,7 +1859,7 @@ void wf_ap_reset_beacon_channel(nic_info_st *pnic_info, wf_u8 channel)
         LOG_E("pnic NULL");
         return;
     }
-    if (pcur_network->ies == NULL)
+    if (0) //(pcur_network->ies == NULL)
     {
         LOG_E("ie NULL");
         return ;

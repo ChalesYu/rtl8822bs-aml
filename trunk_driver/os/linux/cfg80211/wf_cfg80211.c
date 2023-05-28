@@ -2031,7 +2031,7 @@ static int _call_scan_cb (struct wiphy *wiphy
         goto exit;
     }
 
-    if (req->ssids->ssid != NULL && 0 == wf_memcmp(req->ssids->ssid, "DIRECT-", 7)
+    if ( (wf_memcmp(req->ssids->ssid, "DIRECT-", 7) == 0)
         && wf_p2p_get_ie((wf_u8 *) req->ie, req->ie_len, NULL, NULL))
     {
 

@@ -31,7 +31,7 @@
   SUBDIR = mak
   PLATDIR = platform
   CT                       ?= n
-  CONFIG_DRIVER_VER         = null
+  CONFIG_DRIVER_VER         = 0x0DDF
   CONFIG_OS_LINUX           = y
   CONFIG_OS_ANDROID         = n
   CONFIG_OS_RTOS            = n
