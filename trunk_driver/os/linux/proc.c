@@ -24,7 +24,9 @@
 char WF_PROC_NAME[20]= { 's','c','i','c','s'};
 char demo_var[20] = {'s','s'};
 
+#ifndef __user
 #define __user
+#endif
 
 static int wf_get_version_info(struct seq_file *m, void *v)
 {

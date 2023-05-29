@@ -935,6 +935,9 @@ static inline void set_wiphy_pirv (struct wiphy *pwiphy, void *priv)
 }
 
 static int _add_key_cb(struct wiphy *wiphy, struct net_device *ndev,
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0))
+	int link_id ,
+#endif
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 37)) || defined(COMPAT_KERNEL_RELEASE)
                        wf_u8 key_index, bool pairwise,
                        const wf_u8 * mac_addr,
@@ -1046,6 +1049,9 @@ exit :
 }
 
 static int _get_key_cb(struct wiphy *wiphy, struct net_device *ndev,
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0))
+	int link_id ,
+#endif
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 37)) || defined(COMPAT_KERNEL_RELEASE)
                        wf_u8 key_index, bool pairwise,
                        const wf_u8 * mac_addr,
@@ -1069,6 +1075,9 @@ static int _get_key_cb(struct wiphy *wiphy, struct net_device *ndev,
 
 
 static int _del_key_cb(struct wiphy *wiphy, struct net_device *ndev,
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0))
+	int link_id ,
+#endif
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 37)) || defined(COMPAT_KERNEL_RELEASE)
                        wf_u8 key_index, bool pairwise,
                        const wf_u8 * mac_addr)
@@ -1092,7 +1101,11 @@ static int _del_key_cb(struct wiphy *wiphy, struct net_device *ndev,
 
 
 static int _set_default_key_cb(struct wiphy *wiphy,
-                               struct net_device *ndev, wf_u8 key_index
+                               struct net_device *ndev,
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0))
+	int link_id,
+#endif
+	wf_u8 key_index
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 38)) || defined(COMPAT_KERNEL_RELEASE)
                                , bool unicast, bool multicast
 #endif
@@ -3691,7 +3704,12 @@ static int cfg80211_change_beacon(struct wiphy *wiphy,
     return ret;
 }
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 19, 2))
+static int cfg80211_stop_ap(struct wiphy *wiphy, struct net_device *ndev,
+		unsigned int link_id)
+#else
 static int cfg80211_stop_ap(struct wiphy *wiphy, struct net_device *ndev)
+#endif
 {
     ndev_priv_st *pndev_priv = netdev_priv(ndev);
     nic_info_st *pnic_info = pndev_priv->nic;
