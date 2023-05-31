@@ -218,7 +218,7 @@ int hif_write_cmd(void *node, wf_u32 cmd, wf_u32 *send_buf, wf_u32 send_len, wf_
 
 #endif
 
-int hif_tasklet_rx_handle(hif_node_st *hif_info);
-int hif_tasklet_tx_handle(hif_node_st *hif_info);
+void hif_tasklet_rx_handle(unsigned long data);
+void hif_tasklet_tx_handle(unsigned long data);
 
 #endif

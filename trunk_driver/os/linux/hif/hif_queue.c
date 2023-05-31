@@ -561,8 +561,10 @@ int hif_frame_dispath(hif_node_st *hif_info,struct sk_buff *pskb )
     return 0;
 }
 
-int hif_tasklet_rx_handle(hif_node_st *hif_info)
+void hif_tasklet_rx_handle(unsigned long data)
+//int hif_tasklet_rx_handle(hif_node_st *hif_info)
 {
+	hif_node_st *hif_info = (hif_node_st *)data;
     struct sk_buff *pskb  = NULL;
     data_queue_node_st *qnode       = NULL;
     int ret = 0;
@@ -570,7 +572,7 @@ int hif_tasklet_rx_handle(hif_node_st *hif_info)
     if(NULL == hif_info)
     {
         LOG_E("[%s] hif_info is null",__func__);
-        return 0;
+        return ; //return 0;
     }
 
     while(1)
@@ -607,20 +609,21 @@ int hif_tasklet_rx_handle(hif_node_st *hif_info)
         }
     }
 
-    return 0;
+    return ; //return 0;
 }
 
 
-
-int hif_tasklet_tx_handle(hif_node_st *hif_info)
+void hif_tasklet_tx_handle(unsigned long data)
+//int hif_tasklet_tx_handle(hif_node_st *hif_info)
 {
+	hif_node_st *hif_info = (hif_node_st *)data;
     data_queue_mngt_st *dqm     = &hif_info->trx_pipe;
     data_queue_node_st *qnode   = NULL;
 
     while(NULL != (qnode = wf_tx_queue_remove(dqm)))
     {
         if (hm_get_mod_removed() == wf_true || hif_info->dev_removed == wf_true)
-            return 0;
+            return ; //return 0;
 
         hif_info = qnode->hif_node;
         if(HIF_USB == hif_info->hif_type)
@@ -632,7 +635,7 @@ int hif_tasklet_tx_handle(hif_node_st *hif_info)
             hif_info->ops->hif_write(hif_info,WF_SDIO_TRX_QUEUE_FLAG,qnode->addr,(char*)qnode,qnode->real_size);
         }
     }
-    return 0;
+    return ; //return 0;
 }
 
 int wf_hif_queue_enable(hif_node_st *hif_node)
@@ -712,13 +715,13 @@ int wf_data_queue_mngt_init(void *hif_node)
     }
 #endif
 
-    wf_tasklet_init(&data_queue_mngt->recv_task, (void (*)(unsigned long))hif_tasklet_rx_handle,(unsigned long)hif_node);
+    wf_tasklet_init(&data_queue_mngt->recv_task, hif_tasklet_rx_handle,(unsigned long)hif_node);
 
 
 
     /*tx queue init*/
     wf_os_api_workqueue_register(&data_queue_mngt->tx_wq,&wq_tx_param);
-    wf_tasklet_init(&data_queue_mngt->send_task, (void (*)(unsigned long))hif_tasklet_tx_handle,(unsigned long)hif_node);
+    wf_tasklet_init(&data_queue_mngt->send_task, hif_tasklet_tx_handle,(unsigned long)hif_node);
 
 
     data_queue_mngt->alloc_cnt++;

@@ -128,9 +128,10 @@ static wf_bool mpdu_insert_sending_queue(nic_info_st *nic_info, struct xmit_fram
 }
 
 
-
-static int tx_work_mpdu_xmit(nic_info_st *nic_info)
+static void tx_work_mpdu_xmit(unsigned long data)
+//static int tx_work_mpdu_xmit(nic_info_st *nic_info)
 {
+	nic_info_st *nic_info = (nic_info_st *)data;
     struct xmit_frame *pxframe = NULL;
     tx_info_st *tx_info = nic_info->tx_info;
     struct xmit_buf *pxmitbuf = NULL;
@@ -146,13 +147,13 @@ static int tx_work_mpdu_xmit(nic_info_st *nic_info)
     {
         if(WF_CANNOT_RUN(nic_info))
         {
-            return -1;
+            return; //return -1;
         }
 
         if(tx_work_need_stop(nic_info))
         {
             LOG_D("[%d]wf_tx_send_need_stop, just return it", nic_info->ndev_id);
-            return -1;
+            return ; //return -1;
         }
 
         bTxQueue_empty = wf_que_is_empty(&tx_info->pending_frame_queue);
@@ -243,7 +244,7 @@ static int tx_work_mpdu_xmit(nic_info_st *nic_info)
         }
     }
 
-    return 0;
+    return ; //return 0;
 }
 
 void tx_work_init(struct net_device *ndev)
@@ -254,7 +255,7 @@ void tx_work_init(struct net_device *ndev)
     ndev_priv = netdev_priv(ndev);
     nic_info = ndev_priv->nic;
 
-    tasklet_init(&ndev_priv->get_tx_data_task, (void (*)(unsigned long))tx_work_mpdu_xmit,(unsigned long)nic_info);
+    tasklet_init(&ndev_priv->get_tx_data_task, tx_work_mpdu_xmit,(unsigned long)nic_info);
 }
 
 void tx_work_term(struct net_device *ndev)
