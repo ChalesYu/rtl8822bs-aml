@@ -614,7 +614,7 @@ wf_s32 wf_mcu_disable_xmit(nic_info_st *nic_info);
 wf_s32 wf_mcu_check_tx_buff(nic_info_st *nic_info);
 wf_s32 wf_mcu_disable_fw_dbginfo(nic_info_st *pnic_info);
 
-wf_s32 wf_mcu_set_macaddr(nic_info_st *nic_info, wf_u8 * val);
+wf_s32 wf_mcu_set_macaddr(nic_info_st *nic_info, const wf_u8 * val);
 wf_s32 wf_mcu_get_chip_version(nic_info_st *nic_info, wf_u32 *version);
 wf_s32 wf_mcu_set_concurrent_mode(nic_info_st *nic_info, wf_bool concur_mode);
 wf_s32 wf_mcu_set_op_mode(nic_info_st *nic_info, wf_u32 mode);

@@ -639,7 +639,7 @@ wf_s32 wf_mcu_check_tx_buff(nic_info_st *nic_info)
 }
 #endif
 
-wf_s32 wf_mcu_set_macaddr(nic_info_st *nic_info, wf_u8 * val)
+wf_s32 wf_mcu_set_macaddr(nic_info_st *nic_info, const wf_u8 * val)
 {
     wf_u8 idx = 0;
     wf_s32 ret = 0;

@@ -65,7 +65,11 @@ static int ndev_init(struct net_device *ndev)
         }
 
         NDEV_INFO("efuse_macaddr:"WF_MAC_FMT, WF_MAC_ARG(hw_info->macAddr));
-        memcpy(ndev->dev_addr, hw_info->macAddr, WF_ETH_ALEN);
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+	eth_hw_addr_set(ndev, hw_info->macAddr);
+#else
+	memcpy(ndev->dev_addr, hw_info->macAddr, WF_ETH_ALEN);
+#endif
 
         NDEV_INFO("[%d] macaddr:"WF_MAC_FMT, ndev_priv->nic->ndev_id, WF_MAC_ARG(hw_info->macAddr));
     }
@@ -561,10 +565,19 @@ static int ndev_set_mac_addr(struct net_device *pnetdev, void *addr)
         NDEV_ERROR("The interface is not in down state");
         return -1;
     }
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+    wf_memcpy(nic_to_local_addr(pnic_info), sock_addr->sa_data, MAC_ADDR_LEN);
+
+    eth_hw_addr_set(pnetdev, sock_addr->sa_data);
+    //wf_memcpy(pnetdev->dev_addr, sock_addr->sa_data, WF_ETH_ALEN);
+
+    wf_mcu_set_macaddr(pnic_info, pnetdev->dev_addr);
+#else
     wf_memcpy(nic_to_local_addr(pnic_info), sock_addr->sa_data, MAC_ADDR_LEN);
     wf_memcpy(pnetdev->dev_addr, sock_addr->sa_data, WF_ETH_ALEN);
 
     wf_mcu_set_macaddr(pnic_info, pnetdev->dev_addr);
+#endif
     return 0;
 }
 
