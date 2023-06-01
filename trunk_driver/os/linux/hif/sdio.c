@@ -33,6 +33,7 @@
 
 #define SDIO_VENDOR_ID_WL   0x02e7
 #define WL_DEVICE_ID_SDIO   0x9086
+#define SDIO_ID_DARK_MODE   0x0DDF
 #define SDIO_BLK_SIZE       (512)
 
 #define ALIGN_SZ_RXBUFF     8
@@ -2297,6 +2298,7 @@ static void sdio_func_remove(struct sdio_func *func)
 static struct sdio_device_id sdio_ids[] =
 {
     {SDIO_DEVICE(SDIO_VENDOR_ID_WL, WL_DEVICE_ID_SDIO)},
+    {SDIO_DEVICE(SDIO_VENDOR_ID_WL, SDIO_ID_DARK_MODE)}, /* Fantasy */
     {},
 };
 
