@@ -53,11 +53,11 @@
 #else
 // #define _WF_DEBUG_HDR(lvl_name, color_n)   printk(KERN_LEVELS "["lvl_name"]")
 // #define _WF_DEBUG_END   printk("\n")
-#define _WF_DEBUG_HDR(lvl_name, color_n)   printk(" ")
-#define _WF_DEBUG_END   printk(" ")
+#define _WF_DEBUG_HDR(lvl_name, color_n)   //printk(" ")
+#define _WF_DEBUG_END   //printk(" ")
 #endif
 
-#if (WF_DEBUG_LEVEL & WF_DEBUG_DEBUG)
+#if 1 //(WF_DEBUG_LEVEL & WF_DEBUG_DEBUG)
 #define LOG_D(fmt, ...)   do {  _WF_DEBUG_HDR("D", 0);   \
                                 printk(fmt, ##__VA_ARGS__); \
                                 _WF_DEBUG_END;  \
@@ -66,7 +66,7 @@
 #define LOG_D(fmt, ...)
 #endif
 
-#if (WF_DEBUG_LEVEL & WF_DEBUG_INFO)
+#if 1 //(WF_DEBUG_LEVEL & WF_DEBUG_INFO)
 #define LOG_I(fmt, ...)   do {  _WF_DEBUG_HDR("I", 32);   \
                                 printk(fmt, ##__VA_ARGS__); \
                                 _WF_DEBUG_END;  \
@@ -75,7 +75,7 @@
 #define LOG_I(fmt, ...)
 #endif
 
-#if (WF_DEBUG_LEVEL & WF_DEBUG_WARN)
+#if 1 //(WF_DEBUG_LEVEL & WF_DEBUG_WARN)
 #define LOG_W(fmt, ...)   do {  _WF_DEBUG_HDR("W", 33);   \
                                 printk(fmt, ##__VA_ARGS__); \
                                 _WF_DEBUG_END;  \
@@ -84,7 +84,7 @@
 #define LOG_W(fmt, ...)
 #endif
 
-#if (WF_DEBUG_LEVEL & WF_DEBUG_ERROR)
+#if 1 //(WF_DEBUG_LEVEL & WF_DEBUG_ERROR)
 #define LOG_E(fmt, ...)   do {  _WF_DEBUG_HDR("E", 31);   \
                                 printk(fmt, ##__VA_ARGS__); \
                                 _WF_DEBUG_END;  \
