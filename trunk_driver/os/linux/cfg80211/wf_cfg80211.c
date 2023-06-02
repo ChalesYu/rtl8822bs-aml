@@ -4242,7 +4242,11 @@ void wf_cfg80211_widev_unreg (nic_info_st *pnic_info)
     pndev = pnic_info->ndev;
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 2, 0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 19, 2))
+    if (pwidev->links[0].client.current_bss)
+#else
     if (pwidev->current_bss)
+#endif
     {
         wf_u8 is_local_disc = 1;
         CFG80211_INFO("clear current_bss by cfg80211_disconnected");

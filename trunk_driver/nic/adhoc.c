@@ -43,7 +43,9 @@ wf_bool wf_set_adhoc_master (nic_info_st *pnic_info,wf_bool status)
 
 inline static wf_u32 wf_adhoc_andom32(void)
 {
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,8,0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0))
+    return get_random_u32();
+#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(3,8,0))
     return prandom_u32();
 #elif (LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,18))
     u32 random_int;

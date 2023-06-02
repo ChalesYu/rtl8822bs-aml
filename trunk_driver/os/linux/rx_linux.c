@@ -21,6 +21,8 @@
 #include "common.h"
 #include "rx_linux.h"
 
+#define netif_rx_ni netif_rx
+
 #ifdef CONFIG_MP_MODE
 #include "mp.h"
 #endif
