@@ -2294,11 +2294,13 @@ static void sdio_func_remove(struct sdio_func *func)
     LOG_I("[%s] end",__func__);
 }
 
-struct sdio_device_id sdio_ids[] =
+static struct sdio_device_id sdio_ids[] =
 {
     {SDIO_DEVICE(SDIO_VENDOR_ID_WL, WL_DEVICE_ID_SDIO)},
     {},
 };
+
+MODULE_DEVICE_TABLE(sdio, sdio_ids);
 
 static struct sdio_driver wf_sdio_driver =
 {

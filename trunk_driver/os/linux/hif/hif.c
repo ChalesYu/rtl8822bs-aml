@@ -1369,11 +1369,13 @@ dts node example:
 	};
 #endif
 
+/*
 static struct of_device_id hif_table[] = {
 	{ .compatible = "smartchip," KBUILD_MODNAME, },
 	{},
 };
 MODULE_DEVICE_TABLE(of, hif_table);
+*/
 
 static struct platform_driver hif_driver = {
 	.probe  = hif_probe,
@@ -1381,7 +1383,7 @@ static struct platform_driver hif_driver = {
 	.driver = {
 		.name = "smartchip_wifi_driver",
 		.owner = THIS_MODULE,
-		.of_match_table = of_match_ptr(hif_table),
+//		.of_match_table = of_match_ptr(hif_table),
 	},
 };
 

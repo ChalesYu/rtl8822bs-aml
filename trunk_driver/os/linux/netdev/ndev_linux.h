@@ -59,7 +59,7 @@
 
 #include "common.h"
 
-#define KERNEL_VERSION(a,b,c) (((a) << 16) + ((b) << 8) + (c))
+//#define KERNEL_VERSION(a,b,c) (((a) << 16) + ((b) << 8) + (c))
 extern rx_pkt_t pkt_temp2;
 
 
