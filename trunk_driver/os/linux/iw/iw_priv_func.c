@@ -438,7 +438,7 @@ static wf_inline void generate_rand_data (wf_u32 *pdata, wf_u16 len)
     }
 }
 
-
+/*
 int isspace(int x)
 {
     if(x==' '||x=='\t'||x=='\n'||x=='\f'||x=='\b'||x=='\r')
@@ -454,7 +454,7 @@ int isdigit(int x)
         return 0;
 
 }
-
+*/
 int atoi(const char *nptr)
 {
     int c;              /* current char */
