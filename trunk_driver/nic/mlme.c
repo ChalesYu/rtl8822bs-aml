@@ -2088,11 +2088,13 @@ int wf_mlme_abort (nic_info_st *pnic_info)
     }
 
     pmlme_info->babort_thrd = wf_true;
-    MLME_INFO("waiting for abort_thrd_finished");
+    MLME_INFO("-------> skip ::   waiting for abort_thrd_finished");
+/*
     while(wf_false == pmlme_info->abort_thrd_finished)
     {
         wf_msleep(1);
     }
+*/
     MLME_INFO("wait until abort_thrd_finished3");
 
     return 0;

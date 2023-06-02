@@ -51,8 +51,10 @@
         printk(KERN_LEVELS "\033["#color_n"m["lvl_name"]")
 #define _WF_DEBUG_END   printk("\033[0m\n")
 #else
-#define _WF_DEBUG_HDR(lvl_name, color_n)   printk(KERN_LEVELS "["lvl_name"]")
-#define _WF_DEBUG_END   printk("\n")
+// #define _WF_DEBUG_HDR(lvl_name, color_n)   printk(KERN_LEVELS "["lvl_name"]")
+// #define _WF_DEBUG_END   printk("\n")
+#define _WF_DEBUG_HDR(lvl_name, color_n)   printk(" ")
+#define _WF_DEBUG_END   printk(" ")
 #endif
 
 #if (WF_DEBUG_LEVEL & WF_DEBUG_DEBUG)

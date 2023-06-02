@@ -47,7 +47,7 @@
 #endif
 #include "rx_linux.h"
 
-static char *wf_cfg = "/usr/lib/firmware/smartchip/wifi.cfg";
+static char *wf_cfg = "/lib/firmware/smartchip/wifi.cfg";
 
 #define RX_CMD_PARAM_LENGTH       8
 #define TX_CMD_PARAM_LENGTH       12
@@ -72,7 +72,7 @@ static char *fw = "/vendor/firmware/ram-fw-908x-old-r1549.bin";
 #ifdef CONFIG_RICHV200
 static char *fw = "/usr/lib/firmware/ram-fw-9188-new-r1751-enc.bin";
 #else
-static char *fw = "/usr/lib/firmware/ram-fw-908x-old-r1549.bin";
+static char *fw = "/lib/firmware/smartchip/ram-fw-908x-old-r1549.bin";
 #endif
 #endif
 module_param(fw, charp, 0644);
@@ -1349,6 +1349,7 @@ mcu_cmd_communicate_exit:
 
 #endif
 
+/*
 static int hif_probe(struct platform_device *pdev)
 {
   return hif_init();
@@ -1369,13 +1370,12 @@ dts node example:
 	};
 #endif
 
-/*
 static struct of_device_id hif_table[] = {
 	{ .compatible = "smartchip," KBUILD_MODNAME, },
 	{},
 };
 MODULE_DEVICE_TABLE(of, hif_table);
-*/
+
 
 static struct platform_driver hif_driver = {
 	.probe  = hif_probe,
@@ -1397,8 +1397,10 @@ static void __exit hif_exit_module(void)
 	platform_driver_unregister(&hif_driver);
 }
 
-module_init(hif_init_module);
-module_exit(hif_exit_module);
+*/
+
+module_init(hif_init);
+module_exit(hif_exit);
 
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("WF Wireless Lan Driver");

@@ -36,8 +36,8 @@
   CONFIG_OS_ANDROID         = n
   CONFIG_OS_RTOS            = n
   CONFIG_DBG_LEVEL          = 0x0F
-  CONFIG_DBG_COLOR          = y
-  CONFIG_DBG_MEM            = n
+  CONFIG_DBG_COLOR          = n
+  CONFIG_DBG_MEM            = y
   CONFIG_DMA_MEM            = n
   CONFIG_STA_AND_AP_MODE    = n
   CONFIG_TX_SOFT_AGG        = n
@@ -51,10 +51,11 @@
   CONFIG_ARS_SUPPORT        = firmware
 
 PWD  := $(shell pwd)
-#KSRC ?= /lib/modules/$(shell uname -r)/build
-KSRC = /usr/src/linux-headers-5.4.124-0504124-generic/
+KSRC ?= /lib/modules/$(shell uname -r)/build
+#KSRC = /usr/src/linux-headers-5.4.124-0504124-generic/
 SUBARCH := $(shell uname -m | sed -e s/i.86/i386/)
-ARCH := $(SUBARCH)
+#ARCH := $(SUBARCH)
+ARCH := arm64
 
 EXTRA_CFLAGS += -DCONFIG_LITTLE_ENDIAN
 
