@@ -15,9 +15,13 @@ rtl8188eu/rtl8189es: driver version `v5.13.3-17-gb1925f81a.20210615` at [this br
 
 rtl8723bu/rtl8723bs: driver version `v5.8.4_33660.20190516_COEX20181129-7272` at [this branch](https://gitlab.com/ChalesYu/rtl8822bs-aml/tree/rtl8723b_usb_sdio_5.8.4-test) .
 
+This repo also support some SCI(smartchip) wifi chip .
+
+SCI S9082C: it's a variant of rtl8189es , simpile add sdio id `02e7:9082` should work.
+SCI S9012P: a modified vendor driver from Coreelec , sdio id is `02e7:9086` , at branch `smartchip_sci_s9012p` .
+
+
 The `rtw88` driver can found at [lwfinger repo](https://github.com/lwfinger/rtw88) , it has usb/sdio interface support for rtl8822b/rtl8822c already , and need waiting for upstream merge.
-
-
 
 a modified driver version `v5.13.1-20-gbd7c7eb9d.20210702` is available at [test branch](https://github.com/ChalesYu/rtl8822bs-aml/tree/test-5.13.1-20-230201),fork from [88x2bu-20210702](https://github.com/morrownr/88x2bu-20210702).
 
@@ -28,10 +32,6 @@ make CONFIG_USB_HCI=n CONFIG_SDIO_HCI=y
 modprobe cfg80211
 insmod 88x2bs.ko rtw_drv_log_level=4
 ```
-
-Like the `rtl88x2bu` driver, add some SDIO interface support file can support `rtl8822bs`. The same thing happened on `rtl8188eus` driver, add SDIO support file can support `rtl8189es` , but the quality is still need test, modify driver at branch `rtl8188e_usb_sdio_5.13.3-17-test` and `rtl8188e_usb_sdio_5.7.6.1-test`.
-
-A `rtl8723bu` modify driver can also support `rtl8723bs`, test branch is `rtl8723b_usb_sdio_5.8.4-test` .
 
 ### About firmware load fail issue
 
