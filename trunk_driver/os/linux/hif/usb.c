@@ -1080,7 +1080,11 @@ static struct usb_device_id wf_usb_id_tbl[] =
 {
 
     {
-        USB_DEVICE_AND_INTERFACE_INFO(WLAN_USB_VENDOR_ID, WLAN_USB_PRODUCT_ID, 0xff, 0xff, 0xff), .
+        USB_DEVICE_AND_INTERFACE_INFO(WLAN_USB_VENDOR_ID, WLAN_USB_PRODUCT_ID, 0xff, 0xff, 0xff), . /* Smart Ass */
+        driver_info = 1
+    },
+    {
+        USB_DEVICE_AND_INTERFACE_INFO(WLAN_USB_VENDOR_ID, 0x0DDF, 0xff, 0xff, 0xff), . /* Fantasy */
         driver_info = 1
     },
     {}

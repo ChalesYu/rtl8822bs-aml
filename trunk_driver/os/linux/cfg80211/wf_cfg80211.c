@@ -421,9 +421,7 @@ static int wiphy_cfg(struct wiphy *pwiphy)
 #ifdef CFG_ENABLE_AP_MODE
                               | BIT(NL80211_IFTYPE_AP)
 #endif
-#ifdef CONFIG_WIFI_MONITOR
                               | BIT(NL80211_IFTYPE_MONITOR)
-#endif
 #if defined(WF_CONFIG_P2P) && ((LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 37)) || defined(COMPAT_KERNEL_RELEASE))
                               | BIT(NL80211_IFTYPE_P2P_CLIENT)
                               | BIT(NL80211_IFTYPE_P2P_GO)
