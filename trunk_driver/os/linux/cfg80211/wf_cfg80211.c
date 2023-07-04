@@ -1477,7 +1477,7 @@ struct cfg80211_bss *inform_bss (nic_info_st *pnic_info,
     /* sequence control */
     pframe->seq_ctrl = 0;
     /* element */
-    wf_memcpy(&pframe->beacon, pscan_que_node->ies, pscan_que_node->ie_len);
+    wf_memcpy(&pframe->beacon, pscan_que_node->ies, sizeof(&pframe->beacon) * sizeof(wf_u32)  );
     /* if the beacon frame is send from a hidden ap, therefore should convert
     frame type to probe respone with valid ssid information. */
     if (pscan_que_node->frame_type == WF_80211_FRM_BEACON &&
