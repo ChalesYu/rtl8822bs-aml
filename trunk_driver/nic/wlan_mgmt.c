@@ -785,7 +785,7 @@ static int frm_msg_send (wf_wlan_mgmt_info_t *pwlan_mgmt_info, wf_msg_tag_t tag,
             prx_frm_msg->phy_sta.signal_qual        = 0;
             prx_frm_msg->is_phy_sta_valid           = wf_false;
         }
-        wf_memcpy(&prx_frm_msg->mgmt_frm, pmgmt, sizeof(&prx_frm_msg->mgmt_frm) * sizeof(wf_u32));
+        wf_memcpy(&prx_frm_msg->mgmt_frm, pmgmt, mgmt_len);
     }
 
     /* new message entity */
