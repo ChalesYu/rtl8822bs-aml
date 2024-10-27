@@ -331,7 +331,9 @@ __inline static void _set_timer(_timer *ptimer, u32 delay_time)
 
 __inline static void _cancel_timer(_timer *ptimer, u8 *bcancelled)
 {
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 15, 0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 15, 0))
+	timer_delete_sync(&ptimer->t);
+#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 15, 0))
  	del_timer_sync(&ptimer->t);
 #else
  	del_timer_sync(ptimer);
