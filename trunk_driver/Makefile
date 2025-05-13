@@ -45,7 +45,7 @@
   CONFIG_CMD_METHOD         = mailbox
   CONFIG_WIFI_MODE          = all
   CONFIG_WIFI_FRAMEWORK     = nl80211
-  CONFIG_HIF_PORT           = both
+  CONFIG_HIF_PORT           = sdio
   CONFIG_CHIP               = s9083
   CONFIG_POWER_SAVING       = n
   CONFIG_ARS_SUPPORT        = firmware

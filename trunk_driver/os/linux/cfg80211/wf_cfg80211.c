@@ -2816,6 +2816,9 @@ static int _call_get_txpower(struct wiphy *wiphy,
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 8, 0))
                              struct wireless_dev *wdev,
 #endif
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 14, 0))
+                             unsigned int link_id,
+#endif
                              int *dbm)
 {
     CFG80211_DBG();
@@ -2960,7 +2963,8 @@ static int _flush_pmksa_cb(struct wiphy *wiphy,
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 6, 0))
 static int _set_monitor_channel(struct wiphy *wiphy
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 8, 0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 13, 0))
+                                , struct net_device *dev
                                 , struct cfg80211_chan_def *chandef
 #else
                                 , struct ieee80211_channel *chan, enum nl80211_channel_type channel_type
@@ -3688,8 +3692,9 @@ static int cfg80211_start_ap(struct wiphy *wiphy, struct net_device *ndev,
 
 static int cfg80211_change_beacon(struct wiphy *wiphy,
                                   struct net_device *ndev,
-                                  struct cfg80211_beacon_data *info)
+                                  struct cfg80211_ap_update *params)
 {
+    struct cfg80211_beacon_data *info = &params->beacon;
     int ret = 0;
     ndev_priv_st *pndev_priv = netdev_priv(ndev);
     nic_info_st *pnic_info = pndev_priv->nic;
